@@ -14,12 +14,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { CustomFieldDefinition } from "@/types/inventory";
 
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { useSettingsMutations } from "@/hooks/useSettingsMutations";
+
 const MAX_FIELDS = 20;
 const FIELD_TYPES = ["text", "number", "boolean", "select"] as const;
 
 export function CustomFieldManager() {
-  const { demoStore, bumpVersion, version } = useDemo();
-  const fields = demoStore?.getCustomFieldDefs() ?? [];
+  const { data: fields, isLoading } = useCustomFields();
+  const { addCustomField, deleteCustomField } = useSettingsMutations();
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -30,40 +33,34 @@ export function CustomFieldManager() {
 
   useEffect(() => { if (adding) nameRef.current?.focus(); }, [adding]);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newName.trim()) { toast.error("Field name is required"); return; }
-    if (!demoStore) return;
-    const def: CustomFieldDefinition = {
-      id: crypto.randomUUID(),
-      name: newName.trim(),
-      fieldType: newType,
-      options: newType === "select" ? newOptions.split(",").map((o) => o.trim()).filter(Boolean) : [],
-      required: false,
-      createdAt: new Date().toISOString(),
-    };
-    demoStore.addCustomFieldDef(def);
-    bumpVersion();
-    toast.success("Custom field added");
-    setNewName(""); setNewType("text"); setNewOptions(""); setAdding(false);
+    try {
+      await addCustomField({
+        name: newName.trim(),
+        fieldType: newType,
+        options: newType === "select" ? newOptions.split(",").map((o) => o.trim()).filter(Boolean) : [],
+        required: false,
+      });
+      toast.success("Custom field added");
+      setNewName(""); setNewType("text"); setNewOptions(""); setAdding(false);
+    } catch (err) {
+      toast.error("Failed to add field");
+    }
   };
 
-  const handleDelete = () => {
-    if (!deleteTarget || !demoStore) return;
-    demoStore.deleteCustomFieldDef(deleteTarget.id);
-    bumpVersion();
-    toast.success("Custom field removed");
-    setDeleteTarget(null);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteCustomField(deleteTarget.id);
+      toast.success("Custom field removed");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error("Failed to remove field");
+    }
   };
 
-  const moveField = (index: number, direction: -1 | 1) => {
-    if (!demoStore) return;
-    const ids = fields.map((f) => f.id);
-    const newIdx = index + direction;
-    if (newIdx < 0 || newIdx >= ids.length) return;
-    [ids[index], ids[newIdx]] = [ids[newIdx], ids[index]];
-    demoStore.reorderCustomFieldDefs(ids);
-    bumpVersion();
-  };
+  if (isLoading) return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
 
   if (fields.length === 0 && !adding) {
     return <EmptyState icon={ListChecks} title="No custom fields defined" description="Custom fields add extra data to your items, like serial numbers or conditions." actionLabel="Add Field" onAction={() => setAdding(true)} />;
@@ -121,8 +118,6 @@ export function CustomFieldManager() {
               )}
             </div>
             <div className="flex items-center gap-0.5 shrink-0">
-              <Button size="icon" variant="ghost" className="h-7 w-7" disabled={i === 0} onClick={() => moveField(i, -1)}><ArrowUp className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7" disabled={i === fields.length - 1} onClick={() => moveField(i, 1)}><ArrowDown className="h-3.5 w-3.5" /></Button>
               <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(f)}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           </div>

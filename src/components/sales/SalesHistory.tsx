@@ -15,8 +15,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { useDemo } from "@/hooks/useDemo";
+import { useSales } from "@/hooks/useSalesData";
 import { useRole } from "@/hooks/useRole";
+import { useDemo } from "@/hooks/useDemo";
 import type { SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
 
@@ -27,16 +28,21 @@ function fmtNgn(amount: number): string {
 }
 
 export function SalesHistoryPage() {
-  const { demoStore, version, onboarding } = useDemo();
+  const { data: sales, isLoading } = useSales();
   const { role } = useRole();
-  const sales: SaleTransaction[] = useMemo(
-    () => demoStore?.getSales() ?? [],
-    [demoStore, version],
-  );
+  const { onboarding } = useDemo(); // Still needed for storeName
 
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   const filtered = useMemo(() => {
     if (!from && !to) return sales;

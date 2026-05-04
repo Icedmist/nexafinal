@@ -80,9 +80,33 @@ export function useUpdateSupplier() { return useFirestoreMutation<{ id: string; 
 export function useDeleteSupplier() { return useFirestoreMutation<string>(async () => {}); }
 export function useCreateRequest() { return useFirestoreMutation<InventoryRequest>(async () => {}); }
 export function useUpdateRequest() { return useFirestoreMutation<{ id: string; updates: Partial<InventoryRequest> }>(async () => {}); }
-export function useCreateLocation() { return useFirestoreMutation<Location>(async () => {}); }
-export function useUpdateLocation() { return useFirestoreMutation<{ id: string; updates: Partial<Location> }>(async () => {}); }
-export function useDeleteLocation() { return useFirestoreMutation<string>(async () => {}); }
-export function useCreateCategory() { return useFirestoreMutation<Category>(async () => {}); }
-export function useUpdateCategory() { return useFirestoreMutation<{ id: string; updates: Partial<Category> }>(async () => {}); }
-export function useDeleteCategory() { return useFirestoreMutation<string>(async () => {}); }
+export function useCreateLocation() {
+  return useFirestoreMutation<Omit<Location, "id">>(async (uid, data) => {
+    await addDoc(collection(db, "locations"), { ...data, ownerId: uid });
+  });
+}
+export function useUpdateLocation() {
+  return useFirestoreMutation<{ id: string; updates: Partial<Location> }>(async (uid, { id, updates }) => {
+    await updateDoc(doc(db, "locations", id), updates);
+  });
+}
+export function useDeleteLocation() {
+  return useFirestoreMutation<string>(async (uid, id) => {
+    await deleteDoc(doc(db, "locations", id));
+  });
+}
+export function useCreateCategory() {
+  return useFirestoreMutation<Omit<Category, "id">>(async (uid, data) => {
+    await addDoc(collection(db, "categories"), { ...data, ownerId: uid });
+  });
+}
+export function useUpdateCategory() {
+  return useFirestoreMutation<{ id: string; updates: Partial<Category> }>(async (uid, { id, updates }) => {
+    await updateDoc(doc(db, "categories", id), updates);
+  });
+}
+export function useDeleteCategory() {
+  return useFirestoreMutation<string>(async (uid, id) => {
+    await deleteDoc(doc(db, "categories", id));
+  });
+}

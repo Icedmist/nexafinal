@@ -43,10 +43,9 @@ export function LocationSettings() {
   const handleSaveNew = (parentId: string | null, parentType: LocationType | null) => {
     if (!newName.trim()) { toast.error("Name is required"); return; }
     const type: LocationType = parentType ? (CHILD_TYPE[parentType] ?? "bin") : "warehouse";
-    const now = new Date().toISOString();
     createLoc.mutate({
-      id: crypto.randomUUID(), name: newName.trim(), type, parentId,
-      description: "", address: "", isActive: true, createdAt: now, updatedAt: now,
+      name: newName.trim(), type, parentId,
+      description: "", address: "", isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }, {
       onSuccess: () => { toast.success("Location added"); setAddingParentId(null); setNewName(""); },
     });

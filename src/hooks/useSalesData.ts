@@ -1,0 +1,63 @@
+import { useState, useEffect } from "react";
+import { collection, query, where, onSnapshot, orderBy, addDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import type { SaleTransaction } from "@/types/inventory";
+
+interface QueryResult<T> {
+  data: T;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+export function useSales(): QueryResult<SaleTransaction[]> {
+  const { user } = useAuth();
+  const [data, setData] = useState<SaleTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const q = query(
+      collection(db, "sales"),
+      where("ownerId", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const sales: SaleTransaction[] = [];
+      snapshot.forEach((doc) => {
+        sales.push({ id: doc.id, ...doc.data() } as SaleTransaction);
+      });
+      setData(sales);
+      setIsLoading(false);
+    }, (err) => {
+      console.error(err);
+      setError(err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  return { data, isLoading, error };
+}
+
+export function useSalesMutations() {
+  const { user } = useAuth();
+
+  const addSale = async (sale: Omit<SaleTransaction, "id">) => {
+    if (!user) return;
+    return await addDoc(collection(db, "sales"), {
+      ...sale,
+      ownerId: user.uid,
+    });
+  };
+
+  return { addSale };
+}

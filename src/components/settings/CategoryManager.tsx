@@ -52,8 +52,7 @@ export function CategoryManager() {
   const handleAdd = () => {
     const err = validate(newName);
     if (err) { setInlineError(err); return; }
-    const now = new Date().toISOString();
-    createCat.mutate({ id: crypto.randomUUID(), name: newName.trim(), description: "", parentId: null, createdAt: now, updatedAt: now }, {
+    createCat.mutate({ name: newName.trim(), description: "", parentId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, {
       onSuccess: () => { toast.success("Category created"); setNewName(""); setAdding(false); setInlineError(""); },
     });
   };

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Palette, Upload, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDemo } from "@/hooks/useDemo";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 
 const BRAND_COLORS = [
@@ -17,14 +17,34 @@ const BRAND_COLORS = [
 ];
 
 export function StoreBranding() {
-  const { onboarding, updateOnboarding } = useDemo();
-  const [selectedColor, setSelectedColor] = useState(onboarding.brandColor ?? "#0d9488");
-  const [logoUrl, setLogoUrl] = useState(onboarding.logoUrl ?? "");
+  const { profile, updateProfile, loadingProfile } = useBusiness();
+  const [selectedColor, setSelectedColor] = useState("#0d9488");
+  const [logoUrl, setLogoUrl] = useState("");
 
-  const handleSave = () => {
-    updateOnboarding({ brandColor: selectedColor, logoUrl: logoUrl.trim() });
-    toast.success("Branding updated");
+  useEffect(() => {
+    if (profile?.branding) {
+      setSelectedColor(profile.branding.primaryColor || "#0d9488");
+      setLogoUrl(profile.branding.logo || "");
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    try {
+      await updateProfile({
+        branding: {
+          primaryColor: selectedColor,
+          logo: logoUrl.trim(),
+        }
+      });
+      toast.success("Branding updated");
+    } catch (err) {
+      toast.error("Failed to update branding");
+    }
   };
+
+  if (loadingProfile) {
+    return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  }
 
   return (
     <Card>

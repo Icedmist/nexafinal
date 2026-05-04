@@ -1,20 +1,28 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './FirebaseAuthContext';
-import { getUserProfile } from '../lib/firebase';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export interface BusinessProfile {
-  storeDetails: { name: string; phone: string; address: string; };
+  storeDetails: { name: string; phone: string; address: string; receiptFooter?: string; taxRate?: number; };
   businessType: string;
   categories: string[];
   complexityLevel: "basic" | "full";
+  branding?: { logo?: string; primaryColor?: string; };
+  settings?: Record<string, any>;
 }
 
 interface BusinessContextType {
   profile: BusinessProfile | null;
   loadingProfile: boolean;
+  updateProfile: (updates: Partial<BusinessProfile>) => Promise<void>;
 }
 
-const BusinessContext = createContext<BusinessContextType>({ profile: null, loadingProfile: true });
+const BusinessContext = createContext<BusinessContextType>({ 
+  profile: null, 
+  loadingProfile: true,
+  updateProfile: async () => {} 
+});
 
 export const useBusiness = () => useContext(BusinessContext);
 
@@ -24,25 +32,35 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   useEffect(() => {
-    async function loadProfile() {
-      if (user) {
-        setLoadingProfile(true);
-        try {
-          const data = await getUserProfile(user.uid);
-          if (data) setProfile(data as BusinessProfile);
-        } catch (err) {
-          console.error("Failed to load business profile", err);
-        }
-      } else {
-        setProfile(null);
+    if (!user) {
+      setProfile(null);
+      setLoadingProfile(false);
+      return;
+    }
+
+    setLoadingProfile(true);
+    const docRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setProfile(snapshot.data() as BusinessProfile);
       }
       setLoadingProfile(false);
-    }
-    loadProfile();
+    }, (err) => {
+      console.error("Failed to sync business profile", err);
+      setLoadingProfile(false);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
+  const updateProfile = async (updates: Partial<BusinessProfile>) => {
+    if (!user) return;
+    const docRef = doc(db, 'users', user.uid);
+    await updateDoc(docRef, updates);
+  };
+
   return (
-    <BusinessContext.Provider value={{ profile, loadingProfile }}>
+    <BusinessContext.Provider value={{ profile, loadingProfile, updateProfile }}>
       {children}
     </BusinessContext.Provider>
   );

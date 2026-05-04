@@ -1,0 +1,57 @@
+import { useState, useEffect } from "react";
+import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+
+export interface Refund {
+  id: string;
+  saleId: string;
+  amountNgn: number;
+  reason: string;
+  createdAt: string;
+  ownerId: string;
+}
+
+interface QueryResult<T> {
+  data: T;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+export function useRefunds(): QueryResult<Refund[]> {
+  const { user } = useAuth();
+  const [data, setData] = useState<Refund[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const q = query(
+      collection(db, "refunds"),
+      where("ownerId", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const refunds: Refund[] = [];
+      snapshot.forEach((doc) => {
+        refunds.push({ id: doc.id, ...doc.data() } as Refund);
+      });
+      setData(refunds);
+      setIsLoading(false);
+    }, (err) => {
+      console.error(err);
+      setError(err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  return { data, isLoading, error };
+}

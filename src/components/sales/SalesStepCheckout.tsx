@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import type { Item, SaleTransaction } from "@/types/inventory";
 import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
+import { useSalesMutations } from "@/hooks/useSalesData";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 const NAIRA = "₦";
 
@@ -24,7 +26,8 @@ interface SalesStepCheckoutProps {
 }
 
 export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps) {
-  const { demoStore, bumpVersion, onboarding } = useDemo();
+  const { profile } = useBusiness();
+  const { addSale } = useSalesMutations();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [lastSale, setLastSale] = useState<SaleTransaction | null>(null);
@@ -52,56 +55,24 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const total = subtotal - discountAmount;
 
   // Tax
-  const taxRate = onboarding.taxRate ?? 0;
+  const taxRate = profile?.storeDetails?.taxRate ?? 0;
   const taxAmount = total * (taxRate / 100);
   const grandTotal = total + taxAmount;
 
-  const knownCustomers = useMemo(() => {
-    const sales = demoStore?.getSales() ?? [];
-    const map = new Map<string, string>();
-    for (const sale of sales) {
-      if (sale.customerPhone && sale.customerName) map.set(sale.customerPhone, sale.customerName);
-    }
-    return map;
-  }, [demoStore]);
-
-  // Auto-suggest by name too
-  const customerSuggestions = useMemo(() => {
-    if (!customerName && !customerPhone) return [];
-    const sales = demoStore?.getSales() ?? [];
-    const seen = new Map<string, { name: string; phone: string }>();
-    for (const sale of sales) {
-      if (sale.customerPhone && sale.customerName) {
-        seen.set(sale.customerPhone, { name: sale.customerName, phone: sale.customerPhone });
-      }
-    }
-    const all = Array.from(seen.values());
-    const q = (customerName || customerPhone).toLowerCase();
-    return all.filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q)).slice(0, 4);
-  }, [demoStore, customerName, customerPhone]);
+  // Stubs for now since we're removing demoStore
+  const knownCustomers = new Map<string, string>();
+  const customerSuggestions: any[] = [];
 
   const handlePhoneChange = (value: string) => {
     setCustomerPhone(value);
-    if (value.length >= 8) {
-      const found = knownCustomers.get(value);
-      if (found && !customerName) setCustomerName(found);
-    }
   };
 
   const handleApplyPromo = () => {
-    if (!promoCode.trim() || !demoStore) return;
-    const promo = demoStore.validatePromo(promoCode);
-    if (promo) {
-      setPromoApplied({ type: promo.discountType, value: promo.discountValue });
-      toast.success(`Promo "${promo.code}" applied!`);
-    } else {
-      toast.error("Invalid or expired promo code");
-    }
+    toast.error("Promos are currently disabled during migration");
   };
 
-  const handleCheckout = () => {
-    const sale: SaleTransaction = {
-      id: `sale-${Date.now()}`,
+  const handleCheckout = async () => {
+    const saleData: Omit<SaleTransaction, "id"> = {
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
       items: items.map((ci) => ({
@@ -116,24 +87,14 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       createdAt: new Date().toISOString(),
     };
 
-    if (demoStore) {
-      demoStore.addSale(sale);
-      if (promoApplied && promoCode) demoStore.usePromo(promoCode);
-      if (payOnCredit && customerPhone.trim()) {
-        demoStore.addCreditTransaction(customerPhone.trim(), customerName.trim() || "Unknown", {
-          id: `ctxn-${Date.now()}`,
-          type: "credit",
-          amountNgn: grandTotal,
-          saleId: sale.id,
-          notes: "Sale on credit",
-          createdAt: new Date().toISOString(),
-        });
-      }
-      bumpVersion();
+    try {
+      const docRef = await addSale(saleData);
+      const sale = { id: docRef?.id || `sale-${Date.now()}`, ...saleData };
+      setLastSale(sale);
+      toast.success(`Sale recorded — ${NAIRA}${grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
+    } catch (err) {
+      toast.error("Failed to record sale");
     }
-
-    setLastSale(sale);
-    toast.success(`Sale recorded — ${NAIRA}${grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
   };
 
   if (lastSale) {

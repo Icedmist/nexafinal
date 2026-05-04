@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Store, Save } from "lucide-react";
 import { toast } from "sonner";
-import { useDemo } from "@/hooks/useDemo";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,24 +9,44 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function StoreSettings() {
-  const { onboarding, updateOnboarding } = useDemo();
+  const { profile, updateProfile, loadingProfile } = useBusiness();
 
-  const [storeName, setStoreName] = useState(onboarding.storeName || "");
-  const [phone, setPhone] = useState(onboarding.storePhone || "");
-  const [address, setAddress] = useState(onboarding.storeAddress || "");
-  const [receiptFooter, setReceiptFooter] = useState(onboarding.receiptFooter || "");
-  const [taxRate, setTaxRate] = useState(onboarding.taxRate?.toString() || "0");
+  const [storeName, setStoreName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [receiptFooter, setReceiptFooter] = useState("");
+  const [taxRate, setTaxRate] = useState("0");
 
-  const handleSave = () => {
-    updateOnboarding({
-      storeName: storeName.trim(),
-      storePhone: phone.trim(),
-      storeAddress: address.trim(),
-      receiptFooter: receiptFooter.trim(),
-      taxRate: parseFloat(taxRate) || 0,
-    });
-    toast.success("Store settings saved");
+  useEffect(() => {
+    if (profile) {
+      setStoreName(profile.storeDetails?.name || "");
+      setPhone(profile.storeDetails?.phone || "");
+      setAddress(profile.storeDetails?.address || "");
+      setReceiptFooter(profile.storeDetails?.receiptFooter || "");
+      setTaxRate(profile.storeDetails?.taxRate?.toString() || "0");
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    try {
+      await updateProfile({
+        storeDetails: {
+          name: storeName.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          receiptFooter: receiptFooter.trim(),
+          taxRate: parseFloat(taxRate) || 0,
+        }
+      });
+      toast.success("Store settings saved");
+    } catch (err) {
+      toast.error("Failed to save settings");
+    }
   };
+
+  if (loadingProfile) {
+    return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  }
 
   return (
     <div className="space-y-6">

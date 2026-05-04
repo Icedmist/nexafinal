@@ -1,9 +1,12 @@
 import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Package } from "lucide-react";
-import { useDemo } from "@/hooks/useDemo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useItems } from "@/hooks/useInventoryData";
+import { useSales } from "@/hooks/useSalesData";
+import { useExpenses } from "@/hooks/useExpensesData";
+import { useRefunds } from "@/hooks/useRefundsData";
 
 const NAIRA = "₦";
 
@@ -17,18 +20,22 @@ function fmtN(n: number): string {
 }
 
 function SalesAnalyticsPage() {
-  const { demoStore, version } = useDemo();
+  const { data: sales, isLoading: salesLoading } = useSales();
+  const { data: expenses, isLoading: expLoading } = useExpenses();
+  const { data: refunds, isLoading: refLoading } = useRefunds();
+  const { data: items, isLoading: itemsLoading } = useItems();
 
-  const sales = useMemo(() => {
-    void version;
-    return demoStore?.getSales() ?? [];
-  }, [demoStore, version]);
-
-  const expenses = useMemo(() => demoStore?.getExpenses() ?? [], [demoStore, version]);
-  const refunds = useMemo(() => demoStore?.getRefunds() ?? [], [demoStore, version]);
-  const items = useMemo(() => demoStore?.getItems() ?? [], [demoStore, version]);
+  const isLoading = salesLoading || expLoading || refLoading || itemsLoading;
 
   const now = new Date();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   // Helpers
   const isToday = (d: string) => new Date(d).toDateString() === now.toDateString();
