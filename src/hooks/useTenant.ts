@@ -3,6 +3,8 @@ import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Store } from "@/types/tenant";
 
+const RESERVED_SUBDOMAINS = ["www", "admin", "api", "dev", "staging", "auth"];
+
 function detectSlug(): string {
   const hostname = window.location.hostname;
   const parts = hostname.split(".");
@@ -13,10 +15,15 @@ function detectSlug(): string {
 
   // Support subdomains: store.localhost or store.nexa.com
   if (hostname.endsWith(".localhost") && parts.length > 1) {
-    return parts[0];
+    const subdomain = parts[0];
+    if (RESERVED_SUBDOMAINS.includes(subdomain)) return "";
+    return subdomain;
   }
+  
   if (hostname !== "localhost" && hostname !== "127.0.0.1" && parts.length > 2) {
-    return parts[0];
+    const subdomain = parts[0];
+    if (RESERVED_SUBDOMAINS.includes(subdomain)) return "";
+    return subdomain;
   }
 
   return "";

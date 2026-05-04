@@ -14,28 +14,28 @@ interface QueryResult<T> {
 
 export function useStaff(): QueryResult<Staff[]> {
   const { user } = useAuth();
+  const { ownerId } = useBusiness();
   const [data, setData] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !ownerId) {
       setData([]);
       setIsLoading(false);
       return;
     }
 
-    // Admins can see all staff for their store
-    // For now, we assume ownerId is the admin's UID
+    // Admins and Managers can see all staff for the current store context
     const q = query(
       collection(db, "staff"),
-      where("ownerId", "==", user.uid)
+      where("ownerId", "==", ownerId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const staff: Staff[] = [];
       snapshot.forEach((doc) => {
-        staff.push({ id: doc.id, ...doc.data() } as any);
+        staff.push({ uid: doc.id, ...doc.data() } as any);
       });
       setData(staff);
       setIsLoading(false);

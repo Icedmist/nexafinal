@@ -2,6 +2,7 @@ import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-r
 import { RoleProvider } from "@/contexts/RoleContext";
 import { FirebaseAuthProvider } from "@/contexts/FirebaseAuthContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
+import { TenantProvider } from "@/contexts/TenantContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
@@ -55,14 +56,16 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <FirebaseAuthProvider>
-      <BusinessProvider>
-        <RoleProvider>
-          <ErrorBoundary>
-            <Outlet />
-          </ErrorBoundary>
-          <Toaster position="bottom-right" richColors />
-        </RoleProvider>
-      </BusinessProvider>
+      <TenantProvider>
+        <BusinessProvider>
+          <RoleProvider>
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
+            <Toaster position="bottom-right" richColors />
+          </RoleProvider>
+        </BusinessProvider>
+      </TenantProvider>
     </FirebaseAuthProvider>
   );
 }
