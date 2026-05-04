@@ -72,16 +72,16 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   };
 
   const handleCheckout = async () => {
-    const saleData: Omit<SaleTransaction, "id"> = {
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
+    const saleData: any = {
+      customerName: customerName.trim() || null,
+      customerPhone: customerPhone.trim() || null,
       items: items.map((ci) => ({
         itemId: ci.item.id,
         itemName: ci.item.name,
         sku: ci.item.sku,
         quantity: ci.quantity,
         unitPriceNgn: ci.item.sellingPrice,
-        imageUrl: ci.item.imageUrl ?? undefined,
+        imageUrl: ci.item.imageUrl || null,
       })),
       totalNgn: grandTotal,
       createdAt: new Date().toISOString(),
@@ -93,6 +93,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       setLastSale(sale);
       toast.success(`Sale recorded — ${NAIRA}${grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
     } catch (err) {
+      console.error("Checkout Error:", err);
       toast.error("Failed to record sale");
     }
   };

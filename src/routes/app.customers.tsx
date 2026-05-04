@@ -21,7 +21,7 @@ const NAIRA = "₦";
 
 export const Route = createFileRoute("/app/customers")({
   component: CustomersPage,
-  head: () => ({ meta: [{ title: "Customers — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Customers — NEXA Store OS" }] }),
 });
 
 interface CustomerRecord {

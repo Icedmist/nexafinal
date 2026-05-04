@@ -17,7 +17,7 @@ import type { StockMovement } from "@/types/inventory";
 
 export const Route = createFileRoute("/app/movements")({
   component: MovementsPage,
-  head: () => ({ meta: [{ title: "Movements — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Movements — NEXA Store OS" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     item: typeof search.item === "string" ? search.item : undefined,
   }),
@@ -95,7 +95,7 @@ function MovementsPage() {
           <CSVExportButton
             data={filtered}
             columns={movementCsvColumns}
-            filename="stackwise-movements"
+            filename="nexa-movements"
           />
           <PermissionGate permission="log_movement">
             <Button onClick={() => setFormOpen(true)} className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white">

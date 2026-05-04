@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 
-const STORAGE_KEY = "stackwise-onboarding-complete";
+const STORAGE_KEY = "nexa-onboarding-complete";
 
 export interface TourStep {
   target?: string; // data-tour attribute value

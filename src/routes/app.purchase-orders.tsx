@@ -31,7 +31,7 @@ interface POSearch {
 
 export const Route = createFileRoute("/app/purchase-orders")({
   component: PurchaseOrdersPage,
-  head: () => ({ meta: [{ title: "Purchase Orders — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Purchase Orders — NEXA Store OS" }] }),
   validateSearch: (search: Record<string, unknown>): POSearch => ({
     po: typeof search.po === "string" ? search.po : undefined,
   }),

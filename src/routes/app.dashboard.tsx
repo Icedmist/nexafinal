@@ -20,7 +20,7 @@ import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";
 const NAIRA = "₦";
 
 const TOUR_STEPS: TourStep[] = [
-  { title: "Welcome to Stackwise!", description: "Let's take a quick tour of all the key features. This will only take a minute." },
+  { title: "Welcome to NEXA Store OS!", description: "Let's take a quick tour of all the key features. This will only take a minute." },
   { target: "sidebar", title: "Navigation", description: "Use the sidebar to switch between sections — sales, catalog, customers, analytics, and more." },
   { target: "metrics", title: "Business overview", description: "Your key metrics at a glance — revenue, profit, expenses, and customer counts." },
   { target: "needs-attention", title: "Alerts & activity", description: "Items that need action appear here — low stock, overdue POs, and pending requests." },
@@ -63,7 +63,7 @@ function AccordionSection({ id, title, openSection, onToggle, children, dataTour
 
 export const Route = createFileRoute("/app/dashboard")({
   component: DashboardPage,
-  head: () => ({ meta: [{ title: "Dashboard — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — NEXA Store OS" }] }),
 });
 
 function DashboardPage() {

@@ -33,7 +33,7 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
 export const Route = createFileRoute("/app/requests")({
   component: RequestsPage,
-  head: () => ({ meta: [{ title: "Requests — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Requests — NEXA Store OS" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     request: (search.request as string) || undefined,
   }),

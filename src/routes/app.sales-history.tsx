@@ -3,5 +3,5 @@ import { SalesHistoryPage } from "@/components/sales/SalesHistory";
 
 export const Route = createFileRoute("/app/sales-history")({
   component: SalesHistoryPage,
-  head: () => ({ meta: [{ title: "Sales History — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Sales History — NEXA Store OS" }] }),
 });

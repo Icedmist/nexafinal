@@ -12,7 +12,7 @@ const NAIRA = "₦";
 
 export const Route = createFileRoute("/app/sales-analytics")({
   component: SalesAnalyticsPage,
-  head: () => ({ meta: [{ title: "Sales Analytics — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Sales Analytics — NEXA Store OS" }] }),
 });
 
 function fmtN(n: number): string {
@@ -28,6 +28,41 @@ function SalesAnalyticsPage() {
   const isLoading = salesLoading || expLoading || refLoading || itemsLoading;
 
   const now = new Date();
+
+  // Profit per item
+  const profitByItem = useMemo(() => {
+    const map = new Map<string, { name: string; revenue: number; cost: number; qty: number }>();
+    for (const sale of sales) {
+      for (const li of sale.items) {
+        const item = items.find((i) => i.id === li.itemId);
+        const existing = map.get(li.itemId) ?? { name: li.itemName, revenue: 0, cost: 0, qty: 0 };
+        existing.revenue += li.unitPriceNgn * li.quantity;
+        existing.cost += (item?.costPrice ?? 0) * li.quantity;
+        existing.qty += li.quantity;
+        map.set(li.itemId, existing);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => (b.revenue - b.cost) - (a.revenue - a.cost));
+  }, [sales, items]);
+
+  // Daily revenue (last 7 days)
+  const dailyData = useMemo(() => {
+    const days: { label: string; revenue: number; expenses: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const ds = d.toDateString();
+      const rev = sales.filter((s) => new Date(s.createdAt).toDateString() === ds).reduce((a, s) => a + s.totalNgn, 0);
+      const exp = expenses.filter((e) => new Date(e.createdAt).toDateString() === ds).reduce((a, e) => a + e.amount, 0);
+      days.push({ label: d.toLocaleDateString("en-NG", { weekday: "short" }), revenue: rev, expenses: exp });
+    }
+    return days;
+  }, [sales, expenses, now]);
+
+  // Most expensive items (by selling price)
+  const expensiveItems = useMemo(() => {
+    return [...items].sort((a, b) => b.sellingPrice - a.sellingPrice).slice(0, 10);
+  }, [items]);
 
   if (isLoading) {
     return (
@@ -54,42 +89,7 @@ function SalesAnalyticsPage() {
 
   const totalRefunds = refunds.reduce((a, r) => a + r.amountNgn, 0);
 
-  // Profit per item
-  const profitByItem = useMemo(() => {
-    const map = new Map<string, { name: string; revenue: number; cost: number; qty: number }>();
-    for (const sale of sales) {
-      for (const li of sale.items) {
-        const item = items.find((i) => i.id === li.itemId);
-        const existing = map.get(li.itemId) ?? { name: li.itemName, revenue: 0, cost: 0, qty: 0 };
-        existing.revenue += li.unitPriceNgn * li.quantity;
-        existing.cost += (item?.costPrice ?? 0) * li.quantity;
-        existing.qty += li.quantity;
-        map.set(li.itemId, existing);
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => (b.revenue - b.cost) - (a.revenue - a.cost));
-  }, [sales, items]);
-
-  // Daily revenue (last 7 days)
-  const dailyData = useMemo(() => {
-    const days: { label: string; revenue: number; expenses: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const ds = d.toDateString();
-      const rev = sales.filter((s) => new Date(s.createdAt).toDateString() === ds).reduce((a, s) => a + s.totalNgn, 0);
-      const exp = expenses.filter((e) => new Date(e.date).toDateString() === ds).reduce((a, e) => a + e.amount, 0);
-      days.push({ label: d.toLocaleDateString("en-NG", { weekday: "short" }), revenue: rev, expenses: exp });
-    }
-    return days;
-  }, [sales, expenses, now]);
-
   const maxDaily = Math.max(...dailyData.map((d) => Math.max(d.revenue, d.expenses)), 1);
-
-  // Most expensive items (by selling price)
-  const expensiveItems = useMemo(() => {
-    return [...items].sort((a, b) => b.sellingPrice - a.sellingPrice).slice(0, 10);
-  }, [items]);
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-4 p-4">
@@ -249,21 +249,21 @@ function SalesAnalyticsPage() {
 
 function SummaryCard({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <Card className="p-4 bg-muted/20">
       <div className="flex items-center gap-2 mb-1">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <Icon className="h-4 w-4 text-primary" />
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
       </div>
-      <p className="text-lg font-bold font-mono">{value}</p>
-    </div>
+      <p className="text-xl font-black font-mono tracking-tight">{value}</p>
+    </Card>
   );
 }
 
 function PnLRow({ label, value, positive }: { label: string; value: number; positive?: boolean }) {
   return (
-    <div className="rounded-lg bg-muted/30 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-base font-bold font-mono ${positive ? "text-primary" : value > 0 ? "text-destructive" : "text-foreground"}`}>
+    <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{label}</p>
+      <p className={`text-base font-black font-mono tracking-tight ${positive ? "text-primary" : value > 0 ? "text-destructive" : "text-foreground"}`}>
         {positive === false || (positive === undefined && value > 0) ? "-" : ""}{fmtN(Math.abs(value))}
       </p>
     </div>
@@ -273,12 +273,14 @@ function PnLRow({ label, value, positive }: { label: string; value: number; posi
 function PeriodRow({ label, revenue, expenses }: { label: string; revenue: number; expenses: number }) {
   const profit = revenue - expenses;
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border p-3">
-      <span className="text-sm font-medium">{label}</span>
-      <div className="flex items-center gap-4 text-xs font-mono">
-        <span className="text-primary">{fmtN(revenue)}</span>
-        <span className="text-destructive">-{fmtN(expenses)}</span>
-        <span className={`font-bold ${profit >= 0 ? "text-primary" : "text-destructive"}`}>= {fmtN(profit)}</span>
+    <div className="flex items-center justify-between rounded-2xl border border-border p-3 px-4 hover:bg-muted/30 transition-colors">
+      <span className="text-sm font-bold">{label}</span>
+      <div className="flex items-center gap-4 text-xs font-bold font-mono tracking-tighter">
+        <span className="text-primary/70">{fmtN(revenue)}</span>
+        <span className="text-destructive/70">-{fmtN(expenses)}</span>
+        <span className={`px-2 py-1 rounded-full ${profit >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+          {fmtN(profit)}
+        </span>
       </div>
     </div>
   );

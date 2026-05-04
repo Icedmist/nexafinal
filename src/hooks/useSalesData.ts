@@ -52,7 +52,9 @@ export function useSalesMutations() {
   const { user } = useAuth();
 
   const addSale = async (sale: Omit<SaleTransaction, "id">) => {
-    if (!user) return;
+    if (!user) {
+      throw new Error("Authentication required to record sales. Please sign in.");
+    }
     return await addDoc(collection(db, "sales"), {
       ...sale,
       ownerId: user.uid,

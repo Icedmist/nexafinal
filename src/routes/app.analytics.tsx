@@ -24,7 +24,7 @@ import { CostTrendChart } from "@/components/analytics/CostTrendChart";
 
 export const Route = createFileRoute("/app/analytics")({
   component: AnalyticsPage,
-  head: () => ({ meta: [{ title: "Analytics — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Analytics — NEXA Store OS" }] }),
 });
 
 function AnalyticsPage() {
@@ -75,7 +75,7 @@ function AnalyticsPage() {
     items.forEach((i) => rows.push(`Stock,${i.name},${i.sku},${i.currentStock},${i.costPrice},${(i.currentStock * i.costPrice).toFixed(2)},${i.status}`));
     rows.push("", "Section,Date,Item,Type,Qty,Reference");
     movements.forEach((m) => rows.push(`Movement,${m.createdAt},${m.itemId},${m.type},${m.quantity},${m.reference}`));
-    downloadCsv(rows.join("\n"), "stackwise-analytics");
+    downloadCsv(rows.join("\n"), "nexa-analytics");
   };
 
   const handleExportSupplier = () => {
@@ -90,7 +90,7 @@ function AnalyticsPage() {
       costMap.set(catName, (costMap.get(catName) || 0) + item.currentStock * item.costPrice);
     });
     [...costMap.entries()].sort((a, b) => b[1] - a[1]).forEach(([name, cost]) => rows.push(`Category Cost,${name},${cost.toFixed(2)}`));
-    downloadCsv(rows.join("\n"), "stackwise-supplier-report");
+    downloadCsv(rows.join("\n"), "nexa-supplier-report");
   };
 
   if (!can("view_analytics")) return null;

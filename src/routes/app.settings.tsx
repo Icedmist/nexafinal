@@ -18,7 +18,7 @@ import { TourLauncher } from "@/components/settings/TourLauncher";
 
 export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,
-  head: () => ({ meta: [{ title: "Settings — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Settings — NEXA Store OS" }] }),
 });
 
 function SettingsPage() {

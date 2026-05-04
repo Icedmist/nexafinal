@@ -15,7 +15,7 @@ const NAIRA = "₦";
 
 export const Route = createFileRoute("/app/expenses")({
   component: ExpensesPage,
-  head: () => ({ meta: [{ title: "Expenses — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Expenses — NEXA Store OS" }] }),
 });
 
 function ExpensesPage() {

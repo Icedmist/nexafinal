@@ -27,7 +27,7 @@ import { subDays } from "date-fns";
 export const Route = createFileRoute("/app/ai-insights")({
   component: AiInsightsPage,
   head: () => ({
-    meta: [{ title: "Insights — Stackwise" }],
+    meta: [{ title: "Insights — NEXA Store OS" }],
   }),
 });
 

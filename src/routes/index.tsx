@@ -17,6 +17,8 @@ import {
   Zap,
   Menu,
   X,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import heroBox3d from "@/assets/hero-box.png";
 import uiScreenshot from "@/assets/ui-screenshot-dashboard-v2.png.asset.json";
@@ -25,13 +27,13 @@ export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
     meta: [
-      { title: "Stackwise — Inventory Command Center" },
+      { title: "NEXA Store OS — Inventory Command Center" },
       {
         name: "description",
         content:
           "Real-time inventory management for businesses of any size. Track stock, manage suppliers, automate reorders, and keep your team aligned.",
       },
-      { property: "og:title", content: "Stackwise — Inventory Command Center" },
+      { property: "og:title", content: "NEXA Store OS — Inventory Command Center" },
       {
         property: "og:description",
         content:
@@ -172,19 +174,23 @@ function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-background/95 border-b border-border shadow-sm backdrop-blur-md"
+          ? "bg-background/80 border-b border-border shadow-sm backdrop-blur-xl"
           : "bg-transparent"
       }`}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2">
-          <Package className="h-6 w-6 text-primary" />
-          <span className="text-lg font-semibold tracking-tight">Stackwise</span>
+        <a href="#" className="flex items-center gap-2 group">
+          <div className="bg-primary rounded-xl p-1.5 transition-transform group-hover:rotate-12">
+            <Package className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            NEXA Store OS
+          </span>
         </a>
 
         {/* Desktop nav links */}
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-10 md:flex">
           {navLinks.map((l) => (
             <a
               key={l.label}
@@ -193,7 +199,7 @@ function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
                 e.preventDefault();
                 document.querySelector(l.href)?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-semibold text-muted-foreground transition-all hover:text-primary hover:scale-105"
             >
               {l.label}
             </a>
@@ -204,7 +210,7 @@ function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
         <button
           type="button"
           onClick={onTryDemo}
-          className="hidden items-center gap-2 rounded-lg border border-border bg-muted/60 px-5 py-2 text-sm font-medium text-foreground transition-all hover:bg-muted md:inline-flex"
+          className="hidden items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-6 py-2.5 text-sm font-bold text-primary transition-all hover:bg-primary hover:text-primary-foreground md:inline-flex shadow-sm hover:shadow-primary/20"
         >
           Try demo
         </button>
@@ -216,13 +222,13 @@ function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
           className="md:hidden p-2 text-foreground"
           aria-label="Toggle menu"
         >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
       {/* Mobile dropdown */}
       {mobileOpen && (
-        <div className="border-t border-border bg-background px-4 pb-4 md:hidden">
+        <div className="border-t border-border bg-background/95 backdrop-blur-lg px-6 pb-8 md:hidden">
           {navLinks.map((l) => (
             <a
               key={l.label}
@@ -232,7 +238,7 @@ function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
                 setMobileOpen(false);
                 document.querySelector(l.href)?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="block py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="block py-4 text-base font-semibold text-muted-foreground transition-colors hover:text-primary border-b border-border/50"
             >
               {l.label}
             </a>
@@ -243,7 +249,7 @@ function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
               setMobileOpen(false);
               onTryDemo();
             }}
-            className="mt-2 w-full rounded-lg border border-border bg-muted/60 px-5 py-2.5 text-sm font-medium text-foreground"
+            className="mt-6 w-full rounded-xl bg-primary px-6 py-3.5 text-base font-bold text-primary-foreground shadow-lg"
           >
             Try demo
           </button>
@@ -255,11 +261,14 @@ function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
 
 function BrowserFrame({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`overflow-hidden rounded-xl border border-border bg-card shadow-xl ${className}`}>
-      <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2.5">
-        <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-        <div className="h-2.5 w-2.5 rounded-full bg-secondary/60" />
-        <div className="h-2.5 w-2.5 rounded-full bg-stock-healthy/60" />
+    <div className={`overflow-hidden rounded-3xl border border-border/50 bg-card shadow-2xl ${className}`}>
+      <div className="flex items-center gap-2 border-b border-border/30 bg-muted/30 px-6 py-4">
+        <div className="flex gap-1.5">
+          <div className="h-3 w-3 rounded-full bg-destructive/40" />
+          <div className="h-3 w-3 rounded-full bg-secondary/40" />
+          <div className="h-3 w-3 rounded-full bg-stock-healthy/40" />
+        </div>
+        <div className="mx-auto text-[10px] text-muted-foreground/50 font-mono tracking-widest uppercase">nexa-os-v2.0</div>
       </div>
       {children}
     </div>
@@ -270,55 +279,58 @@ function FeatureTabsSection() {
   const [activeTab, setActiveTab] = useState(0);
 
   return (
-    <section id="analytics" className="px-4 py-20 sm:py-28">
-      <RevealSection className="text-center">
-        <span className="inline-block rounded-md bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+    <section id="analytics" className="px-6 py-24 sm:py-32 bg-muted/30">
+      <RevealSection className="text-center mb-16">
+        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold text-primary uppercase tracking-wider">
+          <Sparkles className="h-3.5 w-3.5" />
           Product tour
-        </span>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
+        </div>
+        <h2 className="mt-6 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
           Drive your business forward
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground">
-          Explore the modules that give you complete control over your supply chain.
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
+          Explore the modules that give you complete control over your supply chain, from dashboard to deep analytics.
         </p>
       </RevealSection>
 
-      <div className="mx-auto mt-14 flex max-w-6xl flex-col gap-8 lg:flex-row lg:gap-12">
+      <div className="mx-auto flex max-w-7xl flex-col gap-10 lg:flex-row lg:gap-16">
         {/* Tab list */}
-        <div className="flex justify-center gap-2 overflow-x-auto lg:w-80 lg:shrink-0 lg:justify-start lg:flex-col lg:gap-3">
+        <div className="flex justify-center gap-3 overflow-x-auto pb-4 lg:w-96 lg:shrink-0 lg:justify-start lg:flex-col lg:gap-4 lg:pb-0">
           {featureTabs.map((tab, i) => (
             <button
               key={tab.label}
               type="button"
               onClick={() => setActiveTab(i)}
-              className={`shrink-0 rounded-lg px-6 py-3 text-left text-sm font-medium transition-all lg:px-6 lg:py-4 ${
+              className={`shrink-0 rounded-2xl p-6 text-left transition-all duration-300 lg:w-full ${
                 activeTab === i
-                  ? "bg-white text-foreground shadow-md ring-1 ring-border"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-card text-foreground shadow-xl ring-1 ring-primary/20 scale-[1.02]"
+                  : "bg-transparent text-muted-foreground hover:bg-card/50 hover:text-foreground"
               }`}
             >
-              <span className="block font-semibold">{tab.label}</span>
-              <span
-                className={`mt-1 hidden text-xs leading-relaxed lg:block text-muted-foreground`}
-              >
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${activeTab === i ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                   {i === 0 ? <BarChart3 className="h-4 w-4" /> : i === 1 ? <Package className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
+                </div>
+                <span className="font-bold text-base">{tab.label}</span>
+              </div>
+              <p className={`text-sm leading-relaxed ${activeTab === i ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
                 {tab.description}
-              </span>
+              </p>
             </button>
           ))}
         </div>
 
         {/* Tab content */}
-        <div className="flex-1">
+        <div className="flex-1 relative">
+           <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full -z-10 transform scale-75 translate-y-10" />
           <BrowserFrame>
             <img
               src={featureTabs[activeTab].image}
-              alt={`Stackwise ${featureTabs[activeTab].label} view`}
-              className="w-full transition-opacity duration-300"
+              alt={`NEXA Store OS ${featureTabs[activeTab].label} view`}
+              className="w-full transition-opacity duration-500 rounded-b-2xl"
+              key={activeTab}
             />
           </BrowserFrame>
-          <p className="mt-4 text-sm text-muted-foreground lg:hidden">
-            {featureTabs[activeTab].description}
-          </p>
         </div>
       </div>
     </section>
@@ -337,17 +349,17 @@ function LandingPage() {
 
   const handleOnboardingComplete = (_businessType: string, _categories: string[], _storeName: string) => {
     enterDemoMode({ businessType: _businessType, categories: _categories, storeName: _storeName, storePhone: "", storeAddress: "", receiptFooter: "Thank you for your patronage!", taxRate: 0 });
-    localStorage.setItem("stackwise-onboarding-done", "true");
-    localStorage.setItem("stackwise-business-type", _businessType);
-    localStorage.setItem("stackwise-categories", JSON.stringify(_categories));
-    localStorage.setItem("stackwise-store-name", _storeName);
+    localStorage.setItem("nexa-onboarding-done", "true");
+    localStorage.setItem("nexa-business-type", _businessType);
+    localStorage.setItem("nexa-categories", JSON.stringify(_categories));
+    localStorage.setItem("nexa-store-name", _storeName);
     setShowOnboarding(false);
     navigate({ to: "/app/dashboard" });
   };
 
   const handleOnboardingSkip = () => {
     enterDemoMode();
-    localStorage.setItem("stackwise-onboarding-done", "true");
+    localStorage.setItem("nexa-onboarding-done", "true");
     setShowOnboarding(false);
     navigate({ to: "/app/dashboard" });
   };
@@ -357,79 +369,100 @@ function LandingPage() {
     {showOnboarding && (
       <BusinessOnboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
     )}
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
+      {/* Mesh Gradient Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/5 blur-[120px]" />
+        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/5 blur-[150px]" />
+      </div>
+
       <StickyNav onTryDemo={handleTryDemo} />
 
       {/* ── Split Hero ─────────────────────────────────── */}
-      <section className="relative px-4 pt-20 pb-12 sm:px-6 sm:pt-24 sm:pb-16">
-        <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
-          <div className="animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "backwards" }}>
+      <section className="relative px-6 pt-32 pb-20 sm:pt-40 sm:pb-32 overflow-hidden">
+        <div className="mx-auto flex max-w-4xl flex-col items-center text-center relative">
+          <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-radial from-primary/10 to-transparent blur-3xl -z-10" />
+          
+          <div className="animate-float mb-8">
             <img
               src={heroBox3d}
               alt="3D illustration of a cardboard box"
-              className="mx-auto w-48 drop-shadow-xl sm:w-56"
+              className="mx-auto w-56 drop-shadow-2xl sm:w-64 transform -rotate-6"
             />
           </div>
 
-          <h1 className="mt-5 text-[32px] font-semibold leading-[1.05] tracking-tight sm:text-[44px] lg:text-[52px]">
-            The inventory platform that scales your business
-          </h1>
+          <RevealSection>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-[10px] font-bold text-primary uppercase tracking-[0.2em] mb-6">
+              <Layers className="h-3 w-3" />
+              The Future of Inventory
+            </div>
+            <h1 className="text-[40px] font-black leading-[1.05] tracking-tight sm:text-[64px] lg:text-[76px] bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent">
+              The OS for modern <br className="hidden sm:block" /> retail commerce.
+            </h1>
+          </RevealSection>
 
-          <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Track stock, manage suppliers, automate reorders, and keep your
-            team aligned from one powerful command center.
-          </p>
+          <RevealSection delay={100}>
+            <p className="mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl font-medium">
+              Track stock, manage suppliers, and automate reorders from one powerful command center designed for rapid scaling.
+            </p>
+          </RevealSection>
 
-          <div className="mt-8">
+          <RevealSection delay={200} className="mt-12 flex flex-col sm:flex-row items-center gap-4">
             <button
               type="button"
               onClick={handleTryDemo}
-              className="group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-base font-semibold text-primary-foreground shadow-lg transition-all hover:shadow-xl hover:brightness-110"
+              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-primary px-8 py-4 text-lg font-bold text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95"
             >
-              Try demo
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+              Launch Demo
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </button>
-          </div>
+            <div className="flex -space-x-3 items-center">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 w-10 rounded-full border-2 border-background bg-muted flex items-center justify-center overflow-hidden">
+                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`} alt="User" />
+                </div>
+              ))}
+              <span className="ml-4 text-xs font-bold text-muted-foreground">Trusted by 500+ store owners</span>
+            </div>
+          </RevealSection>
         </div>
       </section>
 
       {/* ── Solutions Grid ─────────────────────────────── */}
-      <section id="solutions" className="rounded-none bg-muted/50 px-4 py-20 sm:py-28">
-        <RevealSection className="text-center">
-          <span className="inline-block rounded-md bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+      <section id="solutions" className="px-6 py-24 sm:py-32">
+        <RevealSection className="text-center mb-16">
+          <div className="inline-block rounded-full bg-secondary/10 px-4 py-1.5 text-xs font-bold text-secondary uppercase tracking-wider mb-4">
             Solutions
-          </span>
-          <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Built for modern inventory teams
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground">
-            Four powerful modules working together to give you complete visibility and control.
-          </p>
         </RevealSection>
 
-        <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {solutions.map((s, i) => (
             <RevealSection key={s.title} delay={i * 100} className="h-full">
-              <div className="group h-full rounded-xl border border-border bg-card p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-                <div className={`mb-4 inline-flex rounded-lg p-3 ${s.color}`}>
-                  <s.icon className="h-5 w-5" />
+              <div className="group h-full rounded-3xl border border-border bg-card/50 p-8 transition-all duration-300 hover:bg-card hover:shadow-2xl hover:-translate-y-2">
+                <div className={`mb-6 inline-flex rounded-2xl p-4 ${s.color} shadow-inner`}>
+                  <s.icon className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-sm font-semibold">{s.title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{s.description}</p>
+                <h3 className="mb-3 text-lg font-bold">{s.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground font-medium">{s.description}</p>
               </div>
             </RevealSection>
           ))}
         </div>
       </section>
 
-      {/* ── Product Showcase — Browser Frame ────────────── */}
-      <section className="px-4 py-16">
+      {/* ── Product Showcase ── */}
+      <section className="px-6 py-16">
         <RevealSection>
-          <div className="mx-auto max-w-5xl">
-            <BrowserFrame className="shadow-2xl shadow-primary/5">
+          <div className="mx-auto max-w-6xl">
+            <BrowserFrame className="shadow-2xl shadow-primary/10">
               <img
                 src={uiScreenshot.url}
-                alt="Stackwise dashboard showing inventory metrics, stock levels chart, and recent activity"
+                alt="NEXA Store OS dashboard showing inventory metrics"
                 className="w-full"
                 loading="lazy"
               />
@@ -442,25 +475,25 @@ function LandingPage() {
       <FeatureTabsSection />
 
       {/* ── Feature Grid ─────────────────────────────── */}
-      <section id="features" className="px-4 py-20 sm:py-28">
-        <RevealSection className="text-center">
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Everything you need to manage inventory
+      <section id="features" className="px-6 py-24 sm:py-32">
+        <RevealSection className="text-center mb-16">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Everything you need in one OS
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground">
-            Six powerful modules working together to give you complete control over your supply chain.
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground font-medium">
+            A comprehensive suite of modules built to handle the complexities of modern commerce.
           </p>
         </RevealSection>
 
-        <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f, i) => (
             <RevealSection key={f.title} delay={i * 80}>
-              <div className="group rounded-lg border border-border bg-card p-6 transition-all duration-200 hover:border-primary/30 hover:shadow-md">
-                <div className="mb-4 inline-flex rounded-md bg-primary p-2.5">
-                  <f.icon className="h-5 w-5 text-white" />
+              <div className="group rounded-3xl border border-border bg-card/40 p-8 transition-all duration-300 hover:border-primary/50 hover:bg-card hover:shadow-xl">
+                <div className="mb-6 inline-flex rounded-xl bg-primary p-3 shadow-lg shadow-primary/20">
+                  <f.icon className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="mb-2 text-sm font-semibold">{f.title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{f.description}</p>
+                <h3 className="mb-3 text-base font-bold">{f.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground font-medium">{f.description}</p>
               </div>
             </RevealSection>
           ))}
@@ -468,18 +501,18 @@ function LandingPage() {
       </section>
 
       {/* ── Capabilities Row ─────────────────────────── */}
-      <section className="px-4 py-20">
+      <section className="px-6 py-24 bg-muted/20">
         <RevealSection>
-          <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 sm:grid-cols-4">
             {capabilities.map((c) => (
               <div
                 key={c.text}
-                className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-6 text-center shadow-xs"
+                className="flex flex-col items-center gap-4 rounded-3xl border border-border bg-card p-8 text-center transition-transform hover:scale-105"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <c.icon className="h-5 w-5 text-primary" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                  <c.icon className="h-7 w-7 text-primary" />
                 </div>
-                <span className="text-sm font-medium text-foreground">{c.text}</span>
+                <span className="text-sm font-bold text-foreground">{c.text}</span>
               </div>
             ))}
           </div>
@@ -487,24 +520,27 @@ function LandingPage() {
       </section>
 
       {/* ── Final CTA ────────────────────────────────── */}
-      <section className="px-4 py-24 sm:py-32">
-        <div className="mx-auto max-w-3xl rounded-2xl bg-foreground px-6 py-16 text-center sm:px-12 sm:py-20">
-          <RevealSection>
-            <img src={heroBox3d} alt="" className="mx-auto mb-6 h-16 w-16 object-contain" />
-            <h2 className="text-2xl font-semibold tracking-tight text-background sm:text-3xl lg:text-4xl">
-              Ready to take control of your inventory?
+      <section className="px-6 py-32">
+        <div className="mx-auto max-w-5xl rounded-[2.5rem] bg-foreground px-8 py-20 text-center sm:px-16 sm:py-24 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent opacity-50" />
+          <RevealSection className="relative z-10">
+            <div className="bg-background/10 backdrop-blur-md rounded-2xl p-4 inline-block mb-8">
+              <Package className="h-10 w-10 text-background" />
+            </div>
+            <h2 className="text-3xl font-black tracking-tight text-background sm:text-5xl lg:text-6xl mb-6">
+              Ready to scale?
             </h2>
-            <p className="mx-auto mt-4 max-w-md text-base text-background/60">
-              Explore Stackwise with sample data. No signup required.
+            <p className="mx-auto mt-6 max-w-lg text-lg text-background/60 font-medium">
+              Start managing your inventory like a pro with NEXA Store OS. No credit card required.
             </p>
-            <div className="mt-8">
+            <div className="mt-12">
               <button
                 type="button"
                 onClick={handleTryDemo}
-                className="group inline-flex items-center gap-2 rounded-lg bg-background px-5 py-2.5 text-base font-semibold text-foreground shadow-lg transition-all hover:bg-background/90"
+                className="group inline-flex items-center gap-3 rounded-2xl bg-background px-10 py-5 text-lg font-black text-foreground shadow-2xl transition-all hover:scale-105 hover:bg-background/90 active:scale-95"
               >
-                Try demo
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                Launch NEXA OS
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </button>
             </div>
           </RevealSection>
@@ -512,10 +548,22 @@ function LandingPage() {
       </section>
 
       {/* ── Footer ───────────────────────────────────── */}
-      <footer className="border-t border-border px-4 py-10 text-center">
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Package className="h-4 w-4 text-primary" />
-          <span>Built with Stackwise · {new Date().getFullYear()}</span>
+      <footer className="border-t border-border px-6 py-16">
+        <div className="mx-auto max-w-7xl flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex items-center gap-2 group">
+            <div className="bg-primary rounded-lg p-1.5">
+              <Package className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <span className="text-sm font-bold tracking-tight">NEXA Store OS</span>
+          </div>
+          <div className="text-sm font-medium text-muted-foreground">
+            © {new Date().getFullYear()} NEXA Core Technology. All rights reserved.
+          </div>
+          <div className="flex gap-6">
+             <a href="#" className="text-xs font-bold text-muted-foreground hover:text-primary">Twitter</a>
+             <a href="#" className="text-xs font-bold text-muted-foreground hover:text-primary">Github</a>
+             <a href="#" className="text-xs font-bold text-muted-foreground hover:text-primary">Terms</a>
+          </div>
         </div>
       </footer>
     </div>

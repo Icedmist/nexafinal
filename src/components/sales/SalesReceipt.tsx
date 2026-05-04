@@ -185,8 +185,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="relative mx-4 w-full max-w-[400px] rounded-2xl border border-border bg-card shadow-xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-[400px] nexa-card bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header actions */}
         <div className="sticky top-0 z-10 flex items-center justify-between bg-card px-4 pt-4 pb-2 print:hidden rounded-t-2xl">
           <h3 className="text-sm font-semibold text-foreground">Receipt</h3>

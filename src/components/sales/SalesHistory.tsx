@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useSales } from "@/hooks/useSalesData";
 import { useRole } from "@/hooks/useRole";
@@ -36,14 +37,6 @@ export function SalesHistoryPage() {
   const [to, setTo] = useState<Date | undefined>(new Date());
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
   const filtered = useMemo(() => {
     if (!from && !to) return sales;
     return sales.filter((s) => {
@@ -54,6 +47,14 @@ export function SalesHistoryPage() {
       return true;
     });
   }, [sales, from, to]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   const totalRevenue = filtered.reduce((s, t) => s + t.totalNgn, 0);
   const totalTransactions = filtered.length;
@@ -140,54 +141,56 @@ export function SalesHistoryPage() {
         </Button>
       </div>
 
-      {/* Table */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-12 text-center text-sm text-muted-foreground">
-          No sales found. Complete a sale from the Sales page to see it here.
+        <div className="flex h-64 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/20">
+          <Receipt className="mb-4 h-12 w-12 text-muted-foreground/30" />
+          <p className="text-sm font-medium text-muted-foreground">No transactions found</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead className="text-right">Items</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((sale) => (
-                <TableRow
-                  key={sale.id}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => setSelectedSale(sale)}
-                >
-                  <TableCell className="text-sm">
-                    {format(new Date(sale.createdAt), "dd MMM, HH:mm")}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{sale.customerName || "Walk-in"}</span>
-                      {sale.customerPhone && (
-                        <span className="text-[11px] text-muted-foreground font-mono">{sale.customerPhone}</span>
-                      )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((sale) => (
+            <Card
+              key={sale.id}
+              className="group cursor-pointer nexa-card-hover"
+              onClick={() => setSelectedSale(sale)}
+            >
+              <CardHeader className="pb-3 pt-4 px-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Receipt className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                    #{sale.id.slice(-6)}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="space-y-0.5">
+                    <h3 className="font-bold text-base leading-none">{sale.customerName || "Walk-in Customer"}</h3>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span className="text-xs">{format(new Date(sale.createdAt), "dd MMM, HH:mm")}</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <PaymentIcon method={(sale as SaleWithPayment).paymentMethod} />
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {sale.items.reduce((s, li) => s + li.quantity, 0)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm font-semibold">
-                    {fmtNgn(sale.totalNgn)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-black tracking-tight text-foreground">{fmtNgn(sale.totalNgn)}</p>
+                    <p className="text-[10px] font-bold text-primary/70 uppercase">{sale.items.reduce((s, li) => s + li.quantity, 0)} items</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                   <div className="flex items-center gap-2">
+                     <PaymentIcon method={(sale as SaleWithPayment).paymentMethod} />
+                     <span className="text-[10px] font-bold text-muted-foreground uppercase">{(sale as SaleWithPayment).paymentMethod || "Cash"}</span>
+                   </div>
+                   <div className="flex items-center gap-1 text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                     View Details <TrendingUp className="h-3 w-3" />
+                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -198,33 +201,39 @@ export function SalesHistoryPage() {
             <SheetTitle>Sale Details</SheetTitle>
           </SheetHeader>
           {selectedSale && (
-            <div className="mt-4 space-y-4">
-              <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Receipt #</span>
-                  <span className="font-mono font-medium">{selectedSale.id.slice(-8).toUpperCase()}</span>
+            <div className="mt-6 space-y-6">
+              <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-2 relative overflow-hidden">
+                <div className="absolute top-0 right-0 h-1 w-full bg-primary/20" />
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium uppercase tracking-wider">Transaction ID</span>
+                  <span className="font-mono font-bold text-foreground">#{selectedSale.id.slice(-8).toUpperCase()}</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Date</span>
-                  <span>{format(new Date(selectedSale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium uppercase tracking-wider">Date & Time</span>
+                  <span className="font-medium">{format(new Date(selectedSale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                 </div>
-                {selectedSale.customerName && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Customer</span>
-                    <span className="font-medium">{selectedSale.customerName}</span>
+                <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
+                  <span className="text-muted-foreground font-medium uppercase tracking-wider">Payment Method</span>
+                  <div className="flex items-center gap-1.5">
+                    <PaymentIcon method={(selectedSale as SaleWithPayment).paymentMethod} />
+                    <span className="capitalize font-bold text-primary">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
                   </div>
-                )}
-                {selectedSale.customerPhone && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Phone</span>
-                    <span className="font-mono">{selectedSale.customerPhone}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Payment</span>
-                  <span className="capitalize">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
                 </div>
               </div>
+
+              {selectedSale.customerName && (
+                <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                    <User className="h-3 w-3" /> Customer Information
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold">{selectedSale.customerName}</span>
+                    {selectedSale.customerPhone && (
+                      <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{selectedSale.customerPhone}</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Separator />
 

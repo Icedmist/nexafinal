@@ -17,7 +17,7 @@ const NAIRA = "₦";
 
 export const Route = createFileRoute("/app/returns")({
   component: ReturnsPage,
-  head: () => ({ meta: [{ title: "Returns & Refunds — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Returns & Refunds — NEXA Store OS" }] }),
 });
 
 function ReturnsPage() {

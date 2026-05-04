@@ -42,7 +42,7 @@ interface CatalogSearch {
 
 export const Route = createFileRoute("/app/catalog")({
   component: CatalogPage,
-  head: () => ({ meta: [{ title: "Catalog — Stackwise" }] }),
+  head: () => ({ meta: [{ title: "Catalog — NEXA Store OS" }] }),
   validateSearch: (search: Record<string, unknown>): CatalogSearch => ({
     item: typeof search.item === "string" ? search.item : undefined,
     newItem: typeof search.newItem === "string" ? search.newItem : undefined,
@@ -227,7 +227,7 @@ function CatalogPage() {
           <CSVExportButton
             data={items}
             columns={csvColumns}
-            filename="stackwise-items"
+            filename="nexa-items"
           />
           <PermissionGate permission="create_item">
             <Button variant="outline" size="sm" className="hidden gap-1.5 sm:inline-flex" onClick={() => setImportOpen(true)}>

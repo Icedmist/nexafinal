@@ -12,7 +12,7 @@ export const FAQ_DATA: FaqCategory[] = [
   {
     title: "Getting Started",
     items: [
-      { question: "What is Stackwise?", answer: "Stackwise is an inventory management system that helps you track stock levels, manage suppliers, create purchase orders, and gain insights through analytics." },
+      { question: "What is NEXA Store OS?", answer: "NEXA Store OS is an inventory management system that helps you track stock levels, manage suppliers, create purchase orders, and gain insights through analytics." },
       { question: "How do I enter demo mode?", answer: "Click 'Try Demo' on the landing page. Demo mode pre-loads sample data so you can explore all features without creating an account." },
       { question: "How do I navigate the app?", answer: "Use the sidebar (desktop) or bottom navigation bar (mobile) to switch between sections. Press CMD+K to open the command palette for quick search." },
       { question: "Can I reset demo data?", answer: "Yes! Go to Settings → System and click 'Reset Demo Data' to restore all sample data to its original state." },
