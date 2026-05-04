@@ -9,7 +9,6 @@ import { SalesStepCart, type CartItem } from "./SalesStepCart";
 import { SalesStepCheckout } from "./SalesStepCheckout";
 
 const NAIRA = "₦";
-const USD_TO_NGN = 1_580;
 
 const STEPS = [
   { id: "browse", label: "Browse", icon: ShoppingCart },
@@ -58,7 +57,7 @@ export function SalesGrid() {
   });
 
   const totalItems = Array.from(cart.values()).reduce((s, q) => s + q, 0);
-  const totalNaira = cartItems.reduce((s, ci) => s + ci.item.sellingPrice * USD_TO_NGN * ci.quantity, 0);
+  const totalNaira = cartItems.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
 
   const handleComplete = () => {
     setCart(new Map());

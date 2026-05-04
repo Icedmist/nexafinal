@@ -72,7 +72,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 1rem;
 
   /* Core palette — teal/amber from design-guidelines.md */
   --background: oklch(0.985 0.005 80);

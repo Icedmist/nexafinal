@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const NAIRA = "₦";
-const USD_TO_NGN = 1_580;
 
 export const Route = createFileRoute("/app/sales-analytics")({
   component: SalesAnalyticsPage,
@@ -56,7 +55,7 @@ function SalesAnalyticsPage() {
         const item = items.find((i) => i.id === li.itemId);
         const existing = map.get(li.itemId) ?? { name: li.itemName, revenue: 0, cost: 0, qty: 0 };
         existing.revenue += li.unitPriceNgn * li.quantity;
-        existing.cost += (item?.costPrice ?? 0) * USD_TO_NGN * li.quantity;
+        existing.cost += (item?.costPrice ?? 0) * li.quantity;
         existing.qty += li.quantity;
         map.set(li.itemId, existing);
       }
@@ -227,8 +226,8 @@ function SalesAnalyticsPage() {
                       <p className="text-xs text-muted-foreground">{item.sku}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold font-mono">{fmtN(item.sellingPrice * USD_TO_NGN)}</p>
-                      <p className="text-[10px] text-muted-foreground">Cost: {fmtN(item.costPrice * USD_TO_NGN)}</p>
+                      <p className="text-sm font-bold font-mono">{fmtN(item.sellingPrice)}</p>
+                      <p className="text-[10px] text-muted-foreground">Cost: {fmtN(item.costPrice)}</p>
                     </div>
                   </div>
                 ))}

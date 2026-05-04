@@ -7,11 +7,9 @@ import { useDemo } from "@/hooks/useDemo";
 import { cn } from "@/lib/utils";
 
 const NAIRA = "₦";
-const USD_TO_NGN = 1_580;
 
-function formatNaira(usd: number): string {
-  const ngn = usd * USD_TO_NGN;
-  return `${NAIRA}${ngn.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function formatNaira(price: number): string {
+  return `${NAIRA}${price.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 interface SalesStepBrowseProps {
@@ -33,7 +31,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
     let sum = 0;
     cart.forEach((qty, id) => {
       const item = items.find((i) => i.id === id);
-      if (item) sum += item.sellingPrice * USD_TO_NGN * qty;
+      if (item) sum += item.sellingPrice * qty;
     });
     return sum;
   }, [cart, items]);
@@ -41,9 +39,11 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   // Long-press support
   const longPressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const startLongPress = useCallback((action: () => void) => {
+  const startLongPress = useCallback((action: () => void, e?: React.TouchEvent) => {
+    // Prevent mouse events from also firing on touch devices
+    if (e) e.preventDefault();
     action();
-    longPressRef.current = setInterval(action, 150);
+    longPressRef.current = setInterval(action, 400);
   }, []);
 
   const stopLongPress = useCallback(() => {
@@ -254,10 +254,8 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                     <button
                       type="button"
                       disabled={qty === 0}
-                      onMouseDown={() => startLongPress(() => onRemove(item.id))}
-                      onMouseUp={stopLongPress}
-                      onMouseLeave={stopLongPress}
-                      onTouchStart={() => startLongPress(() => onRemove(item.id))}
+                      onClick={() => onRemove(item.id)}
+                      onTouchStart={(e) => startLongPress(() => onRemove(item.id), e)}
                       onTouchEnd={stopLongPress}
                       className="flex h-14 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-20 active:scale-90"
                     >
@@ -267,10 +265,8 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                     <button
                       type="button"
                       disabled={qty >= item.currentStock}
-                      onMouseDown={() => startLongPress(() => handleAdd(item.id))}
-                      onMouseUp={stopLongPress}
-                      onMouseLeave={stopLongPress}
-                      onTouchStart={() => startLongPress(() => handleAdd(item.id))}
+                      onClick={() => handleAdd(item.id)}
+                      onTouchStart={(e) => startLongPress(() => handleAdd(item.id), e)}
                       onTouchEnd={stopLongPress}
                       className="flex h-14 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary disabled:opacity-20 active:scale-90"
                     >

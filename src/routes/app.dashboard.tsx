@@ -18,7 +18,6 @@ import { useRole } from "@/hooks/useRole";
 import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";
 
 const NAIRA = "₦";
-const USD_TO_NGN = 1_580;
 
 const TOUR_STEPS: TourStep[] = [
   { title: "Welcome to Stackwise!", description: "Let's take a quick tour of all the key features. This will only take a minute." },

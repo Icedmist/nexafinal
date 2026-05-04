@@ -121,17 +121,17 @@ export function ItemFormSheet({
     });
   };
 
-  const inputCls = "h-10 w-full rounded-xl border border-border/40 bg-background/50 backdrop-blur-sm px-4 text-sm outline-none transition-all duration-300 placeholder:text-muted-foreground/50 hover:border-emerald-500/30 focus:border-emerald-500/50 focus:bg-background focus:ring-4 focus:ring-emerald-500/10";
-  const labelCls = "text-sm font-medium text-foreground/80 ml-1";
-  const errCls = "text-xs text-destructive mt-1.5 ml-1 font-medium";
-  const cardGroupCls = "rounded-2xl border border-white/5 bg-card/30 backdrop-blur-xl p-6 shadow-sm transition-all duration-500 hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-500/20 relative overflow-hidden group";
+  const inputCls = "h-10 w-full rounded-lg border border-emerald-200 dark:border-emerald-800/50 bg-white dark:bg-background px-3 text-sm outline-none transition-colors focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500";
+  const labelCls = "text-sm font-medium text-foreground";
+  const errCls = "text-xs text-destructive mt-1";
+  const cardGroupCls = "rounded-xl border border-emerald-100 dark:border-emerald-900/30 bg-white dark:bg-card p-5 shadow-sm";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden bg-background/80 backdrop-blur-2xl border-emerald-500/20 shadow-[0_0_60px_-15px_rgba(16,185,129,0.15)] rounded-3xl flex flex-col max-h-[85vh]">
-        <DialogHeader className="px-8 py-5 border-b border-border/30 bg-transparent z-10 sticky top-0">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 text-emerald-500 border border-emerald-500/20 shadow-inner">
+      <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900 rounded-2xl flex flex-col max-h-[85vh]">
+        <DialogHeader className="px-6 py-4 border-b border-emerald-100 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/50 z-10 sticky top-0">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400">
               <PackagePlus className="h-5 w-5" />
             </div>
             <div>
@@ -275,11 +275,11 @@ export function ItemFormSheet({
           </form>
         </div>
         
-        <div className="border-t border-border/30 bg-background/50 p-5 sm:px-8 backdrop-blur-xl z-10 flex items-center justify-end gap-3 shrink-0">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl hover:bg-white/5">
+        <div className="border-t border-emerald-100 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/50 p-4 sm:px-6 z-10 flex items-center justify-end gap-3 shrink-0">
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" form="item-form" disabled={loading} className="min-w-[130px] rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/20 transition-all duration-300">
+          <Button type="submit" form="item-form" disabled={loading} className="min-w-[120px] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
             {loading ? "Saving…" : (isEdit ? "Update Product" : "Add Product")}
           </Button>
         </div>

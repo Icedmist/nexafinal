@@ -4,10 +4,9 @@ import { Separator } from "@/components/ui/separator";
 import type { Item } from "@/types/inventory";
 
 const NAIRA = "₦";
-const USD_TO_NGN = 1_580;
 
-function fmtNgn(usd: number, qty: number = 1): string {
-  const ngn = usd * USD_TO_NGN * qty;
+function fmtNgn(price: number, qty: number = 1): string {
+  const ngn = price * qty;
   return `${NAIRA}${ngn.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
 }
 
@@ -25,7 +24,7 @@ interface SalesStepCartProps {
 }
 
 export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: SalesStepCartProps) {
-  const total = items.reduce((s, ci) => s + ci.item.sellingPrice * USD_TO_NGN * ci.quantity, 0);
+  const total = items.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
   const totalQty = items.reduce((s, ci) => s + ci.quantity, 0);
 
   if (items.length === 0) {

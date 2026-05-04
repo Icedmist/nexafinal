@@ -16,7 +16,6 @@ import { useDemo } from "@/hooks/useDemo";
 import { toast } from "sonner";
 import { SalesReceipt } from "./SalesReceipt";
 
-const USD_TO_NGN = 1_580;
 const NAIRA = "₦";
 
 export interface CartItem {
@@ -33,8 +32,8 @@ interface SalesCartProps {
   onClear: () => void;
 }
 
-function fmtNgn(usd: number, qty: number = 1): string {
-  const ngn = usd * USD_TO_NGN * qty;
+function fmtNgn(price: number, qty: number = 1): string {
+  const ngn = price * qty;
   return `${NAIRA}${ngn.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
 }
 
@@ -43,7 +42,7 @@ export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [lastSale, setLastSale] = useState<SaleTransaction | null>(null);
-  const total = items.reduce((s, ci) => s + ci.item.sellingPrice * USD_TO_NGN * ci.quantity, 0);
+  const total = items.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
 
   // Auto-suggest customer name from past sales
   const knownCustomers = useMemo(() => {
@@ -75,7 +74,7 @@ export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear 
         itemName: ci.item.name,
         sku: ci.item.sku,
         quantity: ci.quantity,
-        unitPriceNgn: ci.item.sellingPrice * USD_TO_NGN,
+        unitPriceNgn: ci.item.sellingPrice,
         imageUrl: ci.item.imageUrl ?? undefined,
       })),
       totalNgn: total,

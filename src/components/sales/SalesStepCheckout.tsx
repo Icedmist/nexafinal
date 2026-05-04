@@ -12,7 +12,6 @@ import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
 
 const NAIRA = "₦";
-const USD_TO_NGN = 1_580;
 
 export interface CheckoutItem {
   item: Item;
@@ -35,7 +34,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const [payOnCredit, setPayOnCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
 
-  const subtotal = items.reduce((s, ci) => s + ci.item.sellingPrice * USD_TO_NGN * ci.quantity, 0);
+  const subtotal = items.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
 
   // Calculate discount
   const discountAmount = useMemo(() => {
@@ -110,7 +109,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
         itemName: ci.item.name,
         sku: ci.item.sku,
         quantity: ci.quantity,
-        unitPriceNgn: ci.item.sellingPrice * USD_TO_NGN,
+        unitPriceNgn: ci.item.sellingPrice,
         imageUrl: ci.item.imageUrl ?? undefined,
       })),
       totalNgn: grandTotal,
@@ -298,7 +297,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
             <div key={ci.item.id} className="flex justify-between text-xs">
               <span className="text-muted-foreground truncate mr-2">{ci.item.name} × {ci.quantity}</span>
               <span className="font-mono font-medium text-foreground shrink-0">
-                {NAIRA}{(ci.item.sellingPrice * USD_TO_NGN * ci.quantity).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                {NAIRA}{(ci.item.sellingPrice * ci.quantity).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
               </span>
             </div>
           ))}
