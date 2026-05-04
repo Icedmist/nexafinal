@@ -56,5 +56,24 @@ export class DemoStore {
   updateCategory(id: string, updates: any): any {}
   deleteCategory(id: string) {}
 
+  getCreditCustomers(): any[] { return []; }
+  getReorderDefaults(): any { return {}; }
+  setReorderDefaults(values: any): void {}
+  getCustomFieldDefs(): any[] { return []; }
+  addCustomFieldDef(def: any): void {}
+  deleteCustomFieldDef(id: string): void {}
+  reorderCustomFieldDefs(ids: string[]): void {}
+  validatePromo(code: string): any { return null; }
+  addSale(sale: any): void {}
+  usePromo(code: string): void {}
+  addCreditTransaction(phone: string, name: string, data: any): void {}
+  addRefund(refund: any): void {}
+  addExpense(expense: any): void {}
+  deleteExpense(id: string): void {}
+  addUser(user: any): void {}
+  updateUser(id: string, data: any): void {}
+  getNotificationPrefs(): any { return { email: false, push: false, sms: false }; }
+  setNotificationPrefs(prefs: any): void {}
+
   reset() {}
 }
