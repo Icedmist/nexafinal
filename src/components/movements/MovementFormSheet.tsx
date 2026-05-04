@@ -21,6 +21,7 @@ import { MovementType } from "@/types/inventory";
 import type { Item, Location, StockMovement } from "@/types/inventory";
 import { useCreateMovement } from "@/hooks/useInventoryMutations";
 import { PackagePlus, X } from "lucide-react";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 interface MovementFormSheetProps {
   open: boolean;
@@ -53,6 +54,7 @@ export function MovementFormSheet({
   preSelectedItemId,
 }: MovementFormSheetProps) {
   const { mutate, isLoading } = useCreateMovement();
+  const { user } = useAuth();
 
   const [itemId, setItemId] = useState("");
   const [type, setType] = useState<MovementType>(MovementType.Received);
@@ -143,7 +145,7 @@ export function MovementFormSheet({
       toLocationId: type === MovementType.Transferred ? toLocationId || null : null,
       reference,
       notes: reference,
-      performedBy: "Demo User",
+      performedBy: user?.email || "System",
       createdAt: new Date().toISOString(),
     };
 

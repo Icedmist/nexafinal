@@ -189,7 +189,7 @@ function PurchaseOrdersPage() {
                 toLocationId: null,
                 reference: po.orderNumber,
                 notes: notes || `Received via ${po.orderNumber}`,
-                performedBy: "demo-user",
+                performedBy: user?.email || "System",
                 createdAt: now,
               });
 

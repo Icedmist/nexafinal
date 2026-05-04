@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useDemo } from "@/hooks/useDemo";
+import { useLocations as useRealLocations } from "@/hooks/useInventoryData";
 import type { Location } from "@/types/inventory";
 
 export interface LocationTreeNode extends Location {
@@ -38,15 +38,7 @@ function buildTree(locations: Location[]): LocationTreeNode[] {
 }
 
 export function useLocations() {
-  const { isDemo, demoStore, version } = useDemo();
-
-  return useMemo(() => {
-    if (isDemo && demoStore) {
-      return { data: [...demoStore.getLocations()], isLoading: false, error: null };
-    }
-    return { data: [] as Location[], isLoading: false, error: null };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo, demoStore, version]);
+  return useRealLocations();
 }
 
 export function useLocationTree() {

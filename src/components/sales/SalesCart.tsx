@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import type { Item, SaleTransaction } from "@/types/inventory";
-import { useDemo } from "@/hooks/useDemo";
+
 import { toast } from "sonner";
 import { SalesReceipt } from "./SalesReceipt";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,6 @@ function fmtNgn(price: number, qty: number = 1): string {
 }
 
 export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear }: SalesCartProps) {
-  const { demoStore, bumpVersion } = useDemo();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [lastSale, setLastSale] = useState<SaleTransaction | null>(null);
@@ -46,15 +45,8 @@ export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear 
 
   // Auto-suggest customer name from past sales
   const knownCustomers = useMemo(() => {
-    const sales = demoStore?.getSales() ?? [];
-    const map = new Map<string, string>();
-    for (const sale of sales) {
-      if (sale.customerPhone && sale.customerName) {
-        map.set(sale.customerPhone, sale.customerName);
-      }
-    }
-    return map;
-  }, [demoStore]);
+    return new Map<string, string>();
+  }, []);
 
   const handlePhoneChange = (value: string) => {
     setCustomerPhone(value);
@@ -81,10 +73,6 @@ export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear 
       createdAt: new Date().toISOString(),
     };
 
-    if (demoStore) {
-      demoStore.addSale(sale);
-      bumpVersion();
-    }
 
     setLastSale(sale);
     toast.success(`Sale recorded — ${NAIRA}${total.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);

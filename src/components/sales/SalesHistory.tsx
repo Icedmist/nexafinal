@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useSales } from "@/hooks/useSalesData";
 import { useRole } from "@/hooks/useRole";
-import { useDemo } from "@/hooks/useDemo";
+import { useBusiness } from "@/contexts/BusinessContext";
 import type { SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
 
@@ -31,7 +31,7 @@ function fmtNgn(amount: number): string {
 export function SalesHistoryPage() {
   const { data: sales, isLoading } = useSales();
   const { role } = useRole();
-  const { onboarding } = useDemo(); // Still needed for storeName
+  const { profile } = useBusiness();
 
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
@@ -60,7 +60,7 @@ export function SalesHistoryPage() {
   const totalTransactions = filtered.length;
   const totalItems = filtered.reduce((s, t) => s + t.items.reduce((a, li) => a + li.quantity, 0), 0);
 
-  const storeName = onboarding.storeName || "NEXA StoreOS";
+  const storeName = profile?.storeDetails?.name || "NEXA Store OS";
   const userName = role === "admin" ? "Admin" : role === "manager" ? "Manager" : "Staff";
 
   const handleSendReceipt = (sale: SaleTransaction) => {

@@ -9,9 +9,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useDemo } from "@/hooks/useDemo";
 import { toast } from "sonner";
-import type { NotificationPrefs } from "@/lib/demo/index";
+
+export interface NotificationPrefs {
+  low_stock: boolean;
+  zero_stock: boolean;
+  po_reminder: boolean;
+  po_overdue: boolean;
+  request_update: boolean;
+}
 
 const PREF_LABELS: { key: keyof NotificationPrefs; label: string; description: string }[] = [
   { key: "low_stock", label: "Low Stock Alerts", description: "When an item drops below its reorder point" },
@@ -27,20 +33,16 @@ interface NotificationPreferencesProps {
 }
 
 export function NotificationPreferences({ open, onOpenChange }: NotificationPreferencesProps) {
-  const { demoStore, bumpVersion } = useDemo();
-  const [prefs, setPrefs] = useState<NotificationPrefs>(() =>
-    demoStore?.getNotificationPrefs() ?? {
-      low_stock: true, zero_stock: true, po_reminder: true, po_overdue: true, request_update: true,
-    },
-  );
+  const [prefs, setPrefs] = useState<NotificationPrefs>({
+    low_stock: true, zero_stock: true, po_reminder: true, po_overdue: true, request_update: true,
+  });
 
   const handleToggle = (key: keyof NotificationPrefs) => {
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
   };
 
   const handleSave = () => {
-    demoStore?.setNotificationPrefs(prefs);
-    bumpVersion();
+    // TODO: Save to API
     toast.success("Notification preferences saved.");
     onOpenChange(false);
   };

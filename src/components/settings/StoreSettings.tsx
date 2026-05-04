@@ -52,40 +52,54 @@ export function StoreSettings() {
     return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
   }
 
+  // Build subdomain-based login URL
+  const getStaffLoginUrl = () => {
+    const slug = profile?.storeDetails?.slug || "";
+    if (!slug) return "";
+    const host = window.location.host;
+    const parts = host.split(".");
+    // Get base domain (strip existing subdomain if present)
+    const baseDomain = parts.length >= 3 ? parts.slice(1).join(".") : host;
+    return `${window.location.protocol}//${slug}.${baseDomain}`;
+  };
+
+  const staffLoginUrl = getStaffLoginUrl();
+
   return (
     <div className="space-y-6">
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
-            <Building2 className="h-4 w-4" /> Shop Login URL
-          </CardTitle>
-          <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-            Share this link with your staff to login to this store.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2 p-4 rounded-xl border-2 border-primary/20 bg-background/50">
-            <code className="flex-1 font-mono font-black text-primary text-sm truncate">
-              {window.location.origin}/auth/login?s={profile?.storeDetails?.slug || "mystore"}
-            </code>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="rounded-lg h-8 px-3 font-bold text-xs"
-              onClick={() => {
-                const url = `${window.location.origin}/auth/login?s=${profile?.storeDetails?.slug || "mystore"}`;
-                navigator.clipboard.writeText(url);
-                toast.success("URL copied to clipboard");
-              }}
-            >
-              Copy Link
-            </Button>
-          </div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest italic">
-            This URL automatically tags the login page with *{storeName}*.
-          </p>
-        </CardContent>
-      </Card>
+      {staffLoginUrl && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+              <Building2 className="h-4 w-4" /> Shop Login URL
+            </CardTitle>
+            <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+              Share this link with your staff to login to this store.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2 p-4 rounded-xl border-2 border-primary/20 bg-background/50">
+              <code className="flex-1 font-mono font-black text-primary text-sm truncate">
+                {staffLoginUrl}
+              </code>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="rounded-lg h-8 px-3 font-bold text-xs"
+                onClick={() => {
+                  navigator.clipboard.writeText(staffLoginUrl);
+                  toast.success("URL copied to clipboard");
+                }}
+              >
+                Copy Link
+              </Button>
+            </div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest italic">
+              Staff access this URL to login directly to <strong>{storeName}</strong>.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

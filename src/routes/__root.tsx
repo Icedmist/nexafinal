@@ -1,5 +1,4 @@
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-import { DemoProvider } from "@/contexts/DemoContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { FirebaseAuthProvider } from "@/contexts/FirebaseAuthContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
@@ -13,23 +12,25 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "NEXA -version2" },
-      { name: "description", content: "Manage inventory with real-time stock tracking, supplier management, purchase orders, and AI-powered demand forecasting. Includes role-based access, barcode sup" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "NEXA -version2" },
-      { property: "og:description", content: "Manage inventory with real-time stock tracking, supplier management, purchase orders, and AI-powered demand forecasting. Includes role-based access, barcode sup" },
+      { title: "NEXA TECHNOLOGIES — Store OS" },
+      { name: "description", content: "The unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand." },
+      { name: "author", content: "NEXA TECHNOLOGIES" },
+      { property: "og:title", content: "NEXA TECHNOLOGIES" },
+      { property: "og:description", content: "The unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand." },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ce8fd1f7-8ca4-425d-a29c-052d48d54d68/id-preview-991ef288--eaf13a24-9d23-4ea5-ae81-bd8ed9669775.lovable.app-1774415671292.png" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ce8fd1f7-8ca4-425d-a29c-052d48d54d68/id-preview-991ef288--eaf13a24-9d23-4ea5-ae81-bd8ed9669775.lovable.app-1774415671292.png" },
-      { name: "twitter:title", content: "NEXA -version2" },
-      { name: "twitter:description", content: "Manage inventory with real-time stock tracking, supplier management, purchase orders, and AI-powered demand forecasting. Includes role-based access, barcode sup" },
+      { name: "twitter:title", content: "NEXA TECHNOLOGIES" },
+      { name: "twitter:description", content: "The unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand." },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/favicon.svg",
       },
     ],
   }),
@@ -55,14 +56,12 @@ function RootComponent() {
   return (
     <FirebaseAuthProvider>
       <BusinessProvider>
-        <DemoProvider>
-          <RoleProvider>
-            <ErrorBoundary>
-              <Outlet />
-            </ErrorBoundary>
-            <Toaster position="bottom-right" richColors />
-          </RoleProvider>
-        </DemoProvider>
+        <RoleProvider>
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
+          <Toaster position="bottom-right" richColors />
+        </RoleProvider>
       </BusinessProvider>
     </FirebaseAuthProvider>
   );

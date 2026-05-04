@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { Category, Supplier, Location } from "@/types/inventory";
-import type { ItemFilters } from "@/lib/demo-store";
+import type { ItemFilters } from "@/types/inventory";
 
 interface CatalogFiltersProps {
   filters: ItemFilters;

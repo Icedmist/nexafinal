@@ -1,13 +1,11 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useDemo } from "@/hooks/useDemo";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { useState, useEffect } from "react";
-import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
 import { useTenant } from "@/hooks/useTenant";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   Package,
@@ -20,12 +18,14 @@ import {
   Zap,
   Sparkles,
   Command,
-  Smartphone,
   Eye,
   EyeOff,
   Building2,
+  Linkedin,
+  Layers,
 } from "lucide-react";
-import nexaMobileHero from "@/assets/nexa-mobile-hero.png";
+import { NexaHero3D } from "@/components/landing/NexaHero3D";
+import nexaLogo from "@/assets/nexa-logo.svg";
 import type { Store } from "@/types/tenant";
 
 export const Route = createFileRoute("/")({
@@ -80,10 +80,10 @@ function Nav() {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 px-6 py-4 ${scrolled ? "bg-background/80 backdrop-blur-xl border-b border-border shadow-lg" : "bg-transparent"}`}>
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="bg-primary rounded-xl p-2 shadow-lg shadow-primary/20 transition-transform group-hover:rotate-12">
-            <Package className="h-5 w-5 text-primary-foreground" />
+          <div className="bg-primary rounded-xl p-1.5 shadow-lg shadow-primary/20 transition-transform group-hover:rotate-12">
+            <img src={nexaLogo} className="h-6 w-6 invert brightness-0" alt="NEXA Logo" />
           </div>
-          <span className="text-xl font-black tracking-tight uppercase italic">NEXA</span>
+          <span className="text-xl font-black tracking-tight uppercase italic">NEXA Store OS</span>
         </Link>
 
         <div className="flex items-center gap-4">
@@ -110,10 +110,8 @@ function Nav() {
 }
 
 function LandingPage() {
-  const { enterDemoMode } = useDemo();
   const { store, loading: tenantLoading } = useTenant();
   const navigate = useNavigate();
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
   if (tenantLoading) {
     return (
@@ -127,22 +125,8 @@ function LandingPage() {
     return <StoreLoginPage store={store} />;
   }
 
-  const handleTryDemo = () => setShowOnboarding(true);
-
-  const handleOnboardingComplete = (_businessType: string, _categories: string[], _storeName: string) => {
-    enterDemoMode({ businessType: _businessType, categories: _categories, storeName: _storeName, storePhone: "", storeAddress: "", receiptFooter: "Thank you for your patronage!", taxRate: 0 });
-    navigate({ to: "/app/dashboard" });
-  };
-
   return (
     <>
-      {showOnboarding && (
-        <BusinessOnboarding 
-          onComplete={handleOnboardingComplete} 
-          onSkip={() => { enterDemoMode(); navigate({ to: "/app/dashboard" }); }} 
-        />
-      )}
-
       <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30">
         <Nav />
 
@@ -166,23 +150,24 @@ function LandingPage() {
                 </p>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-                  <Button 
-                    onClick={handleTryDemo}
-                    className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform"
-                  >
-                    Launch Demo <ArrowRight className="h-4 w-4" />
-                  </Button>
                   <Link to="/auth/signup">
+                    <Button 
+                      className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform"
+                    >
+                      Get Started <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link to="/auth/login">
                     <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold text-sm border-2">
-                      Create Account
+                      Login to Portal
                     </Button>
                   </Link>
                 </div>
 
                 <div className="mt-12 flex items-center gap-6 justify-center lg:justify-start grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">
                   <div className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Mobile First</span>
+                    <Layers className="h-4 w-4 text-primary" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Cloud OS</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-primary" />
@@ -200,11 +185,8 @@ function LandingPage() {
             <div className="flex-1 relative lg:w-1/2">
               <RevealSection delay={300} className="relative z-10">
                 <div className="absolute -inset-4 bg-primary/20 blur-[100px] rounded-full -z-10 animate-pulse" />
-                <img 
-                  src={nexaMobileHero} 
-                  alt="NEXA Mobile Experience" 
-                  className="w-full max-w-[600px] mx-auto lg:mx-0 drop-shadow-[0_50px_50px_rgba(0,0,0,0.5)] transform hover:scale-[1.02] transition-transform duration-700"
-                />
+                
+                <NexaHero3D />
                 
                 {/* Floating elements */}
                 <div className="absolute top-1/4 -right-12 hidden xl:block animate-float">
@@ -239,9 +221,9 @@ function LandingPage() {
         <section className="py-24 bg-muted/30">
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12">
             <ValueProp 
-              icon={Smartphone}
-              title="Native Mobile Control"
-              description="A full-featured interface that fits in your pocket. Manage stock from the warehouse floor or the back office."
+              icon={Globe}
+              title="Global Availability"
+              description="A professional web-based interface accessible from any device. Manage your entire retail operation through a browser."
             />
             <ValueProp 
               icon={Command}
@@ -256,42 +238,73 @@ function LandingPage() {
           </div>
         </section>
 
-        {/* ── Detailed Showcase ── */}
-        <section className="py-32 px-6">
+        {/* ── Section F: Feature Showcase ── */}
+        <section id="features" className="py-32 px-6 relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 blur-[150px] rounded-full -z-10" />
           <div className="max-w-7xl mx-auto">
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
                 <RevealSection>
-                   <h2 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-8">
+                   <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1 mb-6">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Advanced Features</span>
+                   </div>
+                   <h2 className="text-4xl md:text-6xl lg:text-7xl font-black leading-[0.95] tracking-tighter mb-10">
                      Built for the <br /> <span className="text-primary italic">next generation</span> <br /> of retail.
                    </h2>
-                   <div className="space-y-8">
+                   <div className="space-y-10">
                       <FeaturePoint 
                         icon={ScanLine}
                         title="Hyper-Fast Scanning"
-                        text="Internal logistics optimized for speed. Integrated barcode support makes receiving shipments effortless."
+                        text="Integrated barcode support designed for rapid-fire logistics. Process hundreds of units in minutes, not hours."
                       />
                       <FeaturePoint 
                         icon={Globe}
-                        title="Multi-Location Sync"
-                        text="Scale to infinite branches. Real-time sync ensures every staff member sees the exact same data."
+                        title="Global Synchronization"
+                        text="Your data follows you everywhere. Real-time cloud sync ensures every branch is always perfectly aligned."
                       />
                       <FeaturePoint 
-                        icon={Users}
-                        title="Granular Permissions"
-                        text="Secure role-based access. Control exactly what managers, staff, and admins can see and do."
+                        icon={Shield}
+                        title="Enterprise Security"
+                        text="Granular role-based access control. Protect your sensitive business data with bank-grade encryption."
                       />
                    </div>
                 </RevealSection>
-                <RevealSection delay={200} className="relative">
-                   <div className="aspect-square bg-gradient-to-tr from-primary/10 to-transparent rounded-full blur-[100px] absolute inset-0" />
-                   <div className="relative rounded-[3rem] border-2 border-border bg-card p-4 shadow-2xl overflow-hidden group">
-                      <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="bg-muted aspect-video rounded-[2.5rem] flex items-center justify-center p-8">
-                         <div className="text-center">
-                            <Smartphone className="h-16 w-16 text-primary mx-auto mb-4 animate-bounce" />
-                            <p className="font-black text-xl uppercase tracking-widest">Optimized for iOS & Android</p>
+                <RevealSection delay={200} className="relative lg:h-[600px] flex items-center justify-center">
+                   <div className="relative w-full max-w-lg aspect-square">
+                      {/* Glassmorphism UI Deck */}
+                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-primary/10 to-transparent rounded-[3rem] blur-[80px]" />
+                      
+                      <div className="relative rounded-[3rem] border border-white/10 bg-white/5 backdrop-blur-2xl p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] overflow-hidden group">
+                         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                         
+                         <div className="bg-muted/30 aspect-video rounded-[2rem] flex items-center justify-center p-8 overflow-hidden relative mb-6">
+                            <div className="absolute inset-0 bg-primary/20" />
+                            <div className="relative z-10 text-center">
+                               <div className="h-20 w-20 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mx-auto mb-4 border border-white/20">
+                                  <Layers className="h-10 w-10 text-white animate-pulse" />
+                               </div>
+                               <p className="font-black text-xl uppercase tracking-widest text-white">Cloud Architecture</p>
+                            </div>
+                         </div>
+
+                         <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                               <TrendingUp className="h-5 w-5 text-primary mb-2" />
+                               <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                                  <div className="h-full bg-primary w-3/4" />
+                               </div>
+                            </div>
+                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                               <Users className="h-5 w-5 text-primary mb-2" />
+                               <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                                  <div className="h-full bg-secondary w-1/2" />
+                               </div>
+                            </div>
                          </div>
                       </div>
+
+                      {/* Floating Accent */}
+                      <div className="absolute -bottom-10 -right-10 h-32 w-32 bg-primary/30 rounded-full blur-[60px] animate-pulse" />
                    </div>
                 </RevealSection>
              </div>
@@ -310,12 +323,14 @@ function LandingPage() {
                   Stop wrestling with spreadsheets. Start scaling with a modern, high-performance inventory system.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
-                   <Button onClick={handleTryDemo} className="h-16 px-10 rounded-2xl bg-background text-foreground font-black uppercase tracking-widest text-xs hover:bg-background/90 transition-all">
-                     Launch Demo
-                   </Button>
                    <Link to="/auth/signup">
+                    <Button className="h-16 px-10 rounded-2xl bg-background text-foreground font-black uppercase tracking-widest text-xs hover:bg-background/90 transition-all">
+                      Get Started Now
+                    </Button>
+                   </Link>
+                   <Link to="/auth/login">
                      <Button variant="ghost" className="h-16 px-10 rounded-2xl text-background/80 hover:text-background font-bold text-lg">
-                       Create Account <ArrowRight className="ml-2 h-5 w-5" />
+                       Staff Login <ArrowRight className="ml-2 h-5 w-5" />
                      </Button>
                    </Link>
                 </div>
@@ -327,13 +342,13 @@ function LandingPage() {
            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
               <div className="flex items-center gap-2">
                  <Package className="h-5 w-5 text-primary" />
-                 <span className="font-black italic text-lg uppercase">NEXA</span>
+                 <span className="font-black italic text-lg uppercase">NEXA Store OS</span>
               </div>
-              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">© 2026 NEXA CORE TECHNOLOGY</p>
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">© 2026 NEXA Store OS</p>
               <div className="flex gap-8 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
-                 <a href="#" className="hover:text-primary transition-colors">Twitter</a>
-                 <a href="#" className="hover:text-primary transition-colors">GitHub</a>
-                 <a href="#" className="hover:text-primary transition-colors">Docs</a>
+                 <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors flex items-center gap-2">
+                   <Linkedin className="h-3 w-3" /> LinkedIn
+                 </a>
               </div>
            </div>
         </footer>

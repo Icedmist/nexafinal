@@ -23,6 +23,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
 import { useBusiness } from "@/contexts/BusinessContext";
+import nexaLogo from "@/assets/nexa-logo.svg";
 import type { RolePermissions } from "@/lib/roles";
 
 interface NavItem {
@@ -121,8 +122,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <nav data-tour="sidebar" className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex h-14 items-center gap-2 px-5">
-        <Package className="h-5 w-5 text-sidebar-primary" />
-        <span className="text-lg font-semibold tracking-tight text-sidebar-primary-foreground truncate">
+        <div className="bg-primary/10 rounded-lg p-1">
+          <img src={nexaLogo} className="h-5 w-5 text-primary" alt="NEXA Logo" />
+        </div>
+        <span className="text-lg font-black tracking-tight uppercase italic text-sidebar-primary-foreground truncate">
           {profile?.storeDetails?.name || "NEXA Store OS"}
         </span>
       </div>

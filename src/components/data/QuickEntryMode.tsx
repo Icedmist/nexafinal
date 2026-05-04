@@ -23,6 +23,7 @@ import { MovementType } from "@/types/inventory";
 import type { Item, StockMovement } from "@/types/inventory";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 interface QuickEntryModeProps {
   open: boolean;
@@ -40,6 +41,7 @@ export function QuickEntryMode({ open, onOpenChange }: QuickEntryModeProps) {
 
   const { data: items = [] } = useItems();
   const createMovement = useCreateMovement();
+  const { user } = useAuth();
 
   // Auto-focus input when opened or after action
   useEffect(() => {
@@ -87,7 +89,7 @@ export function QuickEntryMode({ open, onOpenChange }: QuickEntryModeProps) {
       toLocationId: null,
       reference: `Quick Entry`,
       notes,
-      performedBy: "Demo Admin",
+      performedBy: user?.email || "System",
       createdAt: new Date().toISOString(),
     };
 

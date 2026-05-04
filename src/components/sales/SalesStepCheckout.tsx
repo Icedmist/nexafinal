@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { useDemo } from "@/hooks/useDemo";
+
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Item, SaleTransaction } from "@/types/inventory";
@@ -61,7 +61,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const taxAmount = total * (taxRate / 100);
   const grandTotal = total + taxAmount;
 
-  // Stubs for now since we're removing demoStore
+
   const knownCustomers = new Map<string, string>();
   const customerSuggestions: any[] = [];
 

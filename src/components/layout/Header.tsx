@@ -22,7 +22,6 @@ import { Sidebar } from "./Sidebar";
 import { QuickEntryMode } from "@/components/data/QuickEntryMode";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { useDemo } from "@/hooks/useDemo";
 import { useRole } from "@/hooks/useRole";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -48,18 +47,18 @@ export function Header() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
   
-  const { exitDemoMode } = useDemo();
+  const { logout } = useAuth();
   const { role } = useRole();
   const { profile } = useBusiness();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const storeName = profile?.storeDetails?.name || "NEXA Store OS";
+  const storeName = profile?.storeDetails?.name || "NEXA";
   const displayName = user?.email?.split("@")[0] || "User";
 
-  const handleExit = async () => {
-    await navigate({ to: "/" });
-    exitDemoMode();
+  const handleLogout = async () => {
+    await logout();
+    navigate({ to: "/" });
   };
 
   // CMD+K / Ctrl+K shortcut
@@ -130,9 +129,9 @@ export function Header() {
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleExit}>
+          <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
-            Exit demo
+            Logout
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

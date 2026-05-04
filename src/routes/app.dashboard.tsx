@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 
 import { useStockSummary, useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
 import { useAlertGenerator } from "@/hooks/useStockAlertGenerator";
-import { useDemo } from "@/hooks/useDemo";
 import { useRole } from "@/hooks/useRole";
 import { useSales } from "@/hooks/useSalesData";
 import { useExpenses } from "@/hooks/useExpensesData";
@@ -74,7 +73,6 @@ export const Route = createFileRoute("/app/dashboard")({
 function DashboardPage() {
   const navigate = useNavigate();
   const { data: summary } = useStockSummary();
-  const { demoStore, isDemo, onboarding } = useDemo();
   const { data: sales, isLoading: salesLoading } = useSales();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: refunds, isLoading: refundsLoading } = useRefunds();
@@ -99,12 +97,6 @@ function DashboardPage() {
     setOpenSection((prev) => (prev === id ? null : id));
   };
 
-  useEffect(() => {
-    if (isDemo && !tour.hasCompleted) {
-      const timer = setTimeout(() => tour.startTour(), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isDemo, tour.hasCompleted]);
 
   const handleTourComplete = () => {
     tour.completeTour();

@@ -39,6 +39,7 @@ function checkStock(
 
 function buildMovements(
   request: InventoryRequest,
+  userEmail: string,
   qtys?: Record<string, number>,
 ): StockMovement[] {
   const now = new Date().toISOString();
@@ -56,7 +57,7 @@ function buildMovements(
       toLocationId: null,
       reference: request.requestNumber,
       notes: `Auto-generated from request ${request.requestNumber}`,
-      performedBy: "demo-admin",
+      performedBy: userEmail,
       createdAt: now,
     }));
 }
@@ -103,7 +104,7 @@ export function useApprovalActions({ items }: { items: Item[] }) {
     if (err) { toast.error(err); return; }
 
     const now = new Date().toISOString();
-    const movements = buildMovements(activeRequest);
+    const movements = buildMovements(activeRequest, user.email || user.uid);
     setIsLoading(true);
     try {
       for (const m of movements) {
@@ -167,7 +168,7 @@ export function useApprovalActions({ items }: { items: Item[] }) {
     const allFull = activeRequest.items.every((li) => (partialQtys[li.id] ?? 0) >= li.quantity);
     const newStatus = allFull ? RequestStatus.Approved : RequestStatus.PartiallyFulfilled;
     const now = new Date().toISOString();
-    const movements = buildMovements(activeRequest, partialQtys);
+    const movements = buildMovements(activeRequest, user.email || user.uid, partialQtys);
 
     setIsLoading(true);
     try {

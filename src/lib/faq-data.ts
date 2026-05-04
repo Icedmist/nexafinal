@@ -13,9 +13,9 @@ export const FAQ_DATA: FaqCategory[] = [
     title: "Getting Started",
     items: [
       { question: "What is NEXA Store OS?", answer: "NEXA Store OS is an inventory management system that helps you track stock levels, manage suppliers, create purchase orders, and gain insights through analytics." },
-      { question: "How do I enter demo mode?", answer: "Click 'Try Demo' on the landing page. Demo mode pre-loads sample data so you can explore all features without creating an account." },
+      { question: "How do I get started?", answer: "Create an account or log in to your store dashboard. You can begin by adding your product catalog or importing existing data." },
       { question: "How do I navigate the app?", answer: "Use the sidebar (desktop) or bottom navigation bar (mobile) to switch between sections. Press CMD+K to open the command palette for quick search." },
-      { question: "Can I reset demo data?", answer: "Yes! Go to Settings → System and click 'Reset Demo Data' to restore all sample data to its original state." },
+      { question: "Is my data secure?", answer: "Yes, NEXA uses enterprise-grade encryption and secure authentication via Google Firebase to ensure your store data is protected and private." },
       { question: "What roles are available?", answer: "Three roles: Admin (full access), Manager (can manage inventory and POs), and Requestor (can browse catalog and submit requests)." },
     ],
   },

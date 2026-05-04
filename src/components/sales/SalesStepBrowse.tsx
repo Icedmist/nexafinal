@@ -3,7 +3,6 @@ import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ShoppingCart } 
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useItems, useCategories } from "@/hooks/useInventoryData";
-import { useDemo } from "@/hooks/useDemo";
 import { cn } from "@/lib/utils";
 
 const NAIRA = "₦";
@@ -21,7 +20,6 @@ interface SalesStepBrowseProps {
 export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps) {
   const { data: items } = useItems();
   const { data: categories } = useCategories();
-  const { demoStore } = useDemo();
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
@@ -64,36 +62,12 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   }, [onAdd]);
 
   const topSellers = useMemo(() => {
-    const sales = demoStore?.getSales() ?? [];
-    const counts = new Map<string, number>();
-    for (const sale of sales) {
-      for (const li of sale.items) {
-        counts.set(li.itemId, (counts.get(li.itemId) ?? 0) + li.quantity);
-      }
-    }
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([id]) => items.find((i) => i.id === id))
-      .filter(Boolean);
-  }, [demoStore, items]);
+    return [];
+  }, []);
 
   const repeatCustomers = useMemo(() => {
-    const sales = demoStore?.getSales() ?? [];
-    const map = new Map<string, { name: string; phone: string; count: number }>();
-    for (const sale of sales) {
-      if (sale.customerPhone) {
-        const key = sale.customerPhone;
-        const existing = map.get(key);
-        if (existing) existing.count++;
-        else map.set(key, { name: sale.customerName ?? "Unknown", phone: key, count: 1 });
-      }
-    }
-    return Array.from(map.values())
-      .filter((c) => c.count >= 2)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [demoStore]);
+    return [];
+  }, []);
 
   const isSearchEmpty = !search.trim() && !activeCat;
 

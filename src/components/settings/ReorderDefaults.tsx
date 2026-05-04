@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useDemo } from "@/hooks/useDemo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,13 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const FACTORY = { reorderPoint: 10, leadTimeDays: 7, safetyMultiplier: 1.5, orderQuantity: 25 };
 
 export function ReorderDefaults() {
-  const { demoStore, bumpVersion } = useDemo();
-  const stored = demoStore?.getReorderDefaults() ?? FACTORY;
+  const stored = FACTORY;
 
   const [values, setValues] = useState(stored);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => { setValues(stored); }, [demoStore]);
 
   const set = (key: keyof typeof values, v: string) => {
     setValues((prev) => ({ ...prev, [key]: Number(v) || 0 }));
@@ -26,15 +22,12 @@ export function ReorderDefaults() {
       toast.error("Please fix validation errors"); return;
     }
     setSaving(true);
-    demoStore?.setReorderDefaults(values);
-    bumpVersion();
+    // TODO: Save to API
     setTimeout(() => { setSaving(false); toast.success("Reorder defaults saved"); }, 300);
   };
 
   const handleReset = () => {
     setValues(FACTORY);
-    demoStore?.setReorderDefaults(FACTORY);
-    bumpVersion();
     toast.success("Defaults restored");
   };
 

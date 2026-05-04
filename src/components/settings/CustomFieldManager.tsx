@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, ArrowUp, ArrowDown, X, Check, ListChecks } from "lucide-react";
 import { toast } from "sonner";
-import { useDemo } from "@/hooks/useDemo";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

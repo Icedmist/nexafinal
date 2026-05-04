@@ -1,7 +1,5 @@
-import { createContext, useMemo, useState, type ReactNode, useContext, useEffect } from "react";
-import { useDemo } from "@/hooks/useDemo";
+import { createContext, useMemo, useState, type ReactNode, useEffect } from "react";
 import { getPermissionsForRole, type RolePermissions, type UserRoleType } from "@/lib/roles";
-import { useBusiness } from "./BusinessContext";
 import { useAuth } from "./FirebaseAuthContext";
 import { doc, onSnapshot, query, collection, where, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -13,20 +11,16 @@ export interface RoleContextValue {
   isManager: boolean;
   isStaff: boolean;
   isRequestor: boolean;
-  /** Demo-only: override the current role */
-  setDemoRole: (role: UserRoleType) => void;
 }
 
 export const RoleContext = createContext<RoleContextValue | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const { isDemo } = useDemo();
   const { user } = useAuth();
-  const [demoRole, setDemoRole] = useState<UserRoleType>("admin");
   const [realRole, setRealRole] = useState<UserRoleType>("requestor");
 
   useEffect(() => {
-    if (isDemo || !user) return;
+    if (!user) return;
 
     // Try finding role in staff collection
     const staffRef = doc(db, 'staff', user.uid);
@@ -49,9 +43,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubStaff();
-  }, [user, isDemo]);
+  }, [user]);
 
-  const role: UserRoleType = isDemo ? demoRole : realRole;
+  const role: UserRoleType = realRole;
 
   const value = useMemo<RoleContextValue>(() => {
     const permissions = getPermissionsForRole(role);
@@ -62,7 +56,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       isManager: role === "manager",
       isStaff: role === "staff",
       isRequestor: role === "requestor",
-      setDemoRole,
     };
   }, [role]);
 

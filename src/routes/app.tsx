@@ -6,7 +6,6 @@ import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ShortcutsHelpDialog } from "@/components/command/ShortcutsHelpDialog";
 import { PageTransition } from "@/components/shared/PageTransition";
-import { useDemo } from "@/hooks/useDemo";
 import { useRole } from "@/hooks/useRole";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { canAccessRoute } from "@/lib/route-guard";
@@ -18,7 +17,6 @@ export const Route = createFileRoute("/app")({
 });
 
 function AppLayout() {
-  const { isDemo } = useDemo();
   const { user, loading } = useAuth();
   const { role } = useRole();
   const navigate = useNavigate();
@@ -30,21 +28,20 @@ function AppLayout() {
 
   // Role-based route guard
   useEffect(() => {
-    const isDemoOverride = false; // Turned off as requested: "remove all demo data!"
-    if ((isDemoOverride || user) && !canAccessRoute(location.pathname, role)) {
+    if (user && !canAccessRoute(location.pathname, role)) {
       toast.error("You don't have permission to access that page.");
       navigate({ to: "/app/dashboard" });
     }
-  }, [location.pathname, role, navigate, isDemo, user]);
+  }, [location.pathname, role, navigate, user]);
 
-  // Auth/Demo guard — redirect to landing if not logged in and not in demo
+  // Auth guard — redirect to landing if not logged in
   useEffect(() => {
-    if (!loading && !user && !isDemo) {
+    if (!loading && !user) {
       navigate({ to: "/" });
     }
-  }, [isDemo, user, loading, navigate]);
+  }, [user, loading, navigate]);
 
-  if (loading || (!user && !isDemo)) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />

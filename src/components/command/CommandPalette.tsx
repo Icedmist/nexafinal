@@ -25,13 +25,8 @@ import {
 import { Command as CommandPrimitive } from "cmdk";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { useItems } from "@/hooks/useInventoryData";
+import { useItems, useCategories, useSuppliers } from "@/hooks/useInventoryData";
 import { usePermissions } from "@/hooks/usePermissions";
-import { PAGES } from "./palette-pages";
-import { ACTIONS } from "./palette-actions";
-import { ItemResultRow } from "./ItemResultRow";
-import { parseQuery } from "@/lib/nl-search-parser";
-import { useDemo } from "@/hooks/useDemo";
 
 // ─── Component ───────────────────────────────────────────
 
@@ -44,9 +39,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const { data: items } = useItems();
+  const { data: categories } = useCategories();
+  const { data: suppliers } = useSuppliers();
   const { can } = usePermissions();
   const { role } = useRole();
-  const { demoStore } = useDemo();
 
   // Reset query on close
   useEffect(() => {
@@ -76,10 +72,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
 
     // Category filter (fuzzy match on category name)
-    if (parsed.filters.category && demoStore) {
-      const cats = demoStore.getCategories();
+    if (parsed.filters.category) {
       const catName = parsed.filters.category.toLowerCase();
-      const matchingCats = cats.filter((c) => c.name.toLowerCase().includes(catName));
+      const matchingCats = categories.filter((c) => c.name.toLowerCase().includes(catName));
       if (matchingCats.length > 0) {
         const catIds = new Set(matchingCats.map((c) => c.id));
         results = results.filter((i) => i.categoryId && catIds.has(i.categoryId));
@@ -87,10 +82,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
 
     // Supplier filter
-    if (parsed.filters.supplier && demoStore) {
-      const sups = demoStore.getSuppliers();
+    if (parsed.filters.supplier) {
       const supName = parsed.filters.supplier.toLowerCase();
-      const matchingSups = sups.filter((s) => s.name.toLowerCase().includes(supName));
+      const matchingSups = suppliers.filter((s) => s.name.toLowerCase().includes(supName));
       if (matchingSups.length > 0) {
         const supIds = new Set(matchingSups.map((s) => s.id));
         results = results.filter((i) => i.supplierId && supIds.has(i.supplierId));
@@ -107,7 +101,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
 
     return results.slice(0, 10);
-  }, [isNL, items, parsed, demoStore]);
+  }, [isNL, items, parsed, categories, suppliers]);
 
   // Standard item search results (max 8)
   const matchedItems = useMemo(() => {

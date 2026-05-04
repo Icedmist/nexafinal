@@ -22,15 +22,25 @@ export const notifyActivity = async (
   metadata?: Record<string, any>
 ) => {
   try {
-    await addDoc(collection(db, "activity_logs"), {
+    const logData: Record<string, any> = {
       type,
       title,
       message,
       userId,
       userEmail,
-      metadata,
       createdAt: serverTimestamp(),
-    });
+    };
+    if (metadata !== undefined) {
+      // Filter out any undefined values within metadata itself
+      const cleanMeta: Record<string, any> = {};
+      for (const [k, v] of Object.entries(metadata)) {
+        if (v !== undefined) cleanMeta[k] = v;
+      }
+      if (Object.keys(cleanMeta).length > 0) {
+        logData.metadata = cleanMeta;
+      }
+    }
+    await addDoc(collection(db, "activity_logs"), logData);
 
     // Placeholder for real email sending
     // In production, this would trigger a Firebase Cloud Function that sends an email via SendGrid/Mailgun

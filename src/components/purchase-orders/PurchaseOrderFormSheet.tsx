@@ -35,6 +35,7 @@ import type { PurchaseOrder, Supplier, PurchaseOrderItem, Item } from "@/types/i
 import { LineItemsEditor, type LineItemRow } from "./LineItemsEditor";
 import { LowStockSuggestions } from "./LowStockSuggestions";
 import { ShoppingCart, X, Calendar, FileText } from "lucide-react";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.Draft]: "Draft",
@@ -76,6 +77,7 @@ export function PurchaseOrderFormSheet({
   const isEdit = !!purchaseOrder;
   const createPO = useCreatePurchaseOrder();
   const updatePO = useUpdatePurchaseOrder();
+  const { user } = useAuth();
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [lineError, setLineError] = useState("");
 
@@ -162,7 +164,7 @@ export function PurchaseOrderFormSheet({
         totalCost,
         expectedDelivery: new Date(values.expectedDelivery).toISOString(),
         notes: values.notes,
-        createdBy: "demo-user",
+        createdBy: user?.email || "System",
         createdAt: now,
         updatedAt: now,
       };

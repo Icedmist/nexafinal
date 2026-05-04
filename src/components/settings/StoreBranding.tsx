@@ -96,33 +96,32 @@ export function StoreBranding() {
             />
             <p className="text-[10px] text-muted-foreground italic">Store name is fixed and cannot be changed.</p>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs font-black uppercase tracking-widest">Subdomain Slug</Label>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Input
-                  value={storeSlug}
-                  onChange={(e) => setStoreSlug(e.target.value)}
-                  placeholder="ice-cream-palace"
-                  className="h-12 rounded-xl"
-                />
-                <span className="text-sm font-bold text-muted-foreground">.{baseDomain}</span>
-              </div>
-              {staffLoginUrl && (
-                <div className="rounded-lg bg-primary/5 p-3 border border-primary/10">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Shop Login Link (Share with Staff)</p>
-                  <a 
-                    href={staffLoginUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs font-mono font-bold text-foreground hover:underline break-all"
-                  >
-                    {staffLoginUrl}
-                  </a>
+          {staffLoginUrl && (
+            <div className="md:col-span-2 rounded-2xl bg-primary/5 p-6 border border-primary/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Shop Subdomain</p>
+                  <h3 className="text-xl font-bold text-foreground lowercase tracking-tight">
+                    {storeSlug}<span className="text-muted-foreground/50">.{baseDomain}</span>
+                  </h3>
                 </div>
-              )}
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Palette className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+              <div className="pt-3 border-t border-primary/10">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Staff Login URL</p>
+                <a 
+                  href={staffLoginUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm font-mono font-bold text-primary hover:underline break-all"
+                >
+                  {staffLoginUrl}
+                </a>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="space-y-4">
