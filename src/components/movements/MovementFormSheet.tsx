@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +20,7 @@ import { toast } from "sonner";
 import { MovementType } from "@/types/inventory";
 import type { Item, Location, StockMovement } from "@/types/inventory";
 import { useCreateMovement } from "@/hooks/useInventoryMutations";
+import { PackagePlus, X } from "lucide-react";
 
 interface MovementFormSheetProps {
   open: boolean;
@@ -164,137 +164,150 @@ export function MovementFormSheet({
   const isAdjusted = type === MovementType.Adjusted;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:max-w-[440px] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Log Movement</SheetTitle>
-          <SheetDescription>Record a stock movement for an inventory item.</SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-4">
-          {/* Item */}
-          <div>
-            <Label className="mb-1.5 block text-sm">Item *</Label>
-            <Select
-              value={itemId || "__none__"}
-              onValueChange={(v) => setItemId(v === "__none__" ? "" : v)}
-              disabled={!!preSelectedItemId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select item" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__" disabled>Select item</SelectItem>
-                {items.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.itemId && <p className="mt-1 text-xs text-destructive">{errors.itemId}</p>}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <PackagePlus className="h-5 w-5" />
+              </div>
+              <DialogTitle className="text-xl font-black tracking-tight">Log Stock Movement</DialogTitle>
+            </div>
+            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Type */}
-          <div>
-            <Label className="mb-1.5 block text-sm">Movement Type</Label>
-            <Select value={type} onValueChange={(v) => setType(v as MovementType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TYPE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Quantity */}
-          <div>
-            <Label className="mb-1.5 block text-sm">Quantity *</Label>
-            <Input
-              type="number"
-              min={1}
-              step={1}
-              placeholder="Enter quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-            {errors.quantity && <p className="mt-1 text-xs text-destructive">{errors.quantity}</p>}
-          </div>
-
-          {/* Direction (only for adjusted) */}
-          {isAdjusted && (
-            <div>
-              <Label className="mb-1.5 block text-sm">Direction</Label>
-              <Select value={direction} onValueChange={(v) => setDirection(v as "in" | "out")}>
-                <SelectTrigger>
-                  <SelectValue />
+          <div className="space-y-5">
+            {/* Item */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Item *</Label>
+              <Select
+                value={itemId || "__none__"}
+                onValueChange={(v) => setItemId(v === "__none__" ? "" : v)}
+                disabled={!!preSelectedItemId}
+              >
+                <SelectTrigger className="h-11 rounded-xl border-2 transition-all focus:ring-primary/20">
+                  <SelectValue placeholder="Select item" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="in">In (add stock)</SelectItem>
-                  <SelectItem value="out">Out (remove stock)</SelectItem>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="__none__" disabled>Select item</SelectItem>
+                  {items.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {errors.itemId && <p className="mt-1 text-[10px] font-bold text-destructive px-1">{errors.itemId}</p>}
             </div>
-          )}
 
-          {/* Transfer locations */}
-          {isTransfer && (
-            <>
-              <div>
-                <Label className="mb-1.5 block text-sm">From Location</Label>
-                <Select value={fromLocationId || "__none__"} onValueChange={(v) => setFromLocationId(v === "__none__" ? "" : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
+            {/* Type & Quantity Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Movement Type</Label>
+                <Select value={type} onValueChange={(v) => setType(v as MovementType)}>
+                  <SelectTrigger className="h-11 rounded-xl border-2">
+                    <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__" disabled>Select location</SelectItem>
-                    {locations.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  <SelectContent className="rounded-xl">
+                    {TYPE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.fromLocationId && <p className="mt-1 text-xs text-destructive">{errors.fromLocationId}</p>}
               </div>
-              <div>
-                <Label className="mb-1.5 block text-sm">To Location</Label>
-                <Select value={toLocationId || "__none__"} onValueChange={(v) => setToLocationId(v === "__none__" ? "" : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Quantity *</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  className="h-11 rounded-xl border-2 font-mono font-bold"
+                  placeholder="0"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+                {errors.quantity && <p className="mt-1 text-[10px] font-bold text-destructive px-1">{errors.quantity}</p>}
+              </div>
+            </div>
+
+            {/* Direction (only for adjusted) */}
+            {isAdjusted && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Direction</Label>
+                <Select value={direction} onValueChange={(v) => setDirection(v as "in" | "out")}>
+                  <SelectTrigger className="h-11 rounded-xl border-2">
+                    <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__" disabled>Select location</SelectItem>
-                    {locations.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                    ))}
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="in">In (Add to stock)</SelectItem>
+                    <SelectItem value="out">Out (Remove from stock)</SelectItem>
                   </SelectContent>
                 </Select>
-                {errors.toLocationId && <p className="mt-1 text-xs text-destructive">{errors.toLocationId}</p>}
               </div>
-            </>
-          )}
+            )}
 
-          {/* Reference note */}
-          <div>
-            <Label className="mb-1.5 block text-sm">Reference Note{isAdjusted ? " *" : ""}</Label>
-            <Textarea
-              placeholder={isAdjusted ? "Reason for adjustment (required)" : "Optional note or reference"}
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              rows={3}
-            />
-            {errors.reference && <p className="mt-1 text-xs text-destructive">{errors.reference}</p>}
-          </div>
+            {/* Transfer locations */}
+            {isTransfer && (
+              <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/50">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source</Label>
+                  <Select value={fromLocationId || "__none__"} onValueChange={(v) => setFromLocationId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-10 rounded-lg border bg-background">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__" disabled>Select</SelectItem>
+                      {locations.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.fromLocationId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.fromLocationId}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Destination</Label>
+                  <Select value={toLocationId || "__none__"} onValueChange={(v) => setToLocationId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-10 rounded-lg border bg-background">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__" disabled>Select</SelectItem>
+                      {locations.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.toLocationId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.toLocationId}</p>}
+                </div>
+              </div>
+            )}
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={isLoading} className="flex-1">
-              {isLoading ? "Saving…" : "Save Movement"}
-            </Button>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            {/* Reference note */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Notes{isAdjusted ? " *" : ""}</Label>
+              <Textarea
+                placeholder={isAdjusted ? "Reason for adjustment (required)" : "Optional note or reference"}
+                className="rounded-xl border-2 resize-none min-h-[80px]"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                rows={3}
+              />
+              {errors.reference && <p className="mt-1 text-[10px] font-bold text-destructive px-1">{errors.reference}</p>}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button onClick={handleSave} disabled={isLoading} className="flex-1 h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20">
+                {isLoading ? "Saving…" : "Log Movement"}
+              </Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-12 font-bold px-6">
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

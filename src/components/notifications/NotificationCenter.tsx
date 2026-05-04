@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { X, CheckCheck, Bell, Settings2 } from "lucide-react";
+import { X, CheckCheck, Bell, Settings2, History, Filter } from "lucide-react";
 import { NotificationPreferences } from "./NotificationPreferences";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,67 +53,87 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
   };
 
   return (
-    <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[400px] p-0 flex flex-col">
-        <SheetHeader className="border-b border-border px-4 py-3">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-base">
-              Notifications
-              {unreadCount > 0 && (
-                <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 font-mono text-xs text-destructive-foreground">
-                  {unreadCount}
-                </span>
-              )}
-            </SheetTitle>
-            <div className="flex items-center gap-1">
-              {unreadCount > 0 && (
-                <Button variant="ghost" size="sm" className="text-xs" onClick={markAllAsRead}>
-                  <CheckCheck className="mr-1 h-3.5 w-3.5" />
-                  Mark All as Read
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenPrefs?.()} aria-label="Notification settings">
-                <Settings2 className="h-4 w-4" />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Bell className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-primary/10 text-primary border-2 border-primary/20 px-2 py-0.5 font-mono text-[10px] font-black uppercase tracking-tighter">
+                      {unreadCount} Unread
+                    </span>
+                  )}
+                </DialogTitle>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">System Alerts & Updates</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-muted" onClick={() => onOpenPrefs?.()} aria-label="Notification settings">
+                <Settings2 className="h-5 w-5 text-muted-foreground" />
               </Button>
+              <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
-        </SheetHeader>
 
-        <div className="border-b border-border px-4 py-2">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as FilterTab)}>
-            <TabsList className="h-8 w-full">
-              <TabsTrigger value="all" className="text-xs flex-1">All</TabsTrigger>
-              <TabsTrigger value="unread" className="text-xs flex-1">Unread</TabsTrigger>
-              <TabsTrigger value="stock" className="text-xs flex-1">Stock</TabsTrigger>
-              <TabsTrigger value="po" className="text-xs flex-1">PO</TabsTrigger>
-              <TabsTrigger value="requests" className="text-xs flex-1">Requests</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+          {/* Filter Tabs */}
+          <div className="mb-6">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as FilterTab)}>
+              <TabsList className="h-11 w-full rounded-xl bg-muted/30 p-1 border-2 border-border/50">
+                <TabsTrigger value="all" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">All</TabsTrigger>
+                <TabsTrigger value="unread" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Unread</TabsTrigger>
+                <TabsTrigger value="stock" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Stock</TabsTrigger>
+                <TabsTrigger value="po" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">PO</TabsTrigger>
+                <TabsTrigger value="requests" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Requests</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
 
-        <ScrollArea className="flex-1">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Bell className="h-8 w-8" />
-              <p className="text-sm">No notifications</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {filtered.map((n) => (
-                <NotificationItem
-                  key={n.id}
-                  notification={n}
-                  onClick={() => handleClick(n)}
-                  onDismiss={() => dismiss(n.id)}
-                />
-              ))}
+          <ScrollArea className="flex-1 -mx-2 px-2">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center gap-4 animate-in fade-in zoom-in-95 duration-500">
+                <div className="h-20 w-20 rounded-full bg-muted/50 flex items-center justify-center">
+                  <Bell className="h-10 w-10 text-muted-foreground/30" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-lg font-black text-foreground">All clear</p>
+                  <p className="text-sm font-medium text-muted-foreground italic">No notifications found for this filter.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 pb-2">
+                {filtered.map((n) => (
+                  <NotificationItem
+                    key={n.id}
+                    notification={n}
+                    onClick={() => handleClick(n)}
+                    onDismiss={() => dismiss(n.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          {unreadCount > 0 && (
+            <div className="mt-6 pt-6 border-t-2 border-border/50">
+              <Button onClick={markAllAsRead} variant="outline" className="w-full h-12 rounded-xl border-2 font-black uppercase text-xs tracking-widest">
+                <CheckCheck className="mr-2 h-4 w-4" /> Mark All as Read
+              </Button>
             </div>
           )}
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
-    </>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -129,37 +149,45 @@ function NotificationItem({
   return (
     <div
       className={cn(
-        "group relative flex cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
-        !n.isRead && "bg-primary/5",
+        "group relative flex cursor-pointer gap-4 rounded-2xl border-2 p-4 transition-all hover:shadow-md",
+        !n.isRead 
+          ? "bg-primary/[0.03] border-primary/20 hover:bg-primary/[0.06] hover:border-primary/30" 
+          : "bg-muted/5 border-transparent hover:bg-muted/10 hover:border-border/50"
       )}
       onClick={onClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onClick()}
     >
-      {/* Unread dot */}
-      {!n.isRead && (
-        <span className="absolute left-1.5 top-5 h-2 w-2 rounded-full bg-primary" />
-      )}
-
-      {getNotificationIcon(n.type)}
+      <div className={cn(
+        "h-10 w-10 shrink-0 rounded-xl flex items-center justify-center",
+        !n.isRead ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+      )}>
+        {getNotificationIcon(n.type)}
+      </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium leading-tight">{n.title}</p>
-        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
-        <p className="mt-1 text-[10px] text-muted-foreground">
-          {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-black leading-tight text-foreground">{n.title}</p>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap mt-0.5">
+            {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+          </span>
+        </div>
+        <p className="mt-1 line-clamp-2 text-xs font-medium text-muted-foreground leading-relaxed">{n.message}</p>
       </div>
 
       <button
         type="button"
-        className="shrink-0 self-start rounded p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+        className="shrink-0 self-start rounded-lg p-1.5 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
         aria-label="Dismiss notification"
       >
-        <X className="h-3.5 w-3.5 text-muted-foreground" />
+        <X className="h-4 w-4" />
       </button>
+
+      {!n.isRead && (
+        <div className="absolute -left-1 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full bg-primary" />
+      )}
     </div>
   );
 }

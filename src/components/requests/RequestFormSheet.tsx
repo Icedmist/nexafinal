@@ -1,14 +1,13 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { Plus, X, ClipboardList, AlertCircle, Trash2 } from "lucide-react";
 import { z } from "zod";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +22,7 @@ import {
 import { useCreateRequest } from "@/hooks/useInventoryMutations";
 import { RequestStatus } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
+import { cn } from "@/lib/utils";
 
 interface LineRow {
   id: string;
@@ -148,131 +148,157 @@ export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheet
   }
 
   return (
-    <Sheet
+    <Dialog
       open={open}
       onOpenChange={(v) => {
         if (!v) resetForm();
         onOpenChange(v);
       }}
     >
-      <SheetContent className="w-full overflow-y-auto sm:max-w-[560px]">
-        <SheetHeader>
-          <SheetTitle>New Request</SheetTitle>
-          <SheetDescription>Submit an inventory request</SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-4">
-          {/* Title */}
-          <div className="space-y-1.5">
-            <Label htmlFor="req-title">Title *</Label>
-            <Input
-              id="req-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Short description of what you need"
-            />
-            {errors["title"] && (
-              <p className="text-xs text-destructive">{errors["title"]}</p>
-            )}
-          </div>
-
-          {/* Reason */}
-          <div className="space-y-1.5">
-            <Label htmlFor="req-reason">Reason / Justification *</Label>
-            <Textarea
-              id="req-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Why do you need these items?"
-              rows={3}
-            />
-            {errors["reason"] && (
-              <p className="text-xs text-destructive">{errors["reason"]}</p>
-            )}
-          </div>
-
-          {/* Priority */}
-          <div className="space-y-1.5">
-            <Label>Priority</Label>
-            <Select value={priority} onValueChange={(v) => setPriority(v as "normal" | "urgent")}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Line items */}
-          <div className="space-y-2">
-            <Label>Line Items *</Label>
-            {errors["lines"] && (
-              <p className="text-xs text-destructive">{errors["lines"]}</p>
-            )}
-            {lines.map((line, idx) => {
-              const selectedItem = itemMap.get(line.itemId);
-              const maxQty = selectedItem ? selectedItem.currentStock : 9999;
-              return (
-                <div key={line.id} className="flex items-start gap-2">
-                  <div className="flex-1 space-y-1">
-                    <Select
-                      value={line.itemId || undefined}
-                      onValueChange={(v) => updateLine(line.id, "itemId", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select item" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {items
-                          .filter((i) => i.currentStock > 0)
-                          .map((i) => (
-                            <SelectItem key={i.id} value={i.id}>
-                              {i.name} ({i.currentStock} avail)
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    {errors[`lines.${idx}.itemId`] && (
-                      <p className="text-xs text-destructive">{errors[`lines.${idx}.itemId`]}</p>
-                    )}
-                  </div>
-                  <div className="w-20 space-y-1">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={maxQty}
-                      value={line.quantity}
-                      onChange={(e) => updateLine(line.id, "quantity", Number(e.target.value))}
-                      className="font-mono"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="mt-0.5 shrink-0"
-                    onClick={() => removeLine(line.id)}
-                    disabled={lines.length === 1}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+      <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <ClipboardList className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-black tracking-tight">New Request</DialogTitle>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Inventory Procurement</span>
                 </div>
-              );
-            })}
-            <Button type="button" size="sm" variant="outline" onClick={addLine} className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              Add Item
-            </Button>
+              </div>
+            </div>
+            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Submit */}
-          <Button onClick={handleSubmit} className="w-full" disabled={createRequest.isLoading}>
-            Submit Request
-          </Button>
+          <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+            {/* Title */}
+            <div className="space-y-1.5 px-1">
+              <Label htmlFor="req-title" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Request Title *</Label>
+              <Input
+                id="req-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Weekly stock replenishment"
+                className="h-11 rounded-xl border-2 font-bold"
+              />
+              {errors["title"] && (
+                <p className="text-[10px] font-bold text-destructive uppercase tracking-widest ml-1">{errors["title"]}</p>
+              )}
+            </div>
+
+            {/* Reason */}
+            <div className="space-y-1.5 px-1">
+              <Label htmlFor="req-reason" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Reason / Justification *</Label>
+              <Textarea
+                id="req-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Briefly explain why these items are needed..."
+                rows={2}
+                className="rounded-xl border-2 font-bold resize-none"
+              />
+              {errors["reason"] && (
+                <p className="text-[10px] font-bold text-destructive uppercase tracking-widest ml-1">{errors["reason"]}</p>
+              )}
+            </div>
+
+            {/* Priority */}
+            <div className="space-y-1.5 px-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Urgency Level</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as "normal" | "urgent")}>
+                <SelectTrigger className="h-11 rounded-xl border-2 font-bold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="normal" className="font-bold">Normal Priority</SelectItem>
+                  <SelectItem value="urgent" className="font-bold text-destructive">Urgent / Immediate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Line items */}
+            <div className="space-y-4 px-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Requested Items *</Label>
+                {errors["lines"] && (
+                  <p className="text-[10px] font-bold text-destructive uppercase tracking-widest">{errors["lines"]}</p>
+                )}
+              </div>
+              <div className="space-y-3">
+                {lines.map((line, idx) => {
+                  const selectedItem = itemMap.get(line.itemId);
+                  const maxQty = selectedItem ? selectedItem.currentStock : 9999;
+                  return (
+                    <div key={line.id} className="flex items-start gap-2 p-3 rounded-2xl border-2 border-border/50 bg-muted/5">
+                      <div className="flex-1 space-y-1.5">
+                        <Select
+                          value={line.itemId || undefined}
+                          onValueChange={(v) => updateLine(line.id, "itemId", v)}
+                        >
+                          <SelectTrigger className="h-10 rounded-lg border-2 font-bold">
+                            <SelectValue placeholder="Select an item..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            {items
+                              .filter((i) => i.currentStock > 0)
+                              .map((i) => (
+                                <SelectItem key={i.id} value={i.id} className="font-medium">
+                                  {i.name} <span className="ml-2 font-mono text-[10px] opacity-60">({i.currentStock} in stock)</span>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        {errors[`lines.${idx}.itemId`] && (
+                          <p className="text-[10px] font-bold text-destructive uppercase tracking-widest ml-1">{errors[`lines.${idx}.itemId`]}</p>
+                        )}
+                      </div>
+                      <div className="w-24 space-y-1.5">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={maxQty}
+                          value={line.quantity}
+                          onChange={(e) => updateLine(line.id, "quantity", Number(e.target.value))}
+                          className="h-10 rounded-lg border-2 font-mono font-bold text-center"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg"
+                        onClick={() => removeLine(line.id)}
+                        disabled={lines.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              <Button type="button" variant="outline" onClick={addLine} className="w-full h-11 rounded-xl border-2 border-dashed font-bold hover:bg-primary/5 hover:border-primary/50 transition-all">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Another Item
+              </Button>
+            </div>
+
+            {/* Submit */}
+            <div className="pt-4">
+              <Button onClick={handleSubmit} className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20" disabled={createRequest.isLoading}>
+                {createRequest.isLoading ? "Submitting..." : "Submit Procurement Request"}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full mt-2 font-bold text-muted-foreground">
+                Cancel
+              </Button>
+            </div>
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

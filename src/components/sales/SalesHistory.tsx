@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -195,96 +195,96 @@ export function SalesHistoryPage() {
       )}
 
       {/* Sale detail sheet */}
-      <Sheet open={!!selectedSale} onOpenChange={(o) => !o && setSelectedSale(null)}>
-        <SheetContent className="overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Sale Details</SheetTitle>
-          </SheetHeader>
+      <Dialog open={!!selectedSale} onOpenChange={(o) => !o && setSelectedSale(null)}>
+        <DialogContent className="max-w-md nexa-card p-0 border-none bg-transparent shadow-none">
           {selectedSale && (
-            <div className="mt-6 space-y-6">
+            <div className="nexa-card bg-card p-6 space-y-6">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold tracking-tight text-foreground">Sale Details</h2>
+                <button 
+                  onClick={() => setSelectedSale(null)}
+                  className="rounded-full p-2 hover:bg-muted transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
               <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-2 relative overflow-hidden">
                 <div className="absolute top-0 right-0 h-1 w-full bg-primary/20" />
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground font-medium uppercase tracking-wider">Transaction ID</span>
-                  <span className="font-mono font-bold text-foreground">#{selectedSale.id.slice(-8).toUpperCase()}</span>
+                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Transaction ID</span>
+                  <span className="font-mono font-black text-foreground">#{selectedSale.id.slice(-8).toUpperCase()}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground font-medium uppercase tracking-wider">Date & Time</span>
-                  <span className="font-medium">{format(new Date(selectedSale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Date & Time</span>
+                  <span className="font-bold text-foreground">{format(new Date(selectedSale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
-                  <span className="text-muted-foreground font-medium uppercase tracking-wider">Payment Method</span>
+                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Payment Method</span>
                   <div className="flex items-center gap-1.5">
                     <PaymentIcon method={(selectedSale as SaleWithPayment).paymentMethod} />
-                    <span className="capitalize font-bold text-primary">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
+                    <span className="capitalize font-black text-primary">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
                   </div>
                 </div>
               </div>
 
               {selectedSale.customerName && (
-                <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                    <User className="h-3 w-3" /> Customer Information
+                <div className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-sm border-primary/10">
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    <User className="h-3 w-3" /> Customer Info
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold">{selectedSale.customerName}</span>
+                    <span className="text-sm font-black">{selectedSale.customerName}</span>
                     {selectedSale.customerPhone && (
-                      <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{selectedSale.customerPhone}</span>
+                      <span className="text-xs font-mono text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-full">{selectedSale.customerPhone}</span>
                     )}
                   </div>
                 </div>
               )}
 
-              <Separator />
-
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Items Purchased</h4>
-                {selectedSale.items.map((li, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{li.itemName}</p>
-                      <p className="text-[11px] text-muted-foreground">{li.quantity} x {fmtNgn(li.unitPriceNgn)}</p>
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Items Purchased</h4>
+                <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+                  {selectedSale.items.map((li, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/50 bg-muted/10 hover:bg-muted/20 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate text-foreground">{li.itemName}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground">{li.quantity} x {fmtNgn(li.unitPriceNgn)}</p>
+                      </div>
+                      <span className="font-mono text-sm font-black text-foreground shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
                     </div>
-                    <span className="font-mono text-sm font-semibold shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              <Separator />
-
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total</span>
-                <span className="font-mono">{fmtNgn(selectedSale.totalNgn)}</span>
+              <div className="rounded-2xl bg-primary/5 p-4 border border-primary/20 flex justify-between items-center shadow-inner">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Grand Total</span>
+                <span className="text-3xl font-black font-mono tracking-tighter text-primary">{fmtNgn(selectedSale.totalNgn)}</span>
               </div>
 
-              {/* Actions */}
-              <div className="space-y-2 pt-2">
-                <Button variant="outline" className="w-full gap-2" onClick={() => window.print()}>
-                  <Printer className="h-4 w-4" /> Print Receipt
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={() => handleSendReceipt(selectedSale)}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  {selectedSale.customerPhone ? "Send via WhatsApp" : "No phone (tap to add)"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 text-destructive hover:text-destructive"
+              <div className="flex gap-3 pt-2">
+                <Button 
+                  className="flex-1 gap-2 rounded-xl h-12 font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
                   onClick={() => {
-                    toast.info("To return items, go to Returns & Refunds page");
-                    setSelectedSale(null);
+                    toast.success("Preparing receipt for print...");
                   }}
                 >
-                  <RotateCcw className="h-4 w-4" /> Return Items
+                  <Printer className="h-4 w-4" /> Print
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1 gap-2 rounded-xl h-12 font-black uppercase text-xs tracking-widest border-2"
+                  onClick={() => {
+                    toast.info("Return functionality coming soon");
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4" /> Return
                 </Button>
               </div>
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

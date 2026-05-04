@@ -1,14 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { format, formatDistanceToNow } from "date-fns";
-import { Pencil, ExternalLink, Trash2, PackageCheck, Clock, Check, Printer } from "lucide-react";
+import { Pencil, ExternalLink, Trash2, PackageCheck, Clock, Check, Printer, X, ShoppingCart, Calendar, FileText, History } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -113,254 +112,251 @@ export function PurchaseOrderDetailSheet({
     purchaseOrder.status === OrderStatus.Received;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-[600px]">
-        <SheetHeader>
-          <SheetTitle>{purchaseOrder.orderNumber}</SheetTitle>
-          <SheetDescription>Purchase order details</SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-5">
-          {/* Header info */}
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="outline" className={STATUS_CLASS[purchaseOrder.status]}>
-              {STATUS_LABEL[purchaseOrder.status]}
-            </Badge>
-            {isDraft && canEdit && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => onEdit(purchaseOrder)}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
-              </Button>
-            )}
-            {isDraft && isAdmin && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <ShoppingCart className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-black tracking-tight">{purchaseOrder.orderNumber}</DialogTitle>
+                <div className="mt-1 flex items-center gap-2">
+                  <Badge variant="outline" className={cn("rounded-full font-black uppercase text-[9px] tracking-widest border-2", STATUS_CLASS[purchaseOrder.status])}>
+                    {STATUS_LABEL[purchaseOrder.status]}
+                  </Badge>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Procurement Reference</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
+                 <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-10 w-10 rounded-xl border-2"
+                  onClick={() => window.print()}
+                >
+                  <Printer className="h-4 w-4" />
+                </Button>
+                {isDraft && canEdit && (
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-10 w-10 rounded-xl border-2"
+                    onClick={() => onEdit(purchaseOrder)}
+                  >
+                    <Pencil className="h-4 w-4" />
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete {purchaseOrder.orderNumber}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Delete this draft purchase order? This cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      onClick={() => onDelete(purchaseOrder.id)}
-                    >
-                      Confirm Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-            {canReceive && canEdit && onReceive && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => onReceive(purchaseOrder)}
-              >
-                <PackageCheck className="h-3.5 w-3.5" />
-                Receive Shipment
-              </Button>
-            )}
-            {purchaseOrder.status === OrderStatus.Received && (
-              <Badge className="bg-stock-healthy/15 text-stock-healthy border-stock-healthy/20 gap-1">
-                <Check className="h-3 w-3" />
-                Fully Received
-              </Badge>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => window.print()}
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Print
-            </Button>
-          </div>
-
-          {/* Supplier link */}
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">Supplier</p>
-            {supplier ? (
-              <Link
-                to="/app/suppliers"
-                search={{ supplier: supplier.id }}
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-              >
-                {supplier.name}
-                <ExternalLink className="h-3 w-3" />
-              </Link>
-            ) : (
-              <p className="text-sm text-foreground">Unknown</p>
-            )}
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Created</p>
-              <p className="text-sm text-foreground">
-                {format(new Date(purchaseOrder.createdAt), "MMM d, yyyy")}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Expected Delivery</p>
-              <p className="text-sm text-foreground">
-                {purchaseOrder.expectedDelivery
-                  ? format(new Date(purchaseOrder.expectedDelivery), "MMM d, yyyy")
-                  : "—"}
-              </p>
+                )}
+                {isDraft && isAdmin && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl border-2 text-destructive hover:bg-destructive/10">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-3xl border-none p-6 nexa-card bg-card">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-xl font-black">Delete Draft PO?</AlertDialogTitle>
+                        <AlertDialogDescription className="font-medium">
+                          Are you sure? This draft purchase order will be permanently removed.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="mt-4">
+                        <AlertDialogCancel className="rounded-xl font-bold border-2">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl font-black uppercase text-xs tracking-widest px-6"
+                          onClick={() => onDelete(purchaseOrder.id)}
+                        >
+                          Confirm Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+                <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {purchaseOrder.notes && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Notes</p>
-              <p className="text-sm text-foreground">{purchaseOrder.notes}</p>
+          <div className="flex-1 overflow-y-auto space-y-8 pr-1">
+            {/* Summary Row */}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+              <DetailField label="Source Supplier" icon={<ExternalLink className="h-3 w-3" />}>
+                {supplier ? (
+                  <Link
+                    to="/app/suppliers"
+                    search={{ supplier: supplier.id }}
+                    className="text-primary font-black hover:underline decoration-2 underline-offset-4"
+                  >
+                    {supplier.name}
+                  </Link>
+                ) : <span className="font-bold text-muted-foreground">Unknown</span>}
+              </DetailField>
+
+              <DetailField label="Created On" icon={<Calendar className="h-3 w-3" />}>
+                <span className="font-mono font-bold text-foreground">
+                  {format(new Date(purchaseOrder.createdAt), "MMM d, yyyy")}
+                </span>
+              </DetailField>
+
+              <DetailField label="Exp. Delivery" icon={<Clock className="h-3 w-3" />}>
+                <span className="font-mono font-bold text-foreground">
+                  {purchaseOrder.expectedDelivery
+                    ? format(new Date(purchaseOrder.expectedDelivery), "MMM d, yyyy")
+                    : <span className="text-muted-foreground/30">—</span>}
+                </span>
+              </DetailField>
             </div>
-          )}
 
-          <Separator />
+            {purchaseOrder.notes && (
+              <div className="rounded-2xl bg-muted/10 border-2 border-border/50 p-4">
+                 <div className="flex items-center gap-2 mb-2">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Internal Notes</span>
+                 </div>
+                 <p className="text-sm font-medium italic">{purchaseOrder.notes}</p>
+              </div>
+            )}
 
-          {/* Line items */}
-          <div>
-            <p className="mb-2 text-sm font-medium text-foreground">
-              Line Items ({purchaseOrder.items.length})
-            </p>
-            <div className="overflow-x-auto rounded-md border border-border bg-white">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="w-[60px] text-right">Ordered</TableHead>
-                    <TableHead className="w-[70px] text-right">Received</TableHead>
-                    <TableHead className="w-[70px] text-right">Remaining</TableHead>
-                    <TableHead className="w-[100px]">Progress</TableHead>
-                    <TableHead className="w-[80px] text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {purchaseOrder.items.map((li) => {
-                    const item = itemMap.get(li.itemId);
-                    const pct = li.quantityOrdered > 0
-                      ? Math.round((li.quantityReceived / li.quantityOrdered) * 100)
-                      : 0;
-                    const remaining = Math.max(0, li.quantityOrdered - li.quantityReceived);
-                    const barColor =
-                      pct === 0
-                        ? "bg-muted-foreground/30"
-                        : pct >= 100
-                          ? "bg-stock-healthy"
-                          : "bg-amber-accent";
-                    return (
-                      <TableRow key={li.id}>
-                        <TableCell>
-                          <p className={`text-sm font-medium ${!item ? "italic text-muted-foreground/60 line-through" : ""}`}>{item?.name ?? "Deleted Item"}</p>
-                          <p className="font-mono text-xs text-muted-foreground">{item?.sku ?? "—"}</p>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {li.quantityOrdered}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {li.quantityReceived}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {remaining}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className={cn("h-full rounded-full transition-all", barColor)}
-                                style={{ width: `${Math.min(100, pct)}%` }}
-                              />
+            {/* Line Items */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Order Items ({purchaseOrder.items.length})</h3>
+                {canReceive && canEdit && onReceive && (
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-lg font-black uppercase text-[10px] tracking-widest"
+                    onClick={() => onReceive(purchaseOrder)}
+                  >
+                    <PackageCheck className="h-3.5 w-3.5 mr-2" />
+                    Receive Shipment
+                  </Button>
+                )}
+              </div>
+
+              <div className="rounded-2xl border-2 border-border overflow-hidden bg-muted/5">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="border-b-2">
+                      <TableHead className="text-[10px] font-black uppercase">Product</TableHead>
+                      <TableHead className="w-[80px] text-right text-[10px] font-black uppercase">Ord</TableHead>
+                      <TableHead className="w-[80px] text-right text-[10px] font-black uppercase">Rec</TableHead>
+                      <TableHead className="w-[100px] text-[10px] font-black uppercase">Progress</TableHead>
+                      <TableHead className="w-[100px] text-right text-[10px] font-black uppercase">Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {purchaseOrder.items.map((li) => {
+                      const item = itemMap.get(li.itemId);
+                      const pct = li.quantityOrdered > 0
+                        ? Math.round((li.quantityReceived / li.quantityOrdered) * 100)
+                        : 0;
+                      return (
+                        <TableRow key={li.id} className="border-b hover:bg-muted/10 transition-colors">
+                          <TableCell>
+                            <p className={cn("text-sm font-black text-foreground", !item && "italic text-muted-foreground/60 line-through")}>{item?.name ?? "Deleted Item"}</p>
+                            <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase">{item?.sku ?? "—"}</p>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm font-bold">
+                            {li.quantityOrdered}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm font-bold text-primary">
+                            {li.quantityReceived}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted border border-border/50 shadow-inner">
+                                <div
+                                  className={cn("h-full rounded-full transition-all duration-500 shadow-sm", pct >= 100 ? "bg-emerald-500 shadow-emerald-500/20" : pct > 0 ? "bg-amber-500 shadow-amber-500/20" : "bg-muted-foreground/20")}
+                                  style={{ width: `${Math.min(100, pct)}%` }}
+                                />
+                              </div>
+                              {pct >= 100 && (
+                                <div className="h-4 w-4 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                  <Check className="h-2.5 w-2.5 text-emerald-500" />
+                                </div>
+                              )}
                             </div>
-                            {pct >= 100 && (
-                              <Check className="h-3.5 w-3.5 shrink-0 text-stock-healthy" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-medium">
-                          ${(li.quantityOrdered * li.unitCost).toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm font-black text-foreground">
+                            ${(li.quantityOrdered * li.unitCost).toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </div>
 
-          {/* Total */}
-          <div className="flex justify-end">
-            <span className="text-sm font-medium text-foreground">
-              Total:{" "}
-              <span className="font-mono text-base">
+            {/* Total Section */}
+            <div className="flex flex-col items-end gap-2 px-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Grand Total Amount</p>
+              <p className="text-4xl font-black tracking-tighter text-foreground font-mono">
                 ${purchaseOrder.totalCost.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
-              </span>
-            </span>
-          </div>
-
-          <Separator />
-
-          {/* Receiving History */}
-          {showHistory && (
-            <div>
-              <p className="mb-2 text-sm font-medium text-foreground">Receiving History</p>
-              {poMovements.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No shipments received yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {poMovements.map((m) => {
-                    const item = itemMap.get(m.itemId);
-                    return (
-                      <div key={m.id} className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3">
-                        <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className={`font-medium ${!item ? "italic text-muted-foreground/60 line-through" : "text-foreground"}`}>
-                              {item?.name ?? "[Item Deleted]"}
-                            </span>
-                            <span className="font-mono text-xs text-muted-foreground">
-                              +{m.quantity}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {m.performedBy} · {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}
-                          </p>
-                          {m.notes && (
-                            <p className="mt-0.5 text-xs text-muted-foreground italic">{m.notes}</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              </p>
             </div>
-          )}
 
-          <Separator />
+            {/* Receiving History */}
+            {showHistory && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                   <History className="h-4 w-4 text-muted-foreground" />
+                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Shipment History</h3>
+                </div>
+                {poMovements.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed p-8 text-center bg-muted/5">
+                    <p className="text-xs font-bold text-muted-foreground italic">No shipments recorded for this order</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {poMovements.map((m) => {
+                      const item = itemMap.get(m.itemId);
+                      return (
+                        <div key={m.id} className="flex items-start gap-4 rounded-2xl border-2 border-border bg-muted/5 p-4 hover:bg-muted/10 transition-colors">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Clock className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={cn("text-sm font-black truncate", !item && "italic text-muted-foreground/60 line-through")}>
+                                {item?.name ?? "[Item Deleted]"}
+                              </span>
+                              <span className="font-mono text-sm font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-lg">
+                                +{m.quantity}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                              <span>{m.performedBy}</span>
+                              <span>•</span>
+                              <span>{formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}</span>
+                            </div>
+                            {m.notes && (
+                              <p className="mt-2 text-xs font-medium text-muted-foreground bg-muted p-2 rounded-lg border border-border/50">{m.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* Status actions */}
-          <POStatusActions purchaseOrder={purchaseOrder} />
+            {/* Actions */}
+            <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 mt-6">
+              <POStatusActions purchaseOrder={purchaseOrder} />
+            </div>
+          </div>
         </div>
 
         <POPrintView
@@ -368,7 +364,31 @@ export function PurchaseOrderDetailSheet({
           supplier={supplier}
           items={itemMap}
         />
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── Helper ─────────────────────────────────────────── */
+
+function DetailField({
+  icon,
+  label,
+  children,
+  full,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-1.5", full ? "sm:col-span-3" : "")}>
+      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground px-1">
+        {icon}
+        {label}
+      </div>
+      <div className="text-sm px-1 truncate">{children}</div>
+    </div>
   );
 }

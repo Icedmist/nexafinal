@@ -1,11 +1,10 @@
 import { useState, useMemo } from "react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -18,7 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { X, PackageCheck, FileText, ShoppingCart } from "lucide-react";
 import type { PurchaseOrder, Item } from "@/types/inventory";
+import { cn } from "@/lib/utils";
 
 interface ReceiveShipmentSheetProps {
   open: boolean;
@@ -80,84 +81,95 @@ export function ReceiveShipmentSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-[560px]">
-        <SheetHeader>
-          <SheetTitle>Receive Shipment — {purchaseOrder.orderNumber}</SheetTitle>
-          <SheetDescription>
-            Enter the quantity received for each line item.
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-5">
-          <div className="overflow-x-auto rounded-md border border-border bg-white">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="w-[60px] text-right">Ordered</TableHead>
-                  <TableHead className="w-[70px] text-right">Received</TableHead>
-                  <TableHead className="w-[70px] text-right">Remaining</TableHead>
-                  <TableHead className="w-[90px] text-right">Receiving</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {purchaseOrder.items.map((li) => {
-                  const item = itemMap.get(li.itemId);
-                  const remaining = Math.max(0, li.quantityOrdered - li.quantityReceived);
-                  return (
-                    <TableRow key={li.id}>
-                      <TableCell>
-                        <p className="text-sm font-medium">{item?.name ?? li.itemId}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{item?.sku ?? "—"}</p>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {li.quantityOrdered}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {li.quantityReceived}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {remaining}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={remaining}
-                          value={qtys[li.id] ?? 0}
-                          onChange={(e) => handleQtyChange(li.id, remaining, e.target.value)}
-                          className="h-8 w-[70px] text-right font-mono text-sm ml-auto"
-                          disabled={remaining === 0}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <PackageCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-black tracking-tight">Receive Shipment</DialogTitle>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order Ref: {purchaseOrder.orderNumber}</span>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="receive-notes">Shipment Notes</Label>
-            <Textarea
-              id="receive-notes"
-              placeholder="Optional notes about this shipment..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
+          <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+            <div className="rounded-2xl border-2 border-border overflow-hidden bg-muted/5">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="border-b-2">
+                    <TableHead className="text-[10px] font-black uppercase">Product</TableHead>
+                    <TableHead className="w-[80px] text-right text-[10px] font-black uppercase">Rem</TableHead>
+                    <TableHead className="w-[100px] text-right text-[10px] font-black uppercase">Receiving</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {purchaseOrder.items.map((li) => {
+                    const item = itemMap.get(li.itemId);
+                    const remaining = Math.max(0, li.quantityOrdered - li.quantityReceived);
+                    return (
+                      <TableRow key={li.id} className="border-b hover:bg-muted/10 transition-colors">
+                        <TableCell>
+                          <p className="text-sm font-black text-foreground">{item?.name ?? li.itemId}</p>
+                          <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase">{item?.sku ?? "—"}</p>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-bold text-muted-foreground">
+                          {remaining}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={remaining}
+                            value={qtys[li.id] ?? 0}
+                            onChange={(e) => handleQtyChange(li.id, remaining, e.target.value)}
+                            className="h-10 w-24 rounded-lg border-2 font-mono font-black text-right ml-auto bg-card"
+                            disabled={remaining === 0}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
-          <Button
-            className="w-full"
-            disabled={!hasAnyQty}
-            onClick={handleConfirm}
-          >
-            Confirm Receipt
-          </Button>
+            <div className="space-y-1.5 px-1">
+              <Label htmlFor="receive-notes" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Shipment Notes</Label>
+              <Textarea
+                id="receive-notes"
+                placeholder="Discrepancies, damage reports, etc."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="rounded-xl border-2 font-bold resize-none"
+              />
+            </div>
+
+            <div className="pt-4">
+              <Button
+                className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
+                disabled={!hasAnyQty}
+                onClick={handleConfirm}
+              >
+                Log Received Quantities
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full mt-2 font-bold text-muted-foreground">
+                Cancel
+              </Button>
+            </div>
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

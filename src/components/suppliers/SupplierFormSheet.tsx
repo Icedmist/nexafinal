@@ -3,12 +3,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -23,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useCreateSupplier, useUpdateSupplier } from "@/hooks/useInventoryMutations";
 import type { Supplier } from "@/types/inventory";
+import { Building2, X } from "lucide-react";
 
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -136,134 +136,133 @@ export function SupplierFormSheet({ open, onOpenChange, supplier }: SupplierForm
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{isEdit ? "Edit Supplier" : "New Supplier"}</SheetTitle>
-          <SheetDescription>
-            {isEdit ? "Update supplier details." : "Add a new supplier to the directory."}
-          </SheetDescription>
-        </SheetHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name *</FormLabel>
-                  <FormControl><Input {...field} placeholder="Supplier name" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="contactName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Person</FormLabel>
-                  <FormControl><Input {...field} placeholder="Contact name" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input type="email" {...field} placeholder="email@example.com" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl><Input {...field} placeholder="+1 555 000 0000" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <DialogTitle className="text-xl font-black tracking-tight">{isEdit ? "Edit Supplier" : "New Supplier"}</DialogTitle>
             </div>
+            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl><Textarea {...field} rows={2} placeholder="Street, City, State" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <FormField
                 control={form.control}
-                name="leadTimeDays"
+                name="name"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lead Time (days)</FormLabel>
-                    <FormControl><Input type="number" min={0} {...field} /></FormControl>
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Supplier Name *</FormLabel>
+                    <FormControl><Input {...field} placeholder="e.g. Acme Corp" className="h-11 rounded-xl border-2 font-bold" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
-                name="minOrderQuantity"
+                name="contactName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Min Order Qty</FormLabel>
-                    <FormControl><Input type="number" min={0} {...field} /></FormControl>
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Contact Person</FormLabel>
+                    <FormControl><Input {...field} placeholder="e.g. John Doe" className="h-11 rounded-xl border-2 font-bold" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
 
-            <FormField
-              control={form.control}
-              name="paymentTerms"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Terms</FormLabel>
-                  <FormControl><Input {...field} placeholder="Net 30, COD, etc." /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</FormLabel>
+                      <FormControl><Input type="email" {...field} placeholder="email@example.com" className="h-11 rounded-xl border-2 font-bold" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</FormLabel>
+                      <FormControl><Input {...field} placeholder="+234 ..." className="h-11 rounded-xl border-2 font-mono font-bold" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl><Textarea {...field} rows={3} placeholder="Additional notes…" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Physical Address</FormLabel>
+                    <FormControl><Textarea {...field} rows={2} placeholder="Street, City, State" className="rounded-xl border-2 font-bold resize-none" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit">{isEdit ? "Save Changes" : "Create Supplier"}</Button>
-            </div>
-          </form>
-        </Form>
-      </SheetContent>
-    </Sheet>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="leadTimeDays"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Lead Time (Days)</FormLabel>
+                      <FormControl><Input type="number" min={0} {...field} className="h-11 rounded-xl border-2 font-mono font-bold" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="paymentTerms"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Payment Terms</FormLabel>
+                      <FormControl><Input {...field} placeholder="e.g. Net 30" className="h-11 rounded-xl border-2 font-bold" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Additional Notes</FormLabel>
+                    <FormControl><Textarea {...field} rows={3} placeholder="Supplier relationship details..." className="rounded-xl border-2 font-bold resize-none" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1 h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20">
+                  {isEdit ? "Save Changes" : "Create Supplier"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-12 font-bold px-6 border-2">
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

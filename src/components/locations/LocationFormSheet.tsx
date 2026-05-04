@@ -4,12 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -29,9 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { X, MapPin, Building2, Layers, Info } from "lucide-react";
 import { useLocations } from "@/hooks/useLocations";
 import { useCreateLocation, useUpdateLocation } from "@/hooks/useInventoryMutations";
 import type { Location, LocationType } from "@/types/inventory";
+import { cn } from "@/lib/utils";
 
 const LOCATION_TYPES: { value: LocationType; label: string }[] = [
   { value: "warehouse", label: "Warehouse" },
@@ -158,125 +159,151 @@ export function LocationFormSheet({ open, onOpenChange, editLocation }: Location
   const noParentAllowed = VALID_PARENTS[watchedType].length === 0;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{isEdit ? "Edit Location" : "New Location"}</SheetTitle>
-          <SheetDescription>
-            {isEdit ? "Update location details." : "Add a new storage location."}
-          </SheetDescription>
-        </SheetHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Main Warehouse" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {LOCATION_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {!noParentAllowed && (
-              <FormField
-                control={form.control}
-                name="parentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Parent Location</FormLabel>
-                    <Select
-                      onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
-                      value={field.value ?? "__none__"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select parent" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {validParents.map((loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>
-                            {loc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Optional description" rows={3} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-md border border-border p-3">
-                  <FormLabel className="cursor-pointer">Active</FormLabel>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createMutation.isLoading || updateMutation.isLoading}>
-                {isEdit ? "Update" : "Create"}
-              </Button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <MapPin className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-black tracking-tight">{isEdit ? "Edit Location" : "New Location"}</DialogTitle>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Inventory Zoning</span>
+                </div>
+              </div>
             </div>
-          </form>
-        </Form>
-      </SheetContent>
-    </Sheet>
+            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-1">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5 px-1">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Location Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. North Wing Shelf B" {...field} className="h-11 rounded-xl border-2 font-bold" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 px-1">
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1.5">
+                        <div className="flex items-center gap-2 ml-1">
+                          <Layers className="h-3 w-3 text-muted-foreground" />
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Level Type</FormLabel>
+                        </div>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-11 rounded-xl border-2 font-bold">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-xl">
+                            {LOCATION_TYPES.map((t) => (
+                              <SelectItem key={t.value} value={t.value} className="font-bold">
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {!noParentAllowed && (
+                    <FormField
+                      control={form.control}
+                      name="parentId"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1.5">
+                          <div className="flex items-center gap-2 ml-1">
+                            <Building2 className="h-3 w-3 text-muted-foreground" />
+                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Hierarchy Parent</FormLabel>
+                          </div>
+                          <Select
+                            onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
+                            value={field.value ?? "__none__"}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-11 rounded-xl border-2 font-bold">
+                                <SelectValue placeholder="Select parent" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="__none__" className="font-medium italic text-muted-foreground">Independent</SelectItem>
+                              {validParents.map((loc) => (
+                                <SelectItem key={loc.id} value={loc.id} className="font-bold">
+                                  {loc.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5 px-1">
+                      <div className="flex items-center gap-2 ml-1">
+                        <Info className="h-3 w-3 text-muted-foreground" />
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Zoning Notes</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Textarea placeholder="Specific storage instructions or access requirements..." rows={2} {...field} className="rounded-xl border-2 font-bold resize-none" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between rounded-2xl border-2 border-border/50 bg-muted/10 p-4 px-5">
+                      <FormLabel className="cursor-pointer text-xs font-black uppercase tracking-widest text-foreground">Operational Status</FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex flex-col gap-3 pt-4 px-1">
+                  <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20" disabled={createMutation.isLoading || updateMutation.isLoading}>
+                    {isEdit ? "Update Location" : "Initialize Location"}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full h-11 rounded-xl font-bold text-muted-foreground">
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
