@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 export interface Refund {
@@ -20,12 +21,13 @@ interface QueryResult<T> {
 
 export function useRefunds(): QueryResult<Refund[]> {
   const { user } = useAuth();
+  const { ownerId } = useBusiness();
   const [data, setData] = useState<Refund[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !ownerId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -33,7 +35,7 @@ export function useRefunds(): QueryResult<Refund[]> {
 
     const q = query(
       collection(db, "refunds"),
-      where("ownerId", "==", user.uid),
+      where("ownerId", "==", ownerId),
       orderBy("createdAt", "desc")
     );
 
@@ -51,7 +53,7 @@ export function useRefunds(): QueryResult<Refund[]> {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, ownerId]);
 
   return { data, isLoading, error };
 }

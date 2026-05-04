@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, onSnapshot, orderBy, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import type { SaleTransaction } from "@/types/inventory";
 
 interface QueryResult<T> {
@@ -12,12 +13,13 @@ interface QueryResult<T> {
 
 export function useSales(): QueryResult<SaleTransaction[]> {
   const { user } = useAuth();
+  const { ownerId } = useBusiness();
   const [data, setData] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !ownerId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -25,7 +27,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 
     const q = query(
       collection(db, "sales"),
-      where("ownerId", "==", user.uid),
+      where("ownerId", "==", ownerId),
       orderBy("createdAt", "desc")
     );
 
@@ -43,21 +45,23 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, ownerId]);
 
   return { data, isLoading, error };
 }
 
 export function useSalesMutations() {
   const { user } = useAuth();
+  const { ownerId } = useBusiness();
 
   const addSale = async (sale: Omit<SaleTransaction, "id">) => {
-    if (!user) {
+    if (!user || !ownerId) {
       throw new Error("Authentication required to record sales. Please sign in.");
     }
     return await addDoc(collection(db, "sales"), {
       ...sale,
-      ownerId: user.uid,
+      ownerId: ownerId,
+      recordedBy: user.uid,
     });
   };
 

@@ -11,6 +11,8 @@ import type { Item, SaleTransaction } from "@/types/inventory";
 import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
 import { useSalesMutations } from "@/hooks/useSalesData";
+import { notifyActivity } from "@/lib/notification-service";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 const NAIRA = "₦";
@@ -71,6 +73,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
     toast.error("Promos are currently disabled during migration");
   };
 
+  const { user } = useAuth();
   const handleCheckout = async () => {
     const saleData: any = {
       customerName: customerName.trim() || null,
@@ -93,6 +96,16 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       const docRef = await addSale(saleData);
       const sale = { id: docRef?.id || `sale-${Date.now()}`, ...saleData };
       setLastSale(sale);
+      
+      await notifyActivity(
+        "sale",
+        "Sale Recorded",
+        `A sale of ${NAIRA}${grandTotal.toLocaleString()} was recorded by ${user?.email || "Staff"}.`,
+        user?.uid || "unknown",
+        user?.email || "unknown",
+        { saleId: sale.id, total: grandTotal }
+      );
+
       toast.success(`Sale recorded — ${NAIRA}${grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
     } catch (err) {
       console.error("Checkout Error:", err);

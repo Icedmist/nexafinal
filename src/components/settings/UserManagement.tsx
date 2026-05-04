@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { Plus, MoreHorizontal, Users, Search, ShieldCheck, Shield, User } from "lucide-react";
+import { Plus, MoreHorizontal, Users, Search, ShieldCheck, Shield, User, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import { useDemo } from "@/hooks/useDemo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,77 +14,102 @@ import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { DemoUser } from "@/lib/demo-store";
+import { useStaff, useStaffMutations } from "@/hooks/useStaffData";
+import { useLocations } from "@/hooks/useInventoryData";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import type { Staff } from "@/types/tenant";
 
-type RoleType = DemoUser["role"];
-const ROLE_LABELS: Record<RoleType, string> = { admin: "Admin", manager: "Inventory Manager", requestor: "Requestor" };
-const ROLE_COLORS: Record<RoleType, string> = { admin: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", manager: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", requestor: "bg-muted text-muted-foreground" };
-const CURRENT_USER_ID = "user-01"; // Alice is the logged-in admin in demo
+type RoleType = "admin" | "manager" | "staff";
+const ROLE_LABELS: Record<RoleType, string> = { admin: "Admin", manager: "Inventory Manager", staff: "Staff" };
+const ROLE_COLORS: Record<RoleType, string> = { admin: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", manager: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", staff: "bg-muted text-muted-foreground" };
 
 export function UserManagement() {
-  const { demoStore, bumpVersion, version } = useDemo();
-  const users = useMemo(() => demoStore?.getUsers() ?? [], [demoStore, version]);
+  const { user: currentUser } = useAuth();
+  const { data: staff, isLoading: staffLoading } = useStaff();
+  const { data: locations } = useLocations();
+  const { addStaff, updateStaff } = useStaffMutations();
 
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<RoleType>("requestor");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState<RoleType>("staff");
+  const [inviteBranch, setInviteBranch] = useState<string>("");
   const [inviteError, setInviteError] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
-  const [roleChange, setRoleChange] = useState<{ user: DemoUser; newRole: RoleType } | null>(null);
-  const [deactivateTarget, setDeactivateTarget] = useState<DemoUser | null>(null);
+  const [roleChange, setRoleChange] = useState<{ user: Staff; newRole: RoleType } | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<Staff | null>(null);
 
   const filtered = useMemo(() => {
-    if (!search) return users;
+    if (!search) return staff;
     const q = search.toLowerCase();
-    return users.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
-  }, [users, search]);
+    return staff.filter((u) => u.displayName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }, [staff, search]);
 
-  const adminCount = users.filter((u) => u.role === "admin" && u.status === "active").length;
+  const adminCount = staff.filter((u) => u.role === "admin" && u.isActive).length;
+  const isLastAdmin = (user: Staff) => user.role === "admin" && user.isActive && adminCount <= 1;
 
-  const isLastAdmin = (user: DemoUser) => user.role === "admin" && user.status === "active" && adminCount <= 1;
-
-  // ─── Invite ───────────────────────────────────────────
-  const handleInvite = () => {
+  const handleInvite = async () => {
     const email = inviteEmail.trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setInviteError("Valid email required"); return; }
-    if (users.some((u) => u.email.toLowerCase() === email)) { setInviteError("User already exists"); return; }
+    if (staff.some((u) => u.email.toLowerCase() === email)) { setInviteError("User already exists"); return; }
+    if (!inviteName) { setInviteError("Name is required"); return; }
+    
     setInviteLoading(true);
-    setTimeout(() => {
-      demoStore?.addUser({ id: crypto.randomUUID(), name: email.split("@")[0], email, role: inviteRole, status: "pending", joinedAt: new Date().toISOString() });
-      bumpVersion();
+    try {
+      await addStaff({
+        email,
+        displayName: inviteName,
+        role: inviteRole,
+        branchId: inviteBranch || null as any,
+      });
       toast.success(`Invitation sent to ${email}`);
-      setInviteOpen(false); setInviteEmail(""); setInviteRole("requestor"); setInviteError(""); setInviteLoading(false);
-    }, 400);
+      setInviteOpen(false); setInviteEmail(""); setInviteName(""); setInviteRole("staff"); setInviteBranch(""); setInviteError("");
+    } catch (err: any) {
+      setInviteError(err.message || "Failed to invite user");
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
-  // ─── Role change ──────────────────────────────────────
-  const confirmRoleChange = () => {
-    if (!roleChange || !demoStore) return;
-    demoStore.updateUser(roleChange.user.id, { role: roleChange.newRole });
-    bumpVersion();
-    toast.success(`${roleChange.user.name}'s role changed to ${ROLE_LABELS[roleChange.newRole]}`);
-    setRoleChange(null);
+  const confirmRoleChange = async () => {
+    if (!roleChange) return;
+    try {
+      await updateStaff((roleChange.user as any).id, { role: roleChange.newRole });
+      toast.success(`${roleChange.user.displayName}'s role changed to ${ROLE_LABELS[roleChange.newRole]}`);
+      setRoleChange(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to change role");
+    }
   };
 
-  // ─── Deactivate / Reactivate ──────────────────────────
-  const confirmDeactivate = () => {
-    if (!deactivateTarget || !demoStore) return;
-    demoStore.updateUser(deactivateTarget.id, { status: "inactive" });
-    bumpVersion();
-    toast.success(`${deactivateTarget.name} deactivated`);
-    setDeactivateTarget(null);
+  const confirmDeactivate = async () => {
+    if (!deactivateTarget) return;
+    try {
+      await updateStaff((deactivateTarget as any).id, { isActive: false });
+      toast.success(`${deactivateTarget.displayName} deactivated`);
+      setDeactivateTarget(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to deactivate user");
+    }
   };
 
-  const handleReactivate = (user: DemoUser) => {
-    demoStore?.updateUser(user.id, { status: "active" });
-    bumpVersion();
-    toast.success(`${user.name} reactivated`);
+  const handleReactivate = async (user: Staff) => {
+    try {
+      await updateStaff((user as any).id, { isActive: true });
+      toast.success(`${user.displayName} reactivated`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reactivate user");
+    }
   };
 
-  if (users.length === 0) {
-    return <EmptyState icon={Users} title="No users found" description="Users will appear here once people sign up or are invited." />;
+  if (staffLoading) {
+    return (
+      <div className="flex h-32 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   return (
@@ -93,14 +117,13 @@ export function UserManagement() {
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search users…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-white" />
+          <Input placeholder="Search staff…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-white" />
         </div>
         <Button size="sm" onClick={() => setInviteOpen(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> Invite User
+          <Plus className="mr-1.5 h-3.5 w-3.5" /> Invite Staff
         </Button>
       </div>
 
-      {/* Desktop table */}
       <div className="hidden sm:block rounded-lg border border-border">
         <Table>
           <TableHeader>
@@ -108,6 +131,7 @@ export function UserManagement() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Branch</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="w-[80px]" />
@@ -115,25 +139,30 @@ export function UserManagement() {
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No users found</TableCell></TableRow>
-            ) : filtered.map((user) => (
-              <TableRow key={user.id} className={cn(user.status === "inactive" && "opacity-50")}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No staff found</TableCell></TableRow>
+            ) : filtered.map((staffMember) => (
+              <TableRow key={(staffMember as any).id} className={cn(!staffMember.isActive && "opacity-50")}>
+                <TableCell className="font-medium">{staffMember.displayName}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{staffMember.email}</TableCell>
                 <TableCell>
-                  <RoleDropdown user={user} currentUserId={CURRENT_USER_ID} adminCount={adminCount} isLastAdmin={isLastAdmin(user)}
-                    onChangeRole={(newRole) => setRoleChange({ user, newRole })} />
+                  <RoleDropdown user={staffMember} currentUserId={currentUser?.uid || ""} adminCount={adminCount} isLastAdmin={isLastAdmin(staffMember)}
+                    onChangeRole={(newRole) => setRoleChange({ user: staffMember, newRole })} />
                 </TableCell>
                 <TableCell>
-                  <Badge variant={user.status === "active" ? "default" : user.status === "pending" ? "outline" : "secondary"}
-                    className={cn("text-xs", user.status === "inactive" && "bg-muted text-muted-foreground")}>
-                    {user.status}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                    <MapPin className="h-3 w-3" />
+                    {locations.find(l => l.id === staffMember.branchId)?.name || "All Branches"}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={staffMember.isActive ? "default" : "secondary"} className={cn("text-[10px] font-black uppercase tracking-wider")}>
+                    {staffMember.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{format(new Date(user.joinedAt), "MMM d, yyyy")}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{format(new Date(staffMember.createdAt), "MMM d, yyyy")}</TableCell>
                 <TableCell>
-                  <UserActions user={user} currentUserId={CURRENT_USER_ID} isLastAdmin={isLastAdmin(user)}
-                    onDeactivate={() => setDeactivateTarget(user)} onReactivate={() => handleReactivate(user)} />
+                  <UserActions user={staffMember} currentUserId={currentUser?.uid || ""} isLastAdmin={isLastAdmin(staffMember)}
+                    onDeactivate={() => setDeactivateTarget(staffMember)} onReactivate={() => handleReactivate(staffMember)} />
                 </TableCell>
               </TableRow>
             ))}
@@ -141,52 +170,54 @@ export function UserManagement() {
         </Table>
       </div>
 
-      {/* Mobile card layout */}
-      <div className="sm:hidden space-y-3">
-        {filtered.map((user) => (
-          <div key={user.id} className={cn("rounded-lg border border-border p-3 space-y-2", user.status === "inactive" && "opacity-50")}>
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-sm">{user.name}</span>
-              <UserActions user={user} currentUserId={CURRENT_USER_ID} isLastAdmin={isLastAdmin(user)}
-                onDeactivate={() => setDeactivateTarget(user)} onReactivate={() => handleReactivate(user)} />
-            </div>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
-            <div className="flex items-center gap-2">
-              <Badge className={cn("text-xs", ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</Badge>
-              <Badge variant={user.status === "active" ? "default" : "secondary"} className="text-xs">{user.status}</Badge>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Invite Dialog */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invite User</DialogTitle>
-            <DialogDescription>Send an invitation email to add a new team member.</DialogDescription>
+            <DialogTitle>Invite Staff</DialogTitle>
+            <DialogDescription>Add a new team member and assign them a branch.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input type="email" value={inviteEmail} onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }} placeholder="user@example.com" />
-              {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
+             <div className="space-y-1.5">
+              <Label>Full Name</Label>
+              <Input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="John Doe" />
             </div>
             <div className="space-y-1.5">
-              <Label>Role</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as RoleType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Inventory Manager</SelectItem>
-                  <SelectItem value="requestor">Requestor</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Work Email</Label>
+              <Input type="email" value={inviteEmail} onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }} placeholder="user@store.com" />
+              {inviteError && <p className="text-xs text-destructive font-bold">{inviteError}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Role</Label>
+                <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as RoleType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="manager">Inventory Manager</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Branch</Label>
+                <Select value={inviteBranch} onValueChange={setInviteBranch}>
+                  <SelectTrigger><SelectValue placeholder="All Branches" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {locations.map(l => (
+                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setInviteOpen(false)}>Cancel</Button>
-            <Button onClick={handleInvite} disabled={inviteLoading}>{inviteLoading ? "Sending…" : "Send Invite"}</Button>
+            <Button onClick={handleInvite} disabled={inviteLoading}>
+              {inviteLoading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : "Invite Staff"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -197,7 +228,7 @@ export function UserManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Change role?</AlertDialogTitle>
             <AlertDialogDescription>
-              Change {roleChange?.user.name}'s role from <strong>{roleChange ? ROLE_LABELS[roleChange.user.role] : ""}</strong> to <strong>{roleChange ? ROLE_LABELS[roleChange.newRole] : ""}</strong>?
+              Change {roleChange?.user.displayName}'s role to <strong>{roleChange ? ROLE_LABELS[roleChange.newRole] : ""}</strong>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -211,7 +242,7 @@ export function UserManagement() {
       <AlertDialog open={!!deactivateTarget} onOpenChange={(open) => !open && setDeactivateTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate {deactivateTarget?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate {deactivateTarget?.displayName}?</AlertDialogTitle>
             <AlertDialogDescription>They will lose access immediately. You can reactivate them later.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -224,19 +255,18 @@ export function UserManagement() {
   );
 }
 
-// ─── Role Dropdown ──────────────────────────────────────
 function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, onChangeRole }: {
-  user: DemoUser; currentUserId: string; adminCount: number; isLastAdmin: boolean;
+  user: Staff; currentUserId: string; adminCount: number; isLastAdmin: boolean;
   onChangeRole: (role: RoleType) => void;
 }) {
-  const isSelf = user.id === currentUserId;
+  const isSelf = user.uid === currentUserId;
 
   if (isSelf) {
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge className={cn("text-xs cursor-default", ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</Badge>
+            <Badge className={cn("text-[10px] cursor-default font-black uppercase tracking-wider", ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</Badge>
           </TooltipTrigger>
           <TooltipContent>Cannot change your own role</TooltipContent>
         </Tooltip>
@@ -249,7 +279,7 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, onChangeRo
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge className={cn("text-xs cursor-default", ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</Badge>
+            <Badge className={cn("text-[10px] cursor-default font-black uppercase tracking-wider", ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</Badge>
           </TooltipTrigger>
           <TooltipContent>Cannot change role — this is the only admin. Promote another user first.</TooltipContent>
         </Tooltip>
@@ -269,22 +299,21 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, onChangeRo
         <SelectItem value="manager">
           <div className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" />Inventory Manager</div>
         </SelectItem>
-        <SelectItem value="requestor">
-          <div className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />Requestor</div>
+        <SelectItem value="staff">
+          <div className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />Staff</div>
         </SelectItem>
       </SelectContent>
     </Select>
   );
 }
 
-// ─── User Actions ───────────────────────────────────────
 function UserActions({ user, currentUserId, isLastAdmin, onDeactivate, onReactivate }: {
-  user: DemoUser; currentUserId: string; isLastAdmin: boolean;
+  user: Staff; currentUserId: string; isLastAdmin: boolean;
   onDeactivate: () => void; onReactivate: () => void;
 }) {
-  const isSelf = user.id === currentUserId;
-  const canDeactivate = !isSelf && !isLastAdmin && user.status !== "inactive";
-  const canReactivate = user.status === "inactive";
+  const isSelf = user.uid === currentUserId;
+  const canDeactivate = !isSelf && !isLastAdmin && user.isActive;
+  const canReactivate = !user.isActive;
 
   return (
     <DropdownMenu>

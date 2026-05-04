@@ -1,5 +1,5 @@
-import { formatDistanceToNow } from "date-fns";
-import { PackageCheck, PackageMinus, PenLine, ArrowLeftRight } from "lucide-react";
+import { format } from "date-fns";
+import { PackageCheck, PackageMinus, PenLine, ArrowLeftRight, Package } from "lucide-react";
 import { MovementType, type StockMovement } from "@/types/inventory";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -7,6 +7,13 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   [MovementType.Shipped]: PackageMinus,
   [MovementType.Adjusted]: PenLine,
   [MovementType.Transferred]: ArrowLeftRight,
+};
+
+const LABELS: Record<string, string> = {
+  [MovementType.Received]: "Stock Received",
+  [MovementType.Shipped]: "Stock Dispatched",
+  [MovementType.Adjusted]: "Stock Adjustment",
+  [MovementType.Transferred]: "Stock Transfer",
 };
 
 interface ActivityItemProps {
@@ -18,23 +25,24 @@ export function ActivityItem({ movement, itemName }: ActivityItemProps) {
   const Icon = ICONS[movement.type] ?? ArrowLeftRight;
   const isIn = movement.type === MovementType.Received;
   const qtyPrefix = isIn ? "+" : "-";
-  const qtyColor = isIn ? "text-stock-healthy" : "text-stock-out";
+  const qtyColor = isIn ? "text-emerald-500" : "text-rose-500";
 
   return (
-    <div className="flex items-center gap-3 py-2.5">
-      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-        {itemName ?? movement.itemId}
-      </span>
-      <span className={`shrink-0 font-mono text-sm font-medium ${qtyColor}`}>
-        {qtyPrefix}{Math.abs(movement.quantity)}
-      </span>
-      <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-        {movement.performedBy}
-      </span>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        {formatDistanceToNow(new Date(movement.createdAt), { addSuffix: true })}
-      </span>
+    <div className="flex gap-4 group">
+      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted group-hover:bg-primary/10 transition-colors">
+        <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+      </div>
+      <div className="space-y-1 flex-1 min-w-0">
+        <p className="text-sm font-bold text-foreground leading-none">
+          {LABELS[movement.type]}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">
+          <span className={`font-black ${qtyColor}`}>{qtyPrefix}{Math.abs(movement.quantity)}</span> {itemName || movement.itemId}
+        </p>
+        <p className="text-[10px] font-medium text-muted-foreground/60 uppercase">
+          {format(new Date(movement.createdAt), "HH:mm")} • {movement.performedBy}
+        </p>
+      </div>
     </div>
   );
 }

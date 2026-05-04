@@ -1,34 +1,52 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import * as React from 'react';
+import { 
+  User, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword,
+  signOut
+} from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { notifyActivity } from '@/lib/notification-service';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  login: (email: string, pass: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
+const AuthContext = React.createContext<AuthContextType>({
   user: null,
   loading: true,
+  login: async () => {},
+  logout: async () => {},
 });
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => React.useContext(AuthContext);
 
 export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = React.useState<User | null>(null);
+  const [loading, setLoading] = React.useState(true);
 
-  useEffect(() => {
+  const login = async (email: string, pass: string) => {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    if (cred.user) {
+      await notifyActivity(
+        "login",
+        "Staff Login",
+        `${cred.user.email} logged into the store.`,
+        cred.user.uid,
+        cred.user.email || ""
+      );
+    }
+  };
+
+  const logout = async () => {
+    await signOut(auth);
+  };
+
+  React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
-        // Automatically sign in anonymously if no user is present.
-        // This ensures demo users can write to Firestore collections.
-        try {
-          await signInAnonymously(auth);
-        } catch (err) {
-          console.error("Anonymous sign-in failed:", err);
-        }
-      }
       setUser(currentUser);
       setLoading(false);
     });
@@ -37,7 +55,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );

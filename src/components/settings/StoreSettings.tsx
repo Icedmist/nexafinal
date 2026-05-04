@@ -31,12 +31,13 @@ export function StoreSettings() {
     try {
       await updateProfile({
         storeDetails: {
+          ...profile?.storeDetails,
           name: storeName.trim(),
           phone: phone.trim(),
           address: address.trim(),
           receiptFooter: receiptFooter.trim(),
           taxRate: parseFloat(taxRate) || 0,
-        }
+        } as any
       });
       toast.success("Store settings saved");
     } catch (err) {

@@ -3,6 +3,12 @@ import { useDemo } from "@/hooks/useDemo";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { useState, useEffect } from "react";
 import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
+import { useTenant } from "@/hooks/useTenant";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import {
   Package,
   BarChart3,
@@ -337,11 +343,103 @@ function FeatureTabsSection() {
   );
 }
 
+function StoreLoginPage({ store }: { store: any }) {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await login(email, password);
+      toast.success(`Welcome back to ${store.name}`);
+      navigate({ to: "/app/dashboard" });
+    } catch (err: any) {
+      toast.error(err.message || "Invalid credentials");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 flex text-primary mb-6">
+             <Package className="h-8 w-8" />
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Sign into {store.name}</h1>
+          <p className="mt-2 text-sm font-medium text-muted-foreground">Enter your staff credentials to continue</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="mt-8 space-y-6 rounded-[2rem] border border-border bg-card p-8 shadow-2xl">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Work Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@store.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-12 rounded-xl"
+              />
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20" disabled={loading}>
+            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : "Sign In"}
+          </Button>
+        </form>
+
+        <p className="text-center text-xs font-bold text-muted-foreground uppercase tracking-widest">
+          Store OS by NEXA Core
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Page ───────────────────────────────────────────── */
 function LandingPage() {
   const { enterDemoMode } = useDemo();
+  const { store, loading: tenantLoading } = useTenant();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      navigate({ to: "/app/dashboard" });
+    }
+  }, [user, navigate]);
+
+  if (tenantLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (store) {
+    return <StoreLoginPage store={store} />;
+  }
 
   const handleTryDemo = () => {
     setShowOnboarding(true);

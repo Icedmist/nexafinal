@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 export interface Expense {
@@ -21,12 +22,13 @@ interface QueryResult<T> {
 
 export function useExpenses(): QueryResult<Expense[]> {
   const { user } = useAuth();
+  const { ownerId } = useBusiness();
   const [data, setData] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !ownerId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -34,7 +36,7 @@ export function useExpenses(): QueryResult<Expense[]> {
 
     const q = query(
       collection(db, "expenses"),
-      where("ownerId", "==", user.uid),
+      where("ownerId", "==", ownerId),
       orderBy("createdAt", "desc")
     );
 
@@ -52,7 +54,7 @@ export function useExpenses(): QueryResult<Expense[]> {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, ownerId]);
 
   return { data, isLoading, error };
 }
