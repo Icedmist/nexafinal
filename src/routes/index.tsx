@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useDemo } from "@/hooks/useDemo";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { useState, useEffect } from "react";
@@ -6,9 +6,6 @@ import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
 import { useTenant } from "@/hooks/useTenant";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
 import {
   Package,
   BarChart3,
@@ -25,121 +22,23 @@ import {
   X,
   Layers,
   Sparkles,
+  Command,
+  Smartphone,
 } from "lucide-react";
-import heroBox3d from "@/assets/hero-box.png";
-import uiScreenshot from "@/assets/ui-screenshot-dashboard-v2.png.asset.json";
+import nexaMobileHero from "@/assets/nexa-mobile-hero.png";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
     meta: [
-      { title: "NEXA Store OS — Inventory Command Center" },
+      { title: "NEXA Store OS — Command Center for Modern Retail" },
       {
         name: "description",
-        content:
-          "Real-time inventory management for businesses of any size. Track stock, manage suppliers, automate reorders, and keep your team aligned.",
-      },
-      { property: "og:title", content: "NEXA Store OS — Inventory Command Center" },
-      {
-        property: "og:description",
-        content:
-          "Real-time inventory management for businesses of any size. Track stock, manage suppliers, automate reorders, and keep your team aligned.",
+        content: "The OS for modern retail commerce. Track stock, manage suppliers, and automate reorders from your pocket.",
       },
     ],
   }),
 });
-
-/* ─── Data ──────────────────────────────────────────── */
-const navLinks = [
-  { label: "Features", href: "#features" },
-  { label: "Solutions", href: "#solutions" },
-  { label: "Analytics", href: "#analytics" },
-];
-
-const solutions = [
-  {
-    icon: BarChart3,
-    title: "Real-time tracking",
-    description: "Monitor stock levels across every location with live dashboards and instant status updates.",
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    icon: Bell,
-    title: "Smart reorders",
-    description: "Automated thresholds and AI-powered forecasting prevent stockouts before they happen.",
-    color: "bg-secondary/10 text-secondary",
-  },
-  {
-    icon: Truck,
-    title: "Supplier management",
-    description: "Unified view of contacts, lead times, purchase history, and performance scoring.",
-    color: "bg-accent/20 text-accent-foreground",
-  },
-  {
-    icon: TrendingUp,
-    title: "Analytics & reports",
-    description: "Turn movement data into insights with trend charts, turnover analysis, and exports.",
-    color: "bg-primary/10 text-primary",
-  },
-];
-
-const featureTabs = [
-  {
-    label: "Dashboard",
-    description: "See what matters most: stock levels, pending orders, recent movements, and alerts that need attention.",
-    image: uiScreenshot.url,
-  },
-  {
-    label: "Catalog",
-    description: "Powerful search, filters, bulk actions, and custom fields let you manage hundreds of SKUs effortlessly.",
-    image: uiScreenshot.url,
-  },
-  {
-    label: "Analytics",
-    description: "From stock trends to supplier performance, turn raw data into actionable insights and forecasts.",
-    image: uiScreenshot.url,
-  },
-];
-
-const features = [
-  {
-    icon: BarChart3,
-    title: "Real-time tracking",
-    description: "Monitor stock levels across every location as changes happen, with instant dashboards and live status indicators.",
-  },
-  {
-    icon: Bell,
-    title: "Smart reorder alerts",
-    description: "Get notified before you run out. Automated thresholds and AI-powered forecasting keep shelves stocked.",
-  },
-  {
-    icon: Truck,
-    title: "Supplier management",
-    description: "Organize contacts, lead times, and purchase history in one unified view with performance scoring.",
-  },
-  {
-    icon: ScanLine,
-    title: "Barcode scanning",
-    description: "Speed up receiving and cycle counts with built-in barcode support and quick-entry mode.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Analytics & reports",
-    description: "Turn movement data into insights with trend charts, turnover analysis, and exportable reports.",
-  },
-  {
-    icon: Users,
-    title: "Team roles & permissions",
-    description: "Control who can view, edit, or approve with granular role-based access and approval workflows.",
-  },
-];
-
-const capabilities = [
-  { icon: Shield, text: "Role-based access" },
-  { icon: Globe, text: "Multi-location support" },
-  { icon: ScanLine, text: "Barcode ready" },
-  { icon: Zap, text: "AI-powered insights" },
-];
 
 /* ─── Components ────────────────────────────────────── */
 
@@ -156,8 +55,8 @@ function RevealSection({
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${
-        isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+      className={`transition-all duration-1000 ease-out ${
+        isVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"
       } ${className}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
@@ -166,505 +65,300 @@ function RevealSection({
   );
 }
 
-function StickyNav({ onTryDemo }: { onTryDemo: () => void }) {
+function Nav() {
   const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-background/80 border-b border-border shadow-sm backdrop-blur-xl"
-          : "bg-transparent"
-      }`}
-    >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        {/* Logo */}
-        <a href="#" className="flex items-center gap-2 group">
-          <div className="bg-primary rounded-xl p-1.5 transition-transform group-hover:rotate-12">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 px-6 py-4 ${scrolled ? "bg-background/80 backdrop-blur-xl border-b border-border shadow-lg" : "bg-transparent"}`}>
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2 group">
+          <div className="bg-primary rounded-xl p-2 shadow-lg shadow-primary/20 transition-transform group-hover:rotate-12">
             <Package className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            NEXA Store OS
-          </span>
-        </a>
+          <span className="text-xl font-black tracking-tight uppercase italic">NEXA</span>
+        </Link>
 
-        {/* Desktop nav links */}
-        <div className="hidden items-center gap-10 md:flex">
-          {navLinks.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              onClick={(e) => {
-                e.preventDefault();
-                document.querySelector(l.href)?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="text-sm font-semibold text-muted-foreground transition-all hover:text-primary hover:scale-105"
-            >
-              {l.label}
-            </a>
-          ))}
+        <div className="flex items-center gap-4">
+          {user ? (
+            <Link to="/app/dashboard">
+              <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest gap-2">
+                Dashboard <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link to="/auth/login">
+                <Button variant="ghost" className="font-bold text-sm rounded-xl">Login</Button>
+              </Link>
+              <Link to="/auth/signup">
+                <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest px-6 shadow-lg shadow-primary/20">Get Started</Button>
+              </Link>
+            </>
+          )}
         </div>
-
-        {/* Desktop CTA - secondary style */}
-        <button
-          type="button"
-          onClick={onTryDemo}
-          className="hidden items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-6 py-2.5 text-sm font-bold text-primary transition-all hover:bg-primary hover:text-primary-foreground md:inline-flex shadow-sm hover:shadow-primary/20"
-        >
-          Try demo
-        </button>
-
-        {/* Mobile hamburger */}
-        <button
-          type="button"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden p-2 text-foreground"
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
       </div>
-
-      {/* Mobile dropdown */}
-      {mobileOpen && (
-        <div className="border-t border-border bg-background/95 backdrop-blur-lg px-6 pb-8 md:hidden">
-          {navLinks.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              onClick={(e) => {
-                e.preventDefault();
-                setMobileOpen(false);
-                document.querySelector(l.href)?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="block py-4 text-base font-semibold text-muted-foreground transition-colors hover:text-primary border-b border-border/50"
-            >
-              {l.label}
-            </a>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setMobileOpen(false);
-              onTryDemo();
-            }}
-            className="mt-6 w-full rounded-xl bg-primary px-6 py-3.5 text-base font-bold text-primary-foreground shadow-lg"
-          >
-            Try demo
-          </button>
-        </div>
-      )}
     </nav>
   );
 }
 
-function BrowserFrame({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`overflow-hidden rounded-3xl border border-border/50 bg-card shadow-2xl ${className}`}>
-      <div className="flex items-center gap-2 border-b border-border/30 bg-muted/30 px-6 py-4">
-        <div className="flex gap-1.5">
-          <div className="h-3 w-3 rounded-full bg-destructive/40" />
-          <div className="h-3 w-3 rounded-full bg-secondary/40" />
-          <div className="h-3 w-3 rounded-full bg-stock-healthy/40" />
-        </div>
-        <div className="mx-auto text-[10px] text-muted-foreground/50 font-mono tracking-widest uppercase">nexa-os-v2.0</div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function FeatureTabsSection() {
-  const [activeTab, setActiveTab] = useState(0);
-
-  return (
-    <section id="analytics" className="px-6 py-24 sm:py-32 bg-muted/30">
-      <RevealSection className="text-center mb-16">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold text-primary uppercase tracking-wider">
-          <Sparkles className="h-3.5 w-3.5" />
-          Product tour
-        </div>
-        <h2 className="mt-6 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-          Drive your business forward
-        </h2>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
-          Explore the modules that give you complete control over your supply chain, from dashboard to deep analytics.
-        </p>
-      </RevealSection>
-
-      <div className="mx-auto flex max-w-7xl flex-col gap-10 lg:flex-row lg:gap-16">
-        {/* Tab list */}
-        <div className="flex justify-center gap-3 overflow-x-auto pb-4 lg:w-96 lg:shrink-0 lg:justify-start lg:flex-col lg:gap-4 lg:pb-0">
-          {featureTabs.map((tab, i) => (
-            <button
-              key={tab.label}
-              type="button"
-              onClick={() => setActiveTab(i)}
-              className={`shrink-0 rounded-2xl p-6 text-left transition-all duration-300 lg:w-full ${
-                activeTab === i
-                  ? "bg-card text-foreground shadow-xl ring-1 ring-primary/20 scale-[1.02]"
-                  : "bg-transparent text-muted-foreground hover:bg-card/50 hover:text-foreground"
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${activeTab === i ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                   {i === 0 ? <BarChart3 className="h-4 w-4" /> : i === 1 ? <Package className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
-                </div>
-                <span className="font-bold text-base">{tab.label}</span>
-              </div>
-              <p className={`text-sm leading-relaxed ${activeTab === i ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
-                {tab.description}
-              </p>
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div className="flex-1 relative">
-           <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full -z-10 transform scale-75 translate-y-10" />
-          <BrowserFrame>
-            <img
-              src={featureTabs[activeTab].image}
-              alt={`NEXA Store OS ${featureTabs[activeTab].label} view`}
-              className="w-full transition-opacity duration-500 rounded-b-2xl"
-              key={activeTab}
-            />
-          </BrowserFrame>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function StoreLoginPage({ store }: { store: any }) {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await login(email, password);
-      toast.success(`Welcome back to ${store.name}`);
-      navigate({ to: "/app/dashboard" });
-    } catch (err: any) {
-      toast.error(err.message || "Invalid credentials");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 flex text-primary mb-6">
-             <Package className="h-8 w-8" />
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Sign into {store.name}</h1>
-          <p className="mt-2 text-sm font-medium text-muted-foreground">Enter your staff credentials to continue</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="mt-8 space-y-6 rounded-[2rem] border border-border bg-card p-8 shadow-2xl">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Work Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@store.com"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-12 rounded-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12 rounded-xl"
-              />
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20" disabled={loading}>
-            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : "Sign In"}
-          </Button>
-        </form>
-
-        <p className="text-center text-xs font-bold text-muted-foreground uppercase tracking-widest">
-          Store OS by NEXA Core
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Page ───────────────────────────────────────────── */
 function LandingPage() {
   const { enterDemoMode } = useDemo();
   const { store, loading: tenantLoading } = useTenant();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [showOnboarding, setShowOnboarding] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      navigate({ to: "/app/dashboard" });
-    }
-  }, [user, navigate]);
 
   if (tenantLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
 
-  if (store) {
-    return <StoreLoginPage store={store} />;
-  }
-
-  const handleTryDemo = () => {
-    setShowOnboarding(true);
-  };
+  const handleTryDemo = () => setShowOnboarding(true);
 
   const handleOnboardingComplete = (_businessType: string, _categories: string[], _storeName: string) => {
     enterDemoMode({ businessType: _businessType, categories: _categories, storeName: _storeName, storePhone: "", storeAddress: "", receiptFooter: "Thank you for your patronage!", taxRate: 0 });
-    localStorage.setItem("nexa-onboarding-done", "true");
-    localStorage.setItem("nexa-business-type", _businessType);
-    localStorage.setItem("nexa-categories", JSON.stringify(_categories));
-    localStorage.setItem("nexa-store-name", _storeName);
-    setShowOnboarding(false);
-    navigate({ to: "/app/dashboard" });
-  };
-
-  const handleOnboardingSkip = () => {
-    enterDemoMode();
-    localStorage.setItem("nexa-onboarding-done", "true");
-    setShowOnboarding(false);
     navigate({ to: "/app/dashboard" });
   };
 
   return (
     <>
-    {showOnboarding && (
-      <BusinessOnboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
-    )}
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
-      {/* Mesh Gradient Background */}
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/5 blur-[120px]" />
-        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/5 blur-[150px]" />
-      </div>
+      {showOnboarding && (
+        <BusinessOnboarding 
+          onComplete={handleOnboardingComplete} 
+          onSkip={() => { enterDemoMode(); navigate({ to: "/app/dashboard" }); }} 
+        />
+      )}
 
-      <StickyNav onTryDemo={handleTryDemo} />
+      <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30">
+        <Nav />
 
-      {/* ── Split Hero ─────────────────────────────────── */}
-      <section className="relative px-6 pt-32 pb-20 sm:pt-40 sm:pb-32 overflow-hidden">
-        <div className="mx-auto flex max-w-4xl flex-col items-center text-center relative">
-          <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-radial from-primary/10 to-transparent blur-3xl -z-10" />
-          
-          <div className="animate-float mb-8">
-            <img
-              src={heroBox3d}
-              alt="3D illustration of a cardboard box"
-              className="mx-auto w-56 drop-shadow-2xl sm:w-64 transform -rotate-6"
+        {/* ── Hero Section ─────────────────────────────── */}
+        <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-40 px-6">
+          <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+            
+            {/* Left Column: Text */}
+            <div className="flex-1 text-center lg:text-left">
+              <RevealSection>
+                <div className="inline-flex items-center gap-2 rounded-full border-2 border-primary/20 bg-primary/5 px-4 py-1.5 mb-8">
+                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">v2.0 Command Center</span>
+                </div>
+                <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tighter mb-8 bg-gradient-to-b from-foreground to-foreground/50 bg-clip-text text-transparent">
+                  Control your <br /> Commerce. <br /> 
+                  <span className="text-primary italic">Anywhere.</span>
+                </h1>
+                <p className="text-lg md:text-xl text-muted-foreground font-medium max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10">
+                  NEXA is the unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand — all from a single interface designed for speed.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
+                  <Button 
+                    onClick={handleTryDemo}
+                    className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform"
+                  >
+                    Launch Command Center <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  <Link to="/auth/signup">
+                    <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold text-sm border-2">
+                      Create Business Account
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="mt-12 flex items-center gap-6 justify-center lg:justify-start grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-primary" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Mobile First</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Secure Cloud</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Real-time sync</span>
+                  </div>
+                </div>
+              </RevealSection>
+            </div>
+
+            {/* Right Column: Visual */}
+            <div className="flex-1 relative lg:w-1/2">
+              <RevealSection delay={300} className="relative z-10">
+                <div className="absolute -inset-4 bg-primary/20 blur-[100px] rounded-full -z-10 animate-pulse" />
+                <img 
+                  src={nexaMobileHero} 
+                  alt="NEXA Mobile Experience" 
+                  className="w-full max-w-[600px] mx-auto lg:mx-0 drop-shadow-[0_50px_50px_rgba(0,0,0,0.5)] transform hover:scale-[1.02] transition-transform duration-700"
+                />
+                
+                {/* Floating elements */}
+                <div className="absolute top-1/4 -right-12 hidden xl:block animate-float">
+                  <div className="bg-card/80 backdrop-blur-md border-2 border-border p-4 rounded-2xl shadow-2xl flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-stock-healthy/10 flex items-center justify-center text-stock-healthy">
+                      <TrendingUp className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sales Trend</p>
+                      <p className="text-lg font-black text-foreground">+24.8%</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="absolute bottom-1/4 -left-12 hidden xl:block animate-float-delayed">
+                  <div className="bg-card/80 backdrop-blur-md border-2 border-border p-4 rounded-2xl shadow-2xl flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Active Stock</p>
+                      <p className="text-lg font-black text-foreground">1,284 Units</p>
+                    </div>
+                  </div>
+                </div>
+              </RevealSection>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Value Propositions ───────────────────────── */}
+        <section className="py-24 bg-muted/30">
+          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12">
+            <ValueProp 
+              icon={Smartphone}
+              title="Native Mobile Control"
+              description="A full-featured command center that fits in your pocket. Manage stock from the warehouse floor or the back office."
+            />
+            <ValueProp 
+              icon={Command}
+              title="Unified Operations"
+              description="Inventory, Suppliers, Analytics, and Staff Management in one cohesive OS. No more jumping between apps."
+            />
+            <ValueProp 
+              icon={Sparkles}
+              title="Intelligent Insights"
+              description="AI-powered forecasting and smart reorder alerts help you stay ahead of demand without the guesswork."
             />
           </div>
+        </section>
 
-          <RevealSection>
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-[10px] font-bold text-primary uppercase tracking-[0.2em] mb-6">
-              <Layers className="h-3 w-3" />
-              The Future of Inventory
-            </div>
-            <h1 className="text-[40px] font-black leading-[1.05] tracking-tight sm:text-[64px] lg:text-[76px] bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent">
-              The OS for modern <br className="hidden sm:block" /> retail commerce.
-            </h1>
-          </RevealSection>
-
-          <RevealSection delay={100}>
-            <p className="mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl font-medium">
-              Track stock, manage suppliers, and automate reorders from one powerful command center designed for rapid scaling.
-            </p>
-          </RevealSection>
-
-          <RevealSection delay={200} className="mt-12 flex flex-col sm:flex-row items-center gap-4">
-            <button
-              type="button"
-              onClick={handleTryDemo}
-              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-primary px-8 py-4 text-lg font-bold text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-              Launch Demo
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </button>
-            <div className="flex -space-x-3 items-center">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-10 w-10 rounded-full border-2 border-background bg-muted flex items-center justify-center overflow-hidden">
-                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`} alt="User" />
-                </div>
-              ))}
-              <span className="ml-4 text-xs font-bold text-muted-foreground">Trusted by 500+ store owners</span>
-            </div>
-          </RevealSection>
-        </div>
-      </section>
-
-      {/* ── Solutions Grid ─────────────────────────────── */}
-      <section id="solutions" className="px-6 py-24 sm:py-32">
-        <RevealSection className="text-center mb-16">
-          <div className="inline-block rounded-full bg-secondary/10 px-4 py-1.5 text-xs font-bold text-secondary uppercase tracking-wider mb-4">
-            Solutions
+        {/* ── Detailed Showcase ── */}
+        <section className="py-32 px-6">
+          <div className="max-w-7xl mx-auto">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+                <RevealSection>
+                   <h2 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-8">
+                     Built for the <br /> <span className="text-primary italic">next generation</span> <br /> of retail.
+                   </h2>
+                   <div className="space-y-8">
+                      <FeaturePoint 
+                        icon={ScanLine}
+                        title="Hyper-Fast Scanning"
+                        text="Internal logistics optimized for speed. Integrated barcode support makes receiving shipments effortless."
+                      />
+                      <FeaturePoint 
+                        icon={Globe}
+                        title="Multi-Location Sync"
+                        text="Scale to infinite branches. Real-time sync ensures every staff member sees the exact same data."
+                      />
+                      <FeaturePoint 
+                        icon={Users}
+                        title="Granular Permissions"
+                        text="Secure role-based access. Control exactly what managers, staff, and admins can see and do."
+                      />
+                   </div>
+                </RevealSection>
+                <RevealSection delay={200} className="relative">
+                   <div className="aspect-square bg-gradient-to-tr from-primary/10 to-transparent rounded-full blur-[100px] absolute inset-0" />
+                   <div className="relative rounded-[3rem] border-2 border-border bg-card p-4 shadow-2xl overflow-hidden group">
+                      <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="bg-muted aspect-video rounded-[2.5rem] flex items-center justify-center p-8">
+                         <div className="text-center">
+                            <Smartphone className="h-16 w-16 text-primary mx-auto mb-4 animate-bounce" />
+                            <p className="font-black text-xl uppercase tracking-widest">Optimized for iOS & Android</p>
+                         </div>
+                      </div>
+                   </div>
+                </RevealSection>
+             </div>
           </div>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Built for modern inventory teams
-          </h2>
-        </RevealSection>
+        </section>
 
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {solutions.map((s, i) => (
-            <RevealSection key={s.title} delay={i * 100} className="h-full">
-              <div className="group h-full rounded-3xl border border-border bg-card/50 p-8 transition-all duration-300 hover:bg-card hover:shadow-2xl hover:-translate-y-2">
-                <div className={`mb-6 inline-flex rounded-2xl p-4 ${s.color} shadow-inner`}>
-                  <s.icon className="h-6 w-6" />
+        {/* ── Final CTA ── */}
+        <section className="py-32 px-6">
+          <div className="max-w-4xl mx-auto rounded-[3rem] bg-foreground text-background p-12 md:p-24 text-center relative overflow-hidden shadow-2xl">
+             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] -z-10" />
+             <RevealSection>
+                <h2 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-8">
+                  The OS your store <br /> deserves.
+                </h2>
+                <p className="text-background/60 text-lg md:text-xl font-medium max-w-xl mx-auto mb-12">
+                  Stop wrestling with spreadsheets. Start scaling with a modern, high-performance inventory system.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
+                   <Button onClick={handleTryDemo} className="h-16 px-10 rounded-2xl bg-background text-foreground font-black uppercase tracking-widest text-xs hover:bg-background/90 transition-all">
+                     Launch Demo
+                   </Button>
+                   <Link to="/auth/signup">
+                     <Button variant="ghost" className="h-16 px-10 rounded-2xl text-background/80 hover:text-background font-bold text-lg">
+                       Create Account <ArrowRight className="ml-2 h-5 w-5" />
+                     </Button>
+                   </Link>
                 </div>
-                <h3 className="mb-3 text-lg font-bold">{s.title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground font-medium">{s.description}</p>
+             </RevealSection>
+          </div>
+        </section>
+
+        <footer className="py-20 border-t border-border px-6">
+           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+              <div className="flex items-center gap-2">
+                 <Package className="h-5 w-5 text-primary" />
+                 <span className="font-black italic text-lg uppercase">NEXA</span>
               </div>
-            </RevealSection>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Product Showcase ── */}
-      <section className="px-6 py-16">
-        <RevealSection>
-          <div className="mx-auto max-w-6xl">
-            <BrowserFrame className="shadow-2xl shadow-primary/10">
-              <img
-                src={uiScreenshot.url}
-                alt="NEXA Store OS dashboard showing inventory metrics"
-                className="w-full"
-                loading="lazy"
-              />
-            </BrowserFrame>
-          </div>
-        </RevealSection>
-      </section>
-
-      {/* ── Feature Tabs ───────────────────────────────── */}
-      <FeatureTabsSection />
-
-      {/* ── Feature Grid ─────────────────────────────── */}
-      <section id="features" className="px-6 py-24 sm:py-32">
-        <RevealSection className="text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Everything you need in one OS
-          </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground font-medium">
-            A comprehensive suite of modules built to handle the complexities of modern commerce.
-          </p>
-        </RevealSection>
-
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f, i) => (
-            <RevealSection key={f.title} delay={i * 80}>
-              <div className="group rounded-3xl border border-border bg-card/40 p-8 transition-all duration-300 hover:border-primary/50 hover:bg-card hover:shadow-xl">
-                <div className="mb-6 inline-flex rounded-xl bg-primary p-3 shadow-lg shadow-primary/20">
-                  <f.icon className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="mb-3 text-base font-bold">{f.title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground font-medium">{f.description}</p>
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">© 2026 NEXA CORE TECHNOLOGY</p>
+              <div className="flex gap-8 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
+                 <a href="#" className="hover:text-primary transition-colors">Twitter</a>
+                 <a href="#" className="hover:text-primary transition-colors">GitHub</a>
+                 <a href="#" className="hover:text-primary transition-colors">Docs</a>
               </div>
-            </RevealSection>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Capabilities Row ─────────────────────────── */}
-      <section className="px-6 py-24 bg-muted/20">
-        <RevealSection>
-          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 sm:grid-cols-4">
-            {capabilities.map((c) => (
-              <div
-                key={c.text}
-                className="flex flex-col items-center gap-4 rounded-3xl border border-border bg-card p-8 text-center transition-transform hover:scale-105"
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                  <c.icon className="h-7 w-7 text-primary" />
-                </div>
-                <span className="text-sm font-bold text-foreground">{c.text}</span>
-              </div>
-            ))}
-          </div>
-        </RevealSection>
-      </section>
-
-      {/* ── Final CTA ────────────────────────────────── */}
-      <section className="px-6 py-32">
-        <div className="mx-auto max-w-5xl rounded-[2.5rem] bg-foreground px-8 py-20 text-center sm:px-16 sm:py-24 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent opacity-50" />
-          <RevealSection className="relative z-10">
-            <div className="bg-background/10 backdrop-blur-md rounded-2xl p-4 inline-block mb-8">
-              <Package className="h-10 w-10 text-background" />
-            </div>
-            <h2 className="text-3xl font-black tracking-tight text-background sm:text-5xl lg:text-6xl mb-6">
-              Ready to scale?
-            </h2>
-            <p className="mx-auto mt-6 max-w-lg text-lg text-background/60 font-medium">
-              Start managing your inventory like a pro with NEXA Store OS. No credit card required.
-            </p>
-            <div className="mt-12">
-              <button
-                type="button"
-                onClick={handleTryDemo}
-                className="group inline-flex items-center gap-3 rounded-2xl bg-background px-10 py-5 text-lg font-black text-foreground shadow-2xl transition-all hover:scale-105 hover:bg-background/90 active:scale-95"
-              >
-                Launch NEXA OS
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </button>
-            </div>
-          </RevealSection>
-        </div>
-      </section>
-
-      {/* ── Footer ───────────────────────────────────── */}
-      <footer className="border-t border-border px-6 py-16">
-        <div className="mx-auto max-w-7xl flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-2 group">
-            <div className="bg-primary rounded-lg p-1.5">
-              <Package className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-sm font-bold tracking-tight">NEXA Store OS</span>
-          </div>
-          <div className="text-sm font-medium text-muted-foreground">
-            © {new Date().getFullYear()} NEXA Core Technology. All rights reserved.
-          </div>
-          <div className="flex gap-6">
-             <a href="#" className="text-xs font-bold text-muted-foreground hover:text-primary">Twitter</a>
-             <a href="#" className="text-xs font-bold text-muted-foreground hover:text-primary">Github</a>
-             <a href="#" className="text-xs font-bold text-muted-foreground hover:text-primary">Terms</a>
-          </div>
-        </div>
-      </footer>
-    </div>
+           </div>
+        </footer>
+      </div>
     </>
+  );
+}
+
+function ValueProp({ icon: Icon, title, description }: { icon: any; title: string; description: string }) {
+  return (
+    <RevealSection className="group">
+      <div className="mb-6 h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner transition-transform group-hover:rotate-6">
+        <Icon className="h-7 w-7" />
+      </div>
+      <h3 className="text-xl font-black mb-4 uppercase tracking-tight">{title}</h3>
+      <p className="text-muted-foreground font-medium leading-relaxed">{description}</p>
+    </RevealSection>
+  );
+}
+
+function FeaturePoint({ icon: Icon, title, text }: { icon: any; title: string; text: string }) {
+  return (
+    <div className="flex gap-6 group">
+      <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+        <Icon className="h-6 w-6" />
+      </div>
+      <div>
+        <h4 className="font-black text-lg uppercase tracking-tight mb-2">{title}</h4>
+        <p className="text-muted-foreground font-medium text-sm leading-relaxed">{text}</p>
+      </div>
+    </div>
   );
 }
