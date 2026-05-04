@@ -3,7 +3,7 @@ import { useDemo } from "@/hooks/useDemo";
 import { getPermissionsForRole, type RolePermissions, type UserRoleType } from "@/lib/roles";
 import { useBusiness } from "./BusinessContext";
 import { useAuth } from "./FirebaseAuthContext";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, query, collection, where, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export interface RoleContextValue {
@@ -28,14 +28,22 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isDemo || !user) return;
 
-    // Try finding role in staff collection first
+    // Try finding role in staff collection
     const staffRef = doc(db, 'staff', user.uid);
     const unsubStaff = onSnapshot(staffRef, (snap) => {
       if (snap.exists()) {
         setRealRole(snap.data().role as UserRoleType);
+      } else if (user.email) {
+        // Fallback: search by email if UID lookup fails
+        const q = query(collection(db, "staff"), where("email", "==", user.email), limit(1));
+        getDocs(q).then(snapshot => {
+          if (!snapshot.empty) {
+            setRealRole(snapshot.docs[0].data().role as UserRoleType);
+          } else {
+            setRealRole("admin");
+          }
+        });
       } else {
-        // Fallback to admin if they are the owner (present in users collection)
-        // This is a simplification; you might have a 'role' field in the users doc too
         setRealRole("admin");
       }
     });

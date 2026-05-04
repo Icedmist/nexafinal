@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './FirebaseAuthContext';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, query, collection, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export interface BusinessProfile {
@@ -72,6 +72,23 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 setLoadingProfile(false);
               });
               return () => unsubOwner();
+            } else if (user.email) {
+              // Fallback: search by email
+              const q = query(collection(db, "staff"), where("email", "==", user.email), limit(1));
+              const snapshot = await getDocs(q);
+              if (!snapshot.empty) {
+                const staffData = snapshot.docs[0].data();
+                const actualOwnerId = staffData.ownerId;
+                setOwnerId(actualOwnerId);
+                
+                // Load owner profile
+                const ownerRef = doc(db, 'users', actualOwnerId);
+                const ownerSnap = await getDocs(query(collection(db, 'users'), where('__name__', '==', actualOwnerId)));
+                if (!ownerSnap.empty) {
+                  setProfile(ownerSnap.docs[0].data() as BusinessProfile);
+                }
+              }
+              setLoadingProfile(false);
             } else {
               setLoadingProfile(false);
             }

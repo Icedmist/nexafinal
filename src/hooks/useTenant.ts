@@ -12,16 +12,19 @@ export function useTenant() {
     const fetchStore = async () => {
       const hostname = window.location.hostname;
       const parts = hostname.split(".");
+      const urlParams = new URLSearchParams(window.location.search);
+      const querySlug = urlParams.get("s");
       
-      // If we're on a subdomain (e.g. store.nexa.com or store.localhost)
-      // Usually subdomain is the first part if parts.length > 2 (for nexa.com)
-      // or parts.length > 1 (for localhost)
+      let slug = querySlug || "";
       
-      let slug = "";
-      if (hostname === "localhost" || hostname === "127.0.0.1") {
-        slug = ""; // Root domain
-      } else {
-        slug = parts[0];
+      if (!slug) {
+        // Support subdomains: store.localhost or store.nexa.com
+        if (hostname.endsWith(".localhost") && parts.length > 1) {
+          slug = parts[0];
+        } else if (hostname !== "localhost" && hostname !== "127.0.0.1" && parts.length > 2) {
+          // Standard production subdomain detection
+          slug = parts[0];
+        }
       }
 
       if (!slug) {

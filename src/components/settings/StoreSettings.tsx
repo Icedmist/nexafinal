@@ -66,14 +66,14 @@ export function StoreSettings() {
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2 p-4 rounded-xl border-2 border-primary/20 bg-background/50">
             <code className="flex-1 font-mono font-black text-primary text-sm truncate">
-              {window.location.protocol}//{profile?.storeDetails?.slug || "mystore"}.{window.location.host.split('.').slice(-2).join('.')}
+              {window.location.origin}/auth/login?s={profile?.storeDetails?.slug || "mystore"}
             </code>
             <Button 
               size="sm" 
               variant="outline" 
               className="rounded-lg h-8 px-3 font-bold text-xs"
               onClick={() => {
-                const url = `${window.location.protocol}//${profile?.storeDetails?.slug || "mystore"}.${window.location.host.split('.').slice(-2).join('.')}`;
+                const url = `${window.location.origin}/auth/login?s=${profile?.storeDetails?.slug || "mystore"}`;
                 navigator.clipboard.writeText(url);
                 toast.success("URL copied to clipboard");
               }}

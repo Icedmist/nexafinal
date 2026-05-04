@@ -7,12 +7,19 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Package, Eye, EyeOff } from "lucide-react";
 
+import { useTenant } from "@/hooks/useTenant";
+import { Building2 } from "lucide-react";
+
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 export const Route = createFileRoute("/auth/login")({
   component: LoginPage,
 });
 
 function LoginPage() {
-  const { login } = useAuth();
+  const { store } = useTenant();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +30,32 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      const cred = await login(email, password);
+      
+      // If we are on a store subdomain, verify authorization
+      if (store) {
+        const loggedInUser = cred.user;
+        const isOwner = store.ownerId === loggedInUser.uid;
+        
+        let isStaff = false;
+        if (!isOwner) {
+          const staffQuery = query(
+            collection(db, "staff"),
+            where("email", "==", loggedInUser.email),
+            where("ownerId", "==", store.ownerId),
+            where("isActive", "==", true),
+            limit(1)
+          );
+          const staffSnap = await getDocs(staffQuery);
+          isStaff = !staffSnap.empty;
+        }
+
+        if (!isOwner && !isStaff) {
+          await logout();
+          throw new Error(`You are not authorized to access ${store.name}.`);
+        }
+      }
+
       toast.success("Welcome back!");
       navigate({ to: "/app/dashboard" });
     } catch (err: any) {
@@ -36,11 +68,15 @@ function LoginPage() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center">
-        <div className="mx-auto h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 flex text-primary mb-6 shadow-inner">
-           <Package className="h-8 w-8" />
+        <div className="mx-auto h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 flex text-primary mb-6 shadow-inner ring-4 ring-primary/5">
+           {store ? <Building2 className="h-8 w-8" /> : <Package className="h-8 w-8" />}
         </div>
-        <h1 className="text-3xl font-black tracking-tight text-foreground">Welcome Back</h1>
-        <p className="mt-2 text-sm font-medium text-muted-foreground italic">Sign in to your command center</p>
+        <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">
+          {store ? `Login to ${store.name}` : "Welcome Back"}
+        </h1>
+        <p className="mt-2 text-sm font-medium text-muted-foreground italic">
+          {store ? "Staff & Management Access Only" : "Sign in to your account"}
+        </p>
       </div>
 
       <form onSubmit={handleLogin} className="space-y-6 rounded-[2.5rem] border-2 border-border bg-card p-8 shadow-2xl relative overflow-hidden group">

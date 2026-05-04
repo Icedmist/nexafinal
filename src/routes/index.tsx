@@ -6,11 +6,11 @@ import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
 import { useTenant } from "@/hooks/useTenant";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import {
   Package,
-  BarChart3,
-  Bell,
-  Truck,
   ScanLine,
   TrendingUp,
   Users,
@@ -18,20 +18,21 @@ import {
   Shield,
   Globe,
   Zap,
-  Menu,
-  X,
-  Layers,
   Sparkles,
   Command,
   Smartphone,
+  Eye,
+  EyeOff,
+  Building2,
 } from "lucide-react";
 import nexaMobileHero from "@/assets/nexa-mobile-hero.png";
+import type { Store } from "@/types/tenant";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
     meta: [
-      { title: "NEXA Store OS — Command Center for Modern Retail" },
+      { title: "NEXA Store OS — Inventory System for Modern Retail" },
       {
         name: "description",
         content: "The OS for modern retail commerce. Track stock, manage suppliers, and automate reorders from your pocket.",
@@ -122,6 +123,10 @@ function LandingPage() {
     );
   }
 
+  if (store) {
+    return <StoreLoginPage store={store} />;
+  }
+
   const handleTryDemo = () => setShowOnboarding(true);
 
   const handleOnboardingComplete = (_businessType: string, _categories: string[], _storeName: string) => {
@@ -150,7 +155,7 @@ function LandingPage() {
               <RevealSection>
                 <div className="inline-flex items-center gap-2 rounded-full border-2 border-primary/20 bg-primary/5 px-4 py-1.5 mb-8">
                   <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">v2.0 Command Center</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">v2.0 Inventory System</span>
                 </div>
                 <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tighter mb-8 bg-gradient-to-b from-foreground to-foreground/50 bg-clip-text text-transparent">
                   Control your <br /> Commerce. <br /> 
@@ -165,11 +170,11 @@ function LandingPage() {
                     onClick={handleTryDemo}
                     className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform"
                   >
-                    Launch Command Center <ArrowRight className="h-4 w-4" />
+                    Launch Demo <ArrowRight className="h-4 w-4" />
                   </Button>
                   <Link to="/auth/signup">
                     <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold text-sm border-2">
-                      Create Business Account
+                      Create Account
                     </Button>
                   </Link>
                 </div>
@@ -236,7 +241,7 @@ function LandingPage() {
             <ValueProp 
               icon={Smartphone}
               title="Native Mobile Control"
-              description="A full-featured command center that fits in your pocket. Manage stock from the warehouse floor or the back office."
+              description="A full-featured interface that fits in your pocket. Manage stock from the warehouse floor or the back office."
             />
             <ValueProp 
               icon={Command}
@@ -358,6 +363,99 @@ function FeaturePoint({ icon: Icon, title, text }: { icon: any; title: string; t
       <div>
         <h4 className="font-black text-lg uppercase tracking-tight mb-2">{title}</h4>
         <p className="text-muted-foreground font-medium text-sm leading-relaxed">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function StoreLoginPage({ store }: { store: Store }) {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await login(email, password);
+      toast.success(`Welcome back to ${store.name}!`);
+      navigate({ to: "/app/dashboard" });
+    } catch (err: any) {
+      toast.error(err.message || "Invalid credentials");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 selection:bg-primary/30">
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/5 blur-[120px]" />
+        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/5 blur-[150px]" />
+      </div>
+
+      <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="text-center">
+          <div className="mx-auto h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 flex text-primary mb-6 shadow-inner ring-4 ring-primary/5">
+             <Building2 className="h-10 w-10" />
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">{store.name}</h1>
+          <p className="mt-2 text-sm font-bold text-muted-foreground uppercase tracking-widest italic opacity-60">Authorized Personnel Only</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-6 rounded-[2.5rem] border-2 border-border bg-card p-8 shadow-2xl relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          
+          <div className="space-y-4 relative z-10">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@company.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 rounded-xl border-2 font-bold focus:border-primary/50 transition-all"
+              />
+            </div>
+            
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 rounded-xl border-2 font-bold pr-12 focus:border-primary/50 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 relative z-10 overflow-hidden group/btn" disabled={loading}>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
+            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : "Access System"}
+          </Button>
+        </form>
+
+        <div className="text-center pt-4">
+          <Link to="/" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2">
+            <Package className="h-3 w-3" /> NEXA OS CORE
+          </Link>
+        </div>
       </div>
     </div>
   );
