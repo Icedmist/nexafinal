@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useDemo } from "@/hooks/useDemo";
 import { toast } from "sonner";
 import type { Expense, ExpenseCategory } from "@/types/finance";
 import { EXPENSE_CATEGORIES } from "@/types/finance";
@@ -18,15 +17,13 @@ export const Route = createFileRoute("/app/expenses")({
   head: () => ({ meta: [{ title: "Expenses — NEXA Store OS" }] }),
 });
 
+import { useExpenses, useExpensesMutations } from "@/hooks/useExpensesData";
+
 function ExpensesPage() {
-  const { demoStore, bumpVersion, version } = useDemo();
+  const { data: expenses, isLoading } = useExpenses();
+  const { deleteExpense } = useExpensesMutations();
   const [formOpen, setFormOpen] = useState(false);
   const [filterCat, setFilterCat] = useState<string>("all");
-
-  const expenses = useMemo(() => {
-    void version;
-    return demoStore?.getExpenses() ?? [];
-  }, [demoStore, version]);
 
   const filtered = filterCat === "all" ? expenses : expenses.filter((e) => e.category === filterCat);
 
@@ -45,6 +42,10 @@ function ExpensesPage() {
   const totalExpenses = filtered.reduce((s, e) => s + e.amount, 0);
   const thisWeek = filtered.filter((e) => new Date().getTime() - new Date(e.date).getTime() < 7 * 86400000);
   const weeklyTotal = thisWeek.reduce((s, e) => s + e.amount, 0);
+
+  if (isLoading) {
+    return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  }
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-4 p-4">
@@ -121,8 +122,7 @@ function ExpensesPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        demoStore?.deleteExpense(e.id);
-                        bumpVersion();
+                        deleteExpense(e.id);
                         toast.success("Expense deleted");
                       }}
                       className="text-muted-foreground hover:text-destructive transition-colors"
@@ -137,38 +137,38 @@ function ExpensesPage() {
         </div>
       )}
 
-      <ExpenseFormSheet open={formOpen} onOpenChange={setFormOpen} demoStore={demoStore} bumpVersion={bumpVersion} />
+      <ExpenseFormSheet open={formOpen} onOpenChange={setFormOpen} />
     </div>
   );
 }
 
-function ExpenseFormSheet({ open, onOpenChange, demoStore, bumpVersion }: {
+function ExpenseFormSheet({ open, onOpenChange }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  demoStore: ReturnType<typeof useDemo>["demoStore"];
-  bumpVersion: () => void;
 }) {
+  const { addExpense } = useExpensesMutations();
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("supplies");
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
-  const handleSubmit = () => {
-    if (!amount || !demoStore) return;
-    const expense: Expense = {
-      id: `exp-${Date.now()}`,
-      date,
-      amount: Number(amount),
-      category,
-      notes,
-      createdAt: new Date().toISOString(),
-    };
-    demoStore.addExpense(expense);
-    bumpVersion();
-    toast.success(`Expense recorded: ${NAIRA}${Number(amount).toLocaleString("en-NG")}`);
-    onOpenChange(false);
-    setAmount("");
-    setNotes("");
+  const handleSubmit = async () => {
+    if (!amount) return;
+    try {
+      await addExpense({
+        date,
+        amount: Number(amount),
+        category,
+        notes,
+        createdAt: new Date().toISOString(),
+      });
+      toast.success(`Expense recorded: ${NAIRA}${Number(amount).toLocaleString("en-NG")}`);
+      onOpenChange(false);
+      setAmount("");
+      setNotes("");
+    } catch (err) {
+      toast.error("Failed to record expense");
+    }
   };
 
   return (

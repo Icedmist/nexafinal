@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -7,8 +7,12 @@ import { useAuth } from "@/contexts/FirebaseAuthContext";
 export interface Refund {
   id: string;
   saleId: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
   amountNgn: number;
   reason: string;
+  notes?: string;
   createdAt: string;
   ownerId: string;
 }
@@ -56,4 +60,20 @@ export function useRefunds(): QueryResult<Refund[]> {
   }, [user, ownerId]);
 
   return { data, isLoading, error };
+}
+
+export function useRefundsMutations() {
+  const { user } = useAuth();
+  const { ownerId } = useBusiness();
+
+  const addRefund = async (refund: Omit<Refund, "id" | "ownerId">) => {
+    if (!user || !ownerId) throw new Error("Authentication required");
+    return await addDoc(collection(db, "refunds"), {
+      ...refund,
+      ownerId,
+      recordedBy: user.uid,
+    });
+  };
+
+  return { addRefund };
 }

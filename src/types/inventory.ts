@@ -212,3 +212,18 @@ export interface UserRole {
   userId: string;
   role: UserRoleType;
 }
+
+export interface ItemFilters {
+  categoryId?: string;
+  supplierId?: string;
+  locationId?: string;
+  status?: "in_stock" | "low_stock" | "out_of_stock";
+  search?: string;
+}
+
+export interface StockSummary {
+  total: number;
+  inStock: number;
+  lowStock: number;
+  outOfStock: number;
+}

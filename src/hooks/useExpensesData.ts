@@ -1,18 +1,9 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, addDoc, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-
-export interface Expense {
-  id: string;
-  category: string;
-  amount: number;
-  date: string;
-  notes?: string;
-  createdAt: string;
-  ownerId: string;
-}
+import { Expense, ExpenseCategory } from "@/types/finance";
 
 interface QueryResult<T> {
   data: T;
@@ -57,4 +48,25 @@ export function useExpenses(): QueryResult<Expense[]> {
   }, [user, ownerId]);
 
   return { data, isLoading, error };
+}
+
+export function useExpensesMutations() {
+  const { user } = useAuth();
+  const { ownerId } = useBusiness();
+
+  const addExpense = async (expense: Omit<Expense, "id" | "ownerId">) => {
+    if (!user || !ownerId) throw new Error("Authentication required");
+    return await addDoc(collection(db, "expenses"), {
+      ...expense,
+      ownerId,
+      recordedBy: user.uid,
+    });
+  };
+
+  const deleteExpense = async (id: string) => {
+    if (!user || !ownerId) throw new Error("Authentication required");
+    return await deleteDoc(doc(db, "expenses", id));
+  };
+
+  return { addExpense, deleteExpense };
 }

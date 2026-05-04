@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Plus, X, ClipboardList, AlertCircle, Trash2 } from "lucide-react";
+import { Plus, X, ClipboardList, Trash2 } from "lucide-react";
 import { z } from "zod";
 import {
   Dialog,
@@ -22,7 +22,7 @@ import {
 import { useCreateRequest } from "@/hooks/useInventoryMutations";
 import { RequestStatus } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 interface LineRow {
   id: string;
@@ -51,6 +51,7 @@ interface RequestFormSheetProps {
 }
 
 export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheetProps) {
+  const { user } = useAuth();
   const createRequest = useCreateRequest();
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
@@ -113,24 +114,22 @@ export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheet
     }
 
     const now = new Date().toISOString();
-    const reqId = crypto.randomUUID();
     const reqNum = `REQ-${Date.now().toString(36).toUpperCase()}`;
 
     createRequest.mutate(
       {
-        id: reqId,
         requestNumber: reqNum,
         title,
         status: RequestStatus.Pending,
         priority,
         items: lines.map((l, i) => ({
-          id: `ri-${reqId}-${i + 1}`,
-          requestId: reqId,
+          id: `ri-${Date.now()}-${i + 1}`,
+          requestId: "temp",
           itemId: l.itemId,
           quantity: l.quantity,
           notes: "",
         })),
-        requestedBy: "demo-user",
+        requestedBy: user?.email || user?.uid || "staff",
         approvedBy: null,
         reason,
         createdAt: now,

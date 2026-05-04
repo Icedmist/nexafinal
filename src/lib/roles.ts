@@ -29,7 +29,7 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canManageSuppliers: true,
     canApproveRequests: true,
     canViewAnalytics: true,
-    canAccessSettings: false,
+    canAccessSettings: true,
     canManageUsers: false,
   },
   staff: {

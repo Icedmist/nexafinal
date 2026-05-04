@@ -25,6 +25,8 @@ import { NotificationCenter } from "@/components/notifications/NotificationCente
 import { useDemo } from "@/hooks/useDemo";
 import { useRole } from "@/hooks/useRole";
 import { PermissionGate } from "@/hooks/usePermissions";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
   admin: "bg-primary/15 text-primary border-primary/20",
@@ -38,6 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
   requestor: "Requestor",
 };
 
+
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
@@ -47,9 +50,12 @@ export function Header() {
   
   const { exitDemoMode } = useDemo();
   const { role } = useRole();
+  const { profile } = useBusiness();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const displayName = "Demo Admin";
+  const storeName = profile?.storeDetails?.name || "NEXA Store OS";
+  const displayName = user?.email?.split("@")[0] || "User";
 
   const handleExit = async () => {
     await navigate({ to: "/" });
@@ -74,11 +80,19 @@ export function Header() {
         <Menu className="h-5 w-5" />
       </Button>
 
+      <div className="flex flex-col md:hidden">
+        <span className="text-sm font-black tracking-tight truncate max-w-[120px]">{storeName}</span>
+      </div>
+
       <button data-tour="search" type="button" onClick={() => setPaletteOpen(true)} className="flex h-9 flex-1 items-center gap-2 rounded-md border border-input bg-white px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 md:max-w-sm">
         <Search className="h-4 w-4 shrink-0" />
         <span>Search…</span>
         <kbd className="ml-auto hidden rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs md:inline-block">⌘K</kbd>
       </button>
+
+      <div className="hidden flex-1 items-center justify-center md:flex">
+         <span className="text-base font-black tracking-widest uppercase text-muted-foreground/40">{storeName}</span>
+      </div>
 
       <PermissionGate permission="log_movement">
         <Button size="icon" variant="outline" className="shrink-0" aria-label="Quick entry" onClick={() => setQuickEntryOpen(true)}>

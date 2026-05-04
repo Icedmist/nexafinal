@@ -23,7 +23,6 @@ import { useApprovalActions } from "@/components/requests/ApprovalActions";
 import { useItems, useRequests } from "@/hooks/useInventoryData";
 import { useRole } from "@/hooks/useRole";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useDemo } from "@/hooks/useDemo";
 import { RequestStatus } from "@/types/inventory";
 import type { InventoryRequest } from "@/types/inventory";
 import type { RequestFilters } from "@/components/requests/request-filter-types";
@@ -53,12 +52,14 @@ function applyFilters(requests: InventoryRequest[], filters: RequestFilters): In
   });
 }
 
+import { useUpdateRequest } from "@/hooks/useInventoryMutations";
+
 function RequestsPage() {
   const { data: catalogItems } = useItems();
   const { data: requests } = useRequests();
   const { role } = useRole();
   const { can } = usePermissions();
-  const { demoStore, bumpVersion } = useDemo();
+  const updateRequest = useUpdateRequest();
   const navigate = useNavigate();
   const { request: requestParam } = Route.useSearch();
   const isManagerOrAdmin = role === "admin" || role === "manager";
@@ -125,14 +126,25 @@ function RequestsPage() {
   }
 
   function confirmCancel() {
-    if (!cancelTarget || !demoStore) return;
-    demoStore.updateRequest(cancelTarget.id, {
-      status: RequestStatus.Cancelled,
-      updatedAt: new Date().toISOString(),
-    });
-    bumpVersion();
-    toast.success(`${cancelTarget.requestNumber} cancelled`);
-    setCancelTarget(null);
+    if (!cancelTarget) return;
+    updateRequest.mutate(
+      { 
+        id: cancelTarget.id, 
+        updates: { 
+          status: RequestStatus.Cancelled, 
+          updatedAt: new Date().toISOString() 
+        } 
+      },
+      {
+        onSuccess: () => {
+          toast.success(`${cancelTarget.requestNumber} cancelled`);
+          setCancelTarget(null);
+        },
+        onError: (err) => {
+          toast.error("Failed to cancel request");
+        }
+      }
+    );
   }
 
   return (

@@ -37,10 +37,15 @@ type SortBy = "stockout" | "delta";
 type AnomalySeverityFilter = "all" | "warning" | "critical";
 type AnomalyTypeFilter = "all" | "quantity_spike" | "frequent_adjustments" | "unusual_timing";
 
+import { useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
+
 function AiInsightsPage() {
-  const { demoStore } = useDemo();
   const { can } = usePermissions();
   const updateItem = useUpdateItem();
+  
+  const { data: realItems } = useItems();
+  const { data: realMovements } = useMovements(500); // Get more for better analysis
+  const { data: realSuppliers } = useSuppliers();
 
   const [urgency, setUrgency] = useState<UrgencyFilter>("all");
   const [confidence, setConfidence] = useState<ConfidenceFilter>("all");
@@ -50,9 +55,9 @@ function AiInsightsPage() {
   const [showDismissed, setShowDismissed] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
-  const items = demoStore?.getItems() ?? [];
-  const movements = demoStore?.getMovements() ?? [];
-  const suppliers = demoStore?.getSuppliers() ?? [];
+  const items = realItems;
+  const movements = realMovements;
+  const suppliers = realSuppliers;
 
   const allAnalyses = useMemo(
     () => analyzeAllItems(items, movements, suppliers),

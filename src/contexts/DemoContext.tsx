@@ -45,7 +45,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<DemoContextValue>(
     () => ({
-      isDemo: true, // keep true so route guards pass for now
+      isDemo: false, // Turned off as requested: "remove all demo data!"
       demoStore: store,
       enterDemoMode,
       exitDemoMode,

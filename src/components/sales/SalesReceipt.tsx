@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import type { SaleTransaction } from "@/types/inventory";
-import { useDemo } from "@/hooks/useDemo";
 
 const NAIRA = "₦";
 

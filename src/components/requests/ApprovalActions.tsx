@@ -13,8 +13,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useDemo } from "@/hooks/useDemo";
 import { RequestStatus, MovementType } from "@/types/inventory";
+import { useUpdateRequest, useCreateMovement, useUpdateItem } from "@/hooks/useInventoryMutations";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 import type { InventoryRequest, Item, StockMovement } from "@/types/inventory";
 
 type DialogType = "approve" | "partial" | "decline" | null;
@@ -60,8 +61,13 @@ function buildMovements(
     }));
 }
 
+
 export function useApprovalActions({ items }: { items: Item[] }) {
-  const { isDemo, demoStore, bumpVersion } = useDemo();
+  const { user } = useAuth();
+  const updateRequest = useUpdateRequest();
+  const createMovement = useCreateMovement();
+  const updateItem = useUpdateItem();
+
   const [dialog, setDialog] = useState<DialogType>(null);
   const [activeRequest, setActiveRequest] = useState<InventoryRequest | null>(null);
   const [declineReason, setDeclineReason] = useState("");
@@ -91,8 +97,8 @@ export function useApprovalActions({ items }: { items: Item[] }) {
     setDialog("partial");
   }
 
-  function confirmApprove() {
-    if (!activeRequest || !isDemo || !demoStore) return;
+  async function confirmApprove() {
+    if (!activeRequest || !user) return;
     const err = checkStock(activeRequest.items, itemMap);
     if (err) { toast.error(err); return; }
 
@@ -100,43 +106,58 @@ export function useApprovalActions({ items }: { items: Item[] }) {
     const movements = buildMovements(activeRequest);
     setIsLoading(true);
     try {
-      for (const m of movements) demoStore.createMovement(m);
-      demoStore.updateRequest(activeRequest.id, {
-        status: RequestStatus.Approved,
-        approvedBy: "demo-admin",
-        updatedAt: now,
+      for (const m of movements) {
+        await createMovement.mutate(m);
+        // Deduct stock
+        const item = itemMap.get(m.itemId);
+        if (item) {
+          await updateItem.mutate({ id: item.id, updates: { currentStock: item.currentStock - m.quantity } });
+        }
+      }
+      await updateRequest.mutate({
+        id: activeRequest.id,
+        updates: {
+          status: RequestStatus.Approved,
+          approvedBy: user.email ?? user.uid,
+          updatedAt: now,
+        }
       });
-      bumpVersion();
       toast.success(`${activeRequest.requestNumber} approved`);
       setDialog(null);
       setActiveRequest(null);
+    } catch (err) {
+      toast.error("Failed to approve request");
     } finally {
       setIsLoading(false);
     }
   }
 
-  function confirmDecline() {
-    if (!activeRequest || !declineReason.trim() || !isDemo || !demoStore) return;
+  async function confirmDecline() {
+    if (!activeRequest || !declineReason.trim() || !user) return;
     const now = new Date().toISOString();
     setIsLoading(true);
     try {
-      demoStore.updateRequest(activeRequest.id, {
-        status: RequestStatus.Declined,
-        approvedBy: "demo-admin",
-        declineReason: declineReason.trim(),
-        updatedAt: now,
+      await updateRequest.mutate({
+        id: activeRequest.id,
+        updates: {
+          status: RequestStatus.Declined,
+          approvedBy: user.email ?? user.uid,
+          declineReason: declineReason.trim(),
+          updatedAt: now,
+        }
       });
-      bumpVersion();
       toast.success(`${activeRequest.requestNumber} declined`);
       setDialog(null);
       setActiveRequest(null);
+    } catch (err) {
+      toast.error("Failed to decline request");
     } finally {
       setIsLoading(false);
     }
   }
 
-  function confirmPartial() {
-    if (!activeRequest || !isDemo || !demoStore) return;
+  async function confirmPartial() {
+    if (!activeRequest || !user) return;
     const allZero = activeRequest.items.every((li) => (partialQtys[li.id] ?? 0) === 0);
     if (allZero) { toast.error("Approve at least one item quantity"); return; }
 
@@ -150,18 +171,29 @@ export function useApprovalActions({ items }: { items: Item[] }) {
 
     setIsLoading(true);
     try {
-      for (const m of movements) demoStore.createMovement(m);
-      demoStore.updateRequest(activeRequest.id, {
-        status: newStatus,
-        approvedBy: "demo-admin",
-        updatedAt: now,
+      for (const m of movements) {
+        await createMovement.mutate(m);
+        // Deduct stock
+        const item = itemMap.get(m.itemId);
+        if (item) {
+          await updateItem.mutate({ id: item.id, updates: { currentStock: item.currentStock - m.quantity } });
+        }
+      }
+      await updateRequest.mutate({
+        id: activeRequest.id,
+        updates: {
+          status: newStatus,
+          approvedBy: user.email ?? user.uid,
+          updatedAt: now,
+        }
       });
-      bumpVersion();
       toast.success(
         `${activeRequest.requestNumber} ${allFull ? "approved" : "partially fulfilled"}`,
       );
       setDialog(null);
       setActiveRequest(null);
+    } catch (err) {
+      toast.error("Failed to process partial fulfillment");
     } finally {
       setIsLoading(false);
     }

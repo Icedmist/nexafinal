@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { useDemo } from "@/hooks/useDemo";
 import { toast } from "sonner";
 import type { Refund, RefundReason } from "@/types/finance";
 import { REFUND_REASONS } from "@/types/finance";
@@ -20,21 +19,21 @@ export const Route = createFileRoute("/app/returns")({
   head: () => ({ meta: [{ title: "Returns & Refunds — NEXA Store OS" }] }),
 });
 
+import { useSales } from "@/hooks/useSalesData";
+import { useRefunds, useRefundsMutations } from "@/hooks/useRefundsData";
+
 function ReturnsPage() {
-  const { demoStore, bumpVersion, version } = useDemo();
+  const { data: refunds, isLoading } = useRefunds();
+  const { data: sales } = useSales();
   const [formOpen, setFormOpen] = useState(false);
   const [filterReason, setFilterReason] = useState<string>("all");
 
-  const refunds = useMemo(() => {
-    void version;
-    return demoStore?.getRefunds() ?? [];
-  }, [demoStore, version]);
-
-  const sales = useMemo(() => demoStore?.getSales() ?? [], [demoStore, version]);
-
   const filtered = filterReason === "all" ? refunds : refunds.filter((r) => r.reason === filterReason);
-
   const totalRefunded = filtered.reduce((s, r) => s + r.amountNgn, 0);
+
+  if (isLoading) {
+    return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  }
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-4 p-4">
@@ -112,18 +111,17 @@ function ReturnsPage() {
         </div>
       )}
 
-      <RefundFormSheet open={formOpen} onOpenChange={setFormOpen} sales={sales} demoStore={demoStore} bumpVersion={bumpVersion} />
+      <RefundFormSheet open={formOpen} onOpenChange={setFormOpen} sales={sales} />
     </div>
   );
 }
 
-function RefundFormSheet({ open, onOpenChange, sales, demoStore, bumpVersion }: {
+function RefundFormSheet({ open, onOpenChange, sales }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  sales: { id: string; items: { itemId: string; itemName: string; quantity: number; unitPriceNgn: number }[]; createdAt: string }[];
-  demoStore: ReturnType<typeof useDemo>["demoStore"];
-  bumpVersion: () => void;
+  sales: any[];
 }) {
+  const { addRefund } = useRefundsMutations();
   const [saleId, setSaleId] = useState("");
   const [itemId, setItemId] = useState("");
   const [qty, setQty] = useState(1);
@@ -131,29 +129,30 @@ function RefundFormSheet({ open, onOpenChange, sales, demoStore, bumpVersion }: 
   const [notes, setNotes] = useState("");
 
   const selectedSale = sales.find((s) => s.id === saleId);
-  const selectedItem = selectedSale?.items.find((i) => i.itemId === itemId);
+  const selectedItem = selectedSale?.items.find((i: any) => i.itemId === itemId);
 
-  const handleSubmit = () => {
-    if (!selectedSale || !selectedItem || !demoStore) return;
-    const refund: Refund = {
-      id: `ref-${Date.now()}`,
-      saleId,
-      itemId: selectedItem.itemId,
-      itemName: selectedItem.itemName,
-      quantity: qty,
-      amountNgn: selectedItem.unitPriceNgn * qty,
-      reason,
-      notes,
-      createdAt: new Date().toISOString(),
-    };
-    demoStore.addRefund(refund);
-    bumpVersion();
-    toast.success(`Refund processed: ${NAIRA}${refund.amountNgn.toLocaleString("en-NG")}`);
-    onOpenChange(false);
-    setSaleId("");
-    setItemId("");
-    setQty(1);
-    setNotes("");
+  const handleSubmit = async () => {
+    if (!selectedSale || !selectedItem) return;
+    try {
+      await addRefund({
+        saleId,
+        itemId: selectedItem.itemId,
+        itemName: selectedItem.itemName,
+        quantity: qty,
+        amountNgn: selectedItem.unitPriceNgn * qty,
+        reason,
+        notes,
+        createdAt: new Date().toISOString(),
+      });
+      toast.success(`Refund processed: ${NAIRA}${(selectedItem.unitPriceNgn * qty).toLocaleString("en-NG")}`);
+      onOpenChange(false);
+      setSaleId("");
+      setItemId("");
+      setQty(1);
+      setNotes("");
+    } catch (err) {
+      toast.error("Failed to process refund");
+    }
   };
 
   return (
@@ -183,7 +182,7 @@ function RefundFormSheet({ open, onOpenChange, sales, demoStore, bumpVersion }: 
               <Select value={itemId} onValueChange={setItemId}>
                 <SelectTrigger><SelectValue placeholder="Pick item..." /></SelectTrigger>
                 <SelectContent>
-                  {selectedSale.items.map((i) => (
+                  {selectedSale.items.map((i: any) => (
                     <SelectItem key={i.itemId} value={i.itemId}>{i.itemName} (×{i.quantity})</SelectItem>
                   ))}
                 </SelectContent>

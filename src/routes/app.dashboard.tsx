@@ -19,6 +19,8 @@ import { useSales } from "@/hooks/useSalesData";
 import { useExpenses } from "@/hooks/useExpensesData";
 import { useRefunds } from "@/hooks/useRefundsData";
 import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 const NAIRA = "₦";
 
@@ -80,11 +82,13 @@ function DashboardPage() {
   const { data: realMovements } = useMovements();
   const { data: realSuppliers } = useSuppliers();
   const { isAdmin, isManager } = useRole();
-  useAlertGenerator();
+  const { profile } = useBusiness();
+  const { user } = useAuth();
+  // useAlertGenerator(); // Disabled for production
 
-  const items = realItems.length > 0 ? realItems : (demoStore?.getItems() ?? []);
-  const movements = realMovements.length > 0 ? realMovements : (demoStore?.getMovements() ?? []);
-  const suppliers = realSuppliers.length > 0 ? realSuppliers : (demoStore?.getSuppliers() ?? []);
+  const items = realItems;
+  const movements = realMovements;
+  const suppliers = realSuppliers;
 
   const isLoading = salesLoading || expensesLoading || refundsLoading;
 
@@ -130,9 +134,7 @@ function DashboardPage() {
     return () => clearInterval(t);
   }, []);
 
-  const storeName = onboarding.businessType
-    ? onboarding.businessType.charAt(0).toUpperCase() + onboarding.businessType.slice(1) + " Store"
-    : "NEXA StoreOS";
+  const storeName = profile?.storeDetails?.name || "NEXA Store OS";
 
   if (isLoading) {
     return (
@@ -165,16 +167,6 @@ function DashboardPage() {
         </div>
       </div>
 
-      {onboarding.categories.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Categories:</span>
-          {onboarding.categories.map((cat) => (
-            <span key={cat} className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
-              {cat.replace(/-/g, " ")}
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* ─── Admin Dashboard ─── */}
       {isAdmin && (

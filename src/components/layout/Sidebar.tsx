@@ -80,6 +80,7 @@ const navGroups: NavGroup[] = [
     permKey: "canAccessSettings",
     items: [
       { label: "Settings", href: "/app/settings", icon: Settings },
+      { label: "Staff", href: "/app/staff", icon: Users },
     ],
   },
 ];

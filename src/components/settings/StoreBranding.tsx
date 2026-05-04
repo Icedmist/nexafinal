@@ -24,6 +24,24 @@ export function StoreBranding() {
   const [storeName, setStoreName] = React.useState("");
   const [storeSlug, setStoreSlug] = React.useState("");
 
+  const [baseDomain, setBaseDomain] = React.useState("");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const host = window.location.host;
+      // If the current host already has a subdomain, try to get the base domain
+      // This is a simple heuristic: if there are 3+ parts, assume the first is a subdomain
+      const parts = host.split(".");
+      if (parts.length >= 3) {
+        setBaseDomain(parts.slice(1).join("."));
+      } else {
+        setBaseDomain(host);
+      }
+    }
+  }, []);
+
+  const staffLoginUrl = storeSlug ? `${window.location.protocol}//${storeSlug}.${baseDomain}` : "";
+
   React.useEffect(() => {
     if (profile) {
       setStoreName(profile.storeDetails?.name || "");
@@ -73,21 +91,36 @@ export function StoreBranding() {
             <Label className="text-xs font-black uppercase tracking-widest">Store Display Name</Label>
             <Input
               value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-              placeholder="e.g. Ice Cream Palace"
-              className="h-12 rounded-xl"
+              disabled
+              className="h-12 rounded-xl bg-muted/50 cursor-not-allowed"
             />
+            <p className="text-[10px] text-muted-foreground italic">Store name is fixed and cannot be changed.</p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-black uppercase tracking-widest">Subdomain Slug</Label>
-            <div className="flex items-center gap-2">
-               <Input
-                value={storeSlug}
-                onChange={(e) => setStoreSlug(e.target.value)}
-                placeholder="ice-cream-palace"
-                className="h-12 rounded-xl"
-              />
-              <span className="text-sm font-bold text-muted-foreground">.nexa-store.os</span>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={storeSlug}
+                  onChange={(e) => setStoreSlug(e.target.value)}
+                  placeholder="ice-cream-palace"
+                  className="h-12 rounded-xl"
+                />
+                <span className="text-sm font-bold text-muted-foreground">.{baseDomain}</span>
+              </div>
+              {staffLoginUrl && (
+                <div className="rounded-lg bg-primary/5 p-3 border border-primary/10">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Shop Login Link (Share with Staff)</p>
+                  <a 
+                    href={staffLoginUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs font-mono font-bold text-foreground hover:underline break-all"
+                  >
+                    {staffLoginUrl}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -3,8 +3,10 @@ import { collection, query, where, onSnapshot, orderBy, limit as firestoreLimit 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
-import type { Item, Category, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest } from "@/types/inventory";
-import type { ItemFilters, StockSummary } from "@/lib/demo-store";
+import type { 
+  Item, Category, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest,
+  ItemFilters, StockSummary 
+} from "@/types/inventory";
 
 interface QueryResult<T> {
   data: T;
@@ -47,12 +49,15 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       if (filters?.search) {
         const lowerSearch = filters.search.toLowerCase();
         filtered = filtered.filter(i => 
-          i.title.toLowerCase().includes(lowerSearch) || 
+          i.name.toLowerCase().includes(lowerSearch) || 
           i.sku.toLowerCase().includes(lowerSearch)
         );
       }
       if (filters?.status) {
-        filtered = filtered.filter(i => i.stockStatus === filters.status);
+        filtered = filtered.filter(i => {
+          const status = i.currentStock === 0 ? "out_of_stock" : i.currentStock <= i.reorderPoint ? "low_stock" : "in_stock";
+          return status === filters.status;
+        });
       }
       
       setData(filtered);
@@ -201,9 +206,9 @@ export function useStockSummary(): QueryResult<StockSummary> {
   const { data: items, isLoading } = useItems();
   const summary = {
     total: items.length,
-    inStock: items.filter(i => i.stockStatus === "healthy").length,
-    lowStock: items.filter(i => i.stockStatus === "low").length,
-    outOfStock: items.filter(i => i.stockStatus === "out-of-stock").length,
+    inStock: items.filter(i => i.currentStock > i.reorderPoint).length,
+    lowStock: items.filter(i => i.currentStock > 0 && i.currentStock <= i.reorderPoint).length,
+    outOfStock: items.filter(i => i.currentStock === 0).length,
   };
   return { data: summary, isLoading, error: null };
 }

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { DemoBanner } from "@/components/layout/DemoBanner";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ShortcutsHelpDialog } from "@/components/command/ShortcutsHelpDialog";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -31,7 +30,8 @@ function AppLayout() {
 
   // Role-based route guard
   useEffect(() => {
-    if ((isDemo || user) && !canAccessRoute(location.pathname, role)) {
+    const isDemoOverride = false; // Turned off as requested: "remove all demo data!"
+    if ((isDemoOverride || user) && !canAccessRoute(location.pathname, role)) {
       toast.error("You don't have permission to access that page.");
       navigate({ to: "/app/dashboard" });
     }
@@ -54,7 +54,6 @@ function AppLayout() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <DemoBanner />
       <div className="flex flex-1 overflow-hidden">
         <aside className="hidden w-[260px] shrink-0 md:block">
           <Sidebar />

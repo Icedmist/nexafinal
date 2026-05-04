@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-import type { Staff } from "@/types/tenant";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { limit, writeBatch, getDocs } from "firebase/firestore";
+import type { Staff, Branch, Store } from "@/types/tenant";
 
 interface QueryResult<T> {
   data: T;
@@ -49,14 +51,35 @@ export function useStaff(): QueryResult<Staff[]> {
   return { data, isLoading, error };
 }
 
+export function useStoreBranches(): QueryResult<Branch[]> {
+  const { ownerId } = useBusiness();
+  const [data, setData] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!ownerId) { setIsLoading(false); return; }
+    const q = query(collection(db, "stores"), where("ownerId", "==", ownerId), limit(1));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const storeData = snapshot.docs[0].data() as Store;
+        setData(storeData.branches || []);
+      }
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [ownerId]);
+
+  return { data, isLoading, error: null };
+}
+
 export function useStaffMutations() {
-  const { user } = useAuth();
+  const { ownerId } = useBusiness();
 
   const addStaff = async (staffData: Partial<Staff>) => {
-    if (!user) throw new Error("Unauthorized");
+    if (!ownerId) throw new Error("Unauthorized");
     return addDoc(collection(db, "staff"), {
       ...staffData,
-      ownerId: user.uid,
+      ownerId,
       createdAt: new Date().toISOString(),
       isActive: true,
     });
@@ -68,4 +91,31 @@ export function useStaffMutations() {
   };
 
   return { addStaff, updateStaff };
+}
+
+
+export function useStoreMutations() {
+  const { ownerId } = useBusiness();
+
+  const updateStore = async (updates: Partial<Store>) => {
+    if (!ownerId) return;
+    const q = query(collection(db, "stores"), where("ownerId", "==", ownerId), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      await updateDoc(snap.docs[0].ref, updates);
+    }
+  };
+
+  const addBranch = async (branch: Branch) => {
+    if (!ownerId) return;
+    const q = query(collection(db, "stores"), where("ownerId", "==", ownerId), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const store = snap.docs[0].data() as Store;
+      const branches = [...(store.branches || []), branch];
+      await updateDoc(snap.docs[0].ref, { branches });
+    }
+  };
+
+  return { updateStore, addBranch };
 }

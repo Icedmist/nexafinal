@@ -30,8 +30,7 @@ import { useCreateItem, useUpdateItem, useDeleteItem } from "@/hooks/useInventor
 import { PermissionGate, usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
 import type { Item } from "@/types/inventory";
-import { ItemStatus } from "@/types/inventory";
-import type { ItemFilters } from "@/lib/demo-store";
+import { ItemStatus, type ItemFilters } from "@/types/inventory";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
@@ -116,9 +115,9 @@ function CatalogPage() {
   }, [navigate]);
   const items = useMemo(() => {
     let result = allItems.filter((i) => i.status !== ItemStatus.Archived);
-    if (filters.status === "in-stock") result = result.filter((i) => i.currentStock > i.reorderPoint);
-    else if (filters.status === "low-stock") result = result.filter((i) => i.currentStock > 0 && i.currentStock <= i.reorderPoint);
-    else if (filters.status === "out-of-stock") result = result.filter((i) => i.currentStock === 0);
+    if (filters.status === "in_stock") result = result.filter((i) => i.currentStock > i.reorderPoint);
+    else if (filters.status === "low_stock") result = result.filter((i) => i.currentStock > 0 && i.currentStock <= i.reorderPoint);
+    else if (filters.status === "out_of_stock") result = result.filter((i) => i.currentStock === 0);
     return result;
   }, [allItems, filters.status]);
 

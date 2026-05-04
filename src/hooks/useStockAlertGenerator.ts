@@ -1,20 +1,12 @@
-import { useEffect, useRef } from "react";
-import { useDemo } from "@/hooks/useDemo";
-import { generateStockAlerts, generatePOAlerts } from "@/lib/notification-generators";
+import { useEffect } from "react";
 
 /**
- * Runs stock + PO alert generation once on mount (dashboard load).
- * Bumps version so notification hooks re-render.
+ * Runs stock + PO alert generation.
+ * (Placeholder for future Firestore-based or Cloud Function logic)
  */
 export function useAlertGenerator() {
-  const { isDemo, demoStore, bumpVersion } = useDemo();
-  const ranRef = useRef(false);
-
   useEffect(() => {
-    if (!isDemo || !demoStore || ranRef.current) return;
-    ranRef.current = true;
-    generateStockAlerts(demoStore);
-    generatePOAlerts(demoStore);
-    bumpVersion();
-  }, [isDemo, demoStore, bumpVersion]);
+    // In production, stock alerts would be generated server-side 
+    // or by a background process to avoid excessive client-side writes.
+  }, []);
 }

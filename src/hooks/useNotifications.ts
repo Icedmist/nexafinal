@@ -1,6 +1,10 @@
-import { useMemo, useCallback } from "react";
-import { useDemo } from "@/hooks/useDemo";
+import { useCallback } from "react";
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import type { Notification } from "@/types/inventory";
+import { useEffect, useState } from "react";
 
 interface QueryResult<T> {
   data: T;
@@ -9,50 +13,72 @@ interface QueryResult<T> {
 }
 
 export function useNotifications(): QueryResult<Notification[]> {
-  const { isDemo, demoStore, version } = useDemo();
-  return useMemo(() => {
-    if (isDemo && demoStore) {
-      return { data: demoStore.getNotifications(), isLoading: false, error: null };
+  const { user } = useAuth();
+  const { ownerId } = useBusiness();
+  const [data, setData] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user || !ownerId) {
+      setData([]);
+      setIsLoading(false);
+      return;
     }
-    return { data: [] as Notification[], isLoading: false, error: null };
-  }, [isDemo, demoStore, version]);
+
+    const q = query(
+      collection(db, "notifications"),
+      where("ownerId", "==", ownerId),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Notification[];
+      setData(items);
+      setIsLoading(false);
+    }, (err) => {
+      setError(err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, ownerId]);
+
+  return { data, isLoading, error };
 }
 
 export function useUnreadCount(): number {
-  const { isDemo, demoStore, version } = useDemo();
-  return useMemo(() => {
-    if (isDemo && demoStore) return demoStore.getUnreadCount();
-    return 0;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo, demoStore, version]);
+  const { data } = useNotifications();
+  return data.filter(n => !n.isRead).length;
 }
 
 export function useMarkAsRead() {
-  const { demoStore, bumpVersion } = useDemo();
-  return useCallback(
-    (id: string) => {
-      demoStore?.markAsRead(id);
-      bumpVersion();
-    },
-    [demoStore, bumpVersion],
-  );
+  return useCallback(async (id: string) => {
+    const docRef = doc(db, "notifications", id);
+    await updateDoc(docRef, { isRead: true });
+  }, []);
 }
 
 export function useMarkAllAsRead() {
-  const { demoStore, bumpVersion } = useDemo();
-  return useCallback(() => {
-    demoStore?.markAllAsRead();
-    bumpVersion();
-  }, [demoStore, bumpVersion]);
+  const { ownerId } = useBusiness();
+  return useCallback(async () => {
+    if (!ownerId) return;
+    const q = query(collection(db, "notifications"), where("ownerId", "==", ownerId), where("isRead", "==", false));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { isRead: true });
+    });
+    await batch.commit();
+  }, [ownerId]);
 }
 
 export function useDismissNotification() {
-  const { demoStore, bumpVersion } = useDemo();
-  return useCallback(
-    (id: string) => {
-      demoStore?.dismissNotification(id);
-      bumpVersion();
-    },
-    [demoStore, bumpVersion],
-  );
+  return useCallback(async (id: string) => {
+    const docRef = doc(db, "notifications", id);
+    await deleteDoc(docRef);
+  }, []);
 }

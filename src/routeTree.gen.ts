@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppSuppliersRouteImport } from './routes/app.suppliers'
+import { Route as AppStaffRouteImport } from './routes/app.staff'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSalesHistoryRouteImport } from './routes/app.sales-history'
 import { Route as AppSalesAnalyticsRouteImport } from './routes/app.sales-analytics'
@@ -48,6 +49,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppSuppliersRoute = AppSuppliersRouteImport.update({
   id: '/suppliers',
   path: '/suppliers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStaffRoute = AppStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/app/sales-analytics': typeof AppSalesAnalyticsRoute
   '/app/sales-history': typeof AppSalesHistoryRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/staff': typeof AppStaffRoute
   '/app/suppliers': typeof AppSuppliersRoute
   '/app/': typeof AppIndexRoute
 }
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/app/sales-analytics': typeof AppSalesAnalyticsRoute
   '/app/sales-history': typeof AppSalesHistoryRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/staff': typeof AppStaffRoute
   '/app/suppliers': typeof AppSuppliersRoute
   '/app': typeof AppIndexRoute
 }
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/app/sales-analytics': typeof AppSalesAnalyticsRoute
   '/app/sales-history': typeof AppSalesHistoryRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/staff': typeof AppStaffRoute
   '/app/suppliers': typeof AppSuppliersRoute
   '/app/': typeof AppIndexRoute
 }
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/app/sales-analytics'
     | '/app/sales-history'
     | '/app/settings'
+    | '/app/staff'
     | '/app/suppliers'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/app/sales-analytics'
     | '/app/sales-history'
     | '/app/settings'
+    | '/app/staff'
     | '/app/suppliers'
     | '/app'
   id:
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/app/sales-analytics'
     | '/app/sales-history'
     | '/app/settings'
+    | '/app/staff'
     | '/app/suppliers'
     | '/app/'
   fileRoutesById: FileRoutesById
@@ -298,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/suppliers'
       fullPath: '/app/suppliers'
       preLoaderRoute: typeof AppSuppliersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/staff': {
+      id: '/app/staff'
+      path: '/staff'
+      fullPath: '/app/staff'
+      preLoaderRoute: typeof AppStaffRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/settings': {
@@ -432,6 +451,7 @@ interface AppRouteChildren {
   AppSalesAnalyticsRoute: typeof AppSalesAnalyticsRoute
   AppSalesHistoryRoute: typeof AppSalesHistoryRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppStaffRoute: typeof AppStaffRoute
   AppSuppliersRoute: typeof AppSuppliersRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -453,6 +473,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSalesAnalyticsRoute: AppSalesAnalyticsRoute,
   AppSalesHistoryRoute: AppSalesHistoryRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppStaffRoute: AppStaffRoute,
   AppSuppliersRoute: AppSuppliersRoute,
   AppIndexRoute: AppIndexRoute,
 }
