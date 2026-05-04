@@ -4,7 +4,7 @@ import {
   Search, User, Phone, ShoppingBag, MessageCircle, Send,
   TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X,
 } from "lucide-react";
-import { useDemo } from "@/hooks/useDemo";
+import { useSales } from "@/hooks/useSalesData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +43,7 @@ const MESSAGE_TEMPLATES = [
 ];
 
 function CustomersPage() {
-  const { demoStore } = useDemo();
+  const { data: sales, isLoading } = useSales();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<CustomerTab>("all");
   const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
@@ -52,13 +52,6 @@ function CustomersPage() {
   const [messageTarget, setMessageTarget] = useState<CustomerRecord | null>(null);
 
   const customers = useMemo(() => {
-    const sales = demoStore?.getSales() ?? [];
-    const creditCustomers = demoStore?.getCreditCustomers() ?? [];
-    const debtMap = new Map<string, number>();
-    for (const cc of creditCustomers) {
-      if (cc.balanceNgn > 0) debtMap.set(cc.customerPhone, cc.balanceNgn);
-    }
-
     const map = new Map<string, CustomerRecord>();
     for (const sale of sales) {
       const phone = sale.customerPhone?.trim();
@@ -67,27 +60,26 @@ function CustomersPage() {
       if (existing) {
         existing.totalSpent += sale.totalNgn;
         existing.transactionCount++;
+        if (sale.isCreditSale) {
+          existing.debtBalance += sale.totalNgn;
+        }
         if (sale.createdAt > existing.lastPurchase) {
           existing.lastPurchase = sale.createdAt;
           if (sale.customerName) existing.name = sale.customerName;
         }
       } else {
         map.set(phone, {
-          name: sale.customerName || "Unknown",
+          name: sale.customerName || "Customer",
           phone,
           totalSpent: sale.totalNgn,
           transactionCount: 1,
           lastPurchase: sale.createdAt,
-          debtBalance: 0,
+          debtBalance: sale.isCreditSale ? sale.totalNgn : 0,
         });
       }
     }
-    for (const [phone, debt] of debtMap) {
-      const c = map.get(phone);
-      if (c) c.debtBalance = debt;
-    }
     return Array.from(map.values()).sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [demoStore]);
+  }, [sales]);
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
@@ -161,6 +153,14 @@ function CustomersPage() {
     if (d === 1) return "Yesterday";
     return `${d}d ago`;
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4">

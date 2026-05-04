@@ -3,6 +3,7 @@ import { X, Pencil, Archive, Package } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -84,7 +85,7 @@ export function ItemDetailSheet({
           <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md px-6 py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="truncate text-xl font-black tracking-tight text-foreground">{item.name}</h2>
+                <DialogTitle className="truncate text-xl font-black tracking-tight text-foreground">{item.name}</DialogTitle>
                 <div className="mt-1.5 flex items-center gap-2">
                   <StatusBadge status={status} />
                   <StatusBadge status={item.status} />

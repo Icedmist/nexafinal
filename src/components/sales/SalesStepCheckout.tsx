@@ -84,6 +84,8 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
         imageUrl: ci.item.imageUrl || null,
       })),
       totalNgn: grandTotal,
+      paymentMethod,
+      isCreditSale: payOnCredit,
       createdAt: new Date().toISOString(),
     };
 

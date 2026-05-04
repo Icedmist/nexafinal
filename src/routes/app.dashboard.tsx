@@ -11,10 +11,13 @@ import { DashboardAnomalySection } from "@/components/insights/DashboardAnomalyS
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { cn } from "@/lib/utils";
 
-import { useStockSummary } from "@/hooks/useInventoryData";
+import { useStockSummary, useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
 import { useAlertGenerator } from "@/hooks/useStockAlertGenerator";
 import { useDemo } from "@/hooks/useDemo";
 import { useRole } from "@/hooks/useRole";
+import { useSales } from "@/hooks/useSalesData";
+import { useExpenses } from "@/hooks/useExpensesData";
+import { useRefunds } from "@/hooks/useRefundsData";
 import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";
 
 const NAIRA = "₦";
@@ -70,14 +73,20 @@ function DashboardPage() {
   const navigate = useNavigate();
   const { data: summary } = useStockSummary();
   const { demoStore, isDemo, onboarding } = useDemo();
+  const { data: sales, isLoading: salesLoading } = useSales();
+  const { data: expenses, isLoading: expensesLoading } = useExpenses();
+  const { data: refunds, isLoading: refundsLoading } = useRefunds();
+  const { data: realItems } = useItems();
+  const { data: realMovements } = useMovements();
+  const { data: realSuppliers } = useSuppliers();
   const { isAdmin, isManager } = useRole();
   useAlertGenerator();
 
-  const items = demoStore?.getItems() ?? [];
-  const movements = demoStore?.getMovements() ?? [];
-  const suppliers = demoStore?.getSuppliers() ?? [];
-  const sales = demoStore?.getSales() ?? [];
-  const users = demoStore?.getUsers() ?? [];
+  const items = realItems.length > 0 ? realItems : (demoStore?.getItems() ?? []);
+  const movements = realMovements.length > 0 ? realMovements : (demoStore?.getMovements() ?? []);
+  const suppliers = realSuppliers.length > 0 ? realSuppliers : (demoStore?.getSuppliers() ?? []);
+
+  const isLoading = salesLoading || expensesLoading || refundsLoading;
 
   const tour = useOnboarding("dashboard");
   const [openSection, setOpenSection] = useState<string | null>("metrics");
@@ -110,12 +119,10 @@ function DashboardPage() {
   const uniqueCustomers = new Set(sales.filter((s) => s.customerPhone).map((s) => s.customerPhone)).size;
 
   // Expense & refund metrics
-  const allExpenses = demoStore?.getExpenses() ?? [];
-  const allRefunds = demoStore?.getRefunds() ?? [];
-  const totalExpenses = allExpenses.reduce((s, e) => s + e.amount, 0);
-  const totalRefunds = allRefunds.reduce((s, r) => s + r.amountNgn, 0);
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalRefunds = refunds.reduce((s, r) => s + r.amountNgn, 0);
   const netProfit = totalRevenue - totalExpenses - totalRefunds;
-  const todayExpenses = allExpenses.filter((e) => new Date(e.date).toDateString() === new Date().toDateString()).reduce((s, e) => s + e.amount, 0);
+  const todayExpenses = expenses.filter((e) => new Date(e.date).toDateString() === new Date().toDateString()).reduce((s, e) => s + e.amount, 0);
 
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => {
@@ -126,6 +133,14 @@ function DashboardPage() {
   const storeName = onboarding.businessType
     ? onboarding.businessType.charAt(0).toUpperCase() + onboarding.businessType.slice(1) + " Store"
     : "NEXA StoreOS";
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4">

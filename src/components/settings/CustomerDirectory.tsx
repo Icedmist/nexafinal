@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Search, User, Phone, ShoppingBag } from "lucide-react";
-import { useDemo } from "@/hooks/useDemo";
+import { useSales } from "@/hooks/useSalesData";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -16,11 +16,10 @@ interface CustomerRecord {
 }
 
 export function CustomerDirectory() {
-  const { demoStore } = useDemo();
+  const { data: sales, isLoading } = useSales();
   const [search, setSearch] = useState("");
 
   const customers = useMemo(() => {
-    const sales = demoStore?.getSales() ?? [];
     const map = new Map<string, CustomerRecord>();
 
     for (const sale of sales) {
@@ -36,7 +35,7 @@ export function CustomerDirectory() {
         }
       } else {
         map.set(phone, {
-          name: sale.customerName || "Unknown",
+          name: sale.customerName || "Customer",
           phone,
           totalSpent: sale.totalNgn,
           transactionCount: 1,
@@ -46,13 +45,21 @@ export function CustomerDirectory() {
     }
 
     return Array.from(map.values()).sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [demoStore]);
+  }, [sales]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return customers;
     const q = search.toLowerCase();
     return customers.filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q));
   }, [customers, search]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

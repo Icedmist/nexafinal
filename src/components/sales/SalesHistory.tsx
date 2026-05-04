@@ -4,7 +4,7 @@ import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, U
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -200,7 +200,7 @@ export function SalesHistoryPage() {
           {selectedSale && (
             <div className="nexa-card bg-card p-6 space-y-6">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-bold tracking-tight text-foreground">Sale Details</h2>
+                <DialogTitle className="text-xl font-bold tracking-tight text-foreground">Sale Details</DialogTitle>
                 <button 
                   onClick={() => setSelectedSale(null)}
                   className="rounded-full p-2 hover:bg-muted transition-colors"

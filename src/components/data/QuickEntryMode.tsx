@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { ScanBarcode, X, Box, Info, History, ArrowRightCircle, AlertCircle, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useItems } from "@/hooks/useItems";
+import { useItems } from "@/hooks/useInventoryData";
 import { useCreateMovement } from "@/hooks/useInventoryMutations";
 import { MovementType } from "@/types/inventory";
 import type { Item, StockMovement } from "@/types/inventory";

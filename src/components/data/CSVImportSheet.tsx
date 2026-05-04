@@ -694,5 +694,3 @@ export function CSVImportSheet({
     </Dialog>
   );
 }
-  );
-}

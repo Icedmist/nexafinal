@@ -15,6 +15,8 @@ export interface SaleTransaction {
   customerPhone?: string;
   items: SaleLineItem[];
   totalNgn: number;
+  paymentMethod?: "cash" | "transfer" | "card";
+  isCreditSale?: boolean;
   createdAt: string;
 }
 

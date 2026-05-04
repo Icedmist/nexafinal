@@ -129,9 +129,12 @@ interface SalesReceiptProps {
   onClose: () => void;
 }
 
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useBusiness } from "@/contexts/BusinessContext";
+
 export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
-  const { onboarding } = useDemo();
-  const storeName = onboarding.storeName || getStoreName(onboarding.businessType);
+  const { profile } = useBusiness();
+  const storeName = profile?.storeDetails?.name || "NEXA Store";
   const [downloading, setDownloading] = useState(false);
 
   const handlePrint = () => window.print();
@@ -162,11 +165,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   const handleWhatsAppPDF = async () => {
-    // Generate PDF and share text with note about the PDF
     const text = buildReceiptText(sale, storeName);
     const phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
-
-    // Download PDF first
     try {
       const blob = await generateReceiptPDF(sale, storeName);
       const url = URL.createObjectURL(blob);
@@ -175,128 +175,138 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
       a.download = `receipt-${sale.id.slice(-8).toUpperCase()}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      // PDF download failed, continue with text
-    }
-
-    // Open WhatsApp with text
+    } catch {}
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text + "\n\n📎 PDF receipt attached separately")}`;
     window.open(waUrl, "_blank");
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-[400px] nexa-card bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header actions */}
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-card px-4 pt-4 pb-2 print:hidden rounded-t-2xl">
-          <h3 className="text-sm font-semibold text-foreground">Receipt</h3>
-          <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-muted">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Receipt body */}
-        <div className="receipt-print-area px-6 pb-3">
-          {/* Store header */}
-          <div className="text-center">
-            <h2 className="text-lg font-bold text-foreground">{storeName}</h2>
-            <p className="text-xs text-muted-foreground">Receipt of Purchase</p>
+    <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[400px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] overflow-y-auto">
+          {/* Header actions */}
+          <div className="flex items-center justify-between mb-4 print:hidden">
+            <DialogTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Receipt</DialogTitle>
+            <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-muted transition-colors">
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          <Separator className="my-3" />
-
-          {/* Receipt info */}
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Receipt #</span>
-            <span className="font-mono font-medium text-foreground">{sale.id.slice(-8).toUpperCase()}</span>
-          </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Date</span>
-            <span className="font-medium text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
-          </div>
-
-          {sale.customerName && (
-            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-              <span>Customer</span>
-              <span className="font-medium text-foreground">{sale.customerName}</span>
+          {/* Receipt body */}
+          <div className="receipt-print-area space-y-6">
+            {/* Store header */}
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-black tracking-tight text-foreground">{storeName}</h2>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Transaction Success</p>
             </div>
-          )}
-          {sale.customerPhone && (
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Phone</span>
-              <span className="font-mono text-foreground">{sale.customerPhone}</span>
+
+            <div className="py-2">
+              <Separator className="h-0.5" />
             </div>
-          )}
 
-          <Separator className="my-3" />
+            {/* Receipt info */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground font-bold uppercase tracking-wider">Receipt #</span>
+                <span className="font-mono font-black text-foreground">{sale.id.slice(-8).toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground font-bold uppercase tracking-wider">Date</span>
+                <span className="font-black text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+              </div>
 
-          {/* Line items */}
-          <div className="space-y-2">
-            {sale.items.map((li, idx) => (
-              <div key={idx} className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{li.itemName}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {li.quantity} × {fmtNgn(li.unitPriceNgn)}
-                  </p>
+              {sale.customerName && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Customer</span>
+                  <span className="font-black text-foreground">{sale.customerName}</span>
                 </div>
-                <span className="font-mono text-sm font-semibold text-foreground shrink-0">
-                  {fmtNgn(li.unitPriceNgn * li.quantity)}
+              )}
+              {sale.customerPhone && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Phone</span>
+                  <span className="font-mono font-black text-foreground">{sale.customerPhone}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="py-1">
+               <Separator className="h-0.5 border-dashed" />
+            </div>
+
+            {/* Line items */}
+            <div className="space-y-4">
+              {sale.items.map((li, idx) => (
+                <div key={idx} className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-foreground truncate">{li.itemName}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      {li.quantity} × {fmtNgn(li.unitPriceNgn)}
+                    </p>
+                  </div>
+                  <span className="font-mono text-sm font-black text-foreground shrink-0">
+                    {fmtNgn(li.unitPriceNgn * li.quantity)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="py-1">
+               <Separator className="h-0.5" />
+            </div>
+
+            {/* Totals */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Total Paid</span>
+                <span className="text-3xl font-black font-mono tracking-tighter text-foreground">
+                  {fmtNgn(sale.totalNgn)}
                 </span>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <Separator className="my-3" />
-
-          {/* Total */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-foreground">Total</span>
-            <span className="font-mono text-xl font-bold text-foreground">{fmtNgn(sale.totalNgn)}</span>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-3 text-center">
-            <p className="text-[10px] text-muted-foreground">Thank you for your purchase!</p>
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="border-t border-border px-4 py-3 space-y-2 print:hidden">
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
-              <Printer className="h-3.5 w-3.5" /> Print
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={downloading} className="gap-1.5">
-              <Download className="h-3.5 w-3.5" /> {downloading ? "…" : "PDF"}
-            </Button>
-          </div>
-
-          {sale.customerPhone && (
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-medium text-muted-foreground text-center">Share via WhatsApp</p>
+            {/* Action buttons */}
+            <div className="space-y-3 pt-6 print:hidden">
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleWhatsAppText}
-                  className="gap-1.5"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" /> Text
+                <Button variant="outline" size="sm" onClick={handlePrint} className="h-10 rounded-xl border-2 font-bold gap-1.5">
+                  <Printer className="h-3.5 w-3.5" /> Print
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleWhatsAppPDF}
-                  className="gap-1.5"
-                >
-                  <FileText className="h-3.5 w-3.5" /> PDF + Text
+                <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={downloading} className="h-10 rounded-xl border-2 font-bold gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> {downloading ? "…" : "PDF"}
                 </Button>
               </div>
+
+              {sale.customerPhone && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Share via WhatsApp</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleWhatsAppText}
+                      className="h-10 rounded-xl border-2 font-bold gap-1.5"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" /> Text
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleWhatsAppPDF}
+                      className="h-10 rounded-xl border-2 font-bold gap-1.5"
+                    >
+                      <FileText className="h-3.5 w-3.5" /> PDF + Text
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            
+            <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest pt-4">
+              Thank you for your business!
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
+
