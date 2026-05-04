@@ -12,6 +12,7 @@ import { useRole } from "@/hooks/useRole";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { canAccessRoute } from "@/lib/route-guard";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 export const Route = createFileRoute("/app")({
   component: AppLayout,
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/app")({
 
 function AppLayout() {
   const { isDemo } = useDemo();
+  const { user, loading } = useAuth();
   const { role } = useRole();
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,20 +31,20 @@ function AppLayout() {
 
   // Role-based route guard
   useEffect(() => {
-    if (isDemo && !canAccessRoute(location.pathname, role)) {
+    if ((isDemo || user) && !canAccessRoute(location.pathname, role)) {
       toast.error("You don't have permission to access that page.");
       navigate({ to: "/app/dashboard" });
     }
-  }, [location.pathname, role, navigate, isDemo]);
+  }, [location.pathname, role, navigate, isDemo, user]);
 
-  // Demo guard — redirect to landing if not in demo
+  // Auth/Demo guard — redirect to landing if not logged in and not in demo
   useEffect(() => {
-    if (!isDemo) {
+    if (!loading && !user && !isDemo) {
       navigate({ to: "/" });
     }
-  }, [isDemo, navigate]);
+  }, [isDemo, user, loading, navigate]);
 
-  if (!isDemo) {
+  if (loading || (!user && !isDemo)) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />

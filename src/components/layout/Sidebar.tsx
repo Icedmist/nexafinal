@@ -22,6 +22,7 @@ import {
 import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
+import { useBusiness } from "@/contexts/BusinessContext";
 import type { RolePermissions } from "@/lib/roles";
 
 interface NavItem {
@@ -96,6 +97,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const { permissions } = useRole();
+  const { profile } = useBusiness();
+
+  const isBasicPOS = profile?.complexityLevel === "basic";
 
   const toggleGroup = (label: string) => {
     setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -103,9 +107,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const isActive = (href: string) => location.pathname === href;
 
-  // Filter groups and items based on permissions — hidden, not "access denied"
+  // Filter groups and items based on permissions AND business complexity
   const visibleGroups = navGroups
     .filter((g) => !g.permKey || permissions[g.permKey])
+    .filter((g) => isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true)
     .map((g) => ({
       ...g,
       items: g.items.filter((i) => !i.permKey || permissions[i.permKey]),
