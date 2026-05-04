@@ -13,6 +13,7 @@ import { notifyActivity } from '@/lib/notification-service';
 
 interface AuthContextType {
   user: User | null;
+  claims: { storeId?: string; role?: string } | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<UserCredential>;
   signup: (email: string, pass: string, displayName?: string) => Promise<UserCredential>;
@@ -21,6 +22,7 @@ interface AuthContextType {
 
 const AuthContext = React.createContext<AuthContextType>({
   user: null,
+  claims: null,
   loading: true,
   login: async () => ({} as UserCredential),
   signup: async () => ({} as UserCredential),
@@ -31,6 +33,7 @@ export const useAuth = () => React.useContext(AuthContext);
 
 export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = React.useState<User | null>(null);
+  const [claims, setClaims] = React.useState<{ storeId?: string; role?: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   const login = async (email: string, pass: string) => {
@@ -71,6 +74,21 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          // Force refresh token to ensure we have the latest custom claims
+          const tokenResult = await currentUser.getIdTokenResult(true);
+          setClaims({
+            storeId: tokenResult.claims.storeId as string,
+            role: tokenResult.claims.role as string,
+          });
+        } catch (error) {
+          console.error("Error fetching custom claims:", error);
+          setClaims(null);
+        }
+      } else {
+        setClaims(null);
+      }
       setLoading(false);
     });
 
@@ -78,7 +96,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, claims, loading, login, signup, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );

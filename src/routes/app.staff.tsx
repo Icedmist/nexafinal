@@ -49,7 +49,6 @@ function StaffPage() {
   const [newStaff, setNewStaff] = useState({
     displayName: "",
     email: "",
-    password: "",
     role: "staff" as "admin" | "manager" | "staff",
     branchId: "",
   });
@@ -60,15 +59,15 @@ function StaffPage() {
   );
 
   const handleAddStaff = async () => {
-    if (!newStaff.displayName || !newStaff.email || !newStaff.password || !newStaff.branchId) {
-      toast.error("Please fill in all required fields including password");
+    if (!newStaff.displayName || !newStaff.email || !newStaff.branchId) {
+      toast.error("Please fill in all required fields");
       return;
     }
     try {
       await addStaff(newStaff);
-      toast.success("Staff member added successfully");
+      toast.success("Staff member authorized successfully");
       setFormOpen(false);
-      setNewStaff({ displayName: "", email: "", password: "", role: "staff", branchId: "" });
+      setNewStaff({ displayName: "", email: "", role: "staff", branchId: "" });
     } catch (error: any) {
       toast.error(error.message || "Failed to add staff member");
     }
@@ -200,16 +199,6 @@ function StaffPage() {
                 placeholder="john@example.com"
                 value={newStaff.email}
                 onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
-                className="h-11 rounded-xl border-2 font-bold"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Login Password</Label>
-              <Input 
-                type="password"
-                placeholder="Min. 8 characters"
-                value={newStaff.password}
-                onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
                 className="h-11 rounded-xl border-2 font-bold"
               />
             </div>

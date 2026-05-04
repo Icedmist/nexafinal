@@ -49,6 +49,21 @@ export function useTenant() {
     }
 
     const fetchStore = async () => {
+      // 1. Try Cache First
+      const cacheKey = `nexa_tenant_${slug}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      
+      if (cached) {
+        try {
+          const data = JSON.parse(cached);
+          setStore(data);
+          setLoading(false);
+          return;
+        } catch (e) {
+          sessionStorage.removeItem(cacheKey);
+        }
+      }
+
       try {
         const q = query(collection(db, "stores"), where("slug", "==", slug), limit(1));
         const snapshot = await getDocs(q);
@@ -57,7 +72,10 @@ export function useTenant() {
           setError("Store not found");
           setStore(null);
         } else {
-          setStore({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Store);
+          const storeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Store;
+          setStore(storeData);
+          // 2. Save to Cache
+          sessionStorage.setItem(cacheKey, JSON.stringify(storeData));
         }
       } catch (err: any) {
         // Only log once, not on every re-render

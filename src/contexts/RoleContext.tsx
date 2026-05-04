@@ -17,7 +17,7 @@ export interface RoleContextValue {
 export const RoleContext = createContext<RoleContextValue | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
   const [realRole, setRealRole] = useState<UserRoleType>("requestor");
 
@@ -27,43 +27,24 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 1. Check if user is the store owner
+    // 1. High Priority: Use Custom Claims (Zero DB Read)
+    if (claims?.role) {
+      // Security Check: Ensure the user's token storeId matches the current tenant context
+      if (claims.storeId === store?.id) {
+        setRealRole(claims.role as UserRoleType);
+        return;
+      }
+    }
+
+    // 2. Fallback: Check if user is the store owner (merchant root)
     if (store && user.uid === store.ownerId) {
       setRealRole("admin");
       return;
     }
 
-    // 2. Otherwise check staff collection, strictly scoped to this store
-    const staffRef = doc(db, 'staff', user.uid);
-    const unsubStaff = onSnapshot(staffRef, async (snap) => {
-      if (snap.exists()) {
-        const staffData = snap.data();
-        if (store && staffData.storeId === store.id) {
-          setRealRole(staffData.role as UserRoleType);
-        } else {
-          setRealRole("requestor");
-        }
-      } else if (user.email && store) {
-        // Fallback: search by email scoped by storeId
-        const q = query(
-          collection(db, "staff"), 
-          where("email", "==", user.email), 
-          where("storeId", "==", store.id),
-          limit(1)
-        );
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          setRealRole(snapshot.docs[0].data().role as UserRoleType);
-        } else {
-          setRealRole("requestor");
-        }
-      } else {
-        setRealRole("requestor");
-      }
-    });
-
-    return () => unsubStaff();
-  }, [user, store, loadingTenant]);
+    // 3. If no claims and not owner, default to requestor
+    setRealRole("requestor");
+  }, [user, store, loadingTenant, claims]);
 
   const role: UserRoleType = realRole;
 

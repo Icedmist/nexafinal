@@ -31,7 +31,7 @@ const BusinessContext = createContext<BusinessContextType>({
 export const useBusiness = () => useContext(BusinessContext);
 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -49,81 +49,47 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setLoadingProfile(true);
 
-    // Try finding in users (Owner/Admin)
-    const syncUserDoc = async () => {
-      // If we have a store from tenant context, we should check if the user is the owner
+    const syncProfile = async () => {
+      let actualOwnerId: string | null = null;
+
+      // 1. If user is the owner of the current store
       if (store && user.uid === store.ownerId) {
-        const userRef = doc(db, 'users', user.uid);
-        const unsubUser = onSnapshot(userRef, (snapshot) => {
-          if (snapshot.exists()) {
-            setProfile(snapshot.data() as BusinessProfile);
-            setOwnerId(user.uid);
-          }
-          setLoadingProfile(false);
-        });
-        return unsubUser;
+        actualOwnerId = user.uid;
+      } 
+      // 2. If user is staff, get ownerId from their token claims or store metadata
+      else if (claims?.storeId === store?.id) {
+        actualOwnerId = store?.ownerId || null;
       }
 
-      // If not owner, check staff collection but strictly scoped to this store
-      const staffRef = doc(db, 'staff', user.uid);
-      const unsubStaff = onSnapshot(staffRef, async (staffSnap) => {
-        if (staffSnap.exists()) {
-          const staffData = staffSnap.data();
-          const targetStoreId = store?.id;
-          
-          // STRICT SCOPING: Staff must belong to the current store
-          if (targetStoreId && staffData.storeId !== targetStoreId) {
-            console.error("Access denied: User does not belong to this store.");
+      if (actualOwnerId) {
+        setOwnerId(actualOwnerId);
+        const ownerRef = doc(db, 'users', actualOwnerId);
+        const unsubscribe = onSnapshot(ownerRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setProfile(snapshot.data() as BusinessProfile);
+          } else {
+            console.warn("Business profile not found for owner:", actualOwnerId);
             setProfile(null);
-            setOwnerId(null);
-            setLoadingProfile(false);
-            return;
-          }
-
-          const actualOwnerId = staffData.ownerId;
-          setOwnerId(actualOwnerId);
-          
-          const ownerRef = doc(db, 'users', actualOwnerId);
-          const unsubOwner = onSnapshot(ownerRef, (ownerSnap) => {
-            if (ownerSnap.exists()) {
-              setProfile(ownerSnap.data() as BusinessProfile);
-            }
-            setLoadingProfile(false);
-          });
-          return () => unsubOwner();
-        } else if (user.email && store) {
-          // Fallback scoped by email and storeId
-          const q = query(
-            collection(db, "staff"), 
-            where("email", "==", user.email), 
-            where("storeId", "==", store.id),
-            limit(1)
-          );
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            const staffData = snapshot.docs[0].data();
-            const actualOwnerId = staffData.ownerId;
-            setOwnerId(actualOwnerId);
-            
-            const ownerRef = doc(db, 'users', actualOwnerId);
-            const ownerSnap = await getDocs(query(collection(db, 'users'), where('__name__', '==', actualOwnerId)));
-            if (!ownerSnap.empty) {
-              setProfile(ownerSnap.docs[0].data() as BusinessProfile);
-            }
           }
           setLoadingProfile(false);
-        } else {
+        }, (err) => {
+          console.error("Error fetching business profile:", err);
           setLoadingProfile(false);
-        }
-      });
-      return unsubStaff;
+        });
+        return unsubscribe;
+      } else {
+        setProfile(null);
+        setOwnerId(null);
+        setLoadingProfile(false);
+        return null;
+      }
     };
 
-    const cleanup = syncUserDoc();
+    const unsubPromise = syncProfile();
     return () => {
-      cleanup.then(unsub => unsub?.());
+      unsubPromise.then(unsub => unsub?.());
     };
-  }, [user, store, loadingTenant]);
+  }, [user, store, loadingTenant, claims]);
 
   const updateProfile = async (updates: Partial<BusinessProfile>) => {
     if (!user || !ownerId) return;
