@@ -113,7 +113,7 @@ export function QuickEntryMode({ open, onOpenChange }: QuickEntryModeProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none" onKeyDown={handleKeyDown}>
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden" onKeyDown={handleKeyDown}>
         <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
           {/* Header */}
           <div className="flex items-start justify-between mb-6">

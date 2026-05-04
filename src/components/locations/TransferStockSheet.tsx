@@ -32,6 +32,7 @@ import { useCreateMovement } from "@/hooks/useInventoryMutations";
 import { MovementType } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 const schema = z.object({
   itemId: z.string().min(1, "Select an item"),
@@ -101,6 +102,8 @@ export function TransferStockSheet({
     const fromLoc = locations.find((l) => l.id === values.fromLocationId);
     const toLoc = locations.find((l) => l.id === values.toLocationId);
 
+    const { user } = useAuth();
+
     createMovement.mutate(
       {
         itemId: values.itemId,
@@ -110,6 +113,8 @@ export function TransferStockSheet({
         toLocationId: values.toLocationId,
         reference: `Transfer: ${fromLoc?.name ?? ""} → ${toLoc?.name ?? ""}`,
         notes: "",
+        performedBy: user?.email || "System",
+        createdAt: new Date().toISOString(),
       },
       {
         onSuccess: () => {
@@ -123,7 +128,7 @@ export function TransferStockSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
         <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
           {/* Header */}
           <div className="flex items-start justify-between mb-6">

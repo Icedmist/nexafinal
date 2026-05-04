@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 import { useLocations as useRealLocations } from "@/hooks/useInventoryData";
+import { useStoreBranches } from "@/hooks/useStaffData";
+import { useBusiness } from "@/contexts/BusinessContext";
 import type { Location } from "@/types/inventory";
 
 export interface LocationTreeNode extends Location {
@@ -43,6 +45,31 @@ export function useLocations() {
 
 export function useLocationTree() {
   const { data: locations } = useLocations();
+  const { data: branches } = useStoreBranches();
+  const { ownerId } = useBusiness();
 
-  return useMemo(() => buildTree(locations), [locations]);
+  return useMemo(() => {
+    // Treat branches as root locations
+    const branchLocations: Location[] = branches.map(b => ({
+      id: b.id,
+      ownerId: ownerId || "",
+      name: b.name,
+      type: "warehouse",
+      address: b.location,
+      parentId: null,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }));
+
+    // Merge only unique ones (avoid duplicates if already synced)
+    const combined = [...locations];
+    for (const bl of branchLocations) {
+      if (!combined.find(l => l.id === bl.id || l.name === bl.name)) {
+        combined.push(bl);
+      }
+    }
+
+    return buildTree(combined);
+  }, [locations, branches]);
 }

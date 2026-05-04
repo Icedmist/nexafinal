@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -75,7 +75,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
 export function useStaffMutations() {
   const { ownerId } = useBusiness();
 
-  const addStaff = async (staffData: Partial<Staff>) => {
+  const addStaff = async (staffData: Partial<Staff> & { password?: string }) => {
     if (!ownerId) throw new Error("Unauthorized");
     return addDoc(collection(db, "staff"), {
       ...staffData,
@@ -110,11 +110,32 @@ export function useStoreMutations() {
     if (!ownerId) return;
     const q = query(collection(db, "stores"), where("ownerId", "==", ownerId), limit(1));
     const snap = await getDocs(q);
+    
+    // Create the branch in the store document
     if (!snap.empty) {
+      const storeRef = snap.docs[0].ref;
       const store = snap.docs[0].data() as Store;
       const branches = [...(store.branches || []), branch];
-      await updateDoc(snap.docs[0].ref, { branches });
+      await updateDoc(storeRef, { branches });
+    } else {
+      await addDoc(collection(db, "stores"), {
+        ownerId,
+        branches: [branch],
+        createdAt: new Date().toISOString(),
+      });
     }
+
+    // NEW: Sync with locations collection so the Locations page features the branches
+    await setDoc(doc(db, "locations", branch.id), {
+      ownerId,
+      name: branch.name,
+      type: "warehouse",
+      address: branch.location,
+      parentId: null,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   };
 
   return { updateStore, addBranch };

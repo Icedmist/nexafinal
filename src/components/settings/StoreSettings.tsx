@@ -205,7 +205,7 @@ function BranchManagement() {
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-black text-sm">{b.name} {b.isMain && <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[8px] uppercase tracking-tighter">Main</Badge>}</p>
+                  <div className="font-black text-sm">{b.name} {b.isMain && <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[8px] uppercase tracking-tighter">Main</Badge>}</div>
                   <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
                     <MapPin className="h-3 w-3" /> {b.location}
                   </p>

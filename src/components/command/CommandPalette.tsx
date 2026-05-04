@@ -3,18 +3,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { canAccessRoute } from "@/lib/route-guard";
 import { useRole } from "@/hooks/useRole";
 import {
-  LayoutDashboard,
-  Package,
-  ArrowRightLeft,
-  Truck,
-  ShoppingCart,
-  ClipboardList,
-  MapPin,
-  Settings,
-  Plus,
-  FileDown,
-} from "lucide-react";
-import {
   CommandInput,
   CommandList,
   CommandEmpty,
@@ -27,6 +15,10 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useItems, useCategories, useSuppliers } from "@/hooks/useInventoryData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { parseQuery } from "@/lib/nl-search-parser";
+import { PAGES } from "./palette-pages";
+import { ACTIONS } from "./palette-actions";
+import { ItemResultRow } from "./ItemResultRow";
 
 // ─── Component ───────────────────────────────────────────
 

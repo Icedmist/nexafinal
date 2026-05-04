@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Users, UserPlus, Mail, Shield, Building2, Search, MoreVertical, Ban, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ function StaffPage() {
   const [newStaff, setNewStaff] = useState({
     displayName: "",
     email: "",
+    password: "",
     role: "staff" as "admin" | "manager" | "staff",
     branchId: "",
   });
@@ -58,15 +60,15 @@ function StaffPage() {
   );
 
   const handleAddStaff = async () => {
-    if (!newStaff.displayName || !newStaff.email || !newStaff.branchId) {
-      toast.error("Please fill in all required fields");
+    if (!newStaff.displayName || !newStaff.email || !newStaff.password || !newStaff.branchId) {
+      toast.error("Please fill in all required fields including password");
       return;
     }
     try {
       await addStaff(newStaff);
       toast.success("Staff member added successfully");
       setFormOpen(false);
-      setNewStaff({ displayName: "", email: "", role: "staff", branchId: "" });
+      setNewStaff({ displayName: "", email: "", password: "", role: "staff", branchId: "" });
     } catch (error: any) {
       toast.error(error.message || "Failed to add staff member");
     }
@@ -86,14 +88,14 @@ function StaffPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6">
+    <div className={cn("mx-auto max-w-[1200px] space-y-6 flex flex-col", filteredStaff.length === 0 && "min-h-[60vh] justify-center")}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-foreground">Staff Management</h1>
-          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{staff.length} team members</p>
+          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{staff.length} team members authorized</p>
         </div>
-        <Button onClick={() => setFormOpen(true)} className="rounded-xl font-bold gap-2">
-          <UserPlus className="h-4 w-4" /> Add Staff
+        <Button onClick={() => setFormOpen(true)} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-11 px-6 shadow-xl shadow-primary/20 gap-2">
+          <UserPlus className="h-4 w-4" /> Add Staff Member
         </Button>
       </div>
 
@@ -198,6 +200,16 @@ function StaffPage() {
                 placeholder="john@example.com"
                 value={newStaff.email}
                 onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                className="h-11 rounded-xl border-2 font-bold"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Login Password</Label>
+              <Input 
+                type="password"
+                placeholder="Min. 8 characters"
+                value={newStaff.password}
+                onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
                 className="h-11 rounded-xl border-2 font-bold"
               />
             </div>

@@ -79,7 +79,7 @@ export function ItemDetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+      <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
         <div className="nexa-card bg-card flex flex-col max-h-[90vh]">
           {/* Header */}
           <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md px-6 py-4">

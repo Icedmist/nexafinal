@@ -160,7 +160,7 @@ export function LocationFormSheet({ open, onOpenChange, editLocation }: Location
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
         <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
           {/* Header */}
           <div className="flex items-start justify-between mb-6">

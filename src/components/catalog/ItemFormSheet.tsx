@@ -11,6 +11,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { X, PackagePlus, Tag, Boxes, DollarSign, MapPin } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -20,8 +21,6 @@ import {
 } from "@/components/ui/select";
 import type { Item, Category, Supplier, Location } from "@/types/inventory";
 import { ItemStatus } from "@/types/inventory";
-import { PackagePlus, Tag, Boxes, DollarSign, MapPin } from "lucide-react";
-
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
@@ -128,20 +127,24 @@ export function ItemFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900 rounded-2xl flex flex-col max-h-[85vh]">
-        <DialogHeader className="px-6 py-4 border-b border-emerald-100 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/50 z-10 sticky top-0">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400">
-              <PackagePlus className="h-5 w-5" />
+      <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
+        <div className="nexa-card bg-card flex flex-col max-h-[90vh]">
+          <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <PackagePlus className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-black tracking-tight">{isEdit ? "Edit Product" : "Add New Product"}</DialogTitle>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Inventory Cataloging</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-xl">{isEdit ? "Edit Product" : "Add New Product"}</DialogTitle>
-              <DialogDescription className="text-muted-foreground mt-1">
-                {isEdit ? "Update the details for this product in your catalog." : "Create a new product to add to your inventory catalog."}
-              </DialogDescription>
-            </div>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" onClick={() => onOpenChange(false)}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-        </DialogHeader>
 
         <div className="overflow-y-auto p-6 scroll-smooth">
           <form id="item-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -275,15 +278,16 @@ export function ItemFormSheet({
           </form>
         </div>
         
-        <div className="border-t border-emerald-100 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/50 p-4 sm:px-6 z-10 flex items-center justify-end gap-3 shrink-0">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+        <div className="border-t border-border bg-muted/20 p-4 sm:px-6 z-10 flex items-center justify-end gap-3 shrink-0">
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl font-bold">
             Cancel
           </Button>
-          <Button type="submit" form="item-form" disabled={loading} className="min-w-[120px] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+          <Button type="submit" form="item-form" disabled={loading} className="min-w-[140px] rounded-xl font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20">
             {loading ? "Saving…" : (isEdit ? "Update Product" : "Add Product")}
           </Button>
         </div>
-      </DialogContent>
+      </div>
+    </DialogContent>
     </Dialog>
   );
 }

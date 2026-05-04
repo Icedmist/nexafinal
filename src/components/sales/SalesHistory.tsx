@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useSales } from "@/hooks/useSalesData";
 import { useRole } from "@/hooks/useRole";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { EmptyState } from "@/components/shared/EmptyState";
 import type { SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
 
@@ -86,65 +87,85 @@ export function SalesHistoryPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6">
+    <div className={cn("mx-auto max-w-[1200px] space-y-6 flex flex-col", filtered.length === 0 && "min-h-[60vh] justify-center")}>
       {/* Header with date and user */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Sales History</h1>
-          <p className="text-sm text-muted-foreground">Review past transactions and revenue.</p>
-        </div>
-        <div className="text-right">
-          <div className="flex items-center gap-1.5 text-sm text-foreground justify-end">
-            <User className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="font-medium">{userName}</span>
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-foreground">Sales History</h1>
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest italic">Store Revenue & Performance</p>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-end">
-            <Clock className="h-3 w-3" />
-            {format(new Date(), "dd MMM yyyy, HH:mm")}
+          <div className="text-right">
+            <div className="flex items-center gap-1.5 text-sm text-foreground justify-end font-bold">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-black uppercase tracking-tight">{userName} Session</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-end font-black uppercase tracking-widest">
+              <Clock className="h-3 w-3" />
+              {format(new Date(), "dd MMM yyyy, HH:mm")}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <TrendingUp className="h-4 w-4" /> Total Revenue
+      {filtered.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="nexa-card bg-card p-5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <TrendingUp className="h-12 w-12 text-primary" />
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Total Revenue
+            </div>
+            <p className="mt-2 text-3xl font-black font-mono text-primary tracking-tighter">{fmtNgn(totalRevenue)}</p>
           </div>
-          <p className="mt-1 text-2xl font-bold font-mono text-foreground">{fmtNgn(totalRevenue)}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Receipt className="h-4 w-4" /> Transactions
+          <div className="nexa-card bg-card p-5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Receipt className="h-12 w-12 text-secondary" />
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Transactions
+            </div>
+            <p className="mt-2 text-3xl font-black font-mono text-foreground tracking-tighter">{totalTransactions}</p>
           </div>
-          <p className="mt-1 text-2xl font-bold font-mono text-foreground">{totalTransactions}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Receipt className="h-4 w-4" /> Items Sold
+          <div className="nexa-card bg-card p-5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Receipt className="h-12 w-12 text-emerald-500" />
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Items Sold
+            </div>
+            <p className="mt-2 text-3xl font-black font-mono text-foreground tracking-tighter">{totalItems}</p>
           </div>
-          <p className="mt-1 text-2xl font-bold font-mono text-foreground">{totalItems}</p>
         </div>
-      </div>
+      )}
 
       {/* Date filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <DatePicker label="From" date={from} onSelect={setFrom} />
-        <DatePicker label="To" date={to} onSelect={setTo} />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => { setFrom(undefined); setTo(undefined); }}
-          className="text-xs text-muted-foreground"
-        >
-          Clear dates
-        </Button>
-      </div>
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 bg-muted/20 p-2 rounded-2xl border border-border/50 w-fit">
+          <DatePicker label="From" date={from} onSelect={setFrom} />
+          <DatePicker label="To" date={to} onSelect={setTo} />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setFrom(undefined); setTo(undefined); }}
+            className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground"
+          >
+            Reset
+          </Button>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/20">
-          <Receipt className="mb-4 h-12 w-12 text-muted-foreground/30" />
-          <p className="text-sm font-medium text-muted-foreground">No transactions found</p>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <EmptyState
+            icon={Receipt}
+            title="No sales history found"
+            description="You haven't processed any sales yet or the selected date range has no data."
+            actionLabel="Start Selling"
+            onAction={() => window.location.href = "/app/sales"}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -196,7 +217,7 @@ export function SalesHistoryPage() {
 
       {/* Sale detail sheet */}
       <Dialog open={!!selectedSale} onOpenChange={(o) => !o && setSelectedSale(null)}>
-        <DialogContent className="max-w-md nexa-card p-0 border-none bg-transparent shadow-none">
+        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none [&>button]:hidden">
           {selectedSale && (
             <div className="nexa-card bg-card p-6 space-y-6">
               <div className="flex items-center justify-between mb-2">
