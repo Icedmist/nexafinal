@@ -13,7 +13,7 @@ export interface OnboardingSelection {
   logoUrl?: string;
 }
 
-const DEFAULT_ONBOARDING: OnboardingSelection = { businessType: null, categories: [], storeName: "My Store", storePhone: "", storeAddress: "", receiptFooter: "Thank you for your patronage!", taxRate: 0, brandColor: "#0d9488", logoUrl: "" };
+const DEFAULT_ONBOARDING: OnboardingSelection = { businessType: null, categories: [], storeName: "My Store", storePhone: "", storeAddress: "", receiptFooter: "", taxRate: 0, brandColor: "#0d9488", logoUrl: "" };
 
 export interface DemoContextValue {
   isDemo: boolean;
@@ -30,39 +30,22 @@ export interface DemoContextValue {
 export const DemoContext = createContext<DemoContextValue | null>(null);
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [store, setStore] = useState<DemoStore | null>(null);
+  // Always provide a hollow demo store so UI doesn't crash while we migrate
+  const [store] = useState<DemoStore>(new DemoStore());
   const [version, setVersion] = useState(0);
   const [onboarding, setOnboarding] = useState<OnboardingSelection>(DEFAULT_ONBOARDING);
 
-  const enterDemoMode = useCallback((ob?: OnboardingSelection) => {
-    const s = new DemoStore();
-    setStore(s);
-    setVersion(0);
-    setOnboarding(ob ?? DEFAULT_ONBOARDING);
-  }, []);
-
-  const exitDemoMode = useCallback(() => {
-    setStore(null);
-    setVersion(0);
-    setOnboarding(DEFAULT_ONBOARDING);
-  }, []);
-
-  const resetDemoData = useCallback(() => {
-    if (store) {
-      store.reset();
-      setVersion((v) => v + 1);
-    }
-  }, [store]);
-
+  const enterDemoMode = useCallback((ob?: OnboardingSelection) => {}, []);
+  const exitDemoMode = useCallback(() => {}, []);
+  const resetDemoData = useCallback(() => {}, []);
   const bumpVersion = useCallback(() => setVersion((v) => v + 1), []);
-
   const updateOnboarding = useCallback((updates: Partial<OnboardingSelection>) => {
     setOnboarding((prev) => ({ ...prev, ...updates }));
   }, []);
 
   const value = useMemo<DemoContextValue>(
     () => ({
-      isDemo: store !== null,
+      isDemo: true, // keep true so route guards pass for now
       demoStore: store,
       enterDemoMode,
       exitDemoMode,

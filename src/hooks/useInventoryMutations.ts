@@ -1,15 +1,8 @@
 import { useCallback, useState } from "react";
-import { useDemo } from "@/hooks/useDemo";
-import type {
-  Item,
-  Supplier,
-  Location,
-  StockMovement,
-  PurchaseOrder,
-  InventoryRequest,
-} from "@/types/inventory";
-import type { DemoStore } from "@/lib/demo-store";
-import { generateStockAlerts } from "@/lib/notification-generators";
+import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import type { Item, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest, Category } from "@/types/inventory";
 
 interface MutationResult<TData> {
   mutate: (data: TData, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => void;
@@ -17,123 +10,79 @@ interface MutationResult<TData> {
   error: Error | null;
 }
 
-function useDemoMutation<TData>(
-  handler: (store: DemoStore, data: TData) => void,
+function useFirestoreMutation<TData>(
+  mutationFn: (userUid: string, data: TData) => Promise<void>
 ): MutationResult<TData> {
-  const { isDemo, demoStore, bumpVersion } = useDemo();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const mutate = useCallback(
-    (data: TData, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => {
-      if (!isDemo || !demoStore) {
-        opts?.onError?.(new Error("Not in demo mode"));
+    async (data: TData, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => {
+      if (!user) {
+        opts?.onError?.(new Error("Not authenticated"));
         return;
       }
       setIsLoading(true);
+      setError(null);
       try {
-        handler(demoStore, data);
-        bumpVersion();
-        setError(null);
+        await mutationFn(user.uid, data);
         opts?.onSuccess?.();
-      } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e));
-        setError(err);
-        opts?.onError?.(err);
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        setError(e);
+        opts?.onError?.(e);
       } finally {
         setIsLoading(false);
       }
     },
-    [isDemo, demoStore, handler, bumpVersion],
+    [user, mutationFn]
   );
 
   return { mutate, isLoading, error };
 }
 
 export function useCreateItem() {
-  return useDemoMutation<Item>((store, data) => store.createItem(data));
-}
-
-export function useUpdateItem() {
-  return useDemoMutation<{ id: string; updates: Partial<Item> }>((store, { id, updates }) =>
-    store.updateItem(id, updates),
-  );
-}
-
-export function useDeleteItem() {
-  return useDemoMutation<string>((store, id) => store.deleteItem(id));
-}
-
-export function useCreateMovement() {
-  return useDemoMutation<StockMovement>((store, data) => {
-    store.createMovement(data);
-    generateStockAlerts(store);
+  return useFirestoreMutation<Item>(async (uid, data) => {
+    await addDoc(collection(db, "products"), {
+      ...data,
+      ownerId: uid,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   });
 }
 
-export function useCreatePurchaseOrder() {
-  return useDemoMutation<PurchaseOrder>((store, data) => store.createPurchaseOrder(data));
+export function useUpdateItem() {
+  return useFirestoreMutation<{ id: string; updates: Partial<Item> }>(async (uid, { id, updates }) => {
+    const docRef = doc(db, "products", id);
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+  });
 }
 
-export function useUpdatePurchaseOrder() {
-  return useDemoMutation<{ id: string; updates: Partial<PurchaseOrder> }>((store, { id, updates }) =>
-    store.updatePurchaseOrder(id, updates),
-  );
+export function useDeleteItem() {
+  return useFirestoreMutation<string>(async (uid, id) => {
+    const docRef = doc(db, "products", id);
+    await deleteDoc(docRef);
+  });
 }
 
-export function useDeletePurchaseOrder() {
-  return useDemoMutation<string>((store, id) => store.deletePurchaseOrder(id));
-}
-
-export function useCreateSupplier() {
-  return useDemoMutation<Supplier>((store, data) => store.createSupplier(data));
-}
-
-export function useUpdateSupplier() {
-  return useDemoMutation<{ id: string; updates: Partial<Supplier> }>((store, { id, updates }) =>
-    store.updateSupplier(id, updates),
-  );
-}
-
-export function useDeleteSupplier() {
-  return useDemoMutation<string>((store, id) => store.deleteSupplier(id));
-}
-
-export function useCreateRequest() {
-  return useDemoMutation<InventoryRequest>((store, data) => store.createRequest(data));
-}
-
-export function useUpdateRequest() {
-  return useDemoMutation<{ id: string; updates: Partial<InventoryRequest> }>((store, { id, updates }) =>
-    store.updateRequest(id, updates),
-  );
-}
-
-export function useCreateLocation() {
-  return useDemoMutation<Location>((store, data) => store.createLocation(data));
-}
-
-export function useUpdateLocation() {
-  return useDemoMutation<{ id: string; updates: Partial<Location> }>((store, { id, updates }) =>
-    store.updateLocation(id, updates),
-  );
-}
-
-export function useDeleteLocation() {
-  return useDemoMutation<string>((store, id) => store.deleteLocation(id));
-}
-
-// ─── Category mutations ─────────────────────────────────
-export function useCreateCategory() {
-  return useDemoMutation<import("@/types/inventory").Category>((store, data) => store.createCategory(data));
-}
-
-export function useUpdateCategory() {
-  return useDemoMutation<{ id: string; updates: Partial<import("@/types/inventory").Category> }>((store, { id, updates }) =>
-    store.updateCategory(id, updates),
-  );
-}
-
-export function useDeleteCategory() {
-  return useDemoMutation<string>((store, id) => store.deleteCategory(id));
-}
+// Stubs for remaining mutations (to be connected to Firestore next)
+export function useCreateMovement() { return useFirestoreMutation<StockMovement>(async () => {}); }
+export function useCreatePurchaseOrder() { return useFirestoreMutation<PurchaseOrder>(async () => {}); }
+export function useUpdatePurchaseOrder() { return useFirestoreMutation<{ id: string; updates: Partial<PurchaseOrder> }>(async () => {}); }
+export function useDeletePurchaseOrder() { return useFirestoreMutation<string>(async () => {}); }
+export function useCreateSupplier() { return useFirestoreMutation<Supplier>(async () => {}); }
+export function useUpdateSupplier() { return useFirestoreMutation<{ id: string; updates: Partial<Supplier> }>(async () => {}); }
+export function useDeleteSupplier() { return useFirestoreMutation<string>(async () => {}); }
+export function useCreateRequest() { return useFirestoreMutation<InventoryRequest>(async () => {}); }
+export function useUpdateRequest() { return useFirestoreMutation<{ id: string; updates: Partial<InventoryRequest> }>(async () => {}); }
+export function useCreateLocation() { return useFirestoreMutation<Location>(async () => {}); }
+export function useUpdateLocation() { return useFirestoreMutation<{ id: string; updates: Partial<Location> }>(async () => {}); }
+export function useDeleteLocation() { return useFirestoreMutation<string>(async () => {}); }
+export function useCreateCategory() { return useFirestoreMutation<Category>(async () => {}); }
+export function useUpdateCategory() { return useFirestoreMutation<{ id: string; updates: Partial<Category> }>(async () => {}); }
+export function useDeleteCategory() { return useFirestoreMutation<string>(async () => {}); }
