@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useStaff, useStaffMutations, useStoreBranches } from "@/hooks/useStaffData";
 import { toast } from "sonner";
+import { StatusBadge } from "@/components/StatusBadge";
 import type { Staff, Branch } from "@/types/tenant";
 
 export const Route = createFileRoute("/app/staff")({
@@ -73,7 +74,7 @@ function StaffPage() {
 
   const toggleStatus = async (member: Staff) => {
     try {
-      await updateStaff(member.id as string, { isActive: !member.isActive });
+      await updateStaff(member.uid, { isActive: !member.isActive });
       toast.success(`Staff member ${member.isActive ? "deactivated" : "activated"}`);
     } catch (error: any) {
       toast.error("Failed to update status");
@@ -128,7 +129,7 @@ function StaffPage() {
               </TableRow>
             ) : (
               filteredStaff.map((member) => (
-                <TableRow key={member.id} className="group transition-colors hover:bg-muted/20">
+                <TableRow key={member.uid} className="group transition-colors hover:bg-muted/20">
                   <TableCell className="py-4">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
@@ -152,9 +153,7 @@ function StaffPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={member.isActive ? "success" : "secondary"} className="rounded-md font-bold text-[10px]">
-                      {member.isActive ? "Active" : "Inactive"}
-                    </Badge>
+                    <StatusBadge status={member.isActive ? "active" : "inactive"} />
                   </TableCell>
                   <TableCell className="text-right pr-6">
                     <Button 

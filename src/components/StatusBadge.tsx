@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 type StockStatus = "in-stock" | "low-stock" | "out-of-stock";
-type ItemStatus = "active" | "discontinued" | "archived";
+type ItemStatus = "active" | "inactive" | "discontinued" | "archived";
 type BadgeStatus = StockStatus | ItemStatus;
 
 const config: Record<BadgeStatus, { label: string; dotClass: string; textClass: string }> = {
@@ -24,6 +24,11 @@ const config: Record<BadgeStatus, { label: string; dotClass: string; textClass: 
     label: "Active",
     dotClass: "bg-primary",
     textClass: "text-primary",
+  },
+  inactive: {
+    label: "Inactive",
+    dotClass: "bg-muted-foreground",
+    textClass: "text-muted-foreground",
   },
   discontinued: {
     label: "Discontinued",

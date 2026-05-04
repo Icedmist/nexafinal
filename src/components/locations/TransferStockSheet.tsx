@@ -103,7 +103,6 @@ export function TransferStockSheet({
 
     createMovement.mutate(
       {
-        id: crypto.randomUUID(),
         itemId: values.itemId,
         type: MovementType.Transferred,
         quantity: values.quantity,
@@ -111,8 +110,6 @@ export function TransferStockSheet({
         toLocationId: values.toLocationId,
         reference: `Transfer: ${fromLoc?.name ?? ""} → ${toLoc?.name ?? ""}`,
         notes: "",
-        performedBy: "demo-user",
-        createdAt: new Date().toISOString(),
       },
       {
         onSuccess: () => {

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useStoreBranches, useStoreMutations } from "@/hooks/useStaffData";
+import { Plus, MapPin, Trash2 } from "lucide-react";
 
 export function StoreSettings() {
   const { profile, updateProfile, loadingProfile } = useBusiness();
@@ -126,8 +128,6 @@ export function StoreSettings() {
   );
 }
 
-import { useStoreBranches, useStoreMutations } from "@/hooks/useStaffData";
-import { Plus, MapPin, Trash2 } from "lucide-react";
 
 function BranchManagement() {
   const { data: branches, isLoading } = useStoreBranches();
@@ -207,3 +207,5 @@ function BranchManagement() {
         </div>
       </CardContent>
     </Card>
+  );
+}

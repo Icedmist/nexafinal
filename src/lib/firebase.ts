@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, type Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -32,7 +32,7 @@ export const getUserProfile = async (uid: string) => {
 };
 
 // Initialize Analytics conditionally (often fails in dev/SSR environments)
-export let analytics;
+export let analytics: Analytics | undefined;
 if (typeof window !== "undefined") {
   analytics = getAnalytics(app);
 }
