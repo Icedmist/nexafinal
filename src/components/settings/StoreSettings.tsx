@@ -18,6 +18,42 @@ function fmtNgn(amount: number): string {
   return `${NAIRA}${amount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
 }
 
+function StoreActivitySummary() {
+  const { data: sales = [], isLoading: salesLoading } = useSales();
+  const { data: items = [], isLoading: itemsLoading } = useItems();
+
+  const totalRevenue = sales.reduce((sum, sale) => sum + (sale.totalNgn || 0), 0);
+  const totalSales = sales.length;
+  const totalItems = items.length;
+
+  return (
+    <Card className="border-border bg-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-widest">
+          <TrendingUp className="h-4 w-4" /> Store Activity Summary
+        </CardTitle>
+        <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+          A quick snapshot of inventory and sales performance.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-3xl border border-border/70 bg-background/80 p-4">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Total Revenue</p>
+          <p className="mt-3 text-2xl font-black text-foreground">{salesLoading ? "…" : fmtNgn(totalRevenue)}</p>
+        </div>
+        <div className="rounded-3xl border border-border/70 bg-background/80 p-4">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Sales Recorded</p>
+          <p className="mt-3 text-2xl font-black text-foreground">{salesLoading ? "…" : totalSales}</p>
+        </div>
+        <div className="rounded-3xl border border-border/70 bg-background/80 p-4">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Catalog Items</p>
+          <p className="mt-3 text-2xl font-black text-foreground">{itemsLoading ? "…" : totalItems}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function StoreSettings() {
   const { profile, updateProfile, loadingProfile } = useBusiness();
 

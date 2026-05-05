@@ -26,6 +26,32 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const getAuthErrorMessage = (code: string | undefined, originalMessage: string) => {
+    switch (code) {
+      case "auth/user-not-found":
+        return "No account was found with that email.";
+      case "auth/wrong-password":
+        return "The password is incorrect. Please try again.";
+      case "auth/invalid-email":
+        return "Please enter a valid email address.";
+      case "auth/too-many-requests":
+        return "Too many failed login attempts. Please wait and try again.";
+      case "auth/network-request-failed":
+        return "Network issue while signing in. Check your connection and try again.";
+      case "auth/invalid-credential":
+        return "Invalid email or password. Verify the staff account exists in Firebase Auth and that the password is correct.";
+      case "auth/unauthorized-domain":
+      case "auth/domain-not-allowed":
+        return "This domain is not authorized for Firebase login. Add the current hostname to your Firebase authorized domains.";
+      case "auth/operation-not-allowed":
+        return "Email/password login is disabled for this Firebase project. Enable it in the Firebase Console Authentication settings.";
+      case "auth/user-disabled":
+        return "This account has been disabled. Contact your administrator.";
+      default:
+        return originalMessage || "Invalid credentials.";
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -36,28 +62,40 @@ function LoginPage() {
       if (store) {
         const loggedInUser = cred.user;
         const isOwner = store.ownerId === loggedInUser.uid;
-        
+
+        const tokenResult = await loggedInUser.getIdTokenResult(true);
+        const claimStoreId = tokenResult.claims.storeId as string | undefined;
+
         let isStaff = false;
         if (!isOwner) {
-          // 1. Primary Check: Try UID lookup (most reliable for newly provisioned staff)
-          const staffDoc = await getDoc(doc(db, "staff", loggedInUser.uid));
-          
-          if (staffDoc.exists()) {
-            const data = staffDoc.data();
-            isStaff = data.storeId === store.id && data.isActive === true;
-          }
+          if (claimStoreId === store.id) {
+            isStaff = true;
+          } else {
+            // 1. Primary Check: Try UID lookup (most reliable for newly provisioned staff)
+            const staffDoc = await getDoc(doc(db, "staff", loggedInUser.uid));
 
-          // 2. Fallback: Query by email (lowercased) for legacy or migrated records
-          if (!isStaff && loggedInUser.email) {
-            const staffQuery = query(
-              collection(db, "staff"),
-              where("email", "==", loggedInUser.email.toLowerCase()),
-              where("storeId", "==", store.id),
-              where("isActive", "==", true),
-              limit(1)
-            );
-            const staffSnap = await getDocs(staffQuery);
-            isStaff = !staffSnap.empty;
+            if (staffDoc.exists()) {
+              const data = staffDoc.data();
+              isStaff = data.storeId === store.id && data.isActive === true;
+            }
+
+            // 2. Fallback: Query by email (lowercased) for legacy or migrated records
+            if (!isStaff && loggedInUser.email) {
+              const staffQuery = query(
+                collection(db, "staff"),
+                where("email", "==", loggedInUser.email.toLowerCase()),
+                where("storeId", "==", store.id),
+                where("isActive", "==", true),
+                limit(1)
+              );
+              const staffSnap = await getDocs(staffQuery);
+              isStaff = !staffSnap.empty;
+            }
+
+            if (isStaff) {
+              // Force token refresh if staff metadata exists but claim was stale.
+              await loggedInUser.getIdTokenResult(true);
+            }
           }
         }
 
@@ -70,7 +108,8 @@ function LoginPage() {
       toast.success("Welcome back!");
       navigate({ to: "/app/dashboard" });
     } catch (err: any) {
-      toast.error(err.message || "Invalid credentials");
+      const message = getAuthErrorMessage(err?.code, err?.message || "Invalid credentials");
+      toast.error(message);
     } finally {
       setLoading(false);
     }

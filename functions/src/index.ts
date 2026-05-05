@@ -87,9 +87,18 @@ export const provisionstaff = onCall(async (request) => {
 
   const { email, password, displayName, role, storeId, branchId, ownerId } = request.data;
 
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    throw new HttpsError('invalid-argument', 'A valid email address is required.');
+  }
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    throw new HttpsError('invalid-argument', 'A valid password of at least 6 characters is required.');
+  }
+
   try {
+    const normalizedEmail = email.toLowerCase();
     const userRecord = await admin.auth().createUser({
-      email,
+      email: normalizedEmail,
       password,
       displayName,
     });
@@ -114,7 +123,7 @@ export const provisionstaff = onCall(async (request) => {
     return { success: true, uid: userRecord.uid };
   } catch (error: any) {
     console.error("Provisioning error:", error);
-    throw new HttpsError('internal', error.message);
+    throw mapAuthError(error);
   }
 });
 

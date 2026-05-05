@@ -73,7 +73,32 @@ export function useTenant() {
 
       try {
         const q = query(collection(db, "stores"), where("slug", "==", slug), limit(1));
-        const snapshot = await getDocs(q);
+        let snapshot;
+        let attempt = 0;
+        const maxAttempts = 2;
+
+        while (attempt < maxAttempts) {
+          try {
+            snapshot = await getDocs(q);
+            break;
+          } catch (innerError: any) {
+            const message = innerError?.message || "";
+            const isInternalAssert = message.includes("INTERNAL ASSERTION FAILED");
+
+            if (isInternalAssert && attempt + 1 < maxAttempts) {
+              console.warn("Firestore internal assertion on store lookup, retrying...", { slug, attempt, error: innerError });
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              attempt += 1;
+              continue;
+            }
+
+            throw innerError;
+          }
+        }
+
+        if (!snapshot) {
+          throw new Error("Failed to fetch store metadata from Firestore.");
+        }
 
         if (snapshot.empty) {
           setError("Store not found");
@@ -86,7 +111,7 @@ export function useTenant() {
         }
       } catch (err: any) {
         // Only log once, not on every re-render
-        console.warn("Tenant lookup failed for slug:", slug, err?.code || err?.message);
+        console.warn("Tenant lookup failed for slug:", slug, err?.code || err?.message, err);
         setError("Failed to load store details");
       } finally {
         setLoading(false);
