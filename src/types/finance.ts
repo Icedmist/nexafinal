@@ -6,6 +6,7 @@ export interface Expense {
   amount: number; // in NGN
   category: ExpenseCategory;
   notes: string;
+  branchId?: string | null;
   createdAt: string;
 }
 
@@ -37,6 +38,7 @@ export interface Refund {
   amountNgn: number;
   reason: RefundReason;
   notes: string;
+  branchId?: string | null;
   createdAt: string;
 }
 

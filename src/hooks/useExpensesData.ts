@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, addDoc, deleteDoc, doc }
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-import { Expense, ExpenseCategory } from "@/types/finance";
+import { Expense } from "@/types/finance";
 
 interface QueryResult<T> {
   data: T;
@@ -12,16 +12,18 @@ interface QueryResult<T> {
 }
 
 export function useExpenses(): QueryResult<Expense[]> {
-  const { user } = useAuth();
+  const { user, claims, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !storeId) {
-      setData([]);
-      setIsLoading(false);
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) {
+        setData([]);
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -36,7 +38,15 @@ export function useExpenses(): QueryResult<Expense[]> {
       snapshot.forEach((doc) => {
         expenses.push({ id: doc.id, ...doc.data() } as Expense);
       });
-      setData(expenses);
+
+      // Filter by branch if user is restricted
+      let filtered = expenses;
+      const userBranchId = claims?.branchId;
+      if (userBranchId) {
+        filtered = filtered.filter(e => e.branchId === userBranchId);
+      }
+
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error(err);
@@ -45,13 +55,13 @@ export function useExpenses(): QueryResult<Expense[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady, claims?.branchId]);
 
   return { data, isLoading, error };
 }
 
 export function useExpensesMutations() {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { storeId } = useBusiness();
 
   const addExpense = async (expense: Omit<Expense, "id" | "ownerId">) => {
@@ -59,6 +69,7 @@ export function useExpensesMutations() {
     return await addDoc(collection(db, "expenses"), {
       ...expense,
       storeId,
+      branchId: claims?.branchId || null,
       ownerId: user.uid,
       recordedBy: user.uid,
     });

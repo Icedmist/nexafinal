@@ -18,10 +18,14 @@ export const Route = createFileRoute("/app/expenses")({
 });
 
 import { useExpenses, useExpensesMutations } from "@/hooks/useExpensesData";
+import { useRole } from "@/hooks/useRole";
+import { useStoreBranches } from "@/hooks/useStaffData";
 
 function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
   const { deleteExpense } = useExpensesMutations();
+  const { isAdmin } = useRole();
+  const { data: branches } = useStoreBranches();
   const [formOpen, setFormOpen] = useState(false);
   const [filterCat, setFilterCat] = useState<string>("all");
 
@@ -116,7 +120,14 @@ function ExpensesPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium capitalize">{e.category.replace("_", " ")}</p>
-                      {e.notes && <p className="text-xs text-muted-foreground truncate">{e.notes}</p>}
+                      <div className="flex items-center gap-2">
+                        {e.notes && <p className="text-xs text-muted-foreground truncate">{e.notes}</p>}
+                        {isAdmin && e.branchId && (
+                          <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest whitespace-nowrap">
+                            · {branches.find(b => b.id === e.branchId)?.name || "Branch"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-sm font-bold font-mono">{NAIRA}{e.amount.toLocaleString("en-NG")}</p>
                     <button

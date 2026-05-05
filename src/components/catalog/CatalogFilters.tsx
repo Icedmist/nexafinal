@@ -61,7 +61,7 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
         </SelectContent>
       </Select>
 
-      <Select value={filters.status ?? "all"} onValueChange={(v) => update({ status: v === "all" ? undefined : v })}>
+      <Select value={filters.status ?? "all"} onValueChange={(v) => update({ status: v === "all" ? undefined : (v as "in_stock" | "low_stock" | "out_of_stock") })}>
         <SelectTrigger className="h-9 w-full sm:w-36"><SelectValue placeholder="Status" /></SelectTrigger>
         <SelectContent>
           {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}

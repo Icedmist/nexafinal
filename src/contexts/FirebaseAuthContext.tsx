@@ -13,7 +13,7 @@ import { notifyActivity } from '@/lib/notification-service';
 
 interface AuthContextType {
   user: User | null;
-  claims: { storeId?: string; role?: string } | null;
+  claims: { storeId?: string; role?: string; branchId?: string | null } | null;
   loading: boolean;
   claimsReady: boolean; // NEW: Indicates if claims have been synced for the current user
   login: (email: string, pass: string) => Promise<UserCredential>;

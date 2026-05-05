@@ -281,7 +281,8 @@ function CatalogPage() {
         categories={categories}
         suppliers={suppliers}
         locations={locations}
-      branches={branches}
+        branches={branches}
+        existingSkus={existingSkus}
         onSave={handleSave}
         loading={createItem.isLoading || updateItem.isLoading}
       />

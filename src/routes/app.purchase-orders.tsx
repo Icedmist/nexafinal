@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { PurchaseOrdersTable } from "@/components/purchase-orders/PurchaseOrdersTable";
 import { POSummaryStats } from "@/components/purchase-orders/POSummaryStats";
 import { PurchaseOrdersFilters } from "@/components/purchase-orders/PurchaseOrdersFilters";
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/app/purchase-orders")({
 });
 
 function PurchaseOrdersPage() {
+  const { user } = useAuth();
   const { po: poParam } = Route.useSearch();
   const { data: purchaseOrders } = usePurchaseOrders();
   const { data: suppliers } = useSuppliers();
@@ -181,7 +183,6 @@ function PurchaseOrdersPage() {
             // 1. Create stock movements for each received line
             for (const line of receivedLines) {
               createMovement.mutate({
-                id: crypto.randomUUID(),
                 itemId: line.itemId,
                 type: MovementType.Received,
                 quantity: line.qty,

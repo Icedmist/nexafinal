@@ -1,0 +1,124 @@
+import { useState } from "react";
+import { Download, Copy, QrCode } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import type { Item } from "@/types/inventory";
+
+interface QRCodeGeneratorProps {
+  item: Item;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}
+
+// Simple QR code SVG generator for product ID
+function generateQRCodeSVG(text: string): string {
+  // Use a simple QR API service URL
+  const encoded = encodeURIComponent(text);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encoded}`;
+}
+
+export function QRCodeGenerator({ item, open, onOpenChange }: QRCodeGeneratorProps) {
+  const [downloading, setDownloading] = useState(false);
+
+  const qrCodeUrl = generateQRCodeSVG(`${window.location.origin}/scan/${item.id}`);
+  const qrCodeText = `${window.location.origin}/scan/${item.id}`;
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 300;
+        canvas.height = 300;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, 300, 300);
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `qr-${item.sku}.png`;
+              a.click();
+              URL.revokeObjectURL(url);
+              toast.success("QR code downloaded!");
+            }
+            setDownloading(false);
+          });
+        }
+      };
+      img.src = qrCodeUrl;
+    } catch (error) {
+      toast.error("Failed to download QR code");
+      setDownloading(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(qrCodeText);
+    toast.success("QR code link copied!");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <QrCode className="h-5 w-5" />
+            QR Code for {item.name}
+          </DialogTitle>
+          <DialogDescription>
+            SKU: {item.sku}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <div className="flex justify-center">
+            <Card className="border-2">
+              <CardContent className="p-4">
+                <img
+                  src={qrCodeUrl}
+                  alt={`QR code for ${item.name}`}
+                  className="h-80 w-80"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-2 text-center">
+            <p className="text-xs text-muted-foreground font-mono break-all">
+              {qrCodeText}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex-1"
+              size="sm"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {downloading ? "Downloading..." : "Download"}
+            </Button>
+            <Button
+              onClick={handleCopyLink}
+              variant="outline"
+              className="flex-1"
+              size="sm"
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy Link
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

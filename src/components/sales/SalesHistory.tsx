@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useSales } from "@/hooks/useSalesData";
 import { useRole } from "@/hooks/useRole";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import { EmptyState } from "@/components/shared/EmptyState";
 import type { SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
@@ -31,8 +32,9 @@ function fmtNgn(amount: number): string {
 
 export function SalesHistoryPage() {
   const { data: sales, isLoading } = useSales();
-  const { role } = useRole();
+  const { role, isAdmin } = useRole();
   const { profile } = useBusiness();
+  const { data: branches } = useStoreBranches();
 
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
@@ -197,6 +199,11 @@ export function SalesHistoryPage() {
                   <div className="text-right">
                     <p className="text-lg font-black tracking-tight text-foreground">{fmtNgn(sale.totalNgn)}</p>
                     <p className="text-[10px] font-bold text-primary/70 uppercase">{sale.items.reduce((s, li) => s + li.quantity, 0)} items</p>
+                    {isAdmin && sale.branchId && (
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
+                        {branches.find(b => b.id === sale.branchId)?.name || "Branch"}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -247,6 +254,12 @@ export function SalesHistoryPage() {
                     <span className="capitalize font-black text-primary">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
                   </div>
                 </div>
+                {isAdmin && selectedSale.branchId && (
+                  <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
+                    <span className="text-muted-foreground font-bold uppercase tracking-wider">Branch</span>
+                    <span className="font-black text-foreground uppercase">{branches.find(b => b.id === selectedSale.branchId)?.name || "Main Branch"}</span>
+                  </div>
+                )}
               </div>
 
               {selectedSale.customerName && (

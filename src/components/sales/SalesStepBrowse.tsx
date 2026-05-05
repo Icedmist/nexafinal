@@ -1,9 +1,13 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ShoppingCart } from "lucide-react";
+import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ShoppingCart, ScanBarcode } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useItems, useCategories } from "@/hooks/useInventoryData";
 import { cn } from "@/lib/utils";
+import type { Item } from "@/types/inventory";
+
+import { toast } from "sonner";
 
 const NAIRA = "₦";
 
@@ -21,6 +25,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   const { data: items } = useItems();
   const { data: categories } = useCategories();
   const [search, setSearch] = useState("");
+  const [barcodeMode, setBarcodeMode] = useState(false);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
 
@@ -61,12 +66,29 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
     }), 200);
   }, [onAdd]);
 
+  const handleBarcodeSubmit = useCallback((val: string) => {
+    const query = val.trim();
+    if (!query) return;
+
+    const item = items.find(
+      (i) => i.barcode?.toLowerCase() === query.toLowerCase() || i.sku.toLowerCase() === query.toLowerCase()
+    );
+
+    if (item) {
+      handleAdd(item.id);
+      toast.success(`Added ${item.name}`);
+      setSearch(""); // Clear for next scan
+    } else {
+      toast.error(`Item not found: ${query}`);
+    }
+  }, [items, handleAdd]);
+
   const topSellers = useMemo(() => {
-    return [];
+    return [] as Item[];
   }, []);
 
   const repeatCustomers = useMemo(() => {
-    return [];
+    return [] as { name: string; phone: string; count: number }[];
   }, []);
 
   const isSearchEmpty = !search.trim() && !activeCat;
@@ -84,14 +106,24 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   return (
     <div className="flex h-full flex-col relative pb-28">
       {/* Search bar */}
-      <div className="px-4 pt-3 pb-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="px-4 pt-3 pb-2 flex gap-2">
+        <div className="relative flex-1">
+          {barcodeMode ? (
+            <ScanBarcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-pulse" />
+          ) : (
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          )}
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or SKU…"
-            className="pl-9 h-10"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && barcodeMode) {
+                handleBarcodeSubmit(search);
+              }
+            }}
+            placeholder={barcodeMode ? "Scan or enter SKU..." : "Search by name or SKU…"}
+            className={cn("pl-9 h-10", barcodeMode && "border-primary ring-1 ring-primary/20")}
+            autoFocus={barcodeMode}
           />
           {search && (
             <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -99,6 +131,15 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
             </button>
           )}
         </div>
+        <Button
+          variant={barcodeMode ? "default" : "outline"}
+          size="icon"
+          className="h-10 w-10 shrink-0"
+          onClick={() => setBarcodeMode(!barcodeMode)}
+          title="Toggle Barcode Scanner Mode"
+        >
+          <ScanBarcode className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Category chips */}

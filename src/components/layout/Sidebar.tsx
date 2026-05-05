@@ -50,7 +50,7 @@ const navGroups: NavGroup[] = [
       { label: "Customers", href: "/app/customers", icon: Users },
       { label: "Catalog", href: "/app/catalog", icon: Package, permKey: "canManageItems" },
       { label: "Movements", href: "/app/movements", icon: ArrowLeftRight, permKey: "canLogMovements" },
-      { label: "Locations", href: "/app/locations", icon: MapPin },
+      { label: "Locations", href: "/app/locations", icon: MapPin, permKey: "canManageItems" },
     ],
   },
   {
@@ -81,7 +81,7 @@ const navGroups: NavGroup[] = [
     permKey: "canAccessSettings",
     items: [
       { label: "Settings", href: "/app/settings", icon: Settings },
-      { label: "Staff", href: "/app/staff", icon: Users },
+      { label: "Staff", href: "/app/staff", icon: Users, permKey: "canManageUsers" },
     ],
   },
 ];

@@ -16,6 +16,7 @@ import { CustomerDirectory } from "@/components/settings/CustomerDirectory";
 import { StoreBranding } from "@/components/settings/StoreBranding";
 import { SmartFeatures } from "@/components/settings/SmartFeatures";
 import { UserProfile } from "@/components/settings/UserProfile";
+import { TourLauncher } from "@/components/settings/TourLauncher";
 
 export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,

@@ -17,6 +17,7 @@ export interface SaleTransaction {
   totalNgn: number;
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
+  branchId?: string | null;
   createdAt: string;
 }
 

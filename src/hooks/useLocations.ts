@@ -54,6 +54,7 @@ export function useLocationTree() {
       id: b.id,
       storeId: storeId || "",
       name: b.name,
+      description: `Branch location: ${b.name}`,
       type: "warehouse",
       address: b.location,
       parentId: null,

@@ -12,16 +12,19 @@ interface QueryResult<T> {
 }
 
 export function useSales(): QueryResult<SaleTransaction[]> {
-  const { user } = useAuth();
+  const { user, claims, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !storeId) {
-      setData([]);
-      setIsLoading(false);
+    // Wait for claims to ensure we filter correctly for branch-assigned staff
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) {
+        setData([]);
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -36,7 +39,15 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       snapshot.forEach((doc) => {
         sales.push({ id: doc.id, ...doc.data() } as SaleTransaction);
       });
-      setData(sales);
+
+      // Filter by branch if user is restricted
+      let filtered = sales;
+      const userBranchId = claims?.branchId;
+      if (userBranchId) {
+        filtered = filtered.filter(s => s.branchId === userBranchId);
+      }
+      
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error(err);
@@ -45,13 +56,13 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady, claims?.branchId]);
 
   return { data, isLoading, error };
 }
 
 export function useSalesMutations() {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { storeId } = useBusiness();
 
   const addSale = async (sale: Omit<SaleTransaction, "id">) => {
@@ -61,6 +72,7 @@ export function useSalesMutations() {
     return await addDoc(collection(db, "sales"), {
       ...sale,
       storeId: storeId,
+      branchId: claims?.branchId || null,
       ownerId: user.uid,
       recordedBy: user.uid,
     });

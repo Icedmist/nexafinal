@@ -3,19 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, addDoc } from "firebase/
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-
-export interface Refund {
-  id: string;
-  saleId: string;
-  itemId: string;
-  itemName: string;
-  quantity: number;
-  amountNgn: number;
-  reason: string;
-  notes?: string;
-  createdAt: string;
-  ownerId: string;
-}
+import type { Refund } from "@/types/finance";
 
 interface QueryResult<T> {
   data: T;
@@ -24,16 +12,18 @@ interface QueryResult<T> {
 }
 
 export function useRefunds(): QueryResult<Refund[]> {
-  const { user } = useAuth();
+  const { user, claims, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Refund[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !storeId) {
-      setData([]);
-      setIsLoading(false);
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) {
+        setData([]);
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -48,7 +38,15 @@ export function useRefunds(): QueryResult<Refund[]> {
       snapshot.forEach((doc) => {
         refunds.push({ id: doc.id, ...doc.data() } as Refund);
       });
-      setData(refunds);
+
+      // Filter by branch if user is restricted
+      let filtered = refunds;
+      const userBranchId = claims?.branchId;
+      if (userBranchId) {
+        filtered = filtered.filter(r => r.branchId === userBranchId);
+      }
+
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error(err);
@@ -57,13 +55,13 @@ export function useRefunds(): QueryResult<Refund[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady, claims?.branchId]);
 
   return { data, isLoading, error };
 }
 
 export function useRefundsMutations() {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { storeId } = useBusiness();
 
   const addRefund = async (refund: Omit<Refund, "id" | "ownerId">) => {
@@ -71,6 +69,7 @@ export function useRefundsMutations() {
     return await addDoc(collection(db, "refunds"), {
       ...refund,
       storeId,
+      branchId: claims?.branchId || null,
       ownerId: user.uid,
       recordedBy: user.uid,
     });
