@@ -10,7 +10,7 @@ admin.initializeApp();
  */
 export const syncStaffClaims = functions.firestore
   .document("staff/{staffId}")
-  .onWrite(async (change, context) => {
+  .onWrite(async (change: functions.Change<functions.firestore.DocumentSnapshot>, context: functions.EventContext) => {
     const data = change.after.exists ? change.after.data() : null;
     
     // If staff record was deleted, we should ideally remove claims, 
@@ -50,7 +50,7 @@ export const syncStaffClaims = functions.firestore
  * Ensures that if a user was added to the staff list BEFORE they signed up,
  * their claims are assigned the moment they create their account.
  */
-export const onUserCreated = functions.auth.user().onCreate(async (user) => {
+export const onUserCreated = functions.auth.user().onCreate(async (user: admin.auth.UserRecord) => {
   const email = user.email;
   if (!email) return;
 
