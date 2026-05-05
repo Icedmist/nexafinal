@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { Plus, MoreHorizontal, Users, Search, ShieldCheck, Shield, User, MapPin } from "lucide-react";
+import { Plus, MoreHorizontal, Users, Search, ShieldCheck, Shield, User, MapPin, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ export function UserManagement() {
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<RoleType>("staff");
   const [inviteBranch, setInviteBranch] = useState<string>("");
+  const [invitePassword, setInvitePassword] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
@@ -63,6 +64,7 @@ export function UserManagement() {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setInviteError("Valid email required"); return; }
     if (staff.some((u) => u.email.toLowerCase() === email)) { setInviteError("User already exists"); return; }
     if (!inviteName) { setInviteError("Name is required"); return; }
+    if (!invitePassword || invitePassword.length < 6) { setInviteError("Password must be at least 6 characters"); return; }
     
     setInviteLoading(true);
     try {
@@ -71,9 +73,10 @@ export function UserManagement() {
         displayName: inviteName,
         role: inviteRole,
         branchId: inviteBranch || null as any,
+        password: invitePassword,
       });
       toast.success(`Invitation sent to ${email}`);
-      setInviteOpen(false); setInviteEmail(""); setInviteName(""); setInviteRole("staff"); setInviteBranch(""); setInviteError("");
+      setInviteOpen(false); setInviteEmail(""); setInviteName(""); setInviteRole("staff"); setInviteBranch(""); setInvitePassword(""); setInviteError("");
     } catch (err: any) {
       setInviteError(err.message || "Failed to invite user");
     } finally {
@@ -251,6 +254,11 @@ export function UserManagement() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Initial Password</Label>
+              <Input type="password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="Minimum 6 characters" />
+              <p className="text-[10px] text-muted-foreground italic">You must communicate this password securely to the staff member.</p>
             </div>
           </div>
           <DialogFooter>

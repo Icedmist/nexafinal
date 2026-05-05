@@ -181,127 +181,188 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
 
   return (
     <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[400px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] overflow-y-auto items-center">
-          {/* Header actions */}
-          <div className="flex items-center justify-between mb-4 print:hidden w-full">
-            <DialogTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Receipt</DialogTitle>
-            <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-muted transition-colors">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Receipt body */}
-          <div className="receipt-print-area space-y-6 w-full max-w-[320px]">
-            {/* Store header */}
-            <div className="text-center space-y-1">
-              <h2 className="text-xl font-black tracking-tight text-foreground">{storeName}</h2>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Transaction Success</p>
-            </div>
-
-            <div className="py-2">
-              <Separator className="h-0.5" />
-            </div>
-
-            {/* Receipt info */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground font-bold uppercase tracking-wider">Receipt #</span>
-                <span className="font-mono font-black text-foreground">{sale.id.slice(-8).toUpperCase()}</span>
+      <DialogContent className="p-0 overflow-visible border-none bg-transparent shadow-none max-w-[480px] w-full focus:outline-none">
+        <div className="nexa-card nexa-glass p-6 sm:p-10 flex flex-col max-h-[95vh] overflow-y-auto items-center w-full shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] relative animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-700 ease-out">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/5 pointer-events-none" />
+            
+            {/* Header actions */}
+            <div className="flex items-center justify-between mb-8 print:hidden w-full relative z-10">
+              <div className="flex flex-col">
+                <DialogTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">
+                  Store Receipt
+                </DialogTitle>
+                <div className="h-0.5 w-6 bg-primary/40 mt-1 rounded-full" />
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground font-bold uppercase tracking-wider">Date</span>
-                <span className="font-black text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
-              </div>
-
-              {sale.customerName && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Customer</span>
-                  <span className="font-black text-foreground">{sale.customerName}</span>
-                </div>
-              )}
-              {sale.customerPhone && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Phone</span>
-                  <span className="font-mono font-black text-foreground">{sale.customerPhone}</span>
-                </div>
-              )}
+              <button 
+                type="button" 
+                onClick={onClose} 
+                className="rounded-full p-2.5 hover:bg-muted transition-all hover:rotate-90 group"
+              >
+                <X className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+              </button>
             </div>
 
-            <div className="py-1">
-               <Separator className="h-0.5 border-dashed" />
-            </div>
-
-            {/* Line items */}
-            <div className="space-y-4">
-              {sale.items.map((li, idx) => (
-                <div key={idx} className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-foreground truncate">{li.itemName}</p>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                      {li.quantity} × {fmtNgn(li.unitPriceNgn)}
-                    </p>
+            {/* Success Animation / Icon */}
+            <div className="mb-8 relative group">
+              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center relative z-10 animate-in zoom-in-50 duration-700 delay-200">
+                <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
+                  <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-xl shadow-primary/40 transform group-hover:scale-110 transition-transform duration-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="animate-in slide-in-from-bottom-4 duration-500 delay-500"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
                   </div>
-                  <span className="font-mono text-sm font-black text-foreground shrink-0">
-                    {fmtNgn(li.unitPriceNgn * li.quantity)}
+                </div>
+              </div>
+              <div className="absolute inset-0 bg-primary/30 blur-3xl rounded-full scale-150 opacity-40 animate-pulse" />
+            </div>
+
+            {/* Receipt body */}
+            <div className="receipt-print-area space-y-8 w-full max-w-[360px] relative z-10">
+              {/* Store header */}
+              <div className="text-center space-y-2">
+                <h2 className="text-3xl font-black tracking-tight text-foreground leading-tight">{storeName}</h2>
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.2em]">
+                  Transaction Successful
+                </div>
+              </div>
+
+              <div className="py-2 flex items-center justify-center">
+                <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent" />
+              </div>
+
+              {/* Receipt info */}
+              <div className="space-y-4 bg-muted/20 backdrop-blur-sm p-5 rounded-[2rem] border border-border/40">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-muted-foreground/60 font-black uppercase tracking-widest">ID Reference</span>
+                  <span className="font-mono font-black text-foreground bg-background/50 px-2 py-0.5 rounded-md border border-border/30">
+                    {sale.id.slice(-12).toUpperCase()}
                   </span>
                 </div>
-              ))}
-            </div>
-
-            <div className="py-1">
-               <Separator className="h-0.5" />
-            </div>
-
-            {/* Totals */}
-            <div className="space-y-2 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Total Paid</p>
-              <div className="text-4xl font-black font-mono tracking-tighter text-primary">
-                {fmtNgn(sale.totalNgn)}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="space-y-3 pt-6 print:hidden">
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" onClick={handlePrint} className="h-10 rounded-xl border-2 font-bold gap-1.5">
-                  <Printer className="h-3.5 w-3.5" /> Print
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={downloading} className="h-10 rounded-xl border-2 font-bold gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> {downloading ? "…" : "PDF"}
-                </Button>
-              </div>
-
-              {sale.customerPhone && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Share via WhatsApp</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleWhatsAppText}
-                      className="h-10 rounded-xl border-2 font-bold gap-1.5"
-                    >
-                      <MessageCircle className="h-3.5 w-3.5" /> Text
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleWhatsAppPDF}
-                      className="h-10 rounded-xl border-2 font-bold gap-1.5"
-                    >
-                      <FileText className="h-3.5 w-3.5" /> PDF + Text
-                    </Button>
-                  </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-muted-foreground/60 font-black uppercase tracking-widest">Date & Time</span>
+                  <span className="font-black text-foreground">
+                    {format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}
+                  </span>
                 </div>
-              )}
+
+                {(sale.customerName || sale.customerPhone) && (
+                  <div className="pt-3 border-t border-border/30 space-y-3">
+                    {sale.customerName && (
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-muted-foreground/60 font-black uppercase tracking-widest">Customer</span>
+                        <span className="font-black text-foreground">{sale.customerName}</span>
+                      </div>
+                    )}
+                    {sale.customerPhone && (
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-muted-foreground/60 font-black uppercase tracking-widest">Phone</span>
+                        <span className="font-mono font-black text-foreground">{sale.customerPhone}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Line items */}
+              <div className="space-y-5 px-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Order Summary</p>
+                  <div className="h-px flex-1 ml-4 bg-border/30" />
+                </div>
+                <div className="space-y-5">
+                  {sale.items.map((li, idx) => (
+                    <div key={idx} className="flex items-start justify-between gap-6 group/item">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-foreground group-hover/item:text-primary transition-colors">{li.itemName}</p>
+                        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                          {li.quantity} × {fmtNgn(li.unitPriceNgn)}
+                        </p>
+                      </div>
+                      <span className="font-mono text-sm font-black text-foreground shrink-0 mt-0.5">
+                        {fmtNgn(li.unitPriceNgn * li.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="py-4">
+                 <Separator className="h-px border-dashed bg-transparent border-t-2 border-border/40" />
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-4 text-center pb-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/40">Total Amount Paid</p>
+                <div className="relative inline-block px-8 py-2">
+                  <div className="text-6xl font-black font-mono tracking-tighter text-foreground">
+                    {fmtNgn(sale.totalNgn)}
+                  </div>
+                  <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full -z-10 animate-pulse" />
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="space-y-4 pt-6 print:hidden">
+                <div className="grid grid-cols-2 gap-4">
+                  <Button variant="outline" size="lg" onClick={handlePrint} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-lg hover:shadow-primary/20">
+                    <Printer className="h-4 w-4" /> Print
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={handleDownloadPDF} disabled={downloading} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-lg hover:shadow-primary/20">
+                    <Download className="h-4 w-4" /> {downloading ? "..." : "PDF"}
+                  </Button>
+                </div>
+
+                {sale.customerPhone && (
+                  <div className="space-y-4 pt-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-px flex-1 bg-border/30" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/30">Share Receipt</p>
+                      <div className="h-px flex-1 bg-border/30" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={handleWhatsAppText}
+                        className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all shadow-md"
+                      >
+                        <MessageCircle className="h-4 w-4" /> WhatsApp
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={handleWhatsAppPDF}
+                        className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all shadow-md"
+                      >
+                        <FileText className="h-4 w-4" /> Share PDF
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="pt-10 text-center relative">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border/20 to-transparent" />
+                <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.5em] pt-6">
+                  NEXA Store OS
+                </p>
+                <p className="text-[8px] font-bold text-muted-foreground/20 uppercase tracking-[0.2em] mt-1">
+                  Secure Digital Receipt
+                </p>
+              </div>
             </div>
-            
-            <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest pt-4">
-              Thank you for your business!
-            </p>
           </div>
-        </div>
       </DialogContent>
     </Dialog>
   );

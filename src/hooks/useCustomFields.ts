@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 export interface CustomFieldDef {
   id: string;
@@ -20,12 +21,13 @@ interface QueryResult<T> {
 
 export function useCustomFields(): QueryResult<CustomFieldDef[]> {
   const { user } = useAuth();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<CustomFieldDef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -33,7 +35,7 @@ export function useCustomFields(): QueryResult<CustomFieldDef[]> {
 
     const q = query(
       collection(db, "customFields"),
-      where("ownerId", "==", user.uid)
+      where("storeId", "==", storeId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -44,13 +46,13 @@ export function useCustomFields(): QueryResult<CustomFieldDef[]> {
       setData(fields);
       setIsLoading(false);
     }, (err) => {
-      console.error(err);
+      console.error("Custom fields listener error:", err);
       setError(err);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, storeId]);
 
   return { data, isLoading, error };
 }

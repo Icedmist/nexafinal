@@ -15,16 +15,19 @@ interface QueryResult<T> {
 }
 
 export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !storeId) {
-      setData([]);
-      setIsLoading(false);
+    // CRITICAL: Must wait for claimsReady and storeId to avoid permission denied
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) {
+        setData([]);
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -63,26 +66,26 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       setData(filtered);
       setIsLoading(false);
     }, (err) => {
-      console.error(err);
+      console.error("Firestore Listen Error (Items):", err);
       setError(err);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, storeId, filters?.categoryId, filters?.status, filters?.search, filters?.locationId]);
+  }, [user, storeId, claimsReady, filters?.categoryId, filters?.status, filters?.search, filters?.locationId]);
 
   return { data, isLoading, error };
 }
 
 export function useItemById(id: string): QueryResult<Item | undefined> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Item | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !ownerId || !id) {
-      setIsLoading(false);
+    if (!user || !storeId || !id || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
       return;
     }
     
@@ -99,23 +102,26 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
         setData(undefined);
       }
       setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (ItemById):", err);
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, storeId, id]);
+  }, [user, storeId, id, claimsReady]);
 
   return { data, isLoading, error: null };
 }
 
 export function useCategories(): QueryResult<Category[]> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !storeId) {
-      setIsLoading(false);
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
       return;
     }
     const q = query(collection(db, "categories"), where("storeId", "==", storeId));
@@ -124,22 +130,25 @@ export function useCategories(): QueryResult<Category[]> {
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Category));
       setData(items);
       setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (Categories):", err);
+      setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady]);
 
   return { data, isLoading, error: null };
 }
 
 export function useLocations(): QueryResult<Location[]> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !storeId) {
-      setIsLoading(false);
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
       return;
     }
     const q = query(collection(db, "locations"), where("storeId", "==", storeId));
@@ -148,42 +157,54 @@ export function useLocations(): QueryResult<Location[]> {
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));
       setData(items);
       setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (Locations):", err);
+      setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady]);
 
   return { data, isLoading, error: null };
 }
 
 export function useSuppliers(): QueryResult<Supplier[]> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !storeId) { setIsLoading(false); return; }
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
+      return;
+    }
     const q = query(collection(db, "suppliers"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Supplier[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Supplier));
       setData(items);
       setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (Suppliers):", err);
+      setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady]);
 
   return { data, isLoading, error: null };
 }
 
 export function useMovements(count = 20): QueryResult<StockMovement[]> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<StockMovement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !storeId) { setIsLoading(false); return; }
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
+      return;
+    }
     const q = query(
       collection(db, "movements"), 
       where("storeId", "==", storeId),
@@ -195,9 +216,12 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as StockMovement));
       setData(items);
       setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (Movements):", err);
+      setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, count]);
+  }, [user, storeId, claimsReady, count]);
 
   return { data, isLoading, error: null };
 }
@@ -214,43 +238,55 @@ export function useStockSummary(): QueryResult<StockSummary> {
 }
 
 export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !storeId) { setIsLoading(false); return; }
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
+      return;
+    }
     const q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: PurchaseOrder[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as PurchaseOrder));
       setData(items);
       setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (PurchaseOrders):", err);
+      setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady]);
 
   return { data, isLoading, error: null };
 }
 
 export function useRequests(): QueryResult<InventoryRequest[]> {
-  const { user } = useAuth();
+  const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<InventoryRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !storeId) { setIsLoading(false); return; }
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
+      return;
+    }
     const q = query(collection(db, "requests"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: InventoryRequest[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as InventoryRequest));
       setData(items);
       setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (Requests):", err);
+      setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [user, storeId, claimsReady]);
 
   return { data, isLoading, error: null };
 }

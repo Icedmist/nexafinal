@@ -35,7 +35,7 @@ const BusinessContext = createContext<BusinessContextType>({
 export const useBusiness = () => useContext(BusinessContext);
 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, claims } = useAuth();
+  const { user, claims, claimsReady } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -44,8 +44,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
-    if (!user || loadingTenant) {
-      if (!loadingTenant) {
+    // Wait for auth state, tenant info AND claims to be ready before proceeding
+    if (!user || loadingTenant || !claimsReady) {
+      if (!loadingTenant && claimsReady && !user) {
         setProfile(null);
         setOwnerId(null);
         setStoreId(null);
@@ -65,6 +66,14 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         let activeStoreId = store?.id;
         let activeOwnerId = store?.ownerId;
+
+        // If we are on a tenant subdomain, but the user's claims don't match the storeId yet,
+        // we MUST wait or we'll get a permission-denied error.
+        if (store && claims?.storeId && claims.storeId !== store.id) {
+           // If they have a different storeId, they shouldn't be here, but let the security rules handle it
+           // OR we can show a specific "Unauthorized" state.
+           console.warn("User storeId mismatch:", { userStore: claims.storeId, tenantStore: store.id });
+        }
 
         if (!store) {
           // FALLBACK: Find store by ownerId on main domain
@@ -136,7 +145,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       mounted = false;
       if (unsubscribe) unsubscribe();
     };
-  }, [user, store, loadingTenant, claims]);
+  }, [user, store, loadingTenant, claims, claimsReady]);
 
   const updateProfile = async (updates: Partial<BusinessProfile>) => {
     if (!user || !ownerId) return;
@@ -144,7 +153,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (user.uid !== ownerId) {
       throw new Error("Only store owners can update branding and settings.");
     }
-    const docRef = doc(db, 'users', ownerId);
+    const docRef = doc(db, 'stores', storeId!);
     await updateDoc(docRef, updates);
   };
 

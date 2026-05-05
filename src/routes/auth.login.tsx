@@ -10,7 +10,7 @@ import { Package, Eye, EyeOff } from "lucide-react";
 import { useTenant } from "@/hooks/useTenant";
 import { Building2 } from "lucide-react";
 
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export const Route = createFileRoute("/auth/login")({
@@ -39,15 +39,26 @@ function LoginPage() {
         
         let isStaff = false;
         if (!isOwner) {
-          const staffQuery = query(
-            collection(db, "staff"),
-            where("email", "==", loggedInUser.email),
-            where("storeId", "==", store.id),
-            where("isActive", "==", true),
-            limit(1)
-          );
-          const staffSnap = await getDocs(staffQuery);
-          isStaff = !staffSnap.empty;
+          // 1. Primary Check: Try UID lookup (most reliable for newly provisioned staff)
+          const staffDoc = await getDoc(doc(db, "staff", loggedInUser.uid));
+          
+          if (staffDoc.exists()) {
+            const data = staffDoc.data();
+            isStaff = data.storeId === store.id && data.isActive === true;
+          }
+
+          // 2. Fallback: Query by email (lowercased) for legacy or migrated records
+          if (!isStaff && loggedInUser.email) {
+            const staffQuery = query(
+              collection(db, "staff"),
+              where("email", "==", loggedInUser.email.toLowerCase()),
+              where("storeId", "==", store.id),
+              where("isActive", "==", true),
+              limit(1)
+            );
+            const staffSnap = await getDocs(staffQuery);
+            isStaff = !staffSnap.empty;
+          }
         }
 
         if (!isOwner && !isStaff) {

@@ -15,6 +15,7 @@ interface AuthContextType {
   user: User | null;
   claims: { storeId?: string; role?: string } | null;
   loading: boolean;
+  claimsReady: boolean; // NEW: Indicates if claims have been synced for the current user
   login: (email: string, pass: string) => Promise<UserCredential>;
   signup: (email: string, pass: string, displayName?: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
@@ -25,6 +26,7 @@ const AuthContext = React.createContext<AuthContextType>({
   user: null,
   claims: null,
   loading: true,
+  claimsReady: false,
   login: async () => ({} as UserCredential),
   signup: async () => ({} as UserCredential),
   logout: async () => {},
@@ -37,12 +39,21 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [user, setUser] = React.useState<User | null>(null);
   const [claims, setClaims] = React.useState<{ storeId?: string; role?: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [claimsReady, setClaimsReady] = React.useState(false);
 
   const login = async (email: string, pass: string) => {
     try {
+      console.log(`[Auth] Attempting login for: ${email}`);
       const cred = await signInWithEmailAndPassword(auth, email, pass);
+      
+      // Reset claimsReady on new login to force a resync check
+      setClaimsReady(false);
+      
       if (cred.user) {
+        console.log(`[Auth] Login successful for UID: ${cred.user.uid}`);
         const tokenResult = await cred.user.getIdTokenResult();
+        console.log(`[Auth] Custom claims found:`, tokenResult.claims);
+        
         await notifyActivity(
           "login",
           "Staff Login",
@@ -54,10 +65,16 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
       return cred;
     } catch (error: any) {
-      console.error("Auth Login Error:", {
+      console.error("Auth Login Error Details:", {
         code: error.code,
         message: error.message,
-        email: email
+        email: email,
+        passwordProvided: !!pass,
+        passwordLength: pass?.length,
+        config: {
+          authDomain: auth.config?.authDomain,
+          projectId: auth.app?.options?.projectId
+        }
       });
       throw error;
     }
@@ -66,6 +83,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const signup = async (email: string, pass: string, displayName?: string) => {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      setClaimsReady(false);
       if (displayName && cred.user) {
         await updateProfile(cred.user, { displayName });
       }
@@ -91,6 +109,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const logout = async () => {
+    setClaimsReady(false);
     await signOut(auth);
   };
 
@@ -102,6 +121,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           storeId: tokenResult.claims.storeId as string,
           role: tokenResult.claims.role as string,
         });
+        setClaimsReady(true);
       } catch (error) {
         console.error("Error refreshing custom claims:", error);
       }
@@ -134,12 +154,15 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
             storeId: tokenResult.claims.storeId as string,
             role: tokenResult.claims.role as string,
           });
+          setClaimsReady(true);
         } catch (error) {
           console.error("Error fetching custom claims:", error);
           setClaims(null);
+          setClaimsReady(true); // Still set ready to allow UI to show "No Permission" instead of spinning
         }
       } else {
         setClaims(null);
+        setClaimsReady(true);
       }
       setLoading(false);
     });
@@ -148,7 +171,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, claims, loading, login, signup, logout, refreshClaims }}>
+    <AuthContext.Provider value={{ user, claims, loading, claimsReady, login, signup, logout, refreshClaims }}>
       {!loading && children}
     </AuthContext.Provider>
   );
