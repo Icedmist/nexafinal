@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import type { Item, Category, Supplier, Location } from "@/types/inventory";
 import { ItemStatus } from "@/types/inventory";
+import type { Branch } from "@/types/tenant";
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
@@ -28,6 +29,7 @@ const schema = z.object({
   categoryId: z.string(),
   supplierId: z.string(),
   locationId: z.string(),
+  branchId: z.string().optional(),
   unit: z.string(),
   currentStock: z.coerce.number().min(0),
   reorderPoint: z.coerce.number().min(0),
@@ -46,6 +48,7 @@ interface ItemFormSheetProps {
   categories: Category[];
   suppliers: Supplier[];
   locations: Location[];
+  branches: Branch[];
   existingSkus: string[];
   onSave: (data: Partial<Item>) => void;
   loading?: boolean;
@@ -58,6 +61,7 @@ export function ItemFormSheet({
   categories,
   suppliers,
   locations,
+  branches,
   existingSkus,
   onSave,
   loading,
@@ -73,6 +77,7 @@ export function ItemFormSheet({
       categoryId: "",
       supplierId: "",
       locationId: "",
+      branchId: "",
       unit: "each",
       currentStock: 0,
       reorderPoint: 0,
@@ -92,6 +97,7 @@ export function ItemFormSheet({
         categoryId: item.categoryId ?? undefined,
         supplierId: item.supplierId ?? undefined,
         locationId: item.locationId ?? undefined,
+        branchId: item.branchId ?? "",
         unit: item.unit,
         currentStock: item.currentStock,
         reorderPoint: item.reorderPoint,
@@ -117,6 +123,7 @@ export function ItemFormSheet({
       categoryId: data.categoryId || null,
       supplierId: data.supplierId || null,
       locationId: data.locationId || null,
+      branchId: data.branchId || null,
     });
   };
 
@@ -258,6 +265,16 @@ export function ItemFormSheet({
                     <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue placeholder="Select location" /></SelectTrigger>
                     <SelectContent>
                       {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className={labelCls}>Branch Visibility</label>
+                  <Select value={watch("branchId") ?? ""} onValueChange={(v) => setValue("branchId", v || "")}>
+                    <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue placeholder="All branches" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All branches</SelectItem>
+                      {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

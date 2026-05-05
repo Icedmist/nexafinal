@@ -94,6 +94,7 @@ export interface Item {
   sellingPrice: number;
   locationId: string | null;
   supplierId: string | null;
+  branchId?: string | null;
   imageUrl: string | null;
   customFields: Record<string, string | number | boolean>;
   createdAt: string;

@@ -27,6 +27,7 @@ import { MovementFormSheet } from "@/components/movements/MovementFormSheet";
 import { printBarcodeLabels } from "@/components/catalog/PrintBarcodeLabel";
 import { useItems, useCategories, useSuppliers, useLocations } from "@/hooks/useInventoryData";
 import { useCreateItem, useUpdateItem, useDeleteItem } from "@/hooks/useInventoryMutations";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import { PermissionGate, usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
 import type { Item } from "@/types/inventory";
@@ -94,6 +95,7 @@ function CatalogPage() {
   const { data: categories } = useCategories();
   const { data: suppliers } = useSuppliers();
   const { data: locations } = useLocations();
+  const { data: branches } = useStoreBranches();
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
@@ -129,13 +131,13 @@ function CatalogPage() {
     { header: "Category", accessor: (i) => categories.find((c) => c.id === i.categoryId)?.name ?? "" },
     { header: "Supplier", accessor: (i) => suppliers.find((s) => s.id === i.supplierId)?.name ?? "" },
     { header: "Location", accessor: (i) => locations.find((l) => l.id === i.locationId)?.name ?? "" },
+    { header: "Branch", accessor: (i) => branches.find((b) => b.id === i.branchId)?.name ?? "All Branches" },
     { header: "Quantity", accessor: (i) => i.currentStock },
     { header: "Reorder Point", accessor: (i) => i.reorderPoint },
     { header: "Unit Cost", accessor: (i) => i.costPrice },
     { header: "Price", accessor: (i) => i.sellingPrice },
     { header: "Status", accessor: (i) => i.status },
-  ], [categories, suppliers, locations]);
-
+  ], [categories, suppliers, locations, branches]);
   const handleSave = useCallback((data: Partial<Item>) => {
     if (editItem) {
       updateItem.mutate({ id: editItem.id, updates: data }, {
@@ -158,6 +160,7 @@ function CatalogPage() {
         costPrice: data.costPrice ?? 0,
         sellingPrice: data.sellingPrice ?? 0,
         locationId: data.locationId ?? null,
+        branchId: data.branchId ?? null,
         supplierId: data.supplierId ?? null,
         imageUrl: null,
         customFields: {},
@@ -278,7 +281,7 @@ function CatalogPage() {
         categories={categories}
         suppliers={suppliers}
         locations={locations}
-        existingSkus={existingSkus}
+      branches={branches}
         onSave={handleSave}
         loading={createItem.isLoading || updateItem.isLoading}
       />

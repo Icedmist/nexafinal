@@ -53,7 +53,8 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
       // Update custom claims
       await admin.auth().setCustomUserClaims(userRecord.uid, {
         storeId: storeId,
-        role: isActive ? role : "requestor"
+        role: isActive ? role : "requestor",
+        branchId: data.branchId || null,
       });
       
       // NEW: Sync displayName to Auth profile if it has changed
@@ -106,7 +107,8 @@ export const provisionstaff = onCall(async (request) => {
     await admin.auth().setCustomUserClaims(userRecord.uid, {
       storeId,
       role,
-    });
+        branchId: branchId || null,
+      });
 
     await admin.firestore().collection("staff").doc(userRecord.uid).set({
       uid: userRecord.uid,
@@ -114,10 +116,7 @@ export const provisionstaff = onCall(async (request) => {
       displayName,
       role,
       storeId,
-      branchId,
-      ownerId,
-      isActive: true,
-      createdAt: new Date().toISOString(),
+      branchId: branchId || null,
     });
 
     return { success: true, uid: userRecord.uid };
@@ -205,11 +204,12 @@ export const updatestaffprofile = onCall(async (request) => {
         await admin.auth().updateUser(targetUid, updatePayload);
       }
 
-      if (role) {
+      if (role || branchId !== undefined) {
         const currentClaims = userRecord.customClaims || {};
         await admin.auth().setCustomUserClaims(targetUid, {
           ...currentClaims,
-          role: role,
+          role: role || currentClaims.role,
+          branchId: branchId !== undefined ? branchId : currentClaims.branchId || null,
         });
       }
     }
@@ -282,7 +282,8 @@ export const onusercreated = functionsV1.auth.user().onCreate(async (user: admin
       // Update custom claims
       await admin.auth().setCustomUserClaims(user.uid, {
         storeId: staffData.storeId,
-        role: staffData.role
+        role: staffData.role,
+        branchId: staffData.branchId || null,
       });
       
       // Update the Firestore document to have the correct UID and doc ID

@@ -37,7 +37,7 @@ export const useAuth = () => React.useContext(AuthContext);
 
 export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = React.useState<User | null>(null);
-  const [claims, setClaims] = React.useState<{ storeId?: string; role?: string } | null>(null);
+  const [claims, setClaims] = React.useState<{ storeId?: string; role?: string; branchId?: string | null } | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [claimsReady, setClaimsReady] = React.useState(false);
 
@@ -120,6 +120,8 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setClaims({
           storeId: tokenResult.claims.storeId as string,
           role: tokenResult.claims.role as string,
+          branchId: tokenResult.claims.branchId as string | null,
+          branchId: tokenResult.claims.branchId as string | null,
         });
         setClaimsReady(true);
       } catch (error) {

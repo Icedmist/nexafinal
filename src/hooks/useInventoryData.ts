@@ -15,7 +15,7 @@ interface QueryResult<T> {
 }
 
 export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +49,11 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       });
       
       let filtered = items;
+      const userBranchId = claims?.branchId;
+      if (userBranchId) {
+        filtered = filtered.filter(i => !i.branchId || i.branchId === userBranchId);
+      }
+
       if (filters?.search) {
         const lowerSearch = filters.search.toLowerCase();
         filtered = filtered.filter(i => 
