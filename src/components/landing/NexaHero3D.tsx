@@ -6,15 +6,15 @@ import * as THREE from 'three';
 function AnimatedSphere() {
   const meshRef = useRef<THREE.Mesh>(null);
 
-  useFrame((state) => {
+  useFrame((_state, delta) => {
     if (!meshRef.current) return;
-    meshRef.current.rotation.x = state.clock.getElapsedTime() * 0.2;
-    meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.3;
+    meshRef.current.rotation.x += delta * 0.2;
+    meshRef.current.rotation.y += delta * 0.3;
   });
 
   return (
     <Float speed={2} rotationIntensity={1} floatIntensity={2}>
-      <Sphere ref={meshRef} args={[1, 100, 200]} scale={2}>
+      <Sphere ref={meshRef} args={[1, 64, 64]} scale={2}>
         <MeshDistortMaterial
           color="#3b82f6"
           attach="material"
@@ -38,7 +38,11 @@ function Rig() {
 export function NexaHero3D() {
   return (
     <div className="w-full h-[500px] lg:h-[600px] relative">
-      <Canvas shadows={{ type: THREE.PCFShadowMap }}>
+      <Canvas 
+        shadows 
+        gl={{ antialias: true, powerPreference: "high-performance" }}
+        dpr={[1, 2]}
+      >
         <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={75} />
         <ambientLight intensity={0.5} />
         <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />

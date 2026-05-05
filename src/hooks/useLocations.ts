@@ -46,13 +46,13 @@ export function useLocations() {
 export function useLocationTree() {
   const { data: locations } = useLocations();
   const { data: branches } = useStoreBranches();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
 
   return useMemo(() => {
     // Treat branches as root locations
     const branchLocations: Location[] = branches.map(b => ({
       id: b.id,
-      ownerId: ownerId || "",
+      storeId: storeId || "",
       name: b.name,
       type: "warehouse",
       address: b.location,

@@ -42,7 +42,7 @@ function LoginPage() {
           const staffQuery = query(
             collection(db, "staff"),
             where("email", "==", loggedInUser.email),
-            where("ownerId", "==", store.ownerId),
+            where("storeId", "==", store.id),
             where("isActive", "==", true),
             limit(1)
           );

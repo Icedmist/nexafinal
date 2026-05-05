@@ -114,6 +114,12 @@ function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  useEffect(() => {
+    if (store && user) {
+      navigate({ to: "/app/dashboard", replace: true });
+    }
+  }, [store, user, navigate]);
+
   if (tenantLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -123,10 +129,7 @@ function LandingPage() {
   }
 
   if (store) {
-    if (user) {
-      navigate({ to: "/app/dashboard", replace: true });
-      return null;
-    }
+    if (user) return null;
     return <StoreLoginPage store={store} />;
   }
 

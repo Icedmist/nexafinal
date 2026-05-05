@@ -25,13 +25,13 @@ interface QueryResult<T> {
 
 export function useRefunds(): QueryResult<Refund[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Refund[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -39,7 +39,7 @@ export function useRefunds(): QueryResult<Refund[]> {
 
     const q = query(
       collection(db, "refunds"),
-      where("ownerId", "==", ownerId),
+      where("storeId", "==", storeId),
       orderBy("createdAt", "desc")
     );
 
@@ -57,20 +57,21 @@ export function useRefunds(): QueryResult<Refund[]> {
     });
 
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error };
 }
 
 export function useRefundsMutations() {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
 
   const addRefund = async (refund: Omit<Refund, "id" | "ownerId">) => {
-    if (!user || !ownerId) throw new Error("Authentication required");
+    if (!user || !storeId) throw new Error("Authentication required");
     return await addDoc(collection(db, "refunds"), {
       ...refund,
-      ownerId,
+      storeId,
+      ownerId: user.uid,
       recordedBy: user.uid,
     });
   };

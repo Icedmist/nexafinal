@@ -18,21 +18,30 @@ service cloud.firestore {
       allow read: if isAuth() && (request.auth.uid == userId || (isAdmin() && request.auth.token.storeId != null));
       allow write: if isAuth() && request.auth.uid == userId;
     }
+    
+    // ACTIVITY LOGS: Allow anyone to log events (for audit), but restrict reading
+    match /activity_logs/{logId} {
+      allow create: if isAuth();
+      allow read: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        isAdmin()
+      );
+    }
 
-    // MULTI-TENANT DATA: Gated by storeId claim with a fallback for owners without claims yet
+    // MULTI-TENANT DATA: Gated by storeId claim with fallbacks
     match /{collectionName}/{docId} {
-      allow read, write: if isAuth() && (
-        // 1. High Performance: Custom Claims
-        (getStoreId() != null && getStoreId() == resource.data.storeId) ||
-        // 2. Migration Fallback: Check Store Ownership (Costs 1 Read)
-        (getStoreId() == null && request.auth.uid == get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId)
+      allow read, write: if collectionName != 'stores' && collectionName != 'users' && collectionName != 'activity_logs' && isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        (resource.data.storeId != null && request.auth.uid == get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId) ||
+        isAdmin()
       );
         
-      allow create: if isAuth() && (
-        // Must attach assigned storeId
+      allow create: if collectionName != 'stores' && collectionName != 'users' && collectionName != 'activity_logs' && isAuth() && (
         (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
-        // Owner fallback for initial setup
-        (getStoreId() == null && request.auth.uid == get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.ownerId)
+        (request.resource.data.storeId != null && request.auth.uid == get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.ownerId) ||
+        (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId)
       );
     }
   }

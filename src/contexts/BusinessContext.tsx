@@ -19,13 +19,15 @@ interface BusinessContextType {
   loadingProfile: boolean;
   updateProfile: (updates: Partial<BusinessProfile>) => Promise<void>;
   ownerId: string | null;
+  storeId: string | null;
 }
 
 const BusinessContext = createContext<BusinessContextType>({ 
   profile: null, 
   loadingProfile: true,
   updateProfile: async () => {},
-  ownerId: null
+  ownerId: null,
+  storeId: null
 });
 
 export const useBusiness = () => useContext(BusinessContext);
@@ -36,12 +38,14 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [storeId, setStoreId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || loadingTenant) {
       if (!loadingTenant) {
         setProfile(null);
         setOwnerId(null);
+        setStoreId(null);
         setLoadingProfile(false);
       }
       return;
@@ -51,13 +55,55 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const syncProfile = async () => {
       if (!store) {
-        setProfile(null);
-        setOwnerId(null);
-        setLoadingProfile(false);
-        return null;
+        // FALLBACK FOR EXISTING ACCOUNTS:
+        // If no tenant is resolved via URL (e.g. on main domain), find store by ownerId
+        const q = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
+        const snap = await getDocs(q);
+        
+        if (snap.empty) {
+          setProfile(null);
+          setOwnerId(null);
+          setStoreId(null);
+          setLoadingProfile(false);
+          return null;
+        }
+        
+        const existingStore = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
+        setOwnerId(existingStore.ownerId);
+        setStoreId(existingStore.id);
+        
+        const storeRef = doc(db, 'stores', existingStore.id);
+        const unsubscribe = onSnapshot(storeRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            setProfile({
+              storeDetails: {
+                name: data.name || "",
+                phone: data.storeDetails?.phone || "",
+                address: data.storeDetails?.address || "",
+                receiptFooter: data.storeDetails?.receiptFooter || "",
+                taxRate: data.storeDetails?.taxRate || 0,
+                slug: data.slug || "",
+              },
+              businessType: data.businessType || "retail",
+              categories: data.categories || [],
+              complexityLevel: data.complexityLevel || "basic",
+              branding: data.branding || {},
+              settings: data.settings || {},
+              ownerId: data.ownerId,
+            });
+          }
+          setLoadingProfile(false);
+        }, (err) => {
+          console.error("Error fetching fallback store profile:", err);
+          setLoadingProfile(false);
+        });
+        
+        return unsubscribe;
       }
 
       setOwnerId(store.ownerId);
+      setStoreId(store.id);
       
       // Listen to the store document for real-time profile updates
       const storeRef = doc(db, 'stores', store.id);
@@ -130,7 +176,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       profile: effectiveProfile, 
       loadingProfile, 
       updateProfile, 
-      ownerId 
+      ownerId,
+      storeId
     }}>
       {children}
     </BusinessContext.Provider>

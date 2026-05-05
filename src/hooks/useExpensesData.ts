@@ -13,13 +13,13 @@ interface QueryResult<T> {
 
 export function useExpenses(): QueryResult<Expense[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -27,7 +27,7 @@ export function useExpenses(): QueryResult<Expense[]> {
 
     const q = query(
       collection(db, "expenses"),
-      where("ownerId", "==", ownerId),
+      where("storeId", "==", storeId),
       orderBy("createdAt", "desc")
     );
 
@@ -45,26 +45,27 @@ export function useExpenses(): QueryResult<Expense[]> {
     });
 
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error };
 }
 
 export function useExpensesMutations() {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
 
   const addExpense = async (expense: Omit<Expense, "id" | "ownerId">) => {
-    if (!user || !ownerId) throw new Error("Authentication required");
+    if (!user || !storeId) throw new Error("Authentication required");
     return await addDoc(collection(db, "expenses"), {
       ...expense,
-      ownerId,
+      storeId,
+      ownerId: user.uid,
       recordedBy: user.uid,
     });
   };
 
   const deleteExpense = async (id: string) => {
-    if (!user || !ownerId) throw new Error("Authentication required");
+    if (!user || !storeId) throw new Error("Authentication required");
     return await deleteDoc(doc(db, "expenses", id));
   };
 

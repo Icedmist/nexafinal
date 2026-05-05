@@ -13,13 +13,13 @@ interface QueryResult<T> {
 
 export function useSales(): QueryResult<SaleTransaction[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -27,7 +27,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 
     const q = query(
       collection(db, "sales"),
-      where("ownerId", "==", ownerId),
+      where("storeId", "==", storeId),
       orderBy("createdAt", "desc")
     );
 
@@ -45,22 +45,23 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     });
 
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error };
 }
 
 export function useSalesMutations() {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
 
   const addSale = async (sale: Omit<SaleTransaction, "id">) => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       throw new Error("Authentication required to record sales. Please sign in.");
     }
     return await addDoc(collection(db, "sales"), {
       ...sale,
-      ownerId: ownerId,
+      storeId: storeId,
+      ownerId: user.uid,
       recordedBy: user.uid,
     });
   };

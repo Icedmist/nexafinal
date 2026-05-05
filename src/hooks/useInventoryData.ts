@@ -16,13 +16,13 @@ interface QueryResult<T> {
 
 export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -30,7 +30,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
 
     let q = query(
       collection(db, "products"),
-      where("ownerId", "==", ownerId)
+      where("storeId", "==", storeId)
     );
 
     if (filters?.categoryId) {
@@ -69,14 +69,14 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     });
 
     return () => unsubscribe();
-  }, [user, ownerId, filters?.categoryId, filters?.status, filters?.search, filters?.locationId]);
+  }, [user, storeId, filters?.categoryId, filters?.status, filters?.search, filters?.locationId]);
 
   return { data, isLoading, error };
 }
 
 export function useItemById(id: string): QueryResult<Item | undefined> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Item | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -88,7 +88,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     
     const q = query(
       collection(db, "products"),
-      where("ownerId", "==", ownerId)
+      where("storeId", "==", storeId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -102,23 +102,23 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     });
 
     return () => unsubscribe();
-  }, [user, ownerId, id]);
+  }, [user, storeId, id]);
 
   return { data, isLoading, error: null };
 }
 
 export function useCategories(): QueryResult<Category[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       setIsLoading(false);
       return;
     }
-    const q = query(collection(db, "categories"), where("ownerId", "==", ownerId));
+    const q = query(collection(db, "categories"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Category[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Category));
@@ -126,23 +126,23 @@ export function useCategories(): QueryResult<Category[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error: null };
 }
 
 export function useLocations(): QueryResult<Location[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       setIsLoading(false);
       return;
     }
-    const q = query(collection(db, "locations"), where("ownerId", "==", ownerId));
+    const q = query(collection(db, "locations"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Location[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));
@@ -150,20 +150,20 @@ export function useLocations(): QueryResult<Location[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error: null };
 }
 
 export function useSuppliers(): QueryResult<Supplier[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !ownerId) { setIsLoading(false); return; }
-    const q = query(collection(db, "suppliers"), where("ownerId", "==", ownerId));
+    if (!user || !storeId) { setIsLoading(false); return; }
+    const q = query(collection(db, "suppliers"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Supplier[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Supplier));
@@ -171,22 +171,22 @@ export function useSuppliers(): QueryResult<Supplier[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error: null };
 }
 
 export function useMovements(count = 20): QueryResult<StockMovement[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<StockMovement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !ownerId) { setIsLoading(false); return; }
+    if (!user || !storeId) { setIsLoading(false); return; }
     const q = query(
       collection(db, "movements"), 
-      where("ownerId", "==", ownerId),
+      where("storeId", "==", storeId),
       orderBy("createdAt", "desc"),
       firestoreLimit(count)
     );
@@ -197,7 +197,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, ownerId, count]);
+  }, [user, storeId, count]);
 
   return { data, isLoading, error: null };
 }
@@ -215,13 +215,13 @@ export function useStockSummary(): QueryResult<StockSummary> {
 
 export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !ownerId) { setIsLoading(false); return; }
-    const q = query(collection(db, "purchase_orders"), where("ownerId", "==", ownerId));
+    if (!user || !storeId) { setIsLoading(false); return; }
+    const q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: PurchaseOrder[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as PurchaseOrder));
@@ -229,20 +229,20 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error: null };
 }
 
 export function useRequests(): QueryResult<InventoryRequest[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<InventoryRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !ownerId) { setIsLoading(false); return; }
-    const q = query(collection(db, "requests"), where("ownerId", "==", ownerId));
+    if (!user || !storeId) { setIsLoading(false); return; }
+    const q = query(collection(db, "requests"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: InventoryRequest[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as InventoryRequest));
@@ -250,7 +250,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error: null };
 }

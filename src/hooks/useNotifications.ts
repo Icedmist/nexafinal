@@ -14,13 +14,13 @@ interface QueryResult<T> {
 
 export function useNotifications(): QueryResult<Notification[]> {
   const { user } = useAuth();
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   const [data, setData] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user || !ownerId) {
+    if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
       return;
@@ -28,7 +28,7 @@ export function useNotifications(): QueryResult<Notification[]> {
 
     const q = query(
       collection(db, "notifications"),
-      where("ownerId", "==", ownerId),
+      where("storeId", "==", storeId),
       orderBy("createdAt", "desc")
     );
 
@@ -45,7 +45,7 @@ export function useNotifications(): QueryResult<Notification[]> {
     });
 
     return () => unsubscribe();
-  }, [user, ownerId]);
+  }, [user, storeId]);
 
   return { data, isLoading, error };
 }
@@ -63,17 +63,17 @@ export function useMarkAsRead() {
 }
 
 export function useMarkAllAsRead() {
-  const { ownerId } = useBusiness();
+  const { storeId } = useBusiness();
   return useCallback(async () => {
-    if (!ownerId) return;
-    const q = query(collection(db, "notifications"), where("ownerId", "==", ownerId), where("isRead", "==", false));
+    if (!storeId) return;
+    const q = query(collection(db, "notifications"), where("storeId", "==", storeId), where("isRead", "==", false));
     const snapshot = await getDocs(q);
     const batch = writeBatch(db);
     snapshot.docs.forEach((d) => {
       batch.update(d.ref, { isRead: true });
     });
     await batch.commit();
-  }, [ownerId]);
+  }, [storeId]);
 }
 
 export function useDismissNotification() {

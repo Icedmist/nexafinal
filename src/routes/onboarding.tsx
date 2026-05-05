@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import * as React from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { db } from "@/lib/firebase";
@@ -17,11 +17,11 @@ export const Route = createFileRoute("/onboarding")({
 function OnboardingPage() {
   const { user, claims } = useAuth();
   const navigate = useNavigate();
-  const [storeName, setStoreName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [storeName, setStoreName] = React.useState("");
+  const [slug, setSlug] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!user) return;
 
     const checkExisting = async () => {
@@ -83,6 +83,17 @@ function OnboardingPage() {
         }
       });
 
+      // 3. Create Staff Record for Owner (Triggers Custom Claims sync)
+      await addDoc(collection(db, "staff"), {
+        email: user.email,
+        displayName: user.displayName || "Store Owner",
+        role: "admin",
+        storeId: storeRef.id,
+        ownerId: user.uid,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+
       // 3. Create User Profile Document (if it doesn't exist)
       // This is usually handled by a trigger, but we'll ensure it has the complexityLevel
       // await setDoc(doc(db, "users", user.uid), { ... });
@@ -95,8 +106,10 @@ function OnboardingPage() {
       const isLocalhost = host.includes("localhost");
 
       if (isLocalhost) {
-        // For localhost, use query parameter as fallback
-        window.location.href = `${protocol}//${host}/app/dashboard?s=${slug.toLowerCase()}`;
+        // Favor subdomains even on localhost (e.g., store.localhost:8080)
+        const hostParts = host.split(":");
+        const port = hostParts[1] ? `:${hostParts[1]}` : "";
+        window.location.href = `${protocol}//${slug.toLowerCase()}.localhost${port}/app/dashboard`;
       } else {
         // For production, use subdomain
         const baseDomain = host.split(".").slice(-2).join("."); // assuming nexa.com
