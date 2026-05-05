@@ -39,37 +39,55 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [loading, setLoading] = React.useState(true);
 
   const login = async (email: string, pass: string) => {
-    const cred = await signInWithEmailAndPassword(auth, email, pass);
-    if (cred.user) {
-      const tokenResult = await cred.user.getIdTokenResult();
-      await notifyActivity(
-        "login",
-        "Staff Login",
-        `${cred.user.email} logged into the store.`,
-        cred.user.uid,
-        cred.user.email || "",
-        tokenResult.claims.storeId as string
-      );
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      if (cred.user) {
+        const tokenResult = await cred.user.getIdTokenResult();
+        await notifyActivity(
+          "login",
+          "Staff Login",
+          `${cred.user.email} logged into the store.`,
+          cred.user.uid,
+          cred.user.email || "",
+          tokenResult.claims.storeId as string
+        );
+      }
+      return cred;
+    } catch (error: any) {
+      console.error("Auth Login Error:", {
+        code: error.code,
+        message: error.message,
+        email: email
+      });
+      throw error;
     }
-    return cred;
   };
 
   const signup = async (email: string, pass: string, displayName?: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    if (displayName && cred.user) {
-      await updateProfile(cred.user, { displayName });
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      if (displayName && cred.user) {
+        await updateProfile(cred.user, { displayName });
+      }
+      if (cred.user) {
+        await notifyActivity(
+          "staff_onboarding",
+          "New Account Created",
+          `${cred.user.email} created a new account.`,
+          cred.user.uid,
+          cred.user.email || "",
+          undefined // No storeId yet for new signups
+        );
+      }
+      return cred;
+    } catch (error: any) {
+      console.error("Auth Signup Error:", {
+        code: error.code,
+        message: error.message,
+        email: email
+      });
+      throw error;
     }
-    if (cred.user) {
-      await notifyActivity(
-        "staff_onboarding",
-        "New Account Created",
-        `${cred.user.email} created a new account.`,
-        cred.user.uid,
-        cred.user.email || "",
-        undefined // No storeId yet for new signups
-      );
-    }
-    return cred;
   };
 
   const logout = async () => {
@@ -95,8 +113,23 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setUser(currentUser);
       if (currentUser) {
         try {
-          // Get current claims without forcing a refresh immediately on every auth change
-          const tokenResult = await currentUser.getIdTokenResult();
+          // 1. Initial claim fetch
+          let tokenResult = await currentUser.getIdTokenResult();
+          
+          // 2. If claims are missing (e.g. fresh signup), try refreshing a few times
+          // This handles the delay in the background Cloud Function trigger
+          if (!tokenResult.claims.storeId || !tokenResult.claims.role) {
+            console.log("Claims missing, attempting to sync permissions...");
+            let attempts = 0;
+            const maxAttempts = 3;
+            
+            while (attempts < maxAttempts && (!tokenResult.claims.storeId || !tokenResult.claims.role)) {
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s for trigger
+              tokenResult = await currentUser.getIdTokenResult(true); // Force refresh
+              attempts++;
+            }
+          }
+
           setClaims({
             storeId: tokenResult.claims.storeId as string,
             role: tokenResult.claims.role as string,

@@ -8,8 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useStoreBranches, useStoreMutations } from "@/hooks/useStaffData";
-import { Plus, MapPin, Trash2 } from "lucide-react";
+import { useStoreBranches, useStoreMutations, useStaff } from "@/hooks/useStaffData";
+import { useSales } from "@/hooks/useSalesData";
+import { useItems } from "@/hooks/useInventoryData";
+import { Plus, MapPin, TrendingUp, Users, ShoppingCart, Package } from "lucide-react";
+
+const NAIRA = "₦";
+function fmtNgn(amount: number): string {
+  return `${NAIRA}${amount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
+}
 
 export function StoreSettings() {
   const { profile, updateProfile, loadingProfile } = useBusiness();
@@ -67,6 +74,8 @@ export function StoreSettings() {
 
   return (
     <div className="space-y-6">
+      <StoreActivitySummary />
+      
       {staffLoginUrl && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>

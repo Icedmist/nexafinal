@@ -182,9 +182,9 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   return (
     <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-[400px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] overflow-y-auto">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] overflow-y-auto items-center">
           {/* Header actions */}
-          <div className="flex items-center justify-between mb-4 print:hidden">
+          <div className="flex items-center justify-between mb-4 print:hidden w-full">
             <DialogTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Receipt</DialogTitle>
             <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-muted transition-colors">
               <X className="h-4 w-4" />
@@ -192,7 +192,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
           </div>
 
           {/* Receipt body */}
-          <div className="receipt-print-area space-y-6">
+          <div className="receipt-print-area space-y-6 w-full max-w-[320px]">
             {/* Store header */}
             <div className="text-center space-y-1">
               <h2 className="text-xl font-black tracking-tight text-foreground">{storeName}</h2>
@@ -254,12 +254,10 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
             </div>
 
             {/* Totals */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-end">
-                <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Total Paid</span>
-                <span className="text-3xl font-black font-mono tracking-tighter text-foreground">
-                  {fmtNgn(sale.totalNgn)}
-                </span>
+            <div className="space-y-2 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Total Paid</p>
+              <div className="text-4xl font-black font-mono tracking-tighter text-primary">
+                {fmtNgn(sale.totalNgn)}
               </div>
             </div>
 

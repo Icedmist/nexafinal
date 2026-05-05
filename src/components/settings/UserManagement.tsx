@@ -40,6 +40,14 @@ export function UserManagement() {
 
   const [roleChange, setRoleChange] = useState<{ user: Staff; newRole: RoleType } | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<Staff | null>(null);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    displayName: "",
+    role: "staff" as RoleType,
+    branchId: "",
+    password: "",
+  });
 
   const filtered = useMemo(() => {
     if (!search) return staff;
@@ -76,7 +84,7 @@ export function UserManagement() {
   const confirmRoleChange = async () => {
     if (!roleChange) return;
     try {
-      await updateStaff((roleChange.user as any).id, { role: roleChange.newRole });
+      await updateStaff(roleChange.user.uid, { role: roleChange.newRole });
       toast.success(`${roleChange.user.displayName}'s role changed to ${ROLE_LABELS[roleChange.newRole]}`);
       setRoleChange(null);
     } catch (err: any) {
@@ -87,7 +95,7 @@ export function UserManagement() {
   const confirmDeactivate = async () => {
     if (!deactivateTarget) return;
     try {
-      await updateStaff((deactivateTarget as any).id, { isActive: false });
+      await updateStaff(deactivateTarget.uid, { isActive: false });
       toast.success(`${deactivateTarget.displayName} deactivated`);
       setDeactivateTarget(null);
     } catch (err: any) {
@@ -97,10 +105,41 @@ export function UserManagement() {
 
   const handleReactivate = async (user: Staff) => {
     try {
-      await updateStaff((user as any).id, { isActive: true });
+      await updateStaff(user.uid, { isActive: true });
       toast.success(`${user.displayName} reactivated`);
     } catch (err: any) {
       toast.error(err.message || "Failed to reactivate user");
+    }
+  };
+
+  const handleEditClick = (user: Staff) => {
+    setEditingStaff(user);
+    setEditData({
+      displayName: user.displayName,
+      role: user.role,
+      branchId: user.branchId || "",
+      password: "",
+    });
+    setEditFormOpen(true);
+  };
+
+  const handleUpdateStaff = async () => {
+    if (!editingStaff) return;
+    try {
+      if (editData.password && editData.password.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        return;
+      }
+      await updateStaff(editingStaff.uid, {
+        displayName: editData.displayName,
+        role: editData.role,
+        branchId: editData.branchId,
+        password: editData.password || undefined,
+      });
+      toast.success(`${editData.displayName} updated successfully`);
+      setEditFormOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update staff member");
     }
   };
 
@@ -141,7 +180,7 @@ export function UserManagement() {
             {filtered.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No staff found</TableCell></TableRow>
             ) : filtered.map((staffMember) => (
-              <TableRow key={(staffMember as any).id} className={cn(!staffMember.isActive && "opacity-50")}>
+              <TableRow key={staffMember.uid} className={cn(!staffMember.isActive && "opacity-50")}>
                 <TableCell className="font-medium">{staffMember.displayName}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{staffMember.email}</TableCell>
                 <TableCell>
@@ -162,6 +201,7 @@ export function UserManagement() {
                 <TableCell className="text-sm text-muted-foreground">{format(new Date(staffMember.createdAt), "MMM d, yyyy")}</TableCell>
                 <TableCell>
                   <UserActions user={staffMember} currentUserId={currentUser?.uid || ""} isLastAdmin={isLastAdmin(staffMember)}
+                    onEdit={() => handleEditClick(staffMember)}
                     onDeactivate={() => setDeactivateTarget(staffMember)} onReactivate={() => handleReactivate(staffMember)} />
                 </TableCell>
               </TableRow>
@@ -251,6 +291,55 @@ export function UserManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editFormOpen} onOpenChange={setEditFormOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Staff Member</DialogTitle>
+            <DialogDescription>Update profile details and permissions.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Full Name</Label>
+              <Input value={editData.displayName} onChange={(e) => setEditData({ ...editData, displayName: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Role</Label>
+                <Select value={editData.role} onValueChange={(v) => setEditData({ ...editData, role: v as RoleType })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Branch</Label>
+                <Select value={editData.branchId} onValueChange={(v) => setEditData({ ...editData, branchId: v })}>
+                  <SelectTrigger><SelectValue placeholder="All Branches" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {locations.map(l => (
+                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>New Password (Optional)</Label>
+              <Input type="password" placeholder="Leave blank to keep current" value={editData.password} onChange={(e) => setEditData({ ...editData, password: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditFormOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateStaff}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -307,8 +396,9 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, onChangeRo
   );
 }
 
-function UserActions({ user, currentUserId, isLastAdmin, onDeactivate, onReactivate }: {
+function UserActions({ user, currentUserId, isLastAdmin, onEdit, onDeactivate, onReactivate }: {
   user: Staff; currentUserId: string; isLastAdmin: boolean;
+  onEdit: () => void;
   onDeactivate: () => void; onReactivate: () => void;
 }) {
   const isSelf = user.uid === currentUserId;
@@ -321,6 +411,9 @@ function UserActions({ user, currentUserId, isLastAdmin, onDeactivate, onReactiv
         <Button size="icon" variant="ghost" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>
+          <Pencil className="mr-2 h-4 w-4" /> Edit Profile
+        </DropdownMenuItem>
         {canReactivate ? (
           <DropdownMenuItem onClick={onReactivate}>Reactivate</DropdownMenuItem>
         ) : (

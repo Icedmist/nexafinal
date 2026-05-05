@@ -107,9 +107,16 @@ export function useStaffMutations() {
     });
   };
 
-  const updateStaff = async (staffId: string, updates: Partial<Staff>) => {
-    const staffRef = doc(db, "staff", staffId);
-    return updateDoc(staffRef, updates);
+  const updateStaff = async (staffId: string, updates: Partial<Staff> & { password?: string }) => {
+    const { httpsCallable } = await import("firebase/functions");
+    const { functions: functionsInstance } = await import("@/lib/firebase");
+    
+    const updateProfile = httpsCallable(functionsInstance, "updatestaffprofile");
+    
+    return updateProfile({
+      uid: staffId,
+      ...updates,
+    });
   };
 
   return { addStaff, updateStaff };

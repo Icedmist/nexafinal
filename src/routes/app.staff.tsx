@@ -83,6 +83,7 @@ function StaffPage() {
           displayName: newStaff.displayName,
           role: newStaff.role,
           branchId: newStaff.branchId,
+          password: newStaff.password || undefined,
         });
         toast.success("Staff member updated successfully");
         setFormOpen(false);
@@ -268,18 +269,18 @@ function StaffPage() {
                 </SelectContent>
               </Select>
             </div>
-            {!editingStaff && (
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Temporary Password</Label>
-                <Input 
-                  type="password"
-                  placeholder="At least 6 characters"
-                  value={newStaff.password}
-                  onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
-                  className="h-11 rounded-xl border-2 font-bold"
-                />
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                {editingStaff ? "New Password (Optional)" : "Temporary Password"}
+              </Label>
+              <Input 
+                type="password"
+                placeholder={editingStaff ? "Leave blank to keep current" : "At least 6 characters"}
+                value={newStaff.password}
+                onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+                className="h-11 rounded-xl border-2 font-bold"
+              />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Branch Assignment</Label>
               <Select value={newStaff.branchId} onValueChange={(v) => setNewStaff({ ...newStaff, branchId: v })}>
