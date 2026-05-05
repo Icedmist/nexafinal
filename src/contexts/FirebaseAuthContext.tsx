@@ -121,7 +121,6 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           storeId: tokenResult.claims.storeId as string,
           role: tokenResult.claims.role as string,
           branchId: tokenResult.claims.branchId as string | null,
-          branchId: tokenResult.claims.branchId as string | null,
         });
         setClaimsReady(true);
       } catch (error) {

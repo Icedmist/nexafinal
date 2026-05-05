@@ -86,7 +86,7 @@ export const provisionstaff = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
 
-  const { email, password, displayName, role, storeId, branchId, ownerId } = request.data;
+  const { email, password, displayName, role, storeId, branchId } = request.data;
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     throw new HttpsError('invalid-argument', 'A valid email address is required.');

@@ -9,11 +9,12 @@ const ROUTE_ACCESS: Record<string, UserRoleType[]> = {
   "/app/catalog": ["admin", "manager", "staff", "requestor"],
   "/app/requests": ["admin", "manager", "staff", "requestor"],
   "/app/movements": ["admin", "manager", "staff"],
+  "/app/customers": ["admin", "manager", "staff"],
   "/app/suppliers": ["admin", "manager"],
   "/app/purchase-orders": ["admin", "manager", "requestor"],
   "/app/analytics": ["admin", "manager"],
   "/app/ai-insights": ["admin", "manager"],
-  "/app/settings": ["admin"],
+  "/app/settings": ["admin", "staff"],
 };
 
 /**

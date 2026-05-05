@@ -48,7 +48,8 @@ exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", 
             // Update custom claims
             await admin.auth().setCustomUserClaims(userRecord.uid, {
                 storeId: storeId,
-                role: isActive ? role : "requestor"
+                role: isActive ? role : "requestor",
+                branchId: data.branchId || null,
             });
             // NEW: Sync displayName to Auth profile if it has changed
             if (data.displayName && data.displayName !== userRecord.displayName) {
@@ -78,16 +79,24 @@ exports.provisionstaff = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
-    const { email, password, displayName, role, storeId, branchId, ownerId } = request.data;
+    const { email, password, displayName, role, storeId, branchId } = request.data;
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+        throw new https_1.HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (!password || typeof password !== 'string' || password.length < 6) {
+        throw new https_1.HttpsError('invalid-argument', 'A valid password of at least 6 characters is required.');
+    }
     try {
+        const normalizedEmail = email.toLowerCase();
         const userRecord = await admin.auth().createUser({
-            email,
+            email: normalizedEmail,
             password,
             displayName,
         });
         await admin.auth().setCustomUserClaims(userRecord.uid, {
             storeId,
             role,
+            branchId: branchId || null,
         });
         await admin.firestore().collection("staff").doc(userRecord.uid).set({
             uid: userRecord.uid,
@@ -95,16 +104,13 @@ exports.provisionstaff = (0, https_1.onCall)(async (request) => {
             displayName,
             role,
             storeId,
-            branchId,
-            ownerId,
-            isActive: true,
-            createdAt: new Date().toISOString(),
+            branchId: branchId || null,
         });
         return { success: true, uid: userRecord.uid };
     }
     catch (error) {
         console.error("Provisioning error:", error);
-        throw new https_1.HttpsError('internal', error.message);
+        throw mapAuthError(error);
     }
 });
 exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
@@ -181,11 +187,12 @@ exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
             if (Object.keys(updatePayload).length > 0) {
                 await admin.auth().updateUser(targetUid, updatePayload);
             }
-            if (role) {
+            if (role || branchId !== undefined) {
                 const currentClaims = userRecord.customClaims || {};
                 await admin.auth().setCustomUserClaims(targetUid, {
                     ...currentClaims,
-                    role: role,
+                    role: role || currentClaims.role,
+                    branchId: branchId !== undefined ? branchId : currentClaims.branchId || null,
                 });
             }
         }
@@ -255,7 +262,8 @@ exports.onusercreated = functionsV1.auth.user().onCreate(async (user) => {
             // Update custom claims
             await admin.auth().setCustomUserClaims(user.uid, {
                 storeId: staffData.storeId,
-                role: staffData.role
+                role: staffData.role,
+                branchId: staffData.branchId || null,
             });
             // Update the Firestore document to have the correct UID and doc ID
             const batch = admin.firestore().batch();
