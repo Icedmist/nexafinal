@@ -38,7 +38,7 @@ function Rig() {
 export function NexaHero3D() {
   return (
     <div className="w-full h-[500px] lg:h-[600px] relative">
-      <Canvas shadows>
+      <Canvas shadows={{ type: THREE.PCFShadowMap }}>
         <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={75} />
         <ambientLight intensity={0.5} />
         <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />

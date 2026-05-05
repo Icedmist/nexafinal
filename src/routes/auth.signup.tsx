@@ -23,9 +23,14 @@ function SignupPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await signup(email, password, name);
+      const cred = await signup(email, password, name);
       toast.success("Account created successfully!");
-      navigate({ to: "/app/dashboard" });
+      
+      // Wait a moment for custom claims to potentially sync (if staff)
+      // or just go to onboarding to check for store creation
+      setTimeout(() => {
+        navigate({ to: "/onboarding" as any });
+      }, 500);
     } catch (err: any) {
       toast.error(err.message || "Failed to create account");
     } finally {

@@ -5,29 +5,36 @@ import type { Store } from "@/types/tenant";
 
 const RESERVED_SUBDOMAINS = ["www", "admin", "api", "dev", "staging", "auth"];
 
-function detectSlug(): string {
+const detectSlug = () => {
+  if (typeof window === "undefined") return "";
+  
   const hostname = window.location.hostname;
-  const parts = hostname.split(".");
-  const urlParams = new URLSearchParams(window.location.search);
-  const querySlug = urlParams.get("s");
-
+  const searchParams = new URLSearchParams(window.location.search);
+  
+  // Priority 1: Query parameter (useful for local dev)
+  const querySlug = searchParams.get("s");
   if (querySlug) return querySlug;
 
-  // Support subdomains: store.localhost or store.nexa.com
-  if (hostname.endsWith(".localhost") && parts.length > 1) {
-    const subdomain = parts[0];
-    if (RESERVED_SUBDOMAINS.includes(subdomain)) return "";
-    return subdomain;
+  // Priority 2: Subdomain detection
+  const parts = hostname.split(".");
+  
+  // Handle localhost: store.localhost or store.127.0.0.1
+  if (hostname.includes("localhost") || hostname.includes("127.0.0.1")) {
+    if (parts.length > 1 && parts[0] !== "localhost" && parts[0] !== "127") {
+      const subdomain = parts[0];
+      if (!RESERVED_SUBDOMAINS.includes(subdomain)) return subdomain;
+    }
+    return "";
   }
   
-  if (hostname !== "localhost" && hostname !== "127.0.0.1" && parts.length > 2) {
+  // Handle production domains: store.nexa.com
+  if (parts.length > 2) {
     const subdomain = parts[0];
-    if (RESERVED_SUBDOMAINS.includes(subdomain)) return "";
-    return subdomain;
+    if (!RESERVED_SUBDOMAINS.includes(subdomain)) return subdomain;
   }
-
+  
   return "";
-}
+};
 
 export function useTenant() {
   const [store, setStore] = useState<Store | null>(null);

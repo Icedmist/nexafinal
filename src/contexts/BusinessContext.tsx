@@ -50,39 +50,48 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLoadingProfile(true);
 
     const syncProfile = async () => {
-      let actualOwnerId: string | null = null;
-
-      // 1. If user is the owner of the current store
-      if (store && user.uid === store.ownerId) {
-        actualOwnerId = user.uid;
-      } 
-      // 2. If user is staff, get ownerId from their token claims or store metadata
-      else if (claims?.storeId === store?.id) {
-        actualOwnerId = store?.ownerId || null;
-      }
-
-      if (actualOwnerId) {
-        setOwnerId(actualOwnerId);
-        const ownerRef = doc(db, 'users', actualOwnerId);
-        const unsubscribe = onSnapshot(ownerRef, (snapshot) => {
-          if (snapshot.exists()) {
-            setProfile(snapshot.data() as BusinessProfile);
-          } else {
-            console.warn("Business profile not found for owner:", actualOwnerId);
-            setProfile(null);
-          }
-          setLoadingProfile(false);
-        }, (err) => {
-          console.error("Error fetching business profile:", err);
-          setLoadingProfile(false);
-        });
-        return unsubscribe;
-      } else {
+      if (!store) {
         setProfile(null);
         setOwnerId(null);
         setLoadingProfile(false);
         return null;
       }
+
+      setOwnerId(store.ownerId);
+      
+      // Listen to the store document for real-time profile updates
+      const storeRef = doc(db, 'stores', store.id);
+      const unsubscribe = onSnapshot(storeRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          // Adapt store document to BusinessProfile interface
+          setProfile({
+            storeDetails: {
+              name: data.name || "",
+              phone: data.storeDetails?.phone || "",
+              address: data.storeDetails?.address || "",
+              receiptFooter: data.storeDetails?.receiptFooter || "",
+              taxRate: data.storeDetails?.taxRate || 0,
+              slug: data.slug || "",
+            },
+            businessType: data.businessType || "retail",
+            categories: data.categories || [],
+            complexityLevel: data.complexityLevel || "basic",
+            branding: data.branding || {},
+            settings: data.settings || {},
+            ownerId: data.ownerId,
+          });
+        } else {
+          console.warn("Store document not found:", store.id);
+          setProfile(null);
+        }
+        setLoadingProfile(false);
+      }, (err) => {
+        console.error("Error fetching store profile:", err);
+        setLoadingProfile(false);
+      });
+      
+      return unsubscribe;
     };
 
     const unsubPromise = syncProfile();
@@ -101,8 +110,28 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await updateDoc(docRef, updates);
   };
 
+  // Merge store name into profile if profile is missing but store exists
+  const effectiveProfile = profile || (store ? {
+    storeDetails: {
+      name: store.name,
+      phone: "",
+      address: "",
+      slug: store.slug
+    },
+    businessType: "retail",
+    categories: [],
+    complexityLevel: "basic",
+    branding: {},
+    settings: {}
+  } as BusinessProfile : null);
+
   return (
-    <BusinessContext.Provider value={{ profile, loadingProfile, updateProfile, ownerId }}>
+    <BusinessContext.Provider value={{ 
+      profile: effectiveProfile, 
+      loadingProfile, 
+      updateProfile, 
+      ownerId 
+    }}>
       {children}
     </BusinessContext.Provider>
   );

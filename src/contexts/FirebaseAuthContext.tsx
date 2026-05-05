@@ -39,12 +39,14 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const login = async (email: string, pass: string) => {
     const cred = await signInWithEmailAndPassword(auth, email, pass);
     if (cred.user) {
+      const tokenResult = await cred.user.getIdTokenResult();
       await notifyActivity(
         "login",
         "Staff Login",
         `${cred.user.email} logged into the store.`,
         cred.user.uid,
-        cred.user.email || ""
+        cred.user.email || "",
+        tokenResult.claims.storeId as string
       );
     }
     return cred;
@@ -61,7 +63,8 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         "New Account Created",
         `${cred.user.email} created a new account.`,
         cred.user.uid,
-        cred.user.email || ""
+        cred.user.email || "",
+        undefined // No storeId yet for new signups
       );
     }
     return cred;

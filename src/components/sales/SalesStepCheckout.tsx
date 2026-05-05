@@ -40,6 +40,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
 
   const subtotal = items.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Calculate discount
   const discountAmount = useMemo(() => {
@@ -73,8 +74,11 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
     toast.error("Promos are currently disabled during migration");
   };
 
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const handleCheckout = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     const saleData: any = {
       customerName: customerName.trim() || null,
       customerPhone: customerPhone.trim() || null,
@@ -103,6 +107,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
         `A sale of ${NAIRA}${grandTotal.toLocaleString()} was recorded by ${user?.email || "Staff"}.`,
         user?.uid || "unknown",
         user?.email || "unknown",
+        claims?.storeId,
         { saleId: sale.id, total: grandTotal }
       );
 
@@ -110,6 +115,8 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
     } catch (err) {
       console.error("Checkout Error:", err);
       toast.error("Failed to record sale");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -299,9 +306,14 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
           <span>Total</span>
           <span className="font-mono">{NAIRA}{grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
         </div>
-        <Button onClick={handleCheckout} className="w-full gap-2 h-12 text-base rounded-xl" size="lg">
-          <CreditCard className="h-5 w-5" />
-          {payOnCredit ? "Record Credit Sale" : "Complete Sale"}
+        <Button 
+          onClick={handleCheckout} 
+          className="w-full gap-2 h-12 text-base rounded-xl" 
+          size="lg"
+          disabled={isProcessing}
+        >
+          <CreditCard className={cn("h-5 w-5", isProcessing && "animate-pulse")} />
+          {isProcessing ? "Processing..." : (payOnCredit ? "Record Credit Sale" : "Complete Sale")}
         </Button>
       </div>
     </div>

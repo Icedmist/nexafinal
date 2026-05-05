@@ -112,6 +112,7 @@ function Nav() {
 function LandingPage() {
   const { store, loading: tenantLoading } = useTenant();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   if (tenantLoading) {
     return (
@@ -122,6 +123,10 @@ function LandingPage() {
   }
 
   if (store) {
+    if (user) {
+      navigate({ to: "/app/dashboard", replace: true });
+      return null;
+    }
     return <StoreLoginPage store={store} />;
   }
 
