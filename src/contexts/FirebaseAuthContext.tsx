@@ -18,6 +18,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<UserCredential>;
   signup: (email: string, pass: string, displayName?: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
+  refreshClaims: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextType>({
@@ -27,6 +28,7 @@ const AuthContext = React.createContext<AuthContextType>({
   login: async () => ({} as UserCredential),
   signup: async () => ({} as UserCredential),
   logout: async () => {},
+  refreshClaims: async () => {},
 });
 
 export const useAuth = () => React.useContext(AuthContext);
@@ -74,13 +76,27 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     await signOut(auth);
   };
 
+  const refreshClaims = async () => {
+    if (auth.currentUser) {
+      try {
+        const tokenResult = await auth.currentUser.getIdTokenResult(true);
+        setClaims({
+          storeId: tokenResult.claims.storeId as string,
+          role: tokenResult.claims.role as string,
+        });
+      } catch (error) {
+        console.error("Error refreshing custom claims:", error);
+      }
+    }
+  };
+
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         try {
-          // Force refresh token to ensure we have the latest custom claims
-          const tokenResult = await currentUser.getIdTokenResult(true);
+          // Get current claims without forcing a refresh immediately on every auth change
+          const tokenResult = await currentUser.getIdTokenResult();
           setClaims({
             storeId: tokenResult.claims.storeId as string,
             role: tokenResult.claims.role as string,
@@ -99,7 +115,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, claims, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, claims, loading, login, signup, logout, refreshClaims }}>
       {!loading && children}
     </AuthContext.Provider>
   );

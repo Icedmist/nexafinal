@@ -76,6 +76,7 @@ function OnboardingPage() {
         ownerId: user.uid,
         createdAt: new Date().toISOString(),
         complexityLevel: "basic",
+        setupComplete: true,
         storeDetails: {
           name: storeName,
           address: "",

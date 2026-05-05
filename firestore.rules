@@ -7,41 +7,61 @@ service cloud.firestore {
     function getRole() { return request.auth.token.role; }
     function isAdmin() { return getRole() == 'admin' || getRole() == 'owner'; }
 
-    // STORES: Publicly readable for tenant resolution, only owner can edit
+    // STORES: Publicly readable for tenant resolution (subdomain lookup)
     match /stores/{storeId} {
-      allow read: if true;
-      allow write: if isAuth() && (request.auth.uid == resource.data.ownerId || isAdmin());
+      allow read: if true; 
+      allow create: if isAuth(); 
+      allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      
+      // Subcollections of stores
+      match /{allSubcollections=**} {
+        allow read, write: if isAuth() && (
+          getStoreId() == storeId || 
+          get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
     }
-
+    
     // USERS: Private profiles
     match /users/{userId} {
-      allow read: if isAuth() && (request.auth.uid == userId || (isAdmin() && request.auth.token.storeId != null));
+      allow read: if isAuth() && (request.auth.uid == userId || isAdmin());
       allow write: if isAuth() && request.auth.uid == userId;
     }
     
-    // ACTIVITY LOGS: Allow anyone to log events (for audit), but restrict reading
+    // STAFF: Global lookup for claims sync and fallback
+    match /staff/{staffId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // MULTI-TENANT DATA: Gated by storeId claim with owner fallback
+    match /{collectionName}/{docId} {
+      allow read, write: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
+        isAdmin()
+      );
+        
+      allow create: if isAuth() && (
+        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
+        (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
+        (request.resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.ownerId == request.auth.uid)
+      );
+    }
+    
+    // ACTIVITY LOGS: Logging only
     match /activity_logs/{logId} {
       allow create: if isAuth();
       allow read: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         isAdmin()
-      );
-    }
-
-    // MULTI-TENANT DATA: Gated by storeId claim with fallbacks
-    match /{collectionName}/{docId} {
-      allow read, write: if collectionName != 'stores' && collectionName != 'users' && collectionName != 'activity_logs' && isAuth() && (
-        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
-        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
-        (resource.data.storeId != null && request.auth.uid == get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId) ||
-        isAdmin()
-      );
-        
-      allow create: if collectionName != 'stores' && collectionName != 'users' && collectionName != 'activity_logs' && isAuth() && (
-        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
-        (request.resource.data.storeId != null && request.auth.uid == get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.ownerId) ||
-        (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId)
       );
     }
   }

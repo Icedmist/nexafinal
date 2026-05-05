@@ -20,6 +20,7 @@ interface BusinessContextType {
   updateProfile: (updates: Partial<BusinessProfile>) => Promise<void>;
   ownerId: string | null;
   storeId: string | null;
+  needsOnboarding: boolean;
 }
 
 const BusinessContext = createContext<BusinessContextType>({ 
@@ -27,7 +28,8 @@ const BusinessContext = createContext<BusinessContextType>({
   loadingProfile: true,
   updateProfile: async () => {},
   ownerId: null,
-  storeId: null
+  storeId: null,
+  needsOnboarding: false
 });
 
 export const useBusiness = () => useContext(BusinessContext);
@@ -39,6 +41,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [storeId, setStoreId] = useState<string | null>(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
     if (!user || loadingTenant) {
@@ -46,103 +49,92 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setProfile(null);
         setOwnerId(null);
         setStoreId(null);
+        setNeedsOnboarding(false);
         setLoadingProfile(false);
       }
       return;
     }
 
-    setLoadingProfile(true);
+    let unsubscribe: (() => void) | null = null;
+    let mounted = true;
 
-    const syncProfile = async () => {
-      if (!store) {
-        // FALLBACK FOR EXISTING ACCOUNTS:
-        // If no tenant is resolved via URL (e.g. on main domain), find store by ownerId
-        const q = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
-        const snap = await getDocs(q);
-        
-        if (snap.empty) {
-          setProfile(null);
-          setOwnerId(null);
-          setStoreId(null);
-          setLoadingProfile(false);
-          return null;
-        }
-        
-        const existingStore = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
-        setOwnerId(existingStore.ownerId);
-        setStoreId(existingStore.id);
-        
-        const storeRef = doc(db, 'stores', existingStore.id);
-        const unsubscribe = onSnapshot(storeRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            setProfile({
-              storeDetails: {
-                name: data.name || "",
-                phone: data.storeDetails?.phone || "",
-                address: data.storeDetails?.address || "",
-                receiptFooter: data.storeDetails?.receiptFooter || "",
-                taxRate: data.storeDetails?.taxRate || 0,
-                slug: data.slug || "",
-              },
-              businessType: data.businessType || "retail",
-              categories: data.categories || [],
-              complexityLevel: data.complexityLevel || "basic",
-              branding: data.branding || {},
-              settings: data.settings || {},
-              ownerId: data.ownerId,
-            });
+    const setupProfile = async () => {
+      if (!mounted) return;
+      setLoadingProfile(true);
+
+      try {
+        let activeStoreId = store?.id;
+        let activeOwnerId = store?.ownerId;
+
+        if (!store) {
+          // FALLBACK: Find store by ownerId on main domain
+          const q = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
+          const snap = await getDocs(q);
+          
+          if (snap.empty) {
+            if (mounted) {
+              setProfile(null);
+              setOwnerId(null);
+              setStoreId(null);
+              setNeedsOnboarding(true);
+              setLoadingProfile(false);
+            }
+            return;
           }
-          setLoadingProfile(false);
-        }, (err) => {
-          console.error("Error fetching fallback store profile:", err);
-          setLoadingProfile(false);
-        });
-        
-        return unsubscribe;
-      }
-
-      setOwnerId(store.ownerId);
-      setStoreId(store.id);
-      
-      // Listen to the store document for real-time profile updates
-      const storeRef = doc(db, 'stores', store.id);
-      const unsubscribe = onSnapshot(storeRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          // Adapt store document to BusinessProfile interface
-          setProfile({
-            storeDetails: {
-              name: data.name || "",
-              phone: data.storeDetails?.phone || "",
-              address: data.storeDetails?.address || "",
-              receiptFooter: data.storeDetails?.receiptFooter || "",
-              taxRate: data.storeDetails?.taxRate || 0,
-              slug: data.slug || "",
-            },
-            businessType: data.businessType || "retail",
-            categories: data.categories || [],
-            complexityLevel: data.complexityLevel || "basic",
-            branding: data.branding || {},
-            settings: data.settings || {},
-            ownerId: data.ownerId,
-          });
-        } else {
-          console.warn("Store document not found:", store.id);
-          setProfile(null);
+          
+          activeStoreId = snap.docs[0].id;
+          activeOwnerId = snap.docs[0].data().ownerId;
         }
-        setLoadingProfile(false);
-      }, (err) => {
-        console.error("Error fetching store profile:", err);
-        setLoadingProfile(false);
-      });
-      
-      return unsubscribe;
+
+        if (mounted) {
+          setOwnerId(activeOwnerId || null);
+          setStoreId(activeStoreId || null);
+
+          const storeRef = doc(db, 'stores', activeStoreId!);
+          unsubscribe = onSnapshot(storeRef, (snapshot) => {
+            if (!mounted) return;
+            if (snapshot.exists()) {
+              const data = snapshot.data();
+              const isComplete = data.setupComplete || !!data.slug;
+              setNeedsOnboarding(!isComplete);
+              
+              setProfile({
+                storeDetails: {
+                  name: data.name || "",
+                  phone: data.storeDetails?.phone || "",
+                  address: data.storeDetails?.address || "",
+                  receiptFooter: data.storeDetails?.receiptFooter || "",
+                  taxRate: data.storeDetails?.taxRate || 0,
+                  slug: data.slug || "",
+                },
+                businessType: data.businessType || "retail",
+                categories: data.categories || [],
+                complexityLevel: data.complexityLevel || "basic",
+                branding: data.branding || {},
+                settings: data.settings || {},
+                ownerId: data.ownerId,
+              });
+            } else {
+              setProfile(null);
+              setNeedsOnboarding(true);
+            }
+            setLoadingProfile(false);
+          }, (err) => {
+            console.error("Error in store profile snapshot:", err);
+            if (mounted) setLoadingProfile(false);
+          });
+        }
+      } catch (err) {
+        console.error("Failed to setup business profile:", err);
+        if (mounted) setLoadingProfile(false);
+      }
     };
 
-    const unsubPromise = syncProfile();
+    setupProfile();
+
     return () => {
-      unsubPromise.then(unsub => unsub?.());
+      mounted = false;
+      if (unsubscribe) unsubscribe();
     };
   }, [user, store, loadingTenant, claims]);
 
@@ -177,7 +169,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       loadingProfile, 
       updateProfile, 
       ownerId,
-      storeId
+      storeId,
+      needsOnboarding
     }}>
       {children}
     </BusinessContext.Provider>

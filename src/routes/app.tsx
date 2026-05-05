@@ -11,6 +11,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { canAccessRoute } from "@/lib/route-guard";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 export const Route = createFileRoute("/app")({
   component: AppLayout,
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/app")({
 
 function AppLayout() {
   const { user, loading } = useAuth();
+  const { needsOnboarding, loadingProfile } = useBusiness();
   const { role } = useRole();
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,11 +30,11 @@ function AppLayout() {
 
   // Role-based route guard
   useEffect(() => {
-    if (user && !canAccessRoute(location.pathname, role)) {
+    if (user && !loadingProfile && !needsOnboarding && !canAccessRoute(location.pathname, role)) {
       toast.error("You don't have permission to access that page.");
       navigate({ to: "/app/dashboard" });
     }
-  }, [location.pathname, role, navigate, user]);
+  }, [location.pathname, role, navigate, user, loadingProfile, needsOnboarding]);
 
   // Auth guard — redirect to landing if not logged in
   useEffect(() => {
@@ -40,6 +42,13 @@ function AppLayout() {
       navigate({ to: "/" });
     }
   }, [user, loading, navigate]);
+
+  // Onboarding guard — redirect to setup if store is incomplete
+  useEffect(() => {
+    if (user && !loadingProfile && needsOnboarding) {
+      navigate({ to: "/onboarding", replace: true });
+    }
+  }, [user, needsOnboarding, loadingProfile, navigate]);
 
   if (loading || !user) {
     return (
