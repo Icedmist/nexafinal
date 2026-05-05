@@ -1,61 +1,107 @@
-import * as functions from "firebase-functions";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as functionsV1 from "firebase-functions/v1";
+import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
 
+// Set global options to ensure all functions use the correct region
+setGlobalOptions({ region: "us-central1" });
+
 /**
- * AUTOMATIC ONBOARDING: Firestore Trigger
- * Triggered whenever a new staff record is created or updated.
- * Automatically synchronizes Custom Claims to the user's Auth profile.
+ * AUTOMATIC ONBOARDING: Firestore Trigger (v2)
+ * Synchronizes Custom Claims whenever a staff record changes.
  */
-export const syncStaffClaims = functions.firestore
-  .document("staff/{staffId}")
-  .onWrite(async (change: functions.Change<functions.firestore.DocumentSnapshot>, context: functions.EventContext) => {
-    const data = change.after.exists ? change.after.data() : null;
+export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event) => {
+  const data = event.data?.after.exists ? event.data.after.data() : null;
+  
+  if (!data) return null;
+
+  const { email, storeId, role, isActive } = data;
+
+  try {
+    const userRecord = await admin.auth().getUserByEmail(email);
     
-    // If staff record was deleted, we should ideally remove claims, 
-    // but for now we just handle creation/updates.
-    if (!data) return null;
-
-    const { email, storeId, role, isActive } = data;
-
-    try {
-      // Find the user by email
-      const userRecord = await admin.auth().getUserByEmail(email);
+    if (userRecord) {
+      // Update custom claims
+      await admin.auth().setCustomUserClaims(userRecord.uid, {
+        storeId: storeId,
+        role: isActive ? role : "requestor"
+      });
       
-      if (userRecord) {
-        // Set Custom Claims based on the staff record
-        // If inactive, we could strip claims, but isActive is handled in app logic/rules.
-        await admin.auth().setCustomUserClaims(userRecord.uid, {
-          storeId: storeId,
-          role: isActive ? role : "requestor"
+      // NEW: Sync displayName to Auth profile if it has changed
+      if (data.displayName && data.displayName !== userRecord.displayName) {
+        await admin.auth().updateUser(userRecord.uid, {
+          displayName: data.displayName
         });
-        
-        console.log(`Successfully synced claims for ${email} in store ${storeId}`);
+        console.log(`Updated Auth displayName for ${email}`);
       }
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        // User hasn't signed up yet. 
-        // Claims will be synced when they first log in (handled by onUserCreated).
-        console.log(`User ${email} not found yet. Claims will sync on signup.`);
-      } else {
-        console.error("Error syncing claims:", error);
-      }
+      
+      console.log(`Successfully synced claims for ${email} in store ${storeId}`);
     }
-    return null;
-  });
+  } catch (error: any) {
+    if (error.code === 'auth/user-not-found') {
+      console.log(`User ${email} not found yet. Claims will sync on signup.`);
+    } else {
+      console.error("Error syncing claims:", error);
+    }
+  }
+  return null;
+});
 
 /**
- * AUTH TRIGGER: onUserCreated
- * Ensures that if a user was added to the staff list BEFORE they signed up,
- * their claims are assigned the moment they create their account.
+ * PROVISION STAFF: Callable Function (v2)
+ * Allows an admin/owner to create a staff user with a password.
  */
-export const onUserCreated = functions.auth.user().onCreate(async (user: admin.auth.UserRecord) => {
+export const provisionstaff = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be logged in.');
+  }
+
+  const { email, password, displayName, role, storeId, branchId, ownerId } = request.data;
+
+  try {
+    const userRecord = await admin.auth().createUser({
+      email,
+      password,
+      displayName,
+    });
+
+    await admin.auth().setCustomUserClaims(userRecord.uid, {
+      storeId,
+      role,
+    });
+
+    await admin.firestore().collection("staff").doc(userRecord.uid).set({
+      uid: userRecord.uid,
+      email,
+      displayName,
+      role,
+      storeId,
+      branchId,
+      ownerId,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    });
+
+    return { success: true, uid: userRecord.uid };
+  } catch (error: any) {
+    console.error("Provisioning error:", error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * AUTH TRIGGER: onUserCreated (v1)
+ * Auto-assigns claims on signup if the email exists in the staff list.
+ * Note: Standard Auth triggers are not yet in v2.
+ */
+export const onusercreated = functionsV1.auth.user().onCreate(async (user: admin.auth.UserRecord) => {
   const email = user.email;
   if (!email) return;
 
   try {
-    // Search for any staff records with this email
     const staffSnap = await admin.firestore().collection("staff")
       .where("email", "==", email)
       .limit(1)
@@ -72,6 +118,6 @@ export const onUserCreated = functions.auth.user().onCreate(async (user: admin.a
       console.log(`Auto-assigned claims for new user: ${email}`);
     }
   } catch (error) {
-    console.error("Error in onUserCreated claim assignment:", error);
+    console.error("Error in onusercreated claim assignment:", error);
   }
 });

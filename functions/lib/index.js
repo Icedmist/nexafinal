@@ -1,73 +1,43 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onUserCreated = exports.syncStaffClaims = void 0;
-const functions = __importStar(require("firebase-functions"));
-const admin = __importStar(require("firebase-admin"));
+exports.onusercreated = exports.provisionstaff = exports.syncstaffclaims = void 0;
+const firestore_1 = require("firebase-functions/v2/firestore");
+const https_1 = require("firebase-functions/v2/https");
+const functionsV1 = require("firebase-functions/v1");
+const v2_1 = require("firebase-functions/v2");
+const admin = require("firebase-admin");
 admin.initializeApp();
+// Set global options to ensure all functions use the correct region
+(0, v2_1.setGlobalOptions)({ region: "us-central1" });
 /**
- * AUTOMATIC ONBOARDING: Firestore Trigger
- * Triggered whenever a new staff record is created or updated.
- * Automatically synchronizes Custom Claims to the user's Auth profile.
+ * AUTOMATIC ONBOARDING: Firestore Trigger (v2)
+ * Synchronizes Custom Claims whenever a staff record changes.
  */
-exports.syncStaffClaims = functions.firestore
-    .document("staff/{staffId}")
-    .onWrite(async (change, context) => {
-    const data = change.after.exists ? change.after.data() : null;
-    // If staff record was deleted, we should ideally remove claims, 
-    // but for now we just handle creation/updates.
+exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", async (event) => {
+    const data = event.data?.after.exists ? event.data.after.data() : null;
     if (!data)
         return null;
     const { email, storeId, role, isActive } = data;
     try {
-        // Find the user by email
         const userRecord = await admin.auth().getUserByEmail(email);
         if (userRecord) {
-            // Set Custom Claims based on the staff record
-            // If inactive, we could strip claims, but isActive is handled in app logic/rules.
+            // Update custom claims
             await admin.auth().setCustomUserClaims(userRecord.uid, {
                 storeId: storeId,
                 role: isActive ? role : "requestor"
             });
+            // NEW: Sync displayName to Auth profile if it has changed
+            if (data.displayName && data.displayName !== userRecord.displayName) {
+                await admin.auth().updateUser(userRecord.uid, {
+                    displayName: data.displayName
+                });
+                console.log(`Updated Auth displayName for ${email}`);
+            }
             console.log(`Successfully synced claims for ${email} in store ${storeId}`);
         }
     }
     catch (error) {
         if (error.code === 'auth/user-not-found') {
-            // User hasn't signed up yet. 
-            // Claims will be synced when they first log in (handled by onUserCreated).
             console.log(`User ${email} not found yet. Claims will sync on signup.`);
         }
         else {
@@ -77,16 +47,52 @@ exports.syncStaffClaims = functions.firestore
     return null;
 });
 /**
- * AUTH TRIGGER: onUserCreated
- * Ensures that if a user was added to the staff list BEFORE they signed up,
- * their claims are assigned the moment they create their account.
+ * PROVISION STAFF: Callable Function (v2)
+ * Allows an admin/owner to create a staff user with a password.
  */
-exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
+exports.provisionstaff = (0, https_1.onCall)(async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
+    }
+    const { email, password, displayName, role, storeId, branchId, ownerId } = request.data;
+    try {
+        const userRecord = await admin.auth().createUser({
+            email,
+            password,
+            displayName,
+        });
+        await admin.auth().setCustomUserClaims(userRecord.uid, {
+            storeId,
+            role,
+        });
+        await admin.firestore().collection("staff").doc(userRecord.uid).set({
+            uid: userRecord.uid,
+            email,
+            displayName,
+            role,
+            storeId,
+            branchId,
+            ownerId,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+        });
+        return { success: true, uid: userRecord.uid };
+    }
+    catch (error) {
+        console.error("Provisioning error:", error);
+        throw new https_1.HttpsError('internal', error.message);
+    }
+});
+/**
+ * AUTH TRIGGER: onUserCreated (v1)
+ * Auto-assigns claims on signup if the email exists in the staff list.
+ * Note: Standard Auth triggers are not yet in v2.
+ */
+exports.onusercreated = functionsV1.auth.user().onCreate(async (user) => {
     const email = user.email;
     if (!email)
         return;
     try {
-        // Search for any staff records with this email
         const staffSnap = await admin.firestore().collection("staff")
             .where("email", "==", email)
             .limit(1)
@@ -101,7 +107,7 @@ exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
         }
     }
     catch (error) {
-        console.error("Error in onUserCreated claim assignment:", error);
+        console.error("Error in onusercreated claim assignment:", error);
     }
 });
 //# sourceMappingURL=index.js.map

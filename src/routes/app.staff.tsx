@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Users, UserPlus, Mail, Shield, Building2, Search, MoreVertical, Ban, CheckCircle2 } from "lucide-react";
+import { Plus, Users, UserPlus, Mail, Shield, Building2, Search, MoreVertical, Ban, CheckCircle2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -51,25 +51,63 @@ function StaffPage() {
     email: "",
     role: "staff" as "admin" | "manager" | "staff",
     branchId: "",
+    password: "",
   });
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+
+  const handleEdit = (member: Staff) => {
+    setEditingStaff(member);
+    setNewStaff({
+      displayName: member.displayName,
+      email: member.email,
+      role: member.role,
+      branchId: member.branchId,
+      password: "",
+    });
+    setFormOpen(true);
+  };
 
   const filteredStaff = staff.filter(s => 
     s.displayName.toLowerCase().includes(search.toLowerCase()) || 
     s.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAddStaff = async () => {
-    if (!newStaff.displayName || !newStaff.email || !newStaff.branchId) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-    try {
-      await addStaff(newStaff);
-      toast.success("Staff member authorized successfully");
-      setFormOpen(false);
-      setNewStaff({ displayName: "", email: "", role: "staff", branchId: "" });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add staff member");
+  const handleSubmit = async () => {
+    if (editingStaff) {
+      if (!newStaff.displayName || !newStaff.branchId) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
+      try {
+        await updateStaff(editingStaff.uid, {
+          displayName: newStaff.displayName,
+          role: newStaff.role,
+          branchId: newStaff.branchId,
+        });
+        toast.success("Staff member updated successfully");
+        setFormOpen(false);
+        setEditingStaff(null);
+        setNewStaff({ displayName: "", email: "", role: "staff", branchId: "", password: "" });
+      } catch (error: any) {
+        toast.error(error.message || "Failed to update staff member");
+      }
+    } else {
+      if (!newStaff.displayName || !newStaff.email || !newStaff.branchId || !newStaff.password) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
+      if (newStaff.password.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        return;
+      }
+      try {
+        await addStaff(newStaff);
+        toast.success("Staff member authorized successfully");
+        setFormOpen(false);
+        setNewStaff({ displayName: "", email: "", role: "staff", branchId: "", password: "" });
+      } catch (error: any) {
+        toast.error(error.message || "Failed to add staff member");
+      }
     }
   };
 
@@ -93,7 +131,11 @@ function StaffPage() {
           <h1 className="text-2xl font-black tracking-tight text-foreground">Staff Management</h1>
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{staff.length} team members authorized</p>
         </div>
-        <Button onClick={() => setFormOpen(true)} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-11 px-6 shadow-xl shadow-primary/20 gap-2">
+        <Button onClick={() => {
+          setEditingStaff(null);
+          setNewStaff({ displayName: "", email: "", role: "staff", branchId: "", password: "" });
+          setFormOpen(true);
+        }} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-11 px-6 shadow-xl shadow-primary/20 gap-2">
           <UserPlus className="h-4 w-4" /> Add Staff Member
         </Button>
       </div>
@@ -157,18 +199,28 @@ function StaffPage() {
                     <StatusBadge status={member.isActive ? "active" : "inactive"} />
                   </TableCell>
                   <TableCell className="text-right pr-6">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="rounded-lg h-8 px-2 font-bold text-xs"
-                      onClick={() => toggleStatus(member)}
-                    >
-                      {member.isActive ? (
-                        <><Ban className="h-3.5 w-3.5 mr-1.5 text-destructive" /> Deactivate</>
-                      ) : (
-                        <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-500" /> Activate</>
-                      )}
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="rounded-lg h-8 w-8 p-0 font-bold"
+                        onClick={() => handleEdit(member)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="rounded-lg h-8 px-2 font-bold text-xs"
+                        onClick={() => toggleStatus(member)}
+                      >
+                        {member.isActive ? (
+                          <><Ban className="h-3.5 w-3.5 mr-1.5 text-destructive" /> Deactivate</>
+                        ) : (
+                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-500" /> Activate</>
+                        )}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -180,7 +232,7 @@ function StaffPage() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-[425px] rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black">Add New Staff</DialogTitle>
+            <DialogTitle className="text-xl font-black">{editingStaff ? "Edit Staff Member" : "Add New Staff"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
@@ -199,6 +251,7 @@ function StaffPage() {
                 placeholder="john@example.com"
                 value={newStaff.email}
                 onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                disabled={!!editingStaff}
                 className="h-11 rounded-xl border-2 font-bold"
               />
             </div>
@@ -209,12 +262,24 @@ function StaffPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="staff" className="font-bold">Staff / Sales Agent</SelectItem>
-                  <SelectItem value="manager" className="font-bold">Store Manager</SelectItem>
-                  <SelectItem value="admin" className="font-bold">Admin</SelectItem>
+                  <SelectItem value="admin" className="font-bold uppercase text-[10px]">Admin</SelectItem>
+                  <SelectItem value="manager" className="font-bold uppercase text-[10px]">Manager</SelectItem>
+                  <SelectItem value="staff" className="font-bold uppercase text-[10px]">Staff</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {!editingStaff && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Temporary Password</Label>
+                <Input 
+                  type="password"
+                  placeholder="At least 6 characters"
+                  value={newStaff.password}
+                  onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+                  className="h-11 rounded-xl border-2 font-bold"
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Branch Assignment</Label>
               <Select value={newStaff.branchId} onValueChange={(v) => setNewStaff({ ...newStaff, branchId: v })}>
@@ -240,7 +305,9 @@ function StaffPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setFormOpen(false)} className="rounded-xl font-bold">Cancel</Button>
-            <Button onClick={handleAddStaff} className="rounded-xl font-black uppercase tracking-widest text-xs px-6">Onboard Staff</Button>
+            <Button onClick={handleSubmit} className="rounded-xl font-black uppercase tracking-widest text-xs px-6">
+              {editingStaff ? "Update Staff" : "Onboard Staff"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

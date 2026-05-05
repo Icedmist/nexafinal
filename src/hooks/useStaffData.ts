@@ -56,16 +56,32 @@ export function useStaff(): QueryResult<Staff[]> {
 }
 
 export function useStoreBranches(): QueryResult<Branch[]> {
-  const { store, loading: loadingTenant } = useTenant();
+  const { claims } = useAuth();
+  const { store } = useTenant();
   const [data, setData] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (loadingTenant) return;
-    if (!store) { setIsLoading(false); return; }
-    setData(store.branches || []);
-    setIsLoading(false);
-  }, [store, loadingTenant]);
+    const targetStoreId = claims?.storeId || store?.id;
+    if (!targetStoreId) {
+      if (!store) setIsLoading(false);
+      return;
+    }
+
+    const storeRef = doc(db, "stores", targetStoreId);
+    const unsubscribe = onSnapshot(storeRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const storeData = snapshot.data() as Store;
+        setData(storeData.branches || []);
+      }
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Error fetching branches:", err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [store?.id, claims?.storeId]);
 
   return { data, isLoading, error: null };
 }
@@ -75,16 +91,19 @@ export function useStaffMutations() {
   const { store } = useTenant();
   const { claims } = useAuth();
 
-  const addStaff = async (staffData: Partial<Staff>) => {
+  const addStaff = async (staffData: Partial<Staff> & { password?: string }) => {
     const targetStoreId = claims?.storeId || store?.id;
     if (!ownerId || !targetStoreId) throw new Error("Unauthorized: Missing store context");
     
-    return addDoc(collection(db, "staff"), {
+    const { httpsCallable } = await import("firebase/functions");
+    const { functions: functionsInstance } = await import("@/lib/firebase");
+    
+    const provision = httpsCallable(functionsInstance, "provisionstaff");
+    
+    return provision({
       ...staffData,
       ownerId,
       storeId: targetStoreId,
-      createdAt: new Date().toISOString(),
-      isActive: true,
     });
   };
 
