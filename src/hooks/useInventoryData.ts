@@ -88,7 +88,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
 }
 
 export function useItemById(id: string): QueryResult<Item | undefined> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Item | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,13 +118,13 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, id, claimsReady]);
+  }, [user, storeId, id, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
 
 export function useCategories(): QueryResult<Category[]> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,13 +145,13 @@ export function useCategories(): QueryResult<Category[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady]);
+  }, [user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
 
 export function useLocations(): QueryResult<Location[]> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,13 +172,13 @@ export function useLocations(): QueryResult<Location[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady]);
+  }, [user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
 
 export function useSuppliers(): QueryResult<Supplier[]> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -199,7 +199,7 @@ export function useSuppliers(): QueryResult<Supplier[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady]);
+  }, [user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
@@ -258,7 +258,7 @@ export function useStockSummary(): QueryResult<StockSummary> {
 }
 
 export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -279,13 +279,13 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady]);
+  }, [user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
 
 export function useRequests(): QueryResult<InventoryRequest[]> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<InventoryRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -306,7 +306,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady]);
+  }, [user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }

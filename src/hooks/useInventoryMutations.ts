@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -49,7 +49,9 @@ function useFirestoreMutation<TData>(
 export function useCreateItem() {
   const { user } = useAuth();
   return useFirestoreMutation<Item>(async (storeId, data, uid, claims) => {
-    await addDoc(collection(db, "products"), {
+    // Use setDoc with the pre-generated ID to ensure consistency between POS and Catalog
+    const docRef = doc(db, "products", data.id);
+    await setDoc(docRef, {
       ...data,
       storeId,
       branchId: data.branchId !== undefined ? data.branchId : (claims?.branchId || null),

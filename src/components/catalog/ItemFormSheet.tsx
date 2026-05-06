@@ -112,9 +112,9 @@ export function ItemFormSheet({
           name: "",
           sku: "",
           description: "",
-          categoryId: "",
-          supplierId: "",
-          locationId: "",
+          categoryId: "none",
+          supplierId: "none",
+          locationId: "none",
           branchId: "all",
           unit: "each",
           currentStock: 0,
@@ -248,7 +248,7 @@ export function ItemFormSheet({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">None</SelectItem>
-                          {categories.filter(c => c?.id).map((c) => (
+                          {categories.filter(c => c && c.id && c.id.trim() !== "").map((c) => (
                             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -322,7 +322,7 @@ export function ItemFormSheet({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">None</SelectItem>
-                          {suppliers.filter(s => s?.id).map((s) => (
+                          {suppliers.filter(s => s && s.id && s.id.trim() !== "").map((s) => (
                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -343,7 +343,7 @@ export function ItemFormSheet({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">None</SelectItem>
-                          {locations.filter(l => l?.id).map((l) => (
+                          {locations.filter(l => l && l.id && l.id.trim() !== "").map((l) => (
                             <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -364,7 +364,7 @@ export function ItemFormSheet({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All branches</SelectItem>
-                          {branches.filter(b => b?.id).map((b) => (
+                          {branches.filter(b => b && b.id && b.id.trim() !== "").map((b) => (
                             <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                           ))}
                         </SelectContent>
