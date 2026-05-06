@@ -71,43 +71,19 @@ export async function exportItemsQRCodes(items: Item[]) {
 }
 
 async function fetchQRCodeAsDataUrl(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    // Use anonymous to avoid CORS taint if server supports it
-    img.crossOrigin = "anonymous";
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch QR code");
+    const blob = await response.blob();
     
-    const timeout = setTimeout(() => {
-      img.onload = null;
-      img.onerror = null;
-      reject(new Error("QR Code fetch timed out"));
-    }, 10000);
-
-    img.onload = () => {
-      clearTimeout(timeout);
-      const canvas = document.createElement("canvas");
-      canvas.width = 300;
-      canvas.height = 300;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, 300, 300);
-        ctx.drawImage(img, 0, 0);
-        try {
-          const dataUrl = canvas.toDataURL("image/png");
-          resolve(dataUrl);
-        } catch (e) {
-          reject(new Error("Canvas tainted by CORS"));
-        }
-      } else {
-        reject(new Error("Canvas context failed"));
-      }
-    };
-    
-    img.onerror = () => {
-      clearTimeout(timeout);
-      reject(new Error("Failed to load QR image source"));
-    };
-    
-    img.src = url;
-  });
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("QR Fetch Error:", error);
+    throw error;
+  }
 }

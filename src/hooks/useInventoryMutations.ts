@@ -114,8 +114,14 @@ export function useCreateMovement() {
 }
 
 export function useCreatePurchaseOrder() {
-  return useFirestoreMutation<Omit<PurchaseOrder, "id">>(async (storeId, data, uid) => {
-    await addDoc(collection(db, "purchase_orders"), { ...data, storeId, ownerId: uid, createdAt: new Date().toISOString() });
+  return useFirestoreMutation<Omit<PurchaseOrder, "id">>(async (storeId, data, uid, claims) => {
+    await addDoc(collection(db, "purchase_orders"), { 
+      ...data, 
+      storeId, 
+      branchId: claims?.branchId || null,
+      ownerId: uid, 
+      createdAt: new Date().toISOString() 
+    });
   });
 }
 
@@ -150,8 +156,15 @@ export function useDeleteSupplier() {
 }
 
 export function useCreateRequest() {
-  return useFirestoreMutation<Omit<InventoryRequest, "id">>(async (storeId, data, uid) => {
-    await addDoc(collection(db, "requests"), { ...data, storeId, ownerId: uid, requestorId: uid, createdAt: new Date().toISOString() });
+  return useFirestoreMutation<Omit<InventoryRequest, "id">>(async (storeId, data, uid, claims) => {
+    await addDoc(collection(db, "requests"), { 
+      ...data, 
+      storeId, 
+      branchId: claims?.branchId || null,
+      ownerId: uid, 
+      requestorId: uid, 
+      createdAt: new Date().toISOString() 
+    });
   });
 }
 
@@ -162,8 +175,13 @@ export function useUpdateRequest() {
 }
 
 export function useCreateLocation() {
-  return useFirestoreMutation<Omit<Location, "id">>(async (storeId, data, uid) => {
-    await addDoc(collection(db, "locations"), { ...data, storeId, ownerId: uid });
+  return useFirestoreMutation<Omit<Location, "id">>(async (storeId, data, uid, claims) => {
+    await addDoc(collection(db, "locations"), { 
+      ...data, 
+      storeId, 
+      branchId: claims?.branchId || null,
+      ownerId: uid 
+    });
   });
 }
 

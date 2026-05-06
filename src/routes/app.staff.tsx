@@ -47,7 +47,7 @@ function StaffPage() {
   const { data: staff, isLoading } = useStaff();
   const { data: branches } = useStoreBranches();
   const { addStaff, updateStaff } = useStaffMutations();
-  const { isAdmin } = useRole();
+  const { isAdmin, isManager } = useRole();
   const [activeTab, setActiveTab] = useState("directory");
   
   const [search, setSearch] = useState("");
@@ -154,7 +154,7 @@ function StaffPage() {
               <Users className="h-3.5 w-3.5 mr-2" />
               Staff Directory
             </TabsTrigger>
-            {isAdmin && (
+            {(isAdmin || isManager) && (
               <>
                 <TabsTrigger value="performance" className="rounded-lg font-bold text-[10px] uppercase tracking-widest px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <TrendingUp className="h-3.5 w-3.5 mr-2" />
@@ -261,7 +261,7 @@ function StaffPage() {
           </Card>
         </TabsContent>
 
-        {isAdmin && (
+        {(isAdmin || isManager) && (
           <>
             <TabsContent value="performance" className="mt-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <StaffPerformance />

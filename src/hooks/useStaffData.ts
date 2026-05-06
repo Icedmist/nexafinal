@@ -41,7 +41,16 @@ export function useStaff(): QueryResult<Staff[]> {
       snapshot.forEach((doc) => {
         staff.push({ uid: doc.id, ...doc.data() } as any);
       });
-      setData(staff);
+
+      const isAdmin = claims?.role === "admin";
+      const userBranchId = claims?.branchId;
+
+      let filtered = staff;
+      if (!isAdmin && userBranchId) {
+        filtered = filtered.filter(s => s.branchId === userBranchId);
+      }
+
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error("Staff fetch error:", err);
@@ -69,10 +78,19 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     }
 
     const storeRef = doc(db, "stores", targetStoreId);
+    const isAdmin = claims?.role === "admin";
+    const userBranchId = claims?.branchId;
+
     const unsubscribe = onSnapshot(storeRef, (snapshot) => {
       if (snapshot.exists()) {
         const storeData = snapshot.data() as Store;
-        setData(storeData.branches || []);
+        const allBranches = storeData.branches || [];
+        
+        let filtered = allBranches;
+        if (!isAdmin && userBranchId) {
+          filtered = allBranches.filter(b => b.id === userBranchId);
+        }
+        setData(filtered);
       }
       setIsLoading(false);
     }, (err) => {

@@ -161,11 +161,19 @@ export function useLocations(): QueryResult<Location[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const q = query(collection(db, "locations"), where("storeId", "==", storeId));
+    const isAdmin = claims?.role === "admin";
+    const userBranchId = claims?.branchId;
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Location[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));
-      setData(items);
+      
+      let filtered = items;
+      if (!isAdmin && userBranchId) {
+        filtered = filtered.filter(l => l.branchId === userBranchId);
+      }
+      
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error("Firestore Listen Error (Locations):", err);
@@ -269,10 +277,19 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       return;
     }
     const q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
+    const isAdmin = claims?.role === "admin";
+    const userBranchId = claims?.branchId;
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: PurchaseOrder[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as PurchaseOrder));
-      setData(items);
+      
+      let filtered = items;
+      if (!isAdmin && userBranchId) {
+        filtered = filtered.filter(po => po.branchId === userBranchId);
+      }
+      
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error("Firestore Listen Error (PurchaseOrders):", err);
@@ -296,10 +313,19 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       return;
     }
     const q = query(collection(db, "requests"), where("storeId", "==", storeId));
+    const isAdmin = claims?.role === "admin";
+    const userBranchId = claims?.branchId;
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: InventoryRequest[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as InventoryRequest));
-      setData(items);
+      
+      let filtered = items;
+      if (!isAdmin && userBranchId) {
+        filtered = filtered.filter(r => r.branchId === userBranchId);
+      }
+      
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error("Firestore Listen Error (Requests):", err);

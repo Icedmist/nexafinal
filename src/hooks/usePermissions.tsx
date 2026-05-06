@@ -15,11 +15,11 @@ const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
   log_movement: ["admin", "manager", "staff"],
   create_po: ["admin", "manager"],
   approve_request: ["admin", "manager"],
-  manage_users: ["admin"],
+  manage_users: ["admin", "manager"],
   view_analytics: ["admin", "manager"],
   export_data: ["admin", "manager"],
   create_request: ["admin", "manager", "staff", "requestor"],
-  access_settings: ["admin", "staff"],
+  access_settings: ["admin", "manager", "staff"],
   manage_suppliers: ["admin", "manager"],
 };
 

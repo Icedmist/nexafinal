@@ -34,58 +34,22 @@ export function QRCodeGenerator({ item, open, onOpenChange }: QRCodeGeneratorPro
     const toastId = toast.loading("Preparing QR code...");
     
     try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
+      const response = await fetch(qrCodeUrl);
+      if (!response.ok) throw new Error("Failed to fetch QR code");
+      const blob = await response.blob();
       
-      const timeout = setTimeout(() => {
-        img.onload = null;
-        img.onerror = null;
-        toast.error("Download timed out", { id: toastId });
-        setDownloading(false);
-      }, 10000);
-
-      img.onload = () => {
-        clearTimeout(timeout);
-        const canvas = document.createElement("canvas");
-        canvas.width = 600; // High res
-        canvas.height = 600;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, 600, 600);
-          ctx.drawImage(img, 0, 0, 600, 600);
-          
-          try {
-            canvas.toBlob((blob) => {
-              if (blob) {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `qr-${item.sku || "product"}.png`;
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-                toast.success("QR code downloaded!", { id: toastId });
-              } else {
-                toast.error("Failed to generate image blob", { id: toastId });
-              }
-              setDownloading(false);
-            }, "image/png", 1.0);
-          } catch (e) {
-            toast.error("Security error: Canvas tainted", { id: toastId });
-            setDownloading(false);
-          }
-        }
-      };
-
-      img.onerror = () => {
-        clearTimeout(timeout);
-        toast.error("Failed to load QR image source", { id: toastId });
-        setDownloading(false);
-      };
-
-      img.src = qrCodeUrl;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `qr-${item.sku || "product"}.png`;
+      a.click();
+      
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      toast.success("QR code downloaded!", { id: toastId });
+      setDownloading(false);
     } catch (error) {
-      toast.error("Failed to initiate download", { id: toastId });
+      console.error("QR Download Error:", error);
+      toast.error("Failed to download QR code", { id: toastId });
       setDownloading(false);
     }
   };

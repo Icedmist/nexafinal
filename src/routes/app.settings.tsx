@@ -25,7 +25,7 @@ export const Route = createFileRoute("/app/settings")({
 
 function SettingsPage() {
   const { can } = usePermissions();
-  const { isStaff } = useRole();
+  const { isAdmin, isManager, isStaff } = useRole();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,6 +37,23 @@ function SettingsPage() {
 
   if (!can("access_settings")) return null;
 
+  const tabs = [
+    { value: "profile", label: "Profile", visible: true, component: <UserProfile /> },
+    { value: "store", label: "Store", visible: isAdmin, component: <StoreSettings /> },
+    { value: "branding", label: "Branding", visible: isAdmin, component: <StoreBranding /> },
+    { value: "customers", label: "Customers", visible: isAdmin || isManager, component: <CustomerDirectory /> },
+    { value: "categories", label: "Categories", visible: isAdmin || isManager, component: <CategoryManager /> },
+    { value: "custom-fields", label: "Custom Fields", visible: isAdmin, component: <CustomFieldManager /> },
+    { value: "locations", label: "Locations", visible: isAdmin || isManager, component: <LocationSettings /> },
+    { value: "reorder-defaults", label: "Reorder", visible: isAdmin || isManager, component: <ReorderDefaults /> },
+    { value: "smart", label: "Smart Features", visible: isAdmin, component: <SmartFeatures /> },
+    { value: "users", label: "Staff", visible: isAdmin || isManager, component: <UserManagement /> },
+    { value: "help", label: "Help", visible: true, component: <TourLauncher /> },
+    { value: "system", label: "System", visible: isAdmin, component: <SystemSettings /> },
+  ].filter((t) => t.visible);
+
+  const defaultValue = isAdmin ? "store" : "profile";
+
   return (
     <div className="mx-auto max-w-[1000px] space-y-6">
       <div>
@@ -44,69 +61,21 @@ function SettingsPage() {
         <p className="text-sm text-muted-foreground">System configuration and management</p>
       </div>
 
-      <Tabs defaultValue={isStaff ? "profile" : "store"} className="w-full">
+      <Tabs defaultValue={defaultValue} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto">
-          {isStaff ? (
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-          ) : (
-            <>
-              <TabsTrigger value="store">Store</TabsTrigger>
-              <TabsTrigger value="branding">Branding</TabsTrigger>
-              <TabsTrigger value="customers">Customers</TabsTrigger>
-              <TabsTrigger value="categories">Categories</TabsTrigger>
-              <TabsTrigger value="custom-fields">Custom Fields</TabsTrigger>
-              <TabsTrigger value="locations">Locations</TabsTrigger>
-              <TabsTrigger value="reorder-defaults">Reorder</TabsTrigger>
-              <TabsTrigger value="smart">Smart Features</TabsTrigger>
-              <TabsTrigger value="users">Staff</TabsTrigger>
-              <TabsTrigger value="help">Help</TabsTrigger>
-              <TabsTrigger value="system">System</TabsTrigger>
-            </>
-          )}
+          {tabs.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <div className="mt-6">
-          {isStaff ? (
-            <TabsContent value="profile">
-              <ErrorBoundary><UserProfile /></ErrorBoundary>
+          {tabs.map((tab) => (
+            <TabsContent key={tab.value} value={tab.value}>
+              <ErrorBoundary>{tab.component}</ErrorBoundary>
             </TabsContent>
-          ) : (
-            <>
-              <TabsContent value="store">
-                <ErrorBoundary><StoreSettings /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="branding">
-                <ErrorBoundary><StoreBranding /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="customers">
-                <ErrorBoundary><CustomerDirectory /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="categories">
-                <ErrorBoundary><CategoryManager /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="custom-fields">
-                <ErrorBoundary><CustomFieldManager /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="locations">
-                <ErrorBoundary><LocationSettings /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="reorder-defaults">
-                <ErrorBoundary><ReorderDefaults /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="smart">
-                <ErrorBoundary><SmartFeatures /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="users">
-                <ErrorBoundary><UserManagement /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="help">
-                <ErrorBoundary><TourLauncher /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="system">
-                <ErrorBoundary><SystemSettings /></ErrorBoundary>
-              </TabsContent>
-            </>
-          )}
+          ))}
         </div>
       </Tabs>
     </div>

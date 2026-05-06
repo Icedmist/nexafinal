@@ -114,6 +114,7 @@ export interface Location {
   description: string;
   address: string;
   isActive: boolean;
+  branchId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
