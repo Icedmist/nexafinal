@@ -7,7 +7,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 export interface CustomFieldDef {
   id: string;
   name: string;
-  type: "text" | "number" | "date" | "boolean" | "select";
+  fieldType: "text" | "number" | "date" | "boolean" | "select";
   options?: string[];
   required: boolean;
   ownerId: string;

@@ -36,6 +36,7 @@ type AnomalySeverityFilter = "all" | "warning" | "critical";
 type AnomalyTypeFilter = "all" | "quantity_spike" | "frequent_adjustments" | "unusual_timing";
 
 import { useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
+import { AnomalyAlertCard } from "@/components/insights/AnomalyAlertCard";
 
 function AiInsightsPage() {
   const { can } = usePermissions();

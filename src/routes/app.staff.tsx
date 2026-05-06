@@ -47,7 +47,7 @@ function StaffPage() {
   const { data: staff, isLoading } = useStaff();
   const { data: branches } = useStoreBranches();
   const { addStaff, updateStaff } = useStaffMutations();
-  const { isAdmin, isManager } = useRole();
+  const { isAdmin, isManager, isSystemAdmin } = useRole();
   const [activeTab, setActiveTab] = useState("directory");
   
   const [search, setSearch] = useState("");
@@ -55,7 +55,7 @@ function StaffPage() {
   const [newStaff, setNewStaff] = useState({
     displayName: "",
     email: "",
-    role: "staff" as "admin" | "manager" | "staff",
+    role: "staff" as "admin" | "manager" | "staff" | "system_admin",
     branchId: "",
     password: "",
   });
@@ -309,6 +309,7 @@ function StaffPage() {
                   <SelectItem value="admin" className="font-bold uppercase text-[10px]">Admin</SelectItem>
                   <SelectItem value="manager" className="font-bold uppercase text-[10px]">Manager</SelectItem>
                   <SelectItem value="staff" className="font-bold uppercase text-[10px]">Staff</SelectItem>
+                  {isSystemAdmin && <SelectItem value="system_admin" className="font-bold uppercase text-[10px]">System Admin</SelectItem>}
                 </SelectContent>
               </Select>
             </div>

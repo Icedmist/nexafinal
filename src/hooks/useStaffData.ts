@@ -143,24 +143,33 @@ export function useStaffMutations() {
 export function useUpdateSelf() {
   const { user, refreshClaims } = useAuth();
   const { updateStaff } = useStaffMutations();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const updateProfile = async (updates: { displayName?: string; password?: string }) => {
+  const updateProfile = async (updates: { displayName?: string; photoURL?: string; password?: string }) => {
     if (!user) throw new Error("Not authenticated");
-    
-    // 1. Update Firebase Auth Profile if name changed
-    if (updates.displayName) {
-      const { updateProfile: firebaseUpdateProfile } = await import("firebase/auth");
-      await firebaseUpdateProfile(user, { displayName: updates.displayName });
+    setIsLoading(true);
+
+    try {
+      // 1. Update Firebase Auth Profile if name or photo changed
+      if (updates.displayName || updates.photoURL) {
+        const { updateProfile: firebaseUpdateProfile } = await import("firebase/auth");
+        await firebaseUpdateProfile(user, { 
+          displayName: updates.displayName,
+          photoURL: updates.photoURL 
+        });
+      }
+
+      // 2. Update staff document via the same cloud function
+      await updateStaff(user.uid, updates);
+
+      // 3. Refresh claims to ensure UI is in sync
+      await refreshClaims();
+    } finally {
+      setIsLoading(false);
     }
-
-    // 2. Update staff document via the same cloud function
-    await updateStaff(user.uid, updates);
-
-    // 3. Refresh claims to ensure UI is in sync
-    await refreshClaims();
   };
 
-  return { updateProfile };
+  return { updateProfile, isLoading };
 }
 
 

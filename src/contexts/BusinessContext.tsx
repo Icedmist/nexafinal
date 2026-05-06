@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { useTenant } from './TenantContext';
 
 export interface BusinessProfile {
+  id: string;
   storeDetails: { name: string; phone: string; address: string; receiptFooter?: string; taxRate?: number; slug?: string; };
   businessType: string;
   categories: string[];
@@ -108,6 +109,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               setNeedsOnboarding(!isComplete);
               
               setProfile({
+                id: snapshot.id,
                 storeDetails: {
                   name: data.name || "",
                   phone: data.storeDetails?.phone || "",
@@ -163,6 +165,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Merge store name into profile if profile is missing but store exists
   const effectiveProfile = profile || (store ? {
+    id: store.id,
     storeDetails: {
       name: store.name,
       phone: "",

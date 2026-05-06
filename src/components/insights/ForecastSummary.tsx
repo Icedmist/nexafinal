@@ -70,19 +70,22 @@ export function ForecastSummary({ analyses }: ForecastSummaryProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {metrics.map((m) => (
-        <Card key={m.label}>
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="rounded-lg bg-muted p-2">
-              <m.icon className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="min-w-0">
-              <p className={cn("text-xl font-bold", m.accent)}>{m.value}</p>
-              <p className="text-xs text-muted-foreground truncate">{m.label}</p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      {metrics.map((m) => {
+        const Icon = m.icon;
+        return (
+          <Card key={m.label}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-muted p-2">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className={cn("text-xl font-bold", m.accent)}>{m.value}</p>
+                <p className="text-xs text-muted-foreground truncate">{m.label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

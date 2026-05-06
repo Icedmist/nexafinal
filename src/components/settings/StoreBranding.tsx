@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { uploadImage } from "@/lib/storage";
 
 const BRAND_COLORS = [
   { label: "Teal", value: "#0d9488" },
@@ -23,6 +24,7 @@ export function StoreBranding() {
   const [logoUrl, setLogoUrl] = React.useState("");
   const [storeName, setStoreName] = React.useState("");
   const [storeSlug, setStoreSlug] = React.useState("");
+  const [isUploading, setIsUploading] = React.useState(false);
 
   const [baseDomain, setBaseDomain] = React.useState("");
 
@@ -53,6 +55,22 @@ export function StoreBranding() {
       }
     }
   }, [profile]);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const result = await uploadImage(file, "branches", `logo_${profile?.id}`);
+      setLogoUrl(result.url);
+      toast.success("Logo uploaded successfully");
+    } catch (error) {
+      toast.error("Failed to upload logo");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -151,24 +169,61 @@ export function StoreBranding() {
         </div>
 
         <div className="space-y-4">
-          <Label className="text-xs font-black uppercase tracking-widest">Logo Asset URL</Label>
-          <div className="flex gap-4 items-start">
-            <div className="relative flex-1">
-              <Upload className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://cloud.assets.com/my-logo.svg"
-                className="h-12 rounded-xl pl-12"
-              />
+          <Label className="text-xs font-black uppercase tracking-widest">Official Store Logo</Label>
+          <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+            <div className="h-32 w-32 rounded-3xl border-2 border-dashed border-primary/20 bg-muted/30 p-2 flex items-center justify-center overflow-hidden shrink-0 group relative">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Store Logo" className="h-full w-full object-contain" />
+              ) : (
+                <Palette className="h-10 w-10 text-muted-foreground/20" />
+              )}
+              
+              {isUploading && (
+                <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
             </div>
-            {logoUrl && (
-              <div className="h-12 w-12 rounded-xl border border-border bg-muted/30 p-1 flex items-center justify-center overflow-hidden shrink-0">
-                <img src={logoUrl} alt="Preview" className="h-full w-full object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+            
+            <div className="flex-1 space-y-3 text-center sm:text-left">
+              <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="rounded-xl h-11 font-bold uppercase tracking-widest text-[10px] relative overflow-hidden px-6"
+                  disabled={isUploading}
+                >
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                    onChange={handleLogoUpload}
+                    disabled={isUploading}
+                  />
+                  <Upload className="h-4 w-4 mr-2" />
+                  {logoUrl ? "Replace Logo" : "Upload Logo"}
+                </Button>
+                
+                {logoUrl && (
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    className="rounded-xl h-11 font-bold uppercase tracking-widest text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setLogoUrl("")}
+                    disabled={isUploading}
+                  >
+                    Remove
+                  </Button>
+                )}
               </div>
-            )}
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-foreground">Recommended format: PNG or SVG</p>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider leading-relaxed">
+                  Square or horizontal logos work best. Images are automatically compressed to 1MB and resized to 1024px for optimal performance.
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-[10px] text-muted-foreground italic">Provide a direct URL to an SVG, PNG, or JPG logo. This will be used for your sidebar and favicon.</p>
         </div>
 
         <Button onClick={handleSave} className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-primary/20">

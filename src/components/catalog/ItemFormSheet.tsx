@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useEffect } from "react";
 import { HelpTooltip } from "@/components/shared/HelpTooltip";
 import { useForm, Controller } from "react-hook-form";
@@ -11,7 +12,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, PackagePlus, Tag, Boxes, Banknote, MapPin } from "lucide-react";
+import { X, PackagePlus, Tag, Boxes, Banknote, MapPin, Upload, Image as ImageIcon } from "lucide-react";
+import { uploadImage } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -37,6 +40,7 @@ const schema = z.object({
   costPrice: z.coerce.number().min(0, "Cost price cannot be negative"),
   sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative"),
   status: z.nativeEnum(ItemStatus),
+  imageUrl: z.string().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -67,8 +71,9 @@ export function ItemFormSheet({
   loading,
 }: ItemFormSheetProps) {
   const isEdit = !!item;
+  const [isUploading, setIsUploading] = React.useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors }, setError } = useForm<FormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors }, setError, setValue, watch } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
@@ -85,8 +90,31 @@ export function ItemFormSheet({
       costPrice: 0,
       sellingPrice: 0,
       status: ItemStatus.Active,
+      imageUrl: null,
     },
   });
+
+  const imageUrl = watch("imageUrl");
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const result = await uploadImage(file, "products");
+      setValue("imageUrl", result.url);
+      import("sonner").then(({ toast }) => {
+        toast.success("Image uploaded successfully");
+      });
+    } catch (error) {
+      import("sonner").then(({ toast }) => {
+        toast.error("Failed to upload image");
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
@@ -106,6 +134,7 @@ export function ItemFormSheet({
           costPrice: item.costPrice,
           sellingPrice: item.sellingPrice,
           status: item.status,
+          imageUrl: item.imageUrl || null,
         });
       } else {
         reset({
@@ -123,6 +152,7 @@ export function ItemFormSheet({
           costPrice: 0,
           sellingPrice: 0,
           status: ItemStatus.Active,
+          imageUrl: null,
         });
       }
     }
@@ -197,6 +227,71 @@ export function ItemFormSheet({
         <div className="overflow-y-auto p-6 scroll-smooth">
           <form id="item-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
             
+            {/* Image Upload Section */}
+            <div className={cardGroupCls}>
+              <div className="mb-4 flex items-center gap-2 text-primary">
+                <ImageIcon className="h-4 w-4" />
+                <h3 className="font-semibold text-foreground">Product Image</h3>
+              </div>
+              <div className="flex flex-col items-center justify-center gap-4">
+                <div className="relative group h-40 w-full sm:w-64 rounded-xl border-2 border-dashed border-emerald-100 dark:border-emerald-900/30 overflow-hidden flex items-center justify-center bg-muted/20">
+                  {imageUrl ? (
+                    <>
+                      <img src={imageUrl} alt="Product" className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button 
+                          type="button" 
+                          variant="destructive" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full"
+                          onClick={() => setValue("imageUrl", null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Upload className="h-8 w-8 opacity-20" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">No Image</span>
+                    </div>
+                  )}
+                  
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">Uploading...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col items-center gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-lg h-9 font-bold uppercase tracking-widest text-[10px] relative overflow-hidden"
+                    disabled={isUploading}
+                  >
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer" 
+                      onChange={handleImageUpload}
+                      disabled={isUploading}
+                    />
+                    <Upload className="h-3.5 w-3.5 mr-2" />
+                    {imageUrl ? "Change Image" : "Upload Image"}
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider text-center">
+                    PNG, JPG or WebP. Max 1MB. (Auto-compressed)
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Basic Info */}
             <div className={cardGroupCls}>
               <div className="mb-4 flex items-center gap-2 text-primary">

@@ -15,6 +15,7 @@ import type { Item, SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
 import { SalesReceipt } from "./SalesReceipt";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
 const NAIRA = "₦";
 
@@ -42,6 +43,7 @@ export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear 
   const [customerPhone, setCustomerPhone] = useState("");
   const [lastSale, setLastSale] = useState<SaleTransaction | null>(null);
   const total = items.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
+  const { user } = useAuth();
 
   // Auto-suggest customer name from past sales
   const knownCustomers = useMemo(() => {
@@ -70,6 +72,7 @@ export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear 
         imageUrl: ci.item.imageUrl ?? undefined,
       })),
       totalNgn: total,
+      recordedBy: user?.uid,
       createdAt: new Date().toISOString(),
     };
 

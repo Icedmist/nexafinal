@@ -26,6 +26,7 @@ export interface Staff {
   storeId: string;
   ownerId: string;
   branchId: string;
+  photoURL?: string;
   isActive: boolean;
   createdAt: string;
 }

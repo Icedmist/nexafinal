@@ -18,7 +18,7 @@ export interface SaleTransaction {
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
   branchId?: string | null;
-  recordedBy: string;
+  recordedBy?: string;
   recordedByName?: string;
   createdAt: string;
 }
@@ -168,6 +168,8 @@ export interface PurchaseOrder {
   expectedDelivery: string | null;
   notes: string;
   createdBy: string;
+  branchId?: string | null;
+  storeId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -189,6 +191,8 @@ export interface InventoryRequest {
   items: RequestItem[];
   requestedBy: string;
   approvedBy: string | null;
+  branchId?: string | null;
+  storeId: string;
   reason: string;
   declineReason?: string;
   createdAt: string;

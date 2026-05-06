@@ -1,18 +1,23 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Lock, Save, BadgeCheck } from "lucide-react";
+import { User, Mail, Lock, Save, BadgeCheck, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { cn } from "@/lib/utils";
 import { useUpdateSelf } from "@/hooks/useStaffData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { uploadImage } from "@/lib/storage";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function UserProfile() {
   const { user } = useAuth();
-  const { updateSelf, isLoading } = useUpdateSelf();
+  const { updateProfile, isLoading } = useUpdateSelf();
   
   const [fullName, setFullName] = useState(user?.displayName || "");
+  const [photoURL, setPhotoURL] = useState(user?.photoURL || "");
+  const [isUploading, setIsUploading] = useState(false);
   const [email] = useState(user?.email || ""); // Email is usually fixed for staff
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,7 +26,29 @@ export function UserProfile() {
     if (user?.displayName) {
       setFullName(user.displayName);
     }
-  }, [user?.displayName]);
+    if (user?.photoURL) {
+      setPhotoURL(user.photoURL);
+    }
+  }, [user?.displayName, user?.photoURL]);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const result = await uploadImage(file, "user_profiles", `avatar_${user?.uid}`);
+      setPhotoURL(result.url);
+      await updateProfile({
+        photoURL: result.url,
+      });
+      toast.success("Avatar updated successfully");
+    } catch (error) {
+      toast.error("Failed to upload avatar");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -40,8 +67,9 @@ export function UserProfile() {
     }
 
     try {
-      await updateSelf({
+      await updateProfile({
         displayName: fullName,
+        photoURL: photoURL,
         password: password || undefined,
       });
       
@@ -63,6 +91,42 @@ export function UserProfile() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="flex flex-col items-center gap-4 py-4">
+          <div className="relative group">
+            <Avatar className="h-24 w-24 border-2 border-primary/20 transition-all group-hover:border-primary">
+              <AvatarImage src={photoURL} alt={fullName} />
+              <AvatarFallback className="text-2xl font-black uppercase tracking-widest bg-primary/10 text-primary">
+                {fullName.charAt(0) || user?.email?.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <label 
+              htmlFor="avatar-upload" 
+              className={cn(
+                "absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity cursor-pointer group-hover:opacity-100",
+                isUploading && "opacity-100 pointer-events-none"
+              )}
+            >
+              {isUploading ? (
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <Upload className="h-6 w-6" />
+              )}
+            </label>
+            <input 
+              id="avatar-upload" 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleAvatarUpload} 
+              disabled={isUploading}
+            />
+          </div>
+          <div className="text-center">
+            <h4 className="text-sm font-black uppercase tracking-widest">{fullName || "Anonymous User"}</h4>
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Profile Avatar</p>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="fullName" className="text-xs font-black uppercase tracking-widest">
             Full Name

@@ -12,7 +12,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { CustomFieldDefinition } from "@/types/inventory";
+import type { CustomFieldDef } from "@/hooks/useCustomFields";
 
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useSettingsMutations } from "@/hooks/useSettingsMutations";
@@ -26,9 +26,9 @@ export function CustomFieldManager() {
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newType, setNewType] = useState<CustomFieldDefinition["fieldType"]>("text");
+  const [newType, setNewType] = useState<CustomFieldDef["fieldType"]>("text");
   const [newOptions, setNewOptions] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<CustomFieldDefinition | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CustomFieldDef | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (adding) nameRef.current?.focus(); }, [adding]);
@@ -90,7 +90,7 @@ export function CustomFieldManager() {
         <div className="rounded-lg border border-border p-3 space-y-2">
           <div className="flex items-center gap-2">
             <Input ref={nameRef} placeholder="Field name" value={newName} onChange={(e) => setNewName(e.target.value)} className="h-8 text-sm flex-1" />
-            <Select value={newType} onValueChange={(v) => setNewType(v as CustomFieldDefinition["fieldType"])}>
+            <Select value={newType} onValueChange={(v) => setNewType(v as CustomFieldDef["fieldType"])}>
               <SelectTrigger className="h-8 w-[120px] text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {FIELD_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -113,7 +113,7 @@ export function CustomFieldManager() {
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm font-medium truncate max-w-[200px]">{f.name}</span>
               <Badge variant="outline" className="text-xs shrink-0">{f.fieldType}</Badge>
-              {f.fieldType === "select" && f.options.length > 0 && (
+              {f.fieldType === "select" && f.options && f.options.length > 0 && (
                 <span className="text-xs text-muted-foreground truncate">{f.options.join(", ")}</span>
               )}
             </div>

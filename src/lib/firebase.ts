@@ -15,11 +15,13 @@ const firebaseConfig = {
 
 // Initialize Firebase only if it hasn't been initialized already (useful for SSR or fast refresh)
 import { getFunctions } from "firebase/functions";
+import { getStorage } from "firebase/storage";
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 export const functions = getFunctions(app, "us-central1");
 
 // Helpers
