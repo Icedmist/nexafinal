@@ -52,7 +52,7 @@ function PurchaseOrdersPage() {
   const createMovement = useCreateMovement();
   const updateItem = useUpdateItem();
   const canManagePOs = can("create_po");
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "system_admin";
   const [filters, setFilters] = useState<POFilters>(EMPTY_PO_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
   const [editPO, setEditPO] = useState<PurchaseOrder | null>(null);

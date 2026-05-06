@@ -28,6 +28,6 @@ const ROUTE_ACCESS: Record<string, UserRoleType[]> = {
  */
 export function canAccessRoute(path: string, role: UserRoleType): boolean {
   const allowed = ROUTE_ACCESS[path];
-  if (!allowed) return role === "admin";
+  if (!allowed) return role === "admin" || role === "system_admin";
   return allowed.includes(role);
 }

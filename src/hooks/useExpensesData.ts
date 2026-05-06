@@ -41,7 +41,7 @@ export function useExpenses(): QueryResult<Expense[]> {
 
       // Filter by branch if user is restricted
       let filtered = expenses;
-      const isAdmin = claims?.role === "admin";
+      const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
       const userBranchId = claims?.branchId;
       
       if (!isAdmin && userBranchId) {

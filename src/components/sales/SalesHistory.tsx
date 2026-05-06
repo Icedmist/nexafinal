@@ -64,7 +64,7 @@ export function SalesHistoryPage() {
   const totalItems = filtered.reduce((s, t) => s + t.items.reduce((a, li) => a + li.quantity, 0), 0);
 
   const storeName = profile?.storeDetails?.name || "NEXA Store OS";
-  const userName = role === "admin" ? "Admin" : role === "manager" ? "Manager" : "Staff";
+  const userName = role === "system_admin" ? "System Admin" : role === "admin" ? "Admin" : role === "manager" ? "Manager" : "Staff";
 
   const handleSendReceipt = (sale: SaleTransaction) => {
     if (!sale.customerPhone) {

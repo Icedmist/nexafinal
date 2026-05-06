@@ -43,7 +43,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 
       // Filter by branch if user is restricted
       let filtered = sales;
-      const isAdmin = claims?.role === "admin";
+      const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
       const userBranchId = claims?.branchId;
       
       if (!isAdmin && userBranchId) {

@@ -42,7 +42,7 @@ export function useStaff(): QueryResult<Staff[]> {
         staff.push({ uid: doc.id, ...doc.data() } as any);
       });
 
-      const isAdmin = claims?.role === "admin";
+      const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
       const userBranchId = claims?.branchId;
 
       let filtered = staff;
@@ -78,7 +78,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     }
 
     const storeRef = doc(db, "stores", targetStoreId);
-    const isAdmin = claims?.role === "admin";
+    const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(storeRef, (snapshot) => {

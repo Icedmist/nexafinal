@@ -35,7 +35,7 @@ export function useActivityLogs(count = 10) {
       limit(count)
     );
 
-    const isAdmin = user && (user.uid === storeId || (claims?.role === "admin"));
+    const isAdmin = user && (user.uid === storeId || (claims?.role === "admin" || claims?.role === "system_admin"));
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

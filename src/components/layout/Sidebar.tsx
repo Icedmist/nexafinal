@@ -98,7 +98,7 @@ interface SidebarProps {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const { permissions } = useRole();
+  const { permissions, isSystemAdmin } = useRole();
   const { profile } = useBusiness();
 
   const isBasicPOS = profile?.complexityLevel === "basic";
@@ -110,9 +110,13 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const isActive = (href: string) => location.pathname === href;
 
   // Filter groups and items based on permissions AND business complexity
+
   const visibleGroups = navGroups
     .filter((g) => !g.permKey || permissions[g.permKey])
-    .filter((g) => isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true)
+    .filter((g) => {
+      if (isSystemAdmin) return true;
+      return isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true;
+    })
     .map((g) => ({
       ...g,
       items: g.items.filter((i) => !i.permKey || permissions[i.permKey]),

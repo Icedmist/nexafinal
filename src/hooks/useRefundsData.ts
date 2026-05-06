@@ -41,7 +41,7 @@ export function useRefunds(): QueryResult<Refund[]> {
 
       // Filter by branch if user is restricted
       let filtered = refunds;
-      const isAdmin = claims?.role === "admin";
+      const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
       const userBranchId = claims?.branchId;
       
       if (!isAdmin && userBranchId) {

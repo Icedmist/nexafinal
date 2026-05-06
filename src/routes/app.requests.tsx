@@ -62,7 +62,7 @@ function RequestsPage() {
   const updateRequest = useUpdateRequest();
   const navigate = useNavigate();
   const { request: requestParam } = Route.useSearch();
-  const isManagerOrAdmin = role === "admin" || role === "manager";
+  const isManagerOrAdmin = role === "admin" || role === "manager" || role === "system_admin";
   const canApproveReq = can("approve_request");
   const [formOpen, setFormOpen] = useState(false);
   const [filters, setFilters] = useState<RequestFilters>(EMPTY_REQUEST_FILTERS);

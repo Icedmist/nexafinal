@@ -9,6 +9,7 @@ const defaultRoleContext: RoleContextValue = {
   isManager: false,
   isStaff: false,
   isRequestor: true,
+  isSystemAdmin: false,
 };
 
 export function useRole(): RoleContextValue {

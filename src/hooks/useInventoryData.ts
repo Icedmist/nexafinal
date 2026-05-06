@@ -42,7 +42,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     
     prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
 
-    const isAdmin = claims?.role === "admin";
+    const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(prodQuery, (snapshot) => {
@@ -161,7 +161,7 @@ export function useLocations(): QueryResult<Location[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isAdmin = claims?.role === "admin";
+    const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
     const userBranchId = claims?.branchId;
 
     const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
@@ -260,7 +260,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       orderBy("createdAt", "desc"),
       firestoreLimit(count)
     );
-    const isAdmin = claims?.role === "admin";
+    const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -308,7 +308,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       return;
     }
     const q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
-    const isAdmin = claims?.role === "admin";
+    const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -344,7 +344,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       return;
     }
     const q = query(collection(db, "requests"), where("storeId", "==", storeId));
-    const isAdmin = claims?.role === "admin";
+    const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

@@ -327,7 +327,6 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
               </div>
             </div>
           </div>
-        </div>
       </DialogContent>
     </Dialog>
 

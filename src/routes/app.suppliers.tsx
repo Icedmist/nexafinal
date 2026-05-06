@@ -35,7 +35,7 @@ function SuppliersPage() {
   const { can } = usePermissions();
   const { role } = useRole();
   const canManageSuppliers = can("manage_suppliers");
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "system_admin";
   const deleteSupplier = useDeleteSupplier();
   const updateItem = useUpdateItem();
 

@@ -30,6 +30,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     // 1. High Priority: Use Custom Claims (Zero DB Read)
     if (claims?.role) {
+      // System admins are global and should bypass store-scoped claim validation.
+      if (claims.role === "system_admin") {
+        setRealRole(claims.role as UserRoleType);
+        return;
+      }
+
       // Security Check: Ensure the user's token storeId matches the current tenant context
       if (claims.storeId === store?.id) {
         setRealRole(claims.role as UserRoleType);
@@ -54,8 +60,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return {
       role,
       permissions,
-      isAdmin: role === "admin",
-      isManager: role === "manager",
+      isAdmin: role === "admin" || role === "system_admin",
+      isManager: role === "manager" || role === "system_admin",
       isStaff: role === "staff",
       isRequestor: role === "requestor",
       isSystemAdmin: role === "system_admin",
