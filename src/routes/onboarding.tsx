@@ -107,10 +107,8 @@ function OnboardingPage() {
       const isLocalhost = host.includes("localhost");
 
       if (isLocalhost) {
-        // Favor subdomains even on localhost (e.g., store.localhost:8080)
-        const hostParts = host.split(":");
-        const port = hostParts[1] ? `:${hostParts[1]}` : "";
-        window.location.href = `${protocol}//${slug.toLowerCase()}.localhost${port}/app/dashboard`;
+        // For localhost, stay on the same domain with store context
+        window.location.href = `${protocol}//${host}/app/dashboard?s=${slug.toLowerCase()}`;
       } else {
         // For production, use subdomain
         const baseDomain = host.split(".").slice(-2).join("."); // assuming nexa.com

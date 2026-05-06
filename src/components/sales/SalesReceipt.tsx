@@ -177,7 +177,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   return (
-    <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
+    <>
+      <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="p-0 overflow-visible border-none bg-transparent shadow-none max-w-[450px] w-full focus:outline-none no-print">
         <div className="nexa-card nexa-glass p-8 sm:p-10 flex flex-col max-h-[95vh] overflow-y-auto items-center w-full shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)] relative animate-in fade-in zoom-in-95 duration-500 border border-white/10">
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5 pointer-events-none" />
@@ -326,9 +327,10 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
               </div>
             </div>
           </div>
+        </div>
       </DialogContent>
     </Dialog>
-    
+
     {/* Hidden Print-Only View optimized for 80mm thermal printers */}
     <div className="hidden print:block receipt-print-view font-sans text-black">
       <div className="text-center space-y-2 mb-6">

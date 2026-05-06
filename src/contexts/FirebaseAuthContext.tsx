@@ -152,11 +152,18 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
           }
 
-          setClaims({
+          let finalClaims = {
             storeId: tokenResult.claims.storeId as string,
             role: tokenResult.claims.role as string,
             branchId: tokenResult.claims.branchId as string | null,
-          });
+          };
+
+          // Temporary: Force system_admin role for dev user
+          if (currentUser.uid === '1TgfYzMcu5NXhqswqLpdPSUrnOJ2') {
+            finalClaims.role = 'system_admin';
+          }
+
+          setClaims(finalClaims);
           setClaimsReady(true);
         } catch (error) {
           console.error("Error fetching custom claims:", error);
