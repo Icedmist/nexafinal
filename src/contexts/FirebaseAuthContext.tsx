@@ -60,7 +60,8 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           `${cred.user.email} logged into the store.`,
           cred.user.uid,
           cred.user.email || "",
-          tokenResult.claims.storeId as string
+          tokenResult.claims.storeId as string,
+          tokenResult.claims.branchId as string | null
         );
       }
       return cred;

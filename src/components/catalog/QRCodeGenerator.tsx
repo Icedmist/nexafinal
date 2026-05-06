@@ -13,17 +13,21 @@ interface QRCodeGeneratorProps {
 }
 
 // Simple QR code SVG generator for product ID
-function generateQRCodeSVG(text: string): string {
+export function generateQRCodeSVG(text: string): string {
   // Use a simple QR API service URL
   const encoded = encodeURIComponent(text);
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encoded}`;
 }
 
+export function getQRCodeText(itemId: string): string {
+  return `${window.location.origin}/scan/${itemId}`;
+}
+
 export function QRCodeGenerator({ item, open, onOpenChange }: QRCodeGeneratorProps) {
   const [downloading, setDownloading] = useState(false);
 
-  const qrCodeUrl = generateQRCodeSVG(`${window.location.origin}/scan/${item.id}`);
-  const qrCodeText = `${window.location.origin}/scan/${item.id}`;
+  const qrCodeText = getQRCodeText(item.id);
+  const qrCodeUrl = generateQRCodeSVG(qrCodeText);
 
   const handleDownload = async () => {
     setDownloading(true);

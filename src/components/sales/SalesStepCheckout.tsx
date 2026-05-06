@@ -108,6 +108,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
         user?.uid || "unknown",
         user?.email || "unknown",
         claims?.storeId,
+        claims?.branchId,
         { saleId: sale.id, total: grandTotal }
       );
 

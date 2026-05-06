@@ -42,8 +42,10 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 
       // Filter by branch if user is restricted
       let filtered = sales;
+      const isAdmin = claims?.role === "admin";
       const userBranchId = claims?.branchId;
-      if (userBranchId) {
+      
+      if (!isAdmin && userBranchId) {
         filtered = filtered.filter(s => s.branchId === userBranchId);
       }
       
@@ -71,10 +73,12 @@ export function useSalesMutations() {
     }
     return await addDoc(collection(db, "sales"), {
       ...sale,
+      itemIds: sale.items.map((i) => i.itemId),
       storeId: storeId,
       branchId: claims?.branchId || null,
       ownerId: user.uid,
       recordedBy: user.uid,
+      recordedByName: user.displayName || user.email?.split("@")[0] || "Unknown Staff",
     });
   };
 

@@ -7,6 +7,8 @@ export interface Expense {
   category: ExpenseCategory;
   notes: string;
   branchId?: string | null;
+  recordedBy?: string;
+  recordedByName?: string;
   createdAt: string;
 }
 
@@ -39,6 +41,8 @@ export interface Refund {
   reason: RefundReason;
   notes: string;
   branchId?: string | null;
+  recordedBy?: string;
+  recordedByName?: string;
   createdAt: string;
 }
 

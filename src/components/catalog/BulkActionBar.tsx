@@ -1,4 +1,4 @@
-import { X, Printer } from "lucide-react";
+import { X, Printer, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -21,6 +21,7 @@ interface BulkActionBarProps {
   onUpdateStatus: (status: ItemStatus) => void;
   onDeselectAll: () => void;
   onPrintLabels?: () => void;
+  onExportQRCodes?: () => void;
 }
 
 const STATUS_OPTIONS = [
@@ -40,6 +41,7 @@ export function BulkActionBar({
   onUpdateStatus,
   onDeselectAll,
   onPrintLabels,
+  onExportQRCodes,
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null;
 
@@ -106,6 +108,13 @@ export function BulkActionBar({
           <Button variant="outline" size="sm" onClick={onPrintLabels} className="h-8 gap-1 text-xs">
             <Printer className="h-3 w-3" />
             Print Labels
+          </Button>
+        )}
+
+        {onExportQRCodes && (
+          <Button variant="outline" size="sm" onClick={onExportQRCodes} className="h-8 gap-1 text-xs">
+            <QrCode className="h-3 w-3" />
+            Export QRs
           </Button>
         )}
 

@@ -14,6 +14,8 @@ import { BarcodeDisplay } from "@/components/catalog/BarcodeDisplay";
 import { QRCodeGenerator } from "@/components/catalog/QRCodeGenerator";
 import { CustomFieldsTab } from "@/components/catalog/CustomFieldsTab";
 import { useMovements } from "@/hooks/useInventoryData";
+import { useItemHistory } from "@/hooks/useItemHistory";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useUpdateItem } from "@/hooks/useInventoryMutations";
 import { useState } from "react";
 import { QrCode } from "lucide-react";
@@ -70,7 +72,9 @@ export function ItemDetailSheet({
   onEdit,
   onArchive,
 }: ItemDetailSheetProps) {
-  const { data: allMovements } = useMovements();
+  const { data: movements, isLoading: movementsLoading } = useMovements();
+  const { data: history, isLoading: historyLoading } = useItemHistory(item?.id || "");
+  const { can } = usePermissions();
   const updateItem = useUpdateItem();
   const [qrOpen, setQrOpen] = useState(false);
 
@@ -167,8 +171,13 @@ export function ItemDetailSheet({
               </TabsContent>
 
               <TabsContent value="history" className="mt-6">
-                <div className="rounded-2xl border border-border p-4 bg-muted/10">
-                  <MovementTimeline movements={allMovements} itemId={item.id} />
+                <div className="rounded-lg border bg-card/50">
+                  <div className="p-4 border-b">
+                    <h3 className="text-sm font-semibold">Activity & Sales History</h3>
+                  </div>
+                  <div className="p-2">
+                    <MovementTimeline history={history} itemId={item.id} />
+                  </div>
                 </div>
               </TabsContent>
 

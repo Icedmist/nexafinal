@@ -18,6 +18,8 @@ export interface SaleTransaction {
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
   branchId?: string | null;
+  recordedBy: string;
+  recordedByName?: string;
   createdAt: string;
 }
 
@@ -141,6 +143,8 @@ export interface StockMovement {
   reference: string;
   notes: string;
   performedBy: string;
+  performedByName?: string;
+  branchId?: string | null;
   createdAt: string;
 }
 

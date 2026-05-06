@@ -49,8 +49,10 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       });
       
       let filtered = items;
+      const isAdmin = claims?.role === "admin";
       const userBranchId = claims?.branchId;
-      if (userBranchId) {
+      
+      if (!isAdmin && userBranchId) {
         filtered = filtered.filter(i => !i.branchId || i.branchId === userBranchId);
       }
 
@@ -219,7 +221,16 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: StockMovement[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as StockMovement));
-      setData(items);
+      
+      let filtered = items;
+      const isAdmin = claims?.role === "admin";
+      const userBranchId = claims?.branchId;
+      
+      if (!isAdmin && userBranchId) {
+        filtered = filtered.filter(m => m.branchId === userBranchId);
+      }
+      
+      setData(filtered);
       setIsLoading(false);
     }, (err) => {
       console.error("Firestore Listen Error (Movements):", err);

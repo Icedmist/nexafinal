@@ -20,6 +20,7 @@ export const notifyActivity = async (
   userId: string,
   userEmail: string,
   storeId?: string,
+  branchId?: string | null,
   metadata?: Record<string, any>
 ) => {
   try {
@@ -30,6 +31,7 @@ export const notifyActivity = async (
       userId,
       userEmail,
       storeId: storeId || null,
+      branchId: branchId || null,
       createdAt: serverTimestamp(),
     };
     if (metadata !== undefined) {

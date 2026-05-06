@@ -11,11 +11,12 @@ export interface ActivityLog {
   message: string;
   userId: string;
   userEmail: string;
+  branchId?: string | null;
   createdAt: any;
 }
 
 export function useActivityLogs(count = 10) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { storeId } = useBusiness();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,10 +35,18 @@ export function useActivityLogs(count = 10) {
       limit(count)
     );
 
+    const isAdmin = user && (user.uid === storeId || (claims?.role === "admin"));
+    const userBranchId = claims?.branchId;
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs: ActivityLog[] = [];
       snapshot.forEach((doc) => {
-        docs.push({ id: doc.id, ...doc.data() } as ActivityLog);
+        const data = doc.data();
+        // Client-side filter for branch isolation
+        if (!isAdmin && userBranchId && data.branchId && data.branchId !== userBranchId) {
+          return;
+        }
+        docs.push({ id: doc.id, ...data } as ActivityLog);
       });
       setLogs(docs);
       setLoading(false);
@@ -47,7 +56,7 @@ export function useActivityLogs(count = 10) {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, count]);
+  }, [user, storeId, count, claims]);
 
   return { logs, loading };
 }

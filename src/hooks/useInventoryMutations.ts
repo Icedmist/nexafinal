@@ -3,7 +3,9 @@ import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { notifyActivity } from "@/lib/notification-service";
 import type { Item, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest, Category } from "@/types/inventory";
+import { MovementType } from "@/types/inventory";
 
 interface MutationResult<TData> {
   mutate: (data: TData, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => void;
@@ -12,9 +14,9 @@ interface MutationResult<TData> {
 }
 
 function useFirestoreMutation<TData>(
-  mutationFn: (storeId: string, data: TData, userUid: string) => Promise<void>
+  mutationFn: (storeId: string, data: TData, userUid: string, claims: any) => Promise<void>
 ): MutationResult<TData> {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { storeId } = useBusiness();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -28,7 +30,7 @@ function useFirestoreMutation<TData>(
       setIsLoading(true);
       setError(null);
       try {
-        await mutationFn(storeId, data, user.uid);
+        await mutationFn(storeId, data, user.uid, claims);
         opts?.onSuccess?.();
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
@@ -38,21 +40,33 @@ function useFirestoreMutation<TData>(
         setIsLoading(false);
       }
     },
-    [user, storeId, mutationFn]
+    [user, storeId, mutationFn, claims]
   );
 
   return { mutate, isLoading, error };
 }
 
 export function useCreateItem() {
-  return useFirestoreMutation<Item>(async (storeId, data, uid) => {
+  const { user } = useAuth();
+  return useFirestoreMutation<Item>(async (storeId, data, uid, claims) => {
     await addDoc(collection(db, "products"), {
       ...data,
       storeId,
+      branchId: claims?.branchId || null,
       ownerId: uid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    await notifyActivity(
+      "movement",
+      "New Product Added",
+      `${data.name} was added to the catalog.`,
+      uid,
+      user?.email || "unknown",
+      storeId,
+      claims?.branchId
+    );
   });
 }
 
@@ -74,8 +88,26 @@ export function useDeleteItem() {
 }
 
 export function useCreateMovement() {
-  return useFirestoreMutation<Omit<StockMovement, "id">>(async (storeId, data, uid) => {
-    await addDoc(collection(db, "movements"), { ...data, storeId, ownerId: uid, performedBy: uid, createdAt: new Date().toISOString() });
+  const { user } = useAuth();
+  return useFirestoreMutation<Omit<StockMovement, "id">>(async (storeId, data, uid, claims) => {
+    await addDoc(collection(db, "movements"), { 
+      ...data, 
+      storeId, 
+      branchId: claims?.branchId || null,
+      ownerId: uid, 
+      performedBy: uid, 
+      createdAt: new Date().toISOString() 
+    });
+
+    await notifyActivity(
+      "movement",
+      "Stock Movement",
+      `${data.type === MovementType.Received ? "Added" : "Removed"} ${data.quantity} units of product.`,
+      uid,
+      user?.email || "unknown",
+      storeId,
+      claims?.branchId
+    );
   });
 }
 

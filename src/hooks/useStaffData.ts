@@ -122,6 +122,29 @@ export function useStaffMutations() {
   return { addStaff, updateStaff };
 }
 
+export function useUpdateSelf() {
+  const { user, refreshClaims } = useAuth();
+  const { updateStaff } = useStaffMutations();
+
+  const updateProfile = async (updates: { displayName?: string; password?: string }) => {
+    if (!user) throw new Error("Not authenticated");
+    
+    // 1. Update Firebase Auth Profile if name changed
+    if (updates.displayName) {
+      const { updateProfile: firebaseUpdateProfile } = await import("firebase/auth");
+      await firebaseUpdateProfile(user, { displayName: updates.displayName });
+    }
+
+    // 2. Update staff document via the same cloud function
+    await updateStaff(user.uid, updates);
+
+    // 3. Refresh claims to ensure UI is in sync
+    await refreshClaims();
+  };
+
+  return { updateProfile };
+}
+
 
 export function useStoreMutations() {
   const { ownerId } = useBusiness();

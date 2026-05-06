@@ -28,6 +28,7 @@ import { printBarcodeLabels } from "@/components/catalog/PrintBarcodeLabel";
 import { useItems, useCategories, useSuppliers, useLocations } from "@/hooks/useInventoryData";
 import { useCreateItem, useUpdateItem, useDeleteItem } from "@/hooks/useInventoryMutations";
 import { useStoreBranches } from "@/hooks/useStaffData";
+import { exportItemsQRCodes } from "@/lib/bulk-qr";
 import { PermissionGate, usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
 import type { Item } from "@/types/inventory";
@@ -341,6 +342,10 @@ function CatalogPage() {
             const selectedItems = allItems.filter((i) => selected.has(i.id));
             const locMap = new Map(locations.map((l) => [l.id, l.name]));
             printBarcodeLabels(selectedItems, locMap);
+          }}
+          onExportQRCodes={() => {
+            const selectedItems = allItems.filter((i) => selected.has(i.id));
+            exportItemsQRCodes(selectedItems);
           }}
         />
       </PermissionGate>

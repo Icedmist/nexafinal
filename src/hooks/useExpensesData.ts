@@ -41,8 +41,10 @@ export function useExpenses(): QueryResult<Expense[]> {
 
       // Filter by branch if user is restricted
       let filtered = expenses;
+      const isAdmin = claims?.role === "admin";
       const userBranchId = claims?.branchId;
-      if (userBranchId) {
+      
+      if (!isAdmin && userBranchId) {
         filtered = filtered.filter(e => e.branchId === userBranchId);
       }
 
@@ -72,6 +74,7 @@ export function useExpensesMutations() {
       branchId: claims?.branchId || null,
       ownerId: user.uid,
       recordedBy: user.uid,
+      recordedByName: user.displayName || user.email?.split("@")[0] || "Unknown Staff",
     });
   };
 

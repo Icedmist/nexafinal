@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Users, UserPlus, Mail, Shield, Building2, Search, MoreVertical, Ban, CheckCircle2, Pencil } from "lucide-react";
+import { Plus, Users, UserPlus, Mail, Shield, Building2, Search, MoreVertical, Ban, CheckCircle2, Pencil, TrendingUp, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -29,7 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStaff, useStaffMutations, useStoreBranches } from "@/hooks/useStaffData";
+import { useRole } from "@/hooks/useRole";
+import { StaffPerformance } from "@/components/analytics/StaffPerformance";
+import { StaffActivityLog } from "@/components/staff/StaffActivityLog";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Staff, Branch } from "@/types/tenant";
@@ -43,6 +47,8 @@ function StaffPage() {
   const { data: staff, isLoading } = useStaff();
   const { data: branches } = useStoreBranches();
   const { addStaff, updateStaff } = useStaffMutations();
+  const { isAdmin } = useRole();
+  const [activeTab, setActiveTab] = useState("directory");
   
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -141,20 +147,44 @@ function StaffPage() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search staff by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-11 rounded-xl border-2 font-medium"
-          />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="flex items-center justify-between mb-6">
+          <TabsList className="bg-muted/50 p-1 rounded-xl h-11 border-2">
+            <TabsTrigger value="directory" className="rounded-lg font-bold text-[10px] uppercase tracking-widest px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Users className="h-3.5 w-3.5 mr-2" />
+              Staff Directory
+            </TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger value="performance" className="rounded-lg font-bold text-[10px] uppercase tracking-widest px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <TrendingUp className="h-3.5 w-3.5 mr-2" />
+                  Performance
+                </TabsTrigger>
+                <TabsTrigger value="activity" className="rounded-lg font-bold text-[10px] uppercase tracking-widest px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Activity className="h-3.5 w-3.5 mr-2" />
+                  Activity Log
+                </TabsTrigger>
+              </>
+            )}
+          </TabsList>
         </div>
-      </div>
 
-      <Card className="overflow-hidden border-2 rounded-2xl shadow-sm">
-        <Table>
+        <TabsContent value="directory" className="space-y-6 mt-0">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search staff by name or email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-11 rounded-xl border-2 font-medium"
+              />
+            </div>
+          </div>
+
+          <Card className="overflow-hidden border-2 rounded-2xl shadow-sm">
+            <Table>
+              {/* ... Table content ... */}
           <TableHeader className="bg-muted/50">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-[10px] font-black uppercase tracking-widest py-4">Name</TableHead>
@@ -228,7 +258,20 @@ function StaffPage() {
             )}
           </TableBody>
         </Table>
-      </Card>
+          </Card>
+        </TabsContent>
+
+        {isAdmin && (
+          <>
+            <TabsContent value="performance" className="mt-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <StaffPerformance />
+            </TabsContent>
+            <TabsContent value="activity" className="mt-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <StaffActivityLog />
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-[425px] rounded-2xl">
