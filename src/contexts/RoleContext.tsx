@@ -12,6 +12,7 @@ export interface RoleContextValue {
   isManager: boolean;
   isStaff: boolean;
   isRequestor: boolean;
+  isSystemAdmin: boolean;
 }
 
 export const RoleContext = createContext<RoleContextValue | null>(null);
@@ -57,6 +58,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       isManager: role === "manager",
       isStaff: role === "staff",
       isRequestor: role === "requestor",
+      isSystemAdmin: role === "system_admin",
     };
   }, [role]);
 

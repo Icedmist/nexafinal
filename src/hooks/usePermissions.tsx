@@ -9,18 +9,18 @@ type PermissionAction =
   | "create_request" | "access_settings" | "manage_suppliers";
 
 const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
-  create_item: ["admin", "manager"],
-  edit_item: ["admin", "manager"],
-  delete_item: ["admin", "manager"],
-  log_movement: ["admin", "manager", "staff"],
-  create_po: ["admin", "manager"],
-  approve_request: ["admin", "manager"],
-  manage_users: ["admin", "manager"],
-  view_analytics: ["admin", "manager"],
-  export_data: ["admin", "manager"],
-  create_request: ["admin", "manager", "staff", "requestor"],
-  access_settings: ["admin", "manager", "staff"],
-  manage_suppliers: ["admin", "manager"],
+  create_item: ["admin", "manager", "system_admin"],
+  edit_item: ["admin", "manager", "system_admin"],
+  delete_item: ["admin", "manager", "system_admin"],
+  log_movement: ["admin", "manager", "staff", "system_admin"],
+  create_po: ["admin", "manager", "system_admin"],
+  approve_request: ["admin", "manager", "system_admin"],
+  manage_users: ["admin", "manager", "system_admin"],
+  view_analytics: ["admin", "manager", "system_admin"],
+  export_data: ["admin", "manager", "system_admin"],
+  create_request: ["admin", "manager", "staff", "requestor", "system_admin"],
+  access_settings: ["admin", "manager", "staff", "system_admin"],
+  manage_suppliers: ["admin", "manager", "system_admin"],
 };
 
 export function usePermissions() {

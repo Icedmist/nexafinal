@@ -186,6 +186,36 @@ export function useLocations(): QueryResult<Location[]> {
   return { data, isLoading, error: null };
 }
 
+export function useAllLocations(): QueryResult<Location[]> {
+  const { user, claimsReady } = useAuth();
+  const { storeId } = useBusiness();
+  const [data, setData] = useState<Location[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
+      return;
+    }
+
+    const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
+    const unsubscribe = onSnapshot(locQuery, (snapshot) => {
+      const items: Location[] = [];
+      snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));
+      
+      setData(items);
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (AllLocations):", err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, storeId, claimsReady]);
+
+  return { data, isLoading, error: null };
+}
+
 export function useSuppliers(): QueryResult<Supplier[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();

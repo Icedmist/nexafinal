@@ -195,28 +195,37 @@
   body {
     background: white !important;
     color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* Hide everything except print view */
   nav, header, aside, [data-radix-dialog-overlay],
-  .po-print-view ~ *, [role="banner"], [role="complementary"],
-  button, [data-slot="sheet-close"] {
+  .no-print, button, [data-slot="sheet-close"], 
+  .print-hidden, [role="banner"], [role="complementary"] {
     display: none !important;
   }
 
-  .po-print-view {
+  .po-print-view, .receipt-print-view {
     display: block !important;
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    background: white;
-    padding: 2rem;
-    overflow: visible;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 1cm !important;
+    background: white !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Specific for thermal receipts */
+  .receipt-print-view {
+    padding: 0.5cm !important;
+    width: 80mm !important;
   }
 
   @page {
-    size: A4 portrait;
-    margin: 1.5cm;
+    size: auto;
+    margin: 0;
   }
 }
 

@@ -178,7 +178,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
 
   return (
     <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="p-0 overflow-visible border-none bg-transparent shadow-none max-w-[450px] w-full focus:outline-none">
+      <DialogContent className="p-0 overflow-visible border-none bg-transparent shadow-none max-w-[450px] w-full focus:outline-none no-print">
         <div className="nexa-card nexa-glass p-8 sm:p-10 flex flex-col max-h-[95vh] overflow-y-auto items-center w-full shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)] relative animate-in fade-in zoom-in-95 duration-500 border border-white/10">
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5 pointer-events-none" />
             
@@ -328,6 +328,66 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
           </div>
       </DialogContent>
     </Dialog>
+    
+    {/* Hidden Print-Only View optimized for 80mm thermal printers */}
+    <div className="hidden print:block receipt-print-view font-sans text-black">
+      <div className="text-center space-y-2 mb-6">
+        <h1 className="text-xl font-bold uppercase">{storeName}</h1>
+        <p className="text-[10px] font-medium tracking-widest">OFFICIAL RECEIPT</p>
+      </div>
+
+      <div className="text-[10px] space-y-1 mb-4">
+        <div className="flex justify-between">
+          <span>Receipt #:</span>
+          <span className="font-bold">{sale.id.slice(-8).toUpperCase()}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Date:</span>
+          <span>{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+        </div>
+        {sale.recordedByName && (
+          <div className="flex justify-between">
+            <span>Cashier:</span>
+            <span>{sale.recordedByName}</span>
+          </div>
+        )}
+        {sale.customerName && (
+          <div className="flex justify-between">
+            <span>Customer:</span>
+            <span>{sale.customerName}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="border-y border-black border-dashed py-3 my-4">
+        <div className="text-[10px] space-y-3">
+          {sale.items.map((li, idx) => (
+            <div key={idx} className="space-y-1">
+              <div className="flex justify-between font-bold">
+                <span className="flex-1">{li.itemName}</span>
+                <span>{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
+              </div>
+              <div className="text-[9px] text-gray-600 pl-2">
+                {li.quantity} × {fmtNgn(li.unitPriceNgn)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2 mb-8">
+        <div className="flex justify-between items-center text-lg font-bold">
+          <span>TOTAL</span>
+          <span>{fmtNgn(sale.totalNgn)}</span>
+        </div>
+      </div>
+
+      <div className="text-center text-[9px] space-y-1 mt-10">
+        <p>Thank you for your purchase! 🙏</p>
+        <p className="font-bold tracking-widest opacity-50">NEXA STORE OS</p>
+      </div>
+    </div>
+  </>
   );
 }
 

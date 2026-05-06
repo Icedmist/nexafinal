@@ -15,18 +15,20 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useStaff, useStaffMutations } from "@/hooks/useStaffData";
-import { useLocations } from "@/hooks/useInventoryData";
+import { useAllLocations } from "@/hooks/useInventoryData";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useRole } from "@/hooks/useRole";
 import type { Staff } from "@/types/tenant";
 
-type RoleType = "admin" | "manager" | "staff";
-const ROLE_LABELS: Record<RoleType, string> = { admin: "Admin", manager: "Inventory Manager", staff: "Staff" };
-const ROLE_COLORS: Record<RoleType, string> = { admin: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", manager: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", staff: "bg-muted text-muted-foreground" };
+type RoleType = "admin" | "manager" | "staff" | "system_admin";
+const ROLE_LABELS: Record<RoleType, string> = { admin: "Admin", manager: "Inventory Manager", staff: "Staff", system_admin: "System Admin" };
+const ROLE_COLORS: Record<RoleType, string> = { admin: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", manager: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", staff: "bg-muted text-muted-foreground", system_admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" };
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
+  const { role: currentRole } = useRole();
   const { data: staff, isLoading: staffLoading } = useStaff();
-  const { data: locations } = useLocations();
+  const { data: locations } = useAllLocations();
   const { addStaff, updateStaff } = useStaffMutations();
 
   const [search, setSearch] = useState("");
@@ -187,7 +189,7 @@ export function UserManagement() {
                 <TableCell className="font-medium">{staffMember.displayName}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{staffMember.email}</TableCell>
                 <TableCell>
-                  <RoleDropdown user={staffMember} currentUserId={currentUser?.uid || ""} adminCount={adminCount} isLastAdmin={isLastAdmin(staffMember)}
+                  <RoleDropdown user={staffMember} currentUserId={currentUser?.uid || ""} adminCount={adminCount} isLastAdmin={isLastAdmin(staffMember)} currentRole={currentRole}
                     onChangeRole={(newRole) => setRoleChange({ user: staffMember, newRole })} />
                 </TableCell>
                 <TableCell>
@@ -239,6 +241,7 @@ export function UserManagement() {
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Inventory Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
+                    {currentRole === "system_admin" && <SelectItem value="system_admin">System Admin</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -321,6 +324,7 @@ export function UserManagement() {
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
+                    {currentRole === "system_admin" && <SelectItem value="system_admin">System Admin</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -352,8 +356,8 @@ export function UserManagement() {
   );
 }
 
-function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, onChangeRole }: {
-  user: Staff; currentUserId: string; adminCount: number; isLastAdmin: boolean;
+function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, currentRole, onChangeRole }: {
+  user: Staff; currentUserId: string; adminCount: number; isLastAdmin: boolean; currentRole: string;
   onChangeRole: (role: RoleType) => void;
 }) {
   const isSelf = user.uid === currentUserId;
@@ -399,6 +403,11 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, onChangeRo
         <SelectItem value="staff">
           <div className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />Staff</div>
         </SelectItem>
+        {currentRole === "system_admin" && (
+          <SelectItem value="system_admin">
+            <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />System Admin</div>
+          </SelectItem>
+        )}
       </SelectContent>
     </Select>
   );

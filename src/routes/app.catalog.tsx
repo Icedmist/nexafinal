@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -232,6 +232,14 @@ function CatalogPage() {
             columns={csvColumns}
             filename="nexa-items"
           />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="hidden gap-1.5 sm:inline-flex border-primary/20 hover:border-primary/50" 
+            onClick={() => exportItemsQRCodes(items)}
+          >
+            <QrCode className="h-4 w-4" />Export QRs
+          </Button>
           <PermissionGate permission="create_item">
             <Button variant="outline" size="sm" className="hidden gap-1.5 sm:inline-flex" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />Import

@@ -1,4 +1,4 @@
-export type UserRoleType = "admin" | "manager" | "staff" | "requestor";
+export type UserRoleType = "admin" | "manager" | "staff" | "requestor" | "system_admin";
 
 export interface RolePermissions {
   canManageItems: boolean;
@@ -51,6 +51,16 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewAnalytics: false,
     canAccessSettings: false,
     canManageUsers: false,
+  },
+  system_admin: {
+    canManageItems: true,
+    canLogMovements: true,
+    canManagePOs: true,
+    canManageSuppliers: true,
+    canApproveRequests: true,
+    canViewAnalytics: true,
+    canAccessSettings: true,
+    canManageUsers: true,
   },
 };
 
