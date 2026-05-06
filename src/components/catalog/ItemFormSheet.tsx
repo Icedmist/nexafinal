@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { HelpTooltip } from "@/components/shared/HelpTooltip";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -25,17 +25,17 @@ import type { Branch } from "@/types/tenant";
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
-  description: z.string(),
-  categoryId: z.string(),
-  supplierId: z.string(),
-  locationId: z.string(),
+  description: z.string().optional(),
+  categoryId: z.string().optional(),
+  supplierId: z.string().optional(),
+  locationId: z.string().optional(),
   branchId: z.string().optional(),
-  unit: z.string(),
-  currentStock: z.coerce.number().min(0),
-  reorderPoint: z.coerce.number().min(0),
-  reorderQuantity: z.coerce.number().min(0),
-  costPrice: z.coerce.number().min(0),
-  sellingPrice: z.coerce.number().min(0),
+  unit: z.string().optional(),
+  currentStock: z.coerce.number().min(0, "Stock cannot be negative"),
+  reorderPoint: z.coerce.number().min(0, "Reorder point cannot be negative"),
+  reorderQuantity: z.coerce.number().min(0, "Reorder quantity cannot be negative"),
+  costPrice: z.coerce.number().min(0, "Cost price cannot be negative"),
+  sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative"),
   status: z.nativeEnum(ItemStatus),
 });
 
@@ -68,7 +68,7 @@ export function ItemFormSheet({
 }: ItemFormSheetProps) {
   const isEdit = !!item;
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors }, setError } = useForm<FormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors }, setError } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
@@ -77,7 +77,7 @@ export function ItemFormSheet({
       categoryId: "",
       supplierId: "",
       locationId: "",
-      branchId: "",
+      branchId: "all",
       unit: "each",
       currentStock: 0,
       reorderPoint: 0,
@@ -89,41 +89,82 @@ export function ItemFormSheet({
   });
 
   useEffect(() => {
-    if (open && item) {
-      reset({
-        name: item.name,
-        sku: item.sku,
-        description: item.description,
-        categoryId: item.categoryId ?? undefined,
-        supplierId: item.supplierId ?? undefined,
-        locationId: item.locationId ?? undefined,
-        branchId: item.branchId ?? "",
-        unit: item.unit,
-        currentStock: item.currentStock,
-        reorderPoint: item.reorderPoint,
-        reorderQuantity: item.reorderQuantity,
-        costPrice: item.costPrice,
-        sellingPrice: item.sellingPrice,
-        status: item.status,
-      });
-    } else if (open) {
-      reset();
+    if (open) {
+      if (item) {
+        reset({
+          name: item.name,
+          sku: item.sku,
+          description: item.description || "",
+          categoryId: item.categoryId ?? "",
+          supplierId: item.supplierId ?? "",
+          locationId: item.locationId ?? "",
+          branchId: item.branchId ?? "all",
+          unit: item.unit || "each",
+          currentStock: item.currentStock,
+          reorderPoint: item.reorderPoint,
+          reorderQuantity: item.reorderQuantity,
+          costPrice: item.costPrice,
+          sellingPrice: item.sellingPrice,
+          status: item.status,
+        });
+      } else {
+        reset({
+          name: "",
+          sku: "",
+          description: "",
+          categoryId: "",
+          supplierId: "",
+          locationId: "",
+          branchId: "all",
+          unit: "each",
+          currentStock: 0,
+          reorderPoint: 0,
+          reorderQuantity: 0,
+          costPrice: 0,
+          sellingPrice: 0,
+          status: ItemStatus.Active,
+        });
+      }
     }
   }, [open, item, reset]);
 
   const onSubmit = (data: FormValues) => {
-    const skuConflict = existingSkus.filter((s) => s === data.sku);
-    const allowed = isEdit && item?.sku === data.sku ? 1 : 0;
-    if (skuConflict.length > allowed) {
-      setError("sku", { message: "SKU already exists" });
+    // Check for SKU conflict manually before proceeding
+    const isSkuChanging = !isEdit || (item && item.sku !== data.sku);
+    if (isSkuChanging && existingSkus.includes(data.sku)) {
+      setError("sku", { message: "This SKU is already assigned to another product" });
+      import("sonner").then(({ toast }) => {
+        toast.error("Validation Error: SKU already exists");
+      });
       return;
     }
-    onSave({
+
+    // Clean up "none" values and empty strings for optional fields
+    const cleanedData = {
       ...data,
-      categoryId: data.categoryId || null,
-      supplierId: data.supplierId || null,
-      locationId: data.locationId || null,
-      branchId: data.branchId || null,
+      description: data.description?.trim() || "",
+      categoryId: (data.categoryId === "none" || !data.categoryId) ? null : data.categoryId,
+      supplierId: (data.supplierId === "none" || !data.supplierId) ? null : data.supplierId,
+      locationId: (data.locationId === "none" || !data.locationId) ? null : data.locationId,
+      branchId: (data.branchId === "all" || !data.branchId) ? null : data.branchId,
+    };
+
+    onSave(cleanedData);
+  };
+
+  const onInvalid = (errors: any) => {
+    const errorMessages = Object.entries(errors)
+      .map(([field, error]: [string, any]) => {
+        const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
+        return `${fieldName}: ${error.message}`;
+      })
+      .join("\n");
+    
+    import("sonner").then(({ toast }) => {
+      toast.error("Please fix the following errors:", {
+        description: errorMessages,
+        duration: 5000,
+      });
     });
   };
 
@@ -154,7 +195,7 @@ export function ItemFormSheet({
           </div>
 
         <div className="overflow-y-auto p-6 scroll-smooth">
-          <form id="item-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form id="item-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
             
             {/* Basic Info */}
             <div className={cardGroupCls}>
@@ -178,10 +219,12 @@ export function ItemFormSheet({
                 <div>
                   <label className={labelCls}>Unit of Measure</label>
                   <input {...register("unit")} className={`${inputCls} mt-1.5`} placeholder="each, kg, box…" />
+                  {errors.unit && <p className={errCls}>{errors.unit.message}</p>}
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Description (Optional)</label>
                   <textarea {...register("description")} rows={2} className={`${inputCls} h-auto py-2.5 mt-1.5 resize-none`} placeholder="Brief description of the product..." />
+                  {errors.description && <p className={errCls}>{errors.description.message}</p>}
                 </div>
               </div>
             </div>
@@ -195,26 +238,41 @@ export function ItemFormSheet({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div className="sm:col-span-3">
                   <label className={labelCls}>Category</label>
-                  <Select value={watch("categoryId") ?? ""} onValueChange={(v) => setValue("categoryId", v || "")}>
-                    <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue placeholder="Select a category" /></SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="categoryId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={`${inputCls} mt-1.5 h-10`}>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {categories.filter(c => c?.id).map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.categoryId && <p className={errCls}>{errors.categoryId.message}</p>}
                 </div>
                 <div>
                   <label className={labelCls}>Current Stock</label>
                   <input type="number" {...register("currentStock")} className={`${inputCls} mt-1.5`} />
+                  {errors.currentStock && <p className={errCls}>{errors.currentStock.message}</p>}
                 </div>
                 <div>
                   <label className={`${labelCls} flex items-center gap-1.5`}>
                     Reorder Point <HelpTooltip text="Minimum quantity before a low-stock alert is triggered. Set based on your typical usage rate." />
                   </label>
                   <input type="number" {...register("reorderPoint")} className={`${inputCls} mt-1.5`} />
+                  {errors.reorderPoint && <p className={errCls}>{errors.reorderPoint.message}</p>}
                 </div>
                 <div>
                   <label className={labelCls}>Reorder Qty</label>
                   <input type="number" {...register("reorderQuantity")} className={`${inputCls} mt-1.5`} />
+                  {errors.reorderQuantity && <p className={errCls}>{errors.reorderQuantity.message}</p>}
                 </div>
               </div>
             </div>
@@ -232,6 +290,7 @@ export function ItemFormSheet({
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
                     <input type="number" step="0.01" {...register("costPrice")} className={`${inputCls} pl-7`} placeholder="0.00" />
                   </div>
+                  {errors.costPrice && <p className={errCls}>{errors.costPrice.message}</p>}
                 </div>
                 <div>
                   <label className={labelCls}>Selling Price</label>
@@ -239,6 +298,7 @@ export function ItemFormSheet({
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
                     <input type="number" step="0.01" {...register("sellingPrice")} className={`${inputCls} pl-7`} placeholder="0.00" />
                   </div>
+                  {errors.sellingPrice && <p className={errCls}>{errors.sellingPrice.message}</p>}
                 </div>
               </div>
             </div>
@@ -252,42 +312,84 @@ export function ItemFormSheet({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className={labelCls}>Supplier</label>
-                  <Select value={watch("supplierId") ?? ""} onValueChange={(v) => setValue("supplierId", v || "")}>
-                    <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="supplierId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={`${inputCls} mt-1.5 h-10`}>
+                          <SelectValue placeholder="Select supplier" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {suppliers.filter(s => s?.id).map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.supplierId && <p className={errCls}>{errors.supplierId.message}</p>}
                 </div>
                 <div>
                   <label className={labelCls}>Location</label>
-                  <Select value={watch("locationId") ?? ""} onValueChange={(v) => setValue("locationId", v || "")}>
-                    <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue placeholder="Select location" /></SelectTrigger>
-                    <SelectContent>
-                      {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="locationId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={`${inputCls} mt-1.5 h-10`}>
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {locations.filter(l => l?.id).map((l) => (
+                            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.locationId && <p className={errCls}>{errors.locationId.message}</p>}
                 </div>
                 <div>
                   <label className={labelCls}>Branch Visibility</label>
-                  <Select value={watch("branchId") ?? ""} onValueChange={(v) => setValue("branchId", v || "")}>
-                    <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue placeholder="All branches" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All branches</SelectItem>
-                      {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="branchId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={`${inputCls} mt-1.5 h-10`}>
+                          <SelectValue placeholder="All branches" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All branches</SelectItem>
+                          {branches.filter(b => b?.id).map((b) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.branchId && <p className={errCls}>{errors.branchId.message}</p>}
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Product Status</label>
-                  <Select value={watch("status")} onValueChange={(v) => setValue("status", v as ItemStatus)}>
-                    <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ItemStatus.Active}>Active - Available for Sale</SelectItem>
-                      <SelectItem value={ItemStatus.Discontinued}>Discontinued - No longer restocking</SelectItem>
-                      <SelectItem value={ItemStatus.Archived}>Archived - Hidden from active lists</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="status"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={`${inputCls} mt-1.5 h-10`}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ItemStatus.Active}>Active - Available for Sale</SelectItem>
+                          <SelectItem value={ItemStatus.Discontinued}>Discontinued - No longer restocking</SelectItem>
+                          <SelectItem value={ItemStatus.Archived}>Archived - Hidden from active lists</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.status && <p className={errCls}>{errors.status.message}</p>}
                 </div>
               </div>
             </div>
@@ -299,7 +401,12 @@ export function ItemFormSheet({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl font-bold">
             Cancel
           </Button>
-          <Button type="submit" form="item-form" disabled={loading} className="min-w-[140px] rounded-xl font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20">
+          <Button 
+            type="submit" 
+            form="item-form" 
+            disabled={loading} 
+            className="min-w-[140px] rounded-xl font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20"
+          >
             {loading ? "Saving…" : (isEdit ? "Update Product" : "Add Product")}
           </Button>
         </div>

@@ -49,7 +49,9 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
         <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue placeholder="Category" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Categories</SelectItem>
-          {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          {categories.filter(c => c.id).map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
 
@@ -57,7 +59,9 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
         <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue placeholder="Supplier" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Suppliers</SelectItem>
-          {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+          {suppliers.filter(s => s.id).map((s) => (
+            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
 
@@ -72,7 +76,9 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
         <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue placeholder="Location" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Locations</SelectItem>
-          {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+          {locations.filter(l => l.id).map((l) => (
+            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

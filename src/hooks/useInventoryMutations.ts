@@ -52,7 +52,7 @@ export function useCreateItem() {
     await addDoc(collection(db, "products"), {
       ...data,
       storeId,
-      branchId: claims?.branchId || null,
+      branchId: data.branchId !== undefined ? data.branchId : (claims?.branchId || null),
       ownerId: uid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

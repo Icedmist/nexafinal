@@ -42,6 +42,9 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     
     q = query(q, orderBy("createdAt", "desc"));
 
+    const isAdmin = claims?.role === "admin";
+    const userBranchId = claims?.branchId;
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Item[] = [];
       snapshot.forEach((doc) => {
@@ -49,9 +52,9 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       });
       
       let filtered = items;
-      const isAdmin = claims?.role === "admin";
-      const userBranchId = claims?.branchId;
       
+      // For non-admins, restrict to their branch.
+      // Items with no branchId (null/undefined) are considered "Global" and visible to everyone.
       if (!isAdmin && userBranchId) {
         filtered = filtered.filter(i => !i.branchId || i.branchId === userBranchId);
       }
@@ -79,7 +82,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, filters?.categoryId, filters?.status, filters?.search, filters?.locationId]);
+  }, [user, storeId, claimsReady, claims, filters?.categoryId, filters?.status, filters?.search, filters?.locationId]);
 
   return { data, isLoading, error };
 }
@@ -218,13 +221,14 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       orderBy("createdAt", "desc"),
       firestoreLimit(count)
     );
+    const isAdmin = claims?.role === "admin";
+    const userBranchId = claims?.branchId;
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: StockMovement[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as StockMovement));
       
       let filtered = items;
-      const isAdmin = claims?.role === "admin";
-      const userBranchId = claims?.branchId;
       
       if (!isAdmin && userBranchId) {
         filtered = filtered.filter(m => m.branchId === userBranchId);
@@ -237,7 +241,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, count]);
+  }, [user, storeId, claimsReady, claims, count]);
 
   return { data, isLoading, error: null };
 }
