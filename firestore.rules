@@ -11,7 +11,7 @@ service cloud.firestore {
     match /stores/{storeId} {
       allow read: if true; 
       allow create: if isAuth(); 
-      allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin() || (getRole() == 'manager' && getStoreId() == storeId));
       
       // Subcollections of stores
       match /{allSubcollections=**} {

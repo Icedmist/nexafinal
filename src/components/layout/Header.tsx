@@ -79,8 +79,11 @@ export function Header() {
         <Menu className="h-5 w-5" />
       </Button>
 
-      <div className="flex flex-col md:hidden">
-        <span className="text-sm font-black tracking-tight truncate max-w-[120px]">{storeName}</span>
+      <div className="flex items-center gap-2 md:hidden overflow-hidden">
+        {profile?.branding?.logo && (
+          <img src={profile.branding.logo} className="h-6 w-6 object-contain" alt="Logo" />
+        )}
+        <span className="text-sm font-black tracking-tight truncate max-w-[100px]">{storeName}</span>
       </div>
 
       <button data-tour="search" type="button" onClick={() => setPaletteOpen(true)} className="flex h-9 flex-1 items-center gap-2 rounded-md border border-input bg-white px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 md:max-w-sm">

@@ -121,13 +121,22 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   return (
     <nav data-tour="sidebar" className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center gap-2 px-5">
-        <div className="bg-primary/10 rounded-lg p-1">
-          <img src={nexaLogo} className="h-5 w-5 text-primary" alt="NEXA Logo" />
+      <div className="flex h-20 items-center gap-4 px-5 border-b border-sidebar-border/50">
+        <div className="bg-primary/10 rounded-2xl p-2 shadow-inner flex items-center justify-center">
+          <img 
+            src={profile?.branding?.logo || nexaLogo} 
+            className="h-12 w-12 text-primary object-contain transition-transform hover:scale-110" 
+            alt="Store Logo" 
+          />
         </div>
-        <span className="text-lg font-black tracking-tight uppercase italic text-sidebar-primary-foreground truncate">
-          {profile?.storeDetails?.name || "NEXA Store OS"}
-        </span>
+        <div className="flex flex-col overflow-hidden">
+          <span className="text-sm font-black tracking-tighter uppercase italic text-sidebar-primary-foreground truncate">
+            {profile?.storeDetails?.name || "NEXA Store OS"}
+          </span>
+          <span className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/30">
+            Powered by NEXA
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-2">

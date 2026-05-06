@@ -16,11 +16,11 @@ function AuthLayout() {
       </div>
 
       <header className="px-6 py-8 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="bg-primary rounded-xl p-1.5 transition-transform group-hover:rotate-12">
-            <Package className="h-5 w-5 text-primary-foreground" />
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="bg-primary rounded-2xl p-2 shadow-lg shadow-primary/20 transition-transform group-hover:rotate-12">
+            <Package className="h-8 w-8 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <span className="text-2xl font-black tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent uppercase italic">
             NEXA Store OS
           </span>
         </Link>

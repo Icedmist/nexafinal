@@ -39,8 +39,8 @@ function SettingsPage() {
 
   const tabs = [
     { value: "profile", label: "Profile", visible: true, component: <UserProfile /> },
-    { value: "store", label: "Store", visible: isAdmin, component: <StoreSettings /> },
-    { value: "branding", label: "Branding", visible: isAdmin, component: <StoreBranding /> },
+    { value: "store", label: "Store", visible: isAdmin || isManager, component: <StoreSettings /> },
+    { value: "branding", label: "Branding", visible: isAdmin || isManager, component: <StoreBranding /> },
     { value: "customers", label: "Customers", visible: isAdmin || isManager, component: <CustomerDirectory /> },
     { value: "categories", label: "Categories", visible: isAdmin || isManager, component: <CategoryManager /> },
     { value: "custom-fields", label: "Custom Fields", visible: isAdmin, component: <CustomFieldManager /> },

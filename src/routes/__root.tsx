@@ -1,7 +1,8 @@
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { FirebaseAuthProvider } from "@/contexts/FirebaseAuthContext";
-import { BusinessProvider } from "@/contexts/BusinessContext";
+import { BusinessProvider, useBusiness } from "@/contexts/BusinessContext";
 import { TenantProvider } from "@/contexts/TenantContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -53,11 +54,45 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function DynamicTitle() {
+  const { profile } = useBusiness();
+  
+  useEffect(() => {
+    const storeName = profile?.storeDetails?.name;
+    const isSubdomain = typeof window !== 'undefined' && window.location.hostname.split('.').length >= 3;
+
+    if (storeName && isSubdomain) {
+      document.title = `${storeName} — NEXA OS`;
+    } else if (storeName) {
+      document.title = `${storeName} — NEXA Store OS`;
+    } else {
+      document.title = "NEXA Store OS — Unified Retail Intelligence";
+    }
+    
+    // Update favicon if store branding has a logo
+    const brandingLogo = profile?.branding?.logo;
+    if (brandingLogo) {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = brandingLogo;
+      } else {
+        const newLink = document.createElement('link');
+        newLink.rel = 'icon';
+        newLink.href = brandingLogo;
+        document.head.appendChild(newLink);
+      }
+    }
+  }, [profile]);
+
+  return null;
+}
+
 function RootComponent() {
   return (
     <FirebaseAuthProvider>
       <TenantProvider>
         <BusinessProvider>
+          <DynamicTitle />
           <RoleProvider>
             <ErrorBoundary>
               <Outlet />

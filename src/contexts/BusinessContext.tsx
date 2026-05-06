@@ -149,9 +149,13 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateProfile = async (updates: Partial<BusinessProfile>) => {
     if (!user || !ownerId) return;
-    // Only owners/admins can update profile
-    if (user.uid !== ownerId) {
-      throw new Error("Only store owners can update branding and settings.");
+    
+    const isManager = claims?.role === 'manager' && claims?.storeId === storeId;
+    const isAdmin = claims?.role === 'admin' || claims?.role === 'owner';
+    
+    // Only owners/admins/managers can update profile
+    if (user.uid !== ownerId && !isManager && !isAdmin) {
+      throw new Error("Only store owners or managers can update branding and settings.");
     }
     const docRef = doc(db, 'stores', storeId!);
     await updateDoc(docRef, updates);

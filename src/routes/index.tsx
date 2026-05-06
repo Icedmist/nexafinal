@@ -80,8 +80,8 @@ function Nav() {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 px-6 py-4 ${scrolled ? "bg-background/80 backdrop-blur-xl border-b border-border shadow-lg" : "bg-transparent"}`}>
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="bg-primary rounded-xl p-1.5 shadow-lg shadow-primary/20 transition-transform group-hover:rotate-12">
-            <img src={nexaLogo} className="h-6 w-6 invert brightness-0" alt="NEXA Logo" />
+          <div className="bg-primary rounded-2xl p-2 shadow-lg shadow-primary/20 transition-transform group-hover:rotate-12">
+            <img src={nexaLogo} className="h-8 w-8 invert brightness-0" alt="NEXA Logo" />
           </div>
           <span className="text-xl font-black tracking-tight uppercase italic">NEXA Store OS</span>
         </Link>
@@ -422,8 +422,8 @@ function StoreLoginPage({ store }: { store: Store }) {
 
       <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="text-center">
-          <div className="mx-auto h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 flex text-primary mb-6 shadow-inner ring-4 ring-primary/5">
-             <Building2 className="h-10 w-10" />
+          <div className="mx-auto h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 flex text-primary mb-6 shadow-inner ring-8 ring-primary/5">
+             <Building2 className="h-12 w-12" />
           </div>
           <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">{store.name}</h1>
           <p className="mt-2 text-sm font-bold text-muted-foreground uppercase tracking-widest italic opacity-60">Authorized Personnel Only</p>

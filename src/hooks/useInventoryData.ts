@@ -164,6 +164,7 @@ export function useLocations(): QueryResult<Location[]> {
     const isAdmin = claims?.role === "admin";
     const userBranchId = claims?.branchId;
 
+    const q = query(collection(db, "locations"), where("storeId", "==", storeId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Location[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));

@@ -150,17 +150,25 @@ export function StoreBranding() {
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-4">
           <Label className="text-xs font-black uppercase tracking-widest">Logo Asset URL</Label>
-          <div className="relative">
-            <Upload className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://cloud.assets.com/my-logo.svg"
-              className="h-12 rounded-xl pl-12"
-            />
+          <div className="flex gap-4 items-start">
+            <div className="relative flex-1">
+              <Upload className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://cloud.assets.com/my-logo.svg"
+                className="h-12 rounded-xl pl-12"
+              />
+            </div>
+            {logoUrl && (
+              <div className="h-12 w-12 rounded-xl border border-border bg-muted/30 p-1 flex items-center justify-center overflow-hidden shrink-0">
+                <img src={logoUrl} alt="Preview" className="h-full w-full object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+              </div>
+            )}
           </div>
+          <p className="text-[10px] text-muted-foreground italic">Provide a direct URL to an SVG, PNG, or JPG logo. This will be used for your sidebar and favicon.</p>
         </div>
 
         <Button onClick={handleSave} className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 shadow-lg shadow-primary/20">
