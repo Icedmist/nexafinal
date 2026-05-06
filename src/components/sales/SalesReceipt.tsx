@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Printer, X, Download, MessageCircle, FileText, UserCircle } from "lucide-react";
+import { Printer, X, Download, MessageCircle, FileText, UserCircle, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
@@ -178,123 +178,104 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
 
   return (
     <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="p-0 overflow-visible border-none bg-transparent shadow-none max-w-[500px] w-full focus:outline-none">
-        <div className="nexa-card nexa-glass p-6 sm:p-12 flex flex-col max-h-[95vh] overflow-y-auto items-center w-full shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)] relative animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-700 ease-out border border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
+      <DialogContent className="p-0 overflow-visible border-none bg-transparent shadow-none max-w-[450px] w-full focus:outline-none">
+        <div className="nexa-card nexa-glass p-8 sm:p-10 flex flex-col max-h-[95vh] overflow-y-auto items-center w-full shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)] relative animate-in fade-in zoom-in-95 duration-500 border border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5 pointer-events-none" />
             
             {/* Header actions */}
             <div className="flex items-center justify-between mb-8 print:hidden w-full relative z-10">
               <div className="flex flex-col">
-                <DialogTitle className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/60">
+                <DialogTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/60">
                   Transaction Receipt
                 </DialogTitle>
-                <div className="h-0.5 w-8 bg-primary/40 mt-1.5 rounded-full" />
+                <div className="h-0.5 w-6 bg-primary/30 mt-1 rounded-full" />
               </div>
               <button 
                 type="button" 
                 onClick={onClose} 
-                className="rounded-full p-2.5 hover:bg-white/10 transition-all hover:rotate-90 group"
+                className="rounded-full p-2 hover:bg-white/10 transition-all group"
               >
                 <X className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
               </button>
             </div>
 
-            {/* Success Icon */}
-            <div className="mb-10 relative">
-              <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center relative z-10 animate-in zoom-in-50 duration-1000 delay-200">
-                <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
-                  <div className="h-14 w-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-[0_0_40px_rgba(var(--primary),0.5)] transform hover:scale-110 transition-transform duration-500">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="28"
-                      height="28"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+            {/* Receipt Content Area */}
+            <div className="receipt-print-area w-full flex flex-col items-center text-center space-y-8 relative z-10">
+              
+              {/* Store Logo/Name */}
+              <div className="space-y-2 flex flex-col items-center">
+                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-2 border border-primary/20">
+                  <Receipt className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-3xl font-black tracking-tight text-foreground">{storeName}</h2>
+                <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em]">Official Purchase Record</p>
+              </div>
+
+              {/* Status Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-widest">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Payment Successful
+              </div>
+
+              {/* Primary Info Table */}
+              <div className="w-full space-y-4 py-6 border-y border-white/5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-left space-y-1">
+                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Reference</p>
+                    <p className="font-mono text-xs font-black text-foreground">#{sale.id.slice(-8).toUpperCase()}</p>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Date</p>
+                    <p className="text-xs font-black text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy")}</p>
+                  </div>
+                  <div className="text-left space-y-1">
+                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Cashier</p>
+                    <div className="flex items-center gap-1.5 justify-start">
+                      <UserCircle className="h-3 w-3 text-primary/60" />
+                      <p className="text-xs font-black text-foreground">{sale.recordedByName || "Store Assistant"}</p>
+                    </div>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Time</p>
+                    <p className="text-xs font-black text-foreground">{format(new Date(sale.createdAt), "HH:mm")}</p>
                   </div>
                 </div>
               </div>
-              <div className="absolute inset-0 bg-primary/30 blur-3xl rounded-full scale-150 opacity-40" />
-            </div>
 
-            {/* Receipt body */}
-            <div className="receipt-print-area space-y-10 w-full max-w-[380px] relative z-10 text-center">
-              {/* Store header */}
-              <div className="space-y-3">
-                <h2 className="text-4xl font-black tracking-tighter text-foreground leading-none">{storeName}</h2>
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.25em]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
-                  Confirmed Sale
-                </div>
-              </div>
-
-              {/* Main Info Card */}
-              <div className="space-y-5 bg-black/5 dark:bg-white/5 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/10 shadow-inner">
-                <div className="flex justify-between items-center px-1">
-                  <span className="text-[10px] text-muted-foreground/50 font-black uppercase tracking-widest text-left">Ref Number</span>
-                  <span className="font-mono text-[11px] font-black text-foreground bg-white/10 px-3 py-1 rounded-full border border-white/5">
-                    {sale.id.slice(-12).toUpperCase()}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between items-center px-1">
-                  <span className="text-[10px] text-muted-foreground/50 font-black uppercase tracking-widest text-left">Timestamp</span>
-                  <span className="font-black text-[11px] text-foreground">
-                    {format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}
-                  </span>
-                </div>
-
-                <div className="h-px bg-white/5 mx-1" />
-
-                <div className="flex justify-between items-center px-1">
-                  <span className="text-[10px] text-muted-foreground/50 font-black uppercase tracking-widest text-left">Cashier</span>
-                  <div className="flex items-center gap-2">
-                    <UserCircle className="h-3.5 w-3.5 text-primary/60" />
-                    <span className="font-black text-[11px] text-foreground">{sale.recordedByName || "Store Assistant"}</span>
+              {/* Customer Info (Optional) */}
+              {(sale.customerName || sale.customerPhone) && (
+                <div className="w-full bg-white/5 rounded-2xl p-4 space-y-3">
+                  <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest text-center">Customer Information</p>
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-xs font-bold text-muted-foreground">Name</span>
+                    <span className="text-xs font-black text-foreground">{sale.customerName || "Guest"}</span>
                   </div>
+                  {sale.customerPhone && (
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs font-bold text-muted-foreground">Contact</span>
+                      <span className="text-xs font-mono font-black text-primary">{sale.customerPhone}</span>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {(sale.customerName || sale.customerPhone) && (
-                  <div className="pt-4 mt-2 border-t border-white/5 space-y-4">
-                    {sale.customerName && (
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] text-muted-foreground/50 font-black uppercase tracking-widest text-left">Customer</span>
-                        <span className="font-black text-[11px] text-foreground">{sale.customerName}</span>
-                      </div>
-                    )}
-                    {sale.customerPhone && (
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] text-muted-foreground/50 font-black uppercase tracking-widest text-left">Contact</span>
-                        <span className="font-mono font-black text-[11px] text-foreground">{sale.customerPhone}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Items Section */}
-              <div className="space-y-6 text-left px-2">
+              {/* Items List */}
+              <div className="w-full space-y-4">
                 <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 whitespace-nowrap">Purchase Summary</span>
-                  <div className="h-px w-full bg-gradient-to-r from-border/50 to-transparent" />
+                  <div className="h-px flex-1 bg-white/5" />
+                  <span className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Items</span>
+                  <div className="h-px flex-1 bg-white/5" />
                 </div>
-                
-                <div className="space-y-6">
+                <div className="space-y-4 text-left">
                   {sale.items.map((li, idx) => (
-                    <div key={idx} className="flex items-start justify-between gap-8 group/item">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-black text-foreground group-hover/item:text-primary transition-colors leading-tight">{li.itemName}</p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-60">
-                          {li.quantity} Units × {fmtNgn(li.unitPriceNgn)}
+                    <div key={idx} className="flex justify-between items-start gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-foreground leading-none mb-1">{li.itemName}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
+                          {li.quantity} × {fmtNgn(li.unitPriceNgn)}
                         </p>
                       </div>
-                      <span className="font-mono text-sm font-black text-foreground shrink-0 mt-0.5">
+                      <span className="font-mono text-sm font-black text-foreground">
                         {fmtNgn(li.unitPriceNgn * li.quantity)}
                       </span>
                     </div>
@@ -302,68 +283,46 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                 </div>
               </div>
 
-              <Separator className="h-px border-dashed bg-transparent border-t-2 border-border/20 mx-2" />
-
-              {/* Total Amount */}
-              <div className="space-y-4 py-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground/30">Total Net Amount</p>
-                <div className="relative inline-block">
-                  <div className="text-7xl font-black font-mono tracking-tighter text-foreground drop-shadow-2xl">
+              {/* Total Section */}
+              <div className="w-full pt-4 space-y-6">
+                <Separator className="h-px border-dashed bg-transparent border-t-2 border-white/10" />
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.4em]">Total Amount</p>
+                  <div className="text-6xl font-black font-mono tracking-tighter text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]">
                     {fmtNgn(sale.totalNgn)}
                   </div>
-                  <div className="absolute -inset-8 bg-primary/10 blur-[40px] rounded-full -z-10 animate-pulse" />
+                </div>
+                <Separator className="h-px border-dashed bg-transparent border-t-2 border-white/10" />
+              </div>
+
+              {/* Footer */}
+              <div className="pt-4 space-y-3">
+                <p className="text-xs font-bold text-muted-foreground">Thank you for your purchase! 🙏</p>
+                <div className="flex items-center justify-center gap-2">
+                   <div className="h-1 w-1 rounded-full bg-primary/30" />
+                   <p className="text-[9px] font-black text-muted-foreground/20 uppercase tracking-[0.5em]">NEXA Store OS</p>
+                   <div className="h-1 w-1 rounded-full bg-primary/30" />
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="space-y-5 pt-8 print:hidden">
-                <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" size="lg" onClick={handlePrint} className="h-16 rounded-[1.5rem] border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-xl hover:shadow-primary/30">
-                    <Printer className="h-4 w-4" /> Print
-                  </Button>
-                  <Button variant="outline" size="lg" onClick={handleDownloadPDF} disabled={downloading} className="h-16 rounded-[1.5rem] border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-xl hover:shadow-primary/30">
-                    <Download className="h-4 w-4" /> {downloading ? "..." : "Save PDF"}
-                  </Button>
-                </div>
-
+              {/* Print Actions */}
+              <div className="w-full grid grid-cols-2 gap-3 pt-6 print:hidden">
+                <Button variant="outline" size="lg" onClick={handlePrint} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:bg-primary hover:text-primary-foreground transition-all">
+                  <Printer className="h-4 w-4" /> Print
+                </Button>
+                <Button variant="outline" size="lg" onClick={handleDownloadPDF} disabled={downloading} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:bg-primary hover:text-primary-foreground transition-all">
+                  <Download className="h-4 w-4" /> {downloading ? "..." : "Save PDF"}
+                </Button>
                 {sale.customerPhone && (
-                  <div className="space-y-4 pt-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-px flex-1 bg-border/20" />
-                      <p className="text-[9px] font-black uppercase tracking-[0.4em] text-muted-foreground/30">Instant Sharing</p>
-                      <div className="h-px flex-1 bg-border/20" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={handleWhatsAppText}
-                        className="h-16 rounded-[1.5rem] border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:border-emerald-500 hover:text-emerald-500 transition-all shadow-lg"
-                      >
-                        <MessageCircle className="h-4 w-4" /> WhatsApp
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={handleWhatsAppPDF}
-                        className="h-16 rounded-[1.5rem] border-2 font-black uppercase text-[10px] tracking-[0.2em] gap-2 hover:border-emerald-500 hover:text-emerald-500 transition-all shadow-lg"
-                      >
-                        <FileText className="h-4 w-4" /> Send PDF
-                      </Button>
-                    </div>
-                  </div>
+                  <>
+                    <Button variant="outline" size="lg" onClick={handleWhatsAppText} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:border-emerald-500 hover:text-emerald-500 transition-all col-span-1">
+                      <MessageCircle className="h-4 w-4" /> WhatsApp
+                    </Button>
+                    <Button variant="outline" size="lg" onClick={handleWhatsAppPDF} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:border-emerald-500 hover:text-emerald-500 transition-all col-span-1">
+                      <FileText className="h-4 w-4" /> Send PDF
+                    </Button>
+                  </>
                 )}
-              </div>
-              
-              <div className="pt-12 text-center">
-                <p className="text-[10px] font-black text-muted-foreground/20 uppercase tracking-[0.6em]">
-                  NEXA Store OS
-                </p>
-                <div className="flex items-center justify-center gap-3 mt-3">
-                  <div className="h-1 w-1 rounded-full bg-border/30" />
-                  <div className="h-1 w-1 rounded-full bg-border/30" />
-                  <div className="h-1 w-1 rounded-full bg-border/30" />
-                </div>
               </div>
             </div>
           </div>

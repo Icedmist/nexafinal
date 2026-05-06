@@ -202,7 +202,7 @@ export function useSuppliers(): QueryResult<Supplier[]> {
 }
 
 export function useMovements(count = 20): QueryResult<StockMovement[]> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const [data, setData] = useState<StockMovement[]>([]);
   const [isLoading, setIsLoading] = useState(true);

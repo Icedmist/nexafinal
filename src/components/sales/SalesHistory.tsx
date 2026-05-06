@@ -199,11 +199,16 @@ export function SalesHistoryPage() {
                   <div className="text-right">
                     <p className="text-lg font-black tracking-tight text-foreground">{fmtNgn(sale.totalNgn)}</p>
                     <p className="text-[10px] font-bold text-primary/70 uppercase">{sale.items.reduce((s, li) => s + li.quantity, 0)} items</p>
-                    {isAdmin && sale.branchId && (
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
-                        {branches.find(b => b.id === sale.branchId)?.name || "Branch"}
+                    <div className="mt-2 space-y-0.5">
+                      <p className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-widest flex items-center justify-end gap-1">
+                        <User className="h-2 w-2" /> {sale.recordedByName || "Staff"}
                       </p>
-                    )}
+                      {isAdmin && sale.branchId && (
+                        <p className="text-[9px] font-black text-primary/40 uppercase tracking-widest">
+                          {branches.find(b => b.id === sale.branchId)?.name || "Branch"}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -254,7 +259,14 @@ export function SalesHistoryPage() {
                     <span className="capitalize font-black text-primary">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
                   </div>
                 </div>
-                {isAdmin && selectedSale.branchId && (
+                <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
+                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Cashier</span>
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3 w-3 text-primary/60" />
+                    <span className="font-black text-foreground">{selectedSale.recordedByName || "Store Assistant"}</span>
+                  </div>
+                </div>
+                {selectedSale.branchId && (
                   <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
                     <span className="text-muted-foreground font-bold uppercase tracking-wider">Branch</span>
                     <span className="font-black text-foreground uppercase">{branches.find(b => b.id === selectedSale.branchId)?.name || "Main Branch"}</span>

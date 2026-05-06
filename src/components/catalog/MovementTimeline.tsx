@@ -18,7 +18,11 @@ interface MovementTimelineProps {
   maxEntries?: number;
 }
 
+import { useStoreBranches } from "@/hooks/useStaffData";
+
 export function MovementTimeline({ history, itemId, maxEntries = 20 }: MovementTimelineProps) {
+  const { data: branches } = useStoreBranches();
+  
   const filtered = useMemo(() => {
     return history.slice(0, maxEntries);
   }, [history, maxEntries]);
@@ -53,6 +57,14 @@ export function MovementTimeline({ history, itemId, maxEntries = 20 }: MovementT
                   <>
                     <span>·</span>
                     <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded uppercase tracking-wider">{m.reference}</span>
+                  </>
+                )}
+                {m.branchId && (
+                  <>
+                    <span>·</span>
+                    <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">
+                      {branches.find(b => b.id === m.branchId)?.name || "Branch"}
+                    </span>
                   </>
                 )}
               </div>
