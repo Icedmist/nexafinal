@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy, addDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import type { SaleTransaction } from "@/types/inventory";
+import { MovementType } from "@/types/inventory";
 
 interface QueryResult<T> {
   data: T;
@@ -71,7 +71,12 @@ export function useSalesMutations() {
     if (!user || !storeId) {
       throw new Error("Authentication required to record sales. Please sign in.");
     }
-    return await addDoc(collection(db, "sales"), {
+
+    const batch = writeBatch(db);
+    
+    // 1. Create Sale Document
+    const saleRef = doc(collection(db, "sales"));
+    const saleData = {
       ...sale,
       itemIds: sale.items.map((i) => i.itemId),
       storeId: storeId,
@@ -79,7 +84,38 @@ export function useSalesMutations() {
       ownerId: user.uid,
       recordedBy: user.uid,
       recordedByName: user.displayName || user.email?.split("@")[0] || "Unknown Staff",
+    };
+    batch.set(saleRef, saleData);
+
+    // 2. Update Product Inventory and Record Movements
+    sale.items.forEach((item) => {
+      const productRef = doc(db, "products", item.itemId);
+      
+      // Decrement stock
+      batch.update(productRef, {
+        currentStock: increment(-item.quantity),
+        updatedAt: new Date().toISOString()
+      });
+
+      // Create movement record for history
+      const movementRef = doc(collection(db, "movements"));
+      batch.set(movementRef, {
+        itemId: item.itemId,
+        type: MovementType.Shipped,
+        quantity: item.quantity,
+        reference: `Sale: ${saleRef.id}`,
+        notes: `Customer: ${sale.customerName || "Walk-in"}`,
+        storeId: storeId,
+        branchId: claims?.branchId || null,
+        ownerId: user.uid,
+        performedBy: user.uid,
+        performedByName: user.displayName || user.email?.split("@")[0] || "Staff",
+        createdAt: new Date().toISOString()
+      });
     });
+
+    await batch.commit();
+    return { id: saleRef.id };
   };
 
   return { addSale };

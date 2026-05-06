@@ -31,35 +31,61 @@ export function QRCodeGenerator({ item, open, onOpenChange }: QRCodeGeneratorPro
 
   const handleDownload = async () => {
     setDownloading(true);
+    const toastId = toast.loading("Preparing QR code...");
+    
     try {
       const img = new Image();
       img.crossOrigin = "anonymous";
+      
+      const timeout = setTimeout(() => {
+        img.onload = null;
+        img.onerror = null;
+        toast.error("Download timed out", { id: toastId });
+        setDownloading(false);
+      }, 10000);
+
       img.onload = () => {
+        clearTimeout(timeout);
         const canvas = document.createElement("canvas");
-        canvas.width = 300;
-        canvas.height = 300;
+        canvas.width = 600; // High res
+        canvas.height = 600;
         const ctx = canvas.getContext("2d");
         if (ctx) {
-          ctx.fillStyle = "#fff";
-          ctx.fillRect(0, 0, 300, 300);
-          ctx.drawImage(img, 0, 0);
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `qr-${item.sku}.png`;
-              a.click();
-              URL.revokeObjectURL(url);
-              toast.success("QR code downloaded!");
-            }
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, 600, 600);
+          ctx.drawImage(img, 0, 0, 600, 600);
+          
+          try {
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `qr-${item.sku || "product"}.png`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+                toast.success("QR code downloaded!", { id: toastId });
+              } else {
+                toast.error("Failed to generate image blob", { id: toastId });
+              }
+              setDownloading(false);
+            }, "image/png", 1.0);
+          } catch (e) {
+            toast.error("Security error: Canvas tainted", { id: toastId });
             setDownloading(false);
-          });
+          }
         }
       };
+
+      img.onerror = () => {
+        clearTimeout(timeout);
+        toast.error("Failed to load QR image source", { id: toastId });
+        setDownloading(false);
+      };
+
       img.src = qrCodeUrl;
     } catch (error) {
-      toast.error("Failed to download QR code");
+      toast.error("Failed to initiate download", { id: toastId });
       setDownloading(false);
     }
   };
