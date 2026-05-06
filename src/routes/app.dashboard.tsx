@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, DollarSign, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store } from "lucide-react";
+import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
@@ -165,7 +165,7 @@ function DashboardPage() {
         <>
           <AccordionSection id="metrics" title="Business Overview" openSection={openSection} onToggle={toggleSection} dataTour="metrics">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={DollarSign} /></button>
+              <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={Banknote} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left"><MetricCard label="Net Profit" value={`${NAIRA}${netProfit.toLocaleString("en-NG")}`} accentColor={netProfit >= 0 ? "healthy" : "danger"} icon={netProfit >= 0 ? TrendingUp : TrendingDown} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/expenses" })} className="text-left"><MetricCard label="Expenses" value={`${NAIRA}${totalExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/customers" })} className="text-left"><MetricCard label="Unique Customers" value={uniqueCustomers} accentColor="neutral" icon={Users} /></button>
@@ -210,7 +210,7 @@ function DashboardPage() {
         <>
           <AccordionSection id="metrics" title="Today's Performance" openSection={openSection} onToggle={toggleSection} dataTour="metrics">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left"><MetricCard label="Today's Revenue" value={`${NAIRA}${todayRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={DollarSign} /></button>
+              <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left"><MetricCard label="Today's Revenue" value={`${NAIRA}${todayRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={Banknote} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/sales-history" })} className="text-left"><MetricCard label="Today's Orders" value={todaySales.length} accentColor="neutral" icon={ShoppingCart} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/expenses" })} className="text-left"><MetricCard label="Today's Expenses" value={`${NAIRA}${todayExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left"><MetricCard label="Net Today" value={`${NAIRA}${(todayRevenue - todayExpenses).toLocaleString("en-NG")}`} accentColor={todayRevenue - todayExpenses >= 0 ? "healthy" : "danger"} icon={todayRevenue - todayExpenses >= 0 ? TrendingUp : TrendingDown} /></button>

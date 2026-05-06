@@ -118,8 +118,12 @@ function LoginPage() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center">
-        <div className="mx-auto h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 flex text-primary mb-6 shadow-inner ring-8 ring-primary/5">
-           {store ? <Building2 className="h-12 w-12" /> : <Package className="h-12 w-12" />}
+        <div className="mx-auto h-24 w-24 items-center justify-center rounded-3xl bg-white flex text-primary mb-6 shadow-inner ring-8 ring-primary/5 overflow-hidden">
+           {store?.branding?.logo ? (
+             <img src={store.branding.logo} className="h-full w-full object-contain p-2" alt="Logo" />
+           ) : (
+             store ? <Building2 className="h-12 w-12" /> : <Package className="h-12 w-12" />
+           )}
         </div>
         <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">
           {store ? `Login to ${store.name}` : "Welcome Back"}

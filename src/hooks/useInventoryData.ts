@@ -31,21 +31,21 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       return;
     }
 
-    let q = query(
+    let prodQuery = query(
       collection(db, "products"),
       where("storeId", "==", storeId)
     );
 
     if (filters?.categoryId) {
-      q = query(q, where("categoryId", "==", filters.categoryId));
+      prodQuery = query(prodQuery, where("categoryId", "==", filters.categoryId));
     }
     
-    q = query(q, orderBy("createdAt", "desc"));
+    prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
 
     const isAdmin = claims?.role === "admin";
     const userBranchId = claims?.branchId;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(prodQuery, (snapshot) => {
       const items: Item[] = [];
       snapshot.forEach((doc) => {
         items.push({ id: doc.id, ...doc.data() } as Item);
@@ -164,8 +164,8 @@ export function useLocations(): QueryResult<Location[]> {
     const isAdmin = claims?.role === "admin";
     const userBranchId = claims?.branchId;
 
-    const q = query(collection(db, "locations"), where("storeId", "==", storeId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
+    const unsubscribe = onSnapshot(locQuery, (snapshot) => {
       const items: Location[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));
       
@@ -197,8 +197,8 @@ export function useSuppliers(): QueryResult<Supplier[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const q = query(collection(db, "suppliers"), where("storeId", "==", storeId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const supQuery = query(collection(db, "suppliers"), where("storeId", "==", storeId));
+    const unsubscribe = onSnapshot(supQuery, (snapshot) => {
       const items: Supplier[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Supplier));
       setData(items);

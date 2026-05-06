@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { 
   TrendingUp, 
   ShoppingBag, 
-  DollarSign, 
+  Banknote, 
   BarChart3, 
   ArrowUpRight,
   User as UserIcon,
@@ -100,7 +100,7 @@ export function StaffPerformance() {
         <Card className="p-6 border-2">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-green-500/10 flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-green-500" />
+              <Banknote className="h-6 w-6 text-green-500" />
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Avg per Staff</p>

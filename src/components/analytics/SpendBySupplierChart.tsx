@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { DollarSign } from "lucide-react";
+import { Banknote } from "lucide-react";
 import type { PurchaseOrder, Supplier } from "@/types/inventory";
 import { OrderStatus } from "@/types/inventory";
 
@@ -37,7 +37,7 @@ export function SpendBySupplierChart({ suppliers, purchaseOrders }: Props) {
   }, [suppliers, purchaseOrders]);
 
   if (data.length === 0) {
-    return <EmptyState icon={DollarSign} title="No spending data" description="No received purchase orders to analyze." />;
+    return <EmptyState icon={Banknote} title="No spending data" description="No received purchase orders to analyze." />;
   }
 
   return (

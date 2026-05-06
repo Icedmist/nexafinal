@@ -61,10 +61,8 @@ function DynamicTitle() {
     const storeName = profile?.storeDetails?.name;
     const isSubdomain = typeof window !== 'undefined' && window.location.hostname.split('.').length >= 3;
 
-    if (storeName && isSubdomain) {
-      document.title = `${storeName} — NEXA OS`;
-    } else if (storeName) {
-      document.title = `${storeName} — NEXA Store OS`;
+    if (storeName) {
+      document.title = `${storeName} | Nexa Store OS`;
     } else {
       document.title = "NEXA Store OS — Unified Retail Intelligence";
     }
@@ -72,15 +70,38 @@ function DynamicTitle() {
     // Update favicon if store branding has a logo
     const brandingLogo = profile?.branding?.logo;
     if (brandingLogo) {
-      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-      if (link) {
-        link.href = brandingLogo;
-      } else {
-        const newLink = document.createElement('link');
-        newLink.rel = 'icon';
-        newLink.href = brandingLogo;
-        document.head.appendChild(newLink);
-      }
+      const updateLink = (rel: string, href: string, sizes?: string) => {
+        // Find existing link by rel and sizes (if provided), or create one
+        const selector = sizes ? `link[rel='${rel}'][sizes='${sizes}']` : `link[rel='${rel}']`;
+        let link = document.querySelector(selector) as HTMLLinkElement;
+        
+        // Fallback for rel="icon" vs rel="shortcut icon" or tags without sizes
+        if (!link && rel === 'icon') {
+          link = document.querySelector(`link[rel~='icon']:not([sizes])`) as HTMLLinkElement;
+        }
+
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = rel;
+          if (sizes) link.setAttribute('sizes', sizes);
+          document.head.appendChild(link);
+        }
+        
+        link.href = href;
+        
+        // Remove type if it's not SVG
+        if (href.endsWith('.svg')) {
+          link.type = 'image/svg+xml';
+        } else {
+          link.removeAttribute('type');
+        }
+      };
+
+      // Set multiple sizes to ensure the browser picks the best/largest one
+      updateLink('icon', brandingLogo, '32x32');
+      updateLink('icon', brandingLogo, '192x192'); // High-res / Android
+      updateLink('apple-touch-icon', brandingLogo, '180x180');
+      updateLink('shortcut icon', brandingLogo);
     }
   }, [profile]);
 

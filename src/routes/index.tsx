@@ -422,11 +422,16 @@ function StoreLoginPage({ store }: { store: Store }) {
 
       <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="text-center">
-          <div className="mx-auto h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 flex text-primary mb-6 shadow-inner ring-8 ring-primary/5">
-             <Building2 className="h-12 w-12" />
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">{store.name}</h1>
-          <p className="mt-2 text-sm font-bold text-muted-foreground uppercase tracking-widest italic opacity-60">Authorized Personnel Only</p>
+          {store.branding?.logo ? (
+            <div className="mx-auto h-32 w-32 overflow-hidden rounded-[2.5rem] bg-white mb-8 shadow-2xl ring-8 ring-primary/5 group/logo hover:scale-105 transition-transform duration-500">
+              <img src={store.branding.logo} className="h-full w-full object-cover" alt={store.name} />
+            </div>
+          ) : (
+            <div className="mx-auto h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 flex text-primary mb-6 shadow-inner ring-8 ring-primary/5">
+              <Building2 className="h-12 w-12" />
+            </div>
+          )}
+          <p className="mt-2 text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] italic opacity-40">Authorized Personnel Only</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6 rounded-[2.5rem] border-2 border-border bg-card p-8 shadow-2xl relative overflow-hidden group">

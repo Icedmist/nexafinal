@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AlertTriangle, Clock, DollarSign, Settings2 } from "lucide-react";
+import { AlertTriangle, Clock, Banknote, Settings2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ReorderAnalysis } from "@/lib/reorder-engine";
 import { cn } from "@/lib/utils";
@@ -57,7 +57,7 @@ export function ForecastSummary({ analyses }: ForecastSummaryProps) {
       {
         label: "Suggested Reorder Units",
         value: totalReorderValue.toLocaleString(),
-        icon: DollarSign,
+        icon: Banknote,
       },
       {
         label: "Items Needing Attention",

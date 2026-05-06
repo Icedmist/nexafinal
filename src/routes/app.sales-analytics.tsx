@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Package } from "lucide-react";
+import { TrendingUp, TrendingDown, Banknote, Calendar, BarChart3, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useItems } from "@/hooks/useInventoryData";
@@ -111,7 +111,7 @@ function SalesAnalyticsPage() {
             <SummaryCard label="Today" value={fmtN(todayRev)} icon={Calendar} />
             <SummaryCard label="This Week" value={fmtN(weekRev)} icon={TrendingUp} />
             <SummaryCard label="This Month" value={fmtN(monthRev)} icon={BarChart3} />
-            <SummaryCard label="All Time" value={fmtN(allRev)} icon={DollarSign} />
+            <SummaryCard label="All Time" value={fmtN(allRev)} icon={Banknote} />
           </div>
 
           {/* P&L summary */}

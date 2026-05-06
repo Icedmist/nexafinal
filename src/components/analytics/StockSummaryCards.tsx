@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DollarSign, Package, BarChart3, AlertTriangle } from "lucide-react";
+import { Banknote, Package, BarChart3, AlertTriangle } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import type { Item } from "@/types/inventory";
 
@@ -22,7 +22,7 @@ export function StockSummaryCards({ items }: StockSummaryCardsProps) {
         <div className="absolute left-2 top-2 bottom-2 w-[3px] rounded-full bg-primary" />
         <p className="text-sm text-muted-foreground">Total Inventory Value</p>
         <div className="mt-1 flex items-baseline gap-2">
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <Banknote className="h-4 w-4 text-muted-foreground" />
           <span className="font-mono text-2xl font-bold text-foreground">
             ₦{metrics.totalValue.toLocaleString("en-NG", { maximumFractionDigits: 0 })}
           </span>

@@ -58,6 +58,7 @@ export function useKeyboardShortcuts({ onHelpOpen }: UseKeyboardShortcutsOptions
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isInputFocused()) return;
 
+      if (!e?.key) return;
       const key = e.key.toLowerCase();
 
       // ? opens help

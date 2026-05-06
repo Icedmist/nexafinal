@@ -11,6 +11,10 @@ export interface Store {
   slug: string;
   name: string;
   branches: Branch[];
+  branding?: {
+    logo?: string;
+    primaryColor?: string;
+  };
   createdAt: string;
 }
 

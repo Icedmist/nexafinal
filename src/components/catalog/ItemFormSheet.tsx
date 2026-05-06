@@ -11,7 +11,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, PackagePlus, Tag, Boxes, DollarSign, MapPin } from "lucide-react";
+import { X, PackagePlus, Tag, Boxes, Banknote, MapPin } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -280,7 +280,7 @@ export function ItemFormSheet({
             {/* Pricing */}
             <div className={cardGroupCls}>
               <div className="mb-4 flex items-center gap-2 text-primary">
-                <DollarSign className="h-4 w-4" />
+                <Banknote className="h-4 w-4" />
                 <h3 className="font-semibold text-foreground">Pricing</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
