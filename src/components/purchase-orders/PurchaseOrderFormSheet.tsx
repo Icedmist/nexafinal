@@ -36,6 +36,8 @@ import { LineItemsEditor, type LineItemRow } from "./LineItemsEditor";
 import { LowStockSuggestions } from "./LowStockSuggestions";
 import { ShoppingCart, X, Calendar, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
+
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.Draft]: "Draft",
@@ -77,7 +79,9 @@ export function PurchaseOrderFormSheet({
   const isEdit = !!purchaseOrder;
   const createPO = useCreatePurchaseOrder();
   const updatePO = useUpdatePurchaseOrder();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [lineError, setLineError] = useState("");
 
@@ -165,9 +169,12 @@ export function PurchaseOrderFormSheet({
         expectedDelivery: new Date(values.expectedDelivery).toISOString(),
         notes: values.notes,
         createdBy: user?.email || "System",
+        storeId: storeId || "",
+        branchId: claims?.branchId || null,
         createdAt: now,
         updatedAt: now,
       };
+
       createPO.mutate(newPO, {
         onSuccess: () => { toast.success(`${orderNumber} created`); onOpenChange(false); },
         onError: (e) => toast.error(e.message || "Failed to create purchase order."),

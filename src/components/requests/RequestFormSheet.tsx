@@ -23,6 +23,8 @@ import { useCreateRequest } from "@/hooks/useInventoryMutations";
 import { RequestStatus } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
+
 
 interface LineRow {
   id: string;
@@ -51,7 +53,9 @@ interface RequestFormSheetProps {
 }
 
 export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheetProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+
   const createRequest = useCreateRequest();
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
@@ -131,10 +135,13 @@ export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheet
         })),
         requestedBy: user?.email || user?.uid || "staff",
         approvedBy: null,
+        storeId: storeId || "",
+        branchId: claims?.branchId || null,
         reason,
         createdAt: now,
         updatedAt: now,
       },
+
       {
         onSuccess: () => {
           toast.success("Request submitted");

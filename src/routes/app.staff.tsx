@@ -55,7 +55,8 @@ function StaffPage() {
   const [newStaff, setNewStaff] = useState({
     displayName: "",
     email: "",
-    role: "staff" as "admin" | "manager" | "staff" | "system_admin",
+    role: "staff" as "admin" | "manager" | "staff" | "system_admin" | "owner",
+
     branchId: "",
     password: "",
   });
