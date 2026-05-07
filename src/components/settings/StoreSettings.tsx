@@ -99,11 +99,26 @@ export function StoreSettings() {
   const getStaffLoginUrl = () => {
     const slug = profile?.storeDetails?.slug || "";
     if (!slug) return "";
-    const host = window.location.host;
+    const { host, protocol } = window.location;
+    
+    // If current host is already on the subdomain or is the slug itself, just return current origin
+    if (host.startsWith(`${slug}.`) || host.split(':')[0] === slug) {
+      return `${protocol}//${host}`;
+    }
+
     const parts = host.split(".");
-    // Get base domain (strip existing subdomain if present)
-    const baseDomain = parts.length >= 3 ? parts.slice(1).join(".") : host;
-    return `${window.location.protocol}//${slug}.${baseDomain}`;
+    // Better base domain detection: if we have more than 2 parts (e.g. app.nexastore.com), 
+    // or if we have 2 parts but the first isn't the slug (e.g. nexastore.com),
+    // we want to strip the first part.
+    let baseDomain = host;
+    if (parts.length >= 3) {
+      baseDomain = parts.slice(1).join(".");
+    } else if (parts.length === 2 && !host.includes('localhost')) {
+        // For domains like example.com, we don't want to strip unless we are adding a subdomain
+        // But usually the admin app is on a subdomain like admin.example.com
+    }
+    
+    return `${protocol}//${slug}.${baseDomain}`;
   };
 
   const staffLoginUrl = getStaffLoginUrl();

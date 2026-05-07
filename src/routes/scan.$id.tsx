@@ -1,26 +1,15 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useEffect } from "react";
 
-export default ScanRedirect;
-
-function ScanRedirect() {
-  const { id } = Route.useParams();
+export default function ScanRedirect() {
+  const { id } = useParams();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (id) {
-      // Redirect to catalog with the item detail sheet open
-      navigate({
-        to: "/app/catalog",
-        search: { item: id },
-        replace: true,
-      });
+      navigate(`/app/catalog?item=${id}`, { replace: true });
     } else {
-      // Fallback to dashboard if no ID
-      navigate({
-        to: "/app/dashboard",
-        replace: true,
-      });
+      navigate("/app/dashboard", { replace: true });
     }
   }, [id, navigate]);
 

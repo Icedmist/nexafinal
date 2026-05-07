@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,8 @@ function RequestsPage() {
   const { can } = usePermissions();
   const updateRequest = useUpdateRequest();
   const navigate = useNavigate();
-  const { request: requestParam } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const { request: requestParam } = Object.fromEntries(searchParams.entries()) as any;
   const isManagerOrAdmin = isAdminRole(role) || role === "manager";
   const canApproveReq = can("approve_request");
   const [formOpen, setFormOpen] = useState(false);
@@ -106,13 +107,13 @@ function RequestsPage() {
   function handleRowClick(req: InventoryRequest) {
     setDetailRequest(req);
     setDetailOpen(true);
-    navigate({ to: "/app/requests", search: { request: req.id }, replace: true });
+    navigate(`/app/requests?request=${req.id}`, { replace: true });
   }
 
   function handleDetailClose(open: boolean) {
     setDetailOpen(open);
     if (!open) {
-      navigate({ to: "/app/requests", search: { request: undefined }, replace: true });
+      navigate("/app/requests", { replace: true });
     }
   }
 

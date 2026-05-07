@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import {  } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Plus, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MovementsTable } from "@/components/movements/MovementsTable";
@@ -36,7 +36,8 @@ function applyFilters(movements: StockMovement[], f: MovementFilters): StockMove
 }
 
 function MovementsPage() {
-  const { item: itemParam } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const { item: itemParam } = Object.fromEntries(searchParams.entries()) as any;
   const [filters, setFilters] = useState<MovementFilters>(EMPTY_MOVEMENT_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
   const { data: movements } = useMovements();

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import {  } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Plus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -35,7 +35,8 @@ export default PurchaseOrdersPage;
 
 function PurchaseOrdersPage() {
   const { user } = useAuth();
-  const { po: poParam } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const { po: poParam } = Object.fromEntries(searchParams.entries()) as any;
   const { data: purchaseOrders } = usePurchaseOrders();
   const { data: suppliers } = useSuppliers();
   const { data: catalogItems } = useItems();

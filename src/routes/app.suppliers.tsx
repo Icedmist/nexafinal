@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Truck } from "lucide-react";
 import { SuppliersTable } from "@/components/suppliers/SuppliersTable";
 import { SupplierFormSheet } from "@/components/suppliers/SupplierFormSheet";
@@ -22,7 +22,8 @@ interface SuppliersSearch {
 export default SuppliersPage;
 
 function SuppliersPage() {
-  const { supplier: supplierParam } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const { supplier: supplierParam } = Object.fromEntries(searchParams.entries()) as any;
   const navigate = useNavigate();
   const { data: suppliers } = useSuppliers();
   const { data: items } = useItems();
@@ -68,13 +69,13 @@ function SuppliersPage() {
   function openDetail(s: Supplier) {
     setDetailSupplier(s);
     setDetailOpen(true);
-    navigate({ to: "/app/suppliers", search: { supplier: s.id }, replace: true });
+    navigate(`/app/suppliers?supplier=${s.id}`, { replace: true });
   }
 
   function handleDetailClose(open: boolean) {
     setDetailOpen(open);
     if (!open) {
-      navigate({ to: "/app/suppliers", search: {}, replace: true });
+      navigate("/app/suppliers", { replace: true });
     }
   }
 

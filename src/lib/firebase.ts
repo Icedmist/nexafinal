@@ -1,7 +1,17 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  getFirestore,
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  doc, 
+  setDoc, 
+  getDoc 
+} from "firebase/firestore";
 import { getAnalytics, type Analytics } from "firebase/analytics";
+import { getFunctions } from "firebase/functions";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,15 +23,27 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase only if it hasn't been initialized already (useful for SSR or fast refresh)
-import { getFunctions } from "firebase/functions";
-import { getStorage } from "firebase/storage";
-
+// Initialize Firebase only if it hasn't been initialized already
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 
-export const db = getFirestore(app);
+// Use initializeFirestore for more control over cache and persistence
+// We wrap it in a try-catch or check to prevent "Firestore already initialized" errors during hot reloads
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    }),
+    experimentalForceLongPolling: true
+  });
+} catch (e) {
+  // If already initialized, just get the existing instance
+  firestoreDb = getFirestore(app);
+}
+
+export const db = firestoreDb;
 export const storage = getStorage(app);
 export const functions = getFunctions(app, "us-central1");
 
@@ -37,7 +59,7 @@ export const getUserProfile = async (uid: string) => {
   return snap.exists() ? snap.data() : null;
 };
 
-// Initialize Analytics conditionally (often fails in dev/SSR environments)
+// Initialize Analytics conditionally
 export let analytics: Analytics | undefined;
 if (typeof window !== "undefined") {
   analytics = getAnalytics(app);

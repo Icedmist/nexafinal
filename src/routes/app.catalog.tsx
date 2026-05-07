@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Upload, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
@@ -44,14 +44,15 @@ interface CatalogSearch {
 export default CatalogPage;
 
 function CatalogPage() {
-  const { item: itemId, newItem } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const { item: itemId, newItem } = Object.fromEntries(searchParams.entries()) as any;
   const navigate = useNavigate();
 
   // Auto-open create form when navigated with newItem param
   useEffect(() => {
     if (newItem) {
       setSheetOpen(true);
-      navigate({ to: "/app/catalog", search: {}, replace: true });
+      navigate("/app/catalog", { replace: true });
     }
   }, [newItem, navigate]);
 
@@ -103,11 +104,11 @@ function CatalogPage() {
   }, [itemId, allItems]);
 
   const openDetail = useCallback((item: Item) => {
-    navigate({ to: "/app/catalog", search: { item: item.id } });
+    navigate(`/app/catalog?item=${item.id}`);
   }, [navigate]);
 
   const closeDetail = useCallback(() => {
-    navigate({ to: "/app/catalog", search: {} });
+    navigate("/app/catalog");
   }, [navigate]);
   const items = useMemo(() => {
     let result = allItems.filter((i) => i.status !== ItemStatus.Archived);
