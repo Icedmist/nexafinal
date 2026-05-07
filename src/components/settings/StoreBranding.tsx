@@ -26,23 +26,25 @@ export function StoreBranding() {
   const [storeSlug, setStoreSlug] = React.useState("");
   const [isUploading, setIsUploading] = React.useState(false);
 
-  const [baseDomain, setBaseDomain] = React.useState("");
 
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const host = window.location.host;
-      // If the current host already has a subdomain, try to get the base domain
-      // This is a simple heuristic: if there are 3+ parts, assume the first is a subdomain
-      const parts = host.split(".");
-      if (parts.length >= 3) {
-        setBaseDomain(parts.slice(1).join("."));
-      } else {
-        setBaseDomain(host);
-      }
+  const { staffLoginUrl, baseDomain } = React.useMemo(() => {
+    if (!storeSlug || typeof window === "undefined") return { staffLoginUrl: "", baseDomain: "" };
+    const { host, protocol } = window.location;
+    
+    let bd = host;
+    const parts = host.split(".");
+    if (parts.length >= 3) {
+      bd = parts.slice(1).join(".");
+    } else if (parts.length === 2 && !host.includes('localhost')) {
+      // Keep as is for domains like example.com
     }
-  }, []);
 
-  const staffLoginUrl = storeSlug ? `${window.location.protocol}//${storeSlug}.${baseDomain}` : "";
+    if (host.startsWith(`${storeSlug}.`) || host.split(':')[0] === storeSlug) {
+      return { staffLoginUrl: `${protocol}//${host}`, baseDomain: bd };
+    }
+
+    return { staffLoginUrl: `${protocol}//${storeSlug}.${bd}`, baseDomain: bd };
+  }, [storeSlug]);
 
   React.useEffect(() => {
     if (profile) {
