@@ -166,6 +166,9 @@ export default defineConfig(({ command }) => {
   const useCloudflare = command === "build" && process.env.NITRO_PRESET === "cloudflare-pages";
 
   return {
+    build: {
+      outDir: ".output",
+    },
     server: {
       host: "::",
       port: 8080,
