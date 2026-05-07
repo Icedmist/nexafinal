@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { Plus, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,13 +31,7 @@ import { EMPTY_REQUEST_FILTERS } from "@/components/requests/request-filter-type
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
-export const Route = createFileRoute("/app/requests")({
-  component: RequestsPage,
-  head: () => ({ meta: [{ title: "Requests — NEXA Store OS" }] }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    request: (search.request as string) || undefined,
-  }),
-});
+export default RequestsPage;
 
 function applyFilters(requests: InventoryRequest[], filters: RequestFilters): InventoryRequest[] {
   return requests.filter((r) => {

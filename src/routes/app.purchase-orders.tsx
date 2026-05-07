@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { Plus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -31,13 +31,7 @@ interface POSearch {
   po?: string;
 }
 
-export const Route = createFileRoute("/app/purchase-orders")({
-  component: PurchaseOrdersPage,
-  head: () => ({ meta: [{ title: "Purchase Orders — NEXA Store OS" }] }),
-  validateSearch: (search: Record<string, unknown>): POSearch => ({
-    po: typeof search.po === "string" ? search.po : undefined,
-  }),
-});
+export default PurchaseOrdersPage;
 
 function PurchaseOrdersPage() {
   const { user } = useAuth();

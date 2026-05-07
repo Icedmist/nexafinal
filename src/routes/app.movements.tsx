@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { Plus, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MovementsTable } from "@/components/movements/MovementsTable";
@@ -15,13 +15,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import type { StockMovement } from "@/types/inventory";
 
-export const Route = createFileRoute("/app/movements")({
-  component: MovementsPage,
-  head: () => ({ meta: [{ title: "Movements — NEXA Store OS" }] }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    item: typeof search.item === "string" ? search.item : undefined,
-  }),
-});
+export default MovementsPage;
 
 function applyFilters(movements: StockMovement[], f: MovementFilters): StockMovement[] {
   let result = movements;

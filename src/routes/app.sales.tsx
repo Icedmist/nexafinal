@@ -1,9 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { SalesGrid } from "@/components/sales/SalesGrid";
 
-export const Route = createFileRoute("/app/sales")({
-  component: SalesPage,
-});
+export default SalesPage;
 
 function SalesPage() {
   return (

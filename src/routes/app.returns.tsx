@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { RotateCcw, Package, AlertCircle, Calendar, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,7 @@ import { REFUND_REASONS } from "@/types/finance";
 
 const NAIRA = "₦";
 
-export const Route = createFileRoute("/app/returns")({
-  component: ReturnsPage,
-  head: () => ({ meta: [{ title: "Returns & Refunds — NEXA Store OS" }] }),
-});
+export default ReturnsPage;
 
 import { useSales } from "@/hooks/useSalesData";
 import { useRefunds, useRefundsMutations } from "@/hooks/useRefundsData";

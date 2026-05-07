@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useMovements, useItems } from "@/hooks/useInventoryData";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { ActivityItem } from "./ActivityItem";
@@ -16,7 +16,7 @@ export function RecentActivity() {
     <div className="h-full rounded-[2rem] border border-border bg-card p-6 shadow-sm">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-base font-bold tracking-tight">System Feed</h2>
-        <Link to="/app/movements" search={{ item: undefined }} className="text-xs font-black uppercase tracking-widest text-primary hover:opacity-70">
+        <Link to="/app/movements" className="text-xs font-black uppercase tracking-widest text-primary hover:opacity-70">
           View all
         </Link>
       </div>

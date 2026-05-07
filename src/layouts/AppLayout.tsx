@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -13,11 +13,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 
-export const Route = createFileRoute("/app")({
-  component: AppLayout,
-});
-
-function AppLayout() {
+export function AppLayout() {
   const { user, loading } = useAuth();
   const { needsOnboarding, loadingProfile } = useBusiness();
   const { role } = useRole();
@@ -32,21 +28,21 @@ function AppLayout() {
   useEffect(() => {
     if (user && !loadingProfile && !needsOnboarding && !canAccessRoute(location.pathname, role)) {
       toast.error("You don't have permission to access that page.");
-      navigate({ to: "/app/dashboard" });
+      navigate("/app/dashboard");
     }
   }, [location.pathname, role, navigate, user, loadingProfile, needsOnboarding]);
 
   // Auth guard — redirect to landing if not logged in
   useEffect(() => {
     if (!loading && !user) {
-      navigate({ to: "/" });
+      navigate("/");
     }
   }, [user, loading, navigate]);
 
   // Onboarding guard — redirect to setup if store is incomplete
   useEffect(() => {
     if (user && !loadingProfile && needsOnboarding) {
-      navigate({ to: "/onboarding", replace: true });
+      navigate("/onboarding", { replace: true });
     }
   }, [user, needsOnboarding, loadingProfile, navigate]);
 
@@ -68,7 +64,7 @@ function AppLayout() {
           <Header />
           <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8 md:rounded-b-2xl">
             <AnimatePresence mode="wait">
-              <PageTransition routeKey={location.pathname}>
+              <PageTransition key={location.pathname} routeKey={location.pathname}>
                 <Outlet />
               </PageTransition>
             </AnimatePresence>

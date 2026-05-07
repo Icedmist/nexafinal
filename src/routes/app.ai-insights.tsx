@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { Sparkles, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,12 +22,7 @@ import { analyzeMovements, type AnomalySeverity, type AnomalyType } from "@/lib/
 import { usePermissions } from "@/hooks/usePermissions";
 import { subDays } from "date-fns";
 
-export const Route = createFileRoute("/app/ai-insights")({
-  component: AiInsightsPage,
-  head: () => ({
-    meta: [{ title: "Insights — NEXA Store OS" }],
-  }),
-});
+export default AiInsightsPage;
 
 type UrgencyFilter = "all" | "critical" | "moderate" | "low";
 type ConfidenceFilter = "all" | "high" | "medium" | "low";

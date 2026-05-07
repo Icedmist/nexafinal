@@ -1,8 +1,6 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { Navigate } from "react-router-dom";
 
-export const Route = createFileRoute("/app/")({
-  component: AppIndex,
-});
+export default AppIndex;
 
 function AppIndex() {
   return <Navigate to="/app/dashboard" />;

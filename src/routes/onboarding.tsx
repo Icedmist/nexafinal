@@ -1,5 +1,5 @@
 import * as React from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, query, where, getDocs, limit } from "firebase/firestore";
@@ -10,9 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Building2, ArrowRight, Sparkles } from "lucide-react";
 
-export const Route = createFileRoute("/onboarding")({
-  component: OnboardingPage,
-});
+export default OnboardingPage;
 
 function OnboardingPage() {
   const { user, claims } = useAuth();

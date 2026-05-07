@@ -1,12 +1,8 @@
-import { Outlet, createFileRoute, Link } from "@tanstack/react-router";
+import { Outlet, Link } from "react-router-dom";
 import { Package, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/auth")({
-  component: AuthLayout,
-});
-
-function AuthLayout() {
+export function AuthLayout() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Background decoration */}

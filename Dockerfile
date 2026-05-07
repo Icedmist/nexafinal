@@ -15,8 +15,7 @@ RUN npm ci
 COPY . .
 
 # Build the application
-# We set NITRO_PRESET=node-server to ensure compatibility with Cloud Run
-RUN NITRO_PRESET=node-server npm run build
+RUN npm run build
 
 # Production stage
 FROM node:22-alpine AS production
@@ -27,12 +26,17 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 
-# Copy built application from builder stage
-COPY --from=builder /app/.output ./.output
+# Copy built application and server script
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server.js ./server.js
+COPY --from=builder /app/package*.json ./
+
+# Install only production dependencies
+RUN npm ci --omit=dev
 
 # Expose port (Cloud Run defaults to 8080)
 ENV PORT=8080
 EXPOSE 8080
 
 # Start the server
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "server.js"]

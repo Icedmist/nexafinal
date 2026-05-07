@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { X, CheckCheck, Bell, Settings2, History, Filter } from "lucide-react";
 import { NotificationPreferences } from "./NotificationPreferences";

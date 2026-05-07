@@ -2,7 +2,7 @@ import { HelpCircle, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnboarding } from "@/hooks/useOnboarding";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 export function TourLauncher() {

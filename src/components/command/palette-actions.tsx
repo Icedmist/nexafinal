@@ -6,7 +6,7 @@ import {
   Truck,
   FileDown,
 } from "lucide-react";
-import type { useNavigate } from "@tanstack/react-router";
+import type { useNavigate } from "react-router-dom";
 import type { usePermissions } from "@/hooks/usePermissions";
 
 export interface ActionDef {

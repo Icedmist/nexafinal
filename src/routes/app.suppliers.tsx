@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { Plus, Truck } from "lucide-react";
 import { SuppliersTable } from "@/components/suppliers/SuppliersTable";
 import { SupplierFormSheet } from "@/components/suppliers/SupplierFormSheet";
@@ -19,13 +19,7 @@ interface SuppliersSearch {
   supplier?: string;
 }
 
-export const Route = createFileRoute("/app/suppliers")({
-  component: SuppliersPage,
-  head: () => ({ meta: [{ title: "Suppliers — NEXA Store OS" }] }),
-  validateSearch: (search: Record<string, unknown>): SuppliersSearch => ({
-    supplier: typeof search.supplier === "string" ? search.supplier : undefined,
-  }),
-});
+export default SuppliersPage;
 
 function SuppliersPage() {
   const { supplier: supplierParam } = Route.useSearch();

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useNavigate, Link } from "react-router-dom";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { useState, useEffect } from "react";
 import { useTenant } from "@/hooks/useTenant";
@@ -27,21 +27,6 @@ import {
 import { NexaHero3D } from "@/components/landing/NexaHero3D";
 import nexaLogo from "@/assets/nexa-logo.svg";
 import type { Store } from "@/types/tenant";
-
-export const Route = createFileRoute("/")({
-  component: LandingPage,
-  head: () => ({
-    meta: [
-      { title: "NEXA Store OS — Inventory System for Modern Retail" },
-      {
-        name: "description",
-        content: "The OS for modern retail commerce. Track stock, manage suppliers, and automate reorders from your pocket.",
-      },
-    ],
-  }),
-});
-
-/* ─── Components ────────────────────────────────────── */
 
 function RevealSection({
   children,
@@ -109,14 +94,14 @@ function Nav() {
   );
 }
 
-function LandingPage() {
+export default function LandingPage() {
   const { store, loading: tenantLoading } = useTenant();
   const navigate = useNavigate();
   const { user } = useAuth();
 
   useEffect(() => {
     if (store && user) {
-      navigate({ to: "/app/dashboard", replace: true });
+      navigate("/app/dashboard", { replace: true });
     }
   }, [store, user, navigate]);
 
@@ -405,7 +390,7 @@ function StoreLoginPage({ store }: { store: Store }) {
     try {
       await login(email, password);
       toast.success(`Welcome back to ${store.name}!`);
-      navigate({ to: "/app/dashboard" });
+      navigate("/app/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Invalid credentials");
     } finally {

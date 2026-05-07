@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { canAccessRoute } from "@/lib/route-guard";
 import { useRole } from "@/hooks/useRole";
 import {

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { Pencil, ExternalLink, Trash2, PackageCheck, Clock, Check, Printer, X, ShoppingCart, Calendar, FileText, History } from "lucide-react";
 import {
@@ -190,8 +190,7 @@ export function PurchaseOrderDetailSheet({
               <DetailField label="Source Supplier" icon={<ExternalLink className="h-3 w-3" />}>
                 {supplier ? (
                   <Link
-                    to="/app/suppliers"
-                    search={{ supplier: supplier.id }}
+                    to={`/app/suppliers?supplier=${supplier.id}`}
                     className="text-primary font-black hover:underline decoration-2 underline-offset-4"
                   >
                     {supplier.name}

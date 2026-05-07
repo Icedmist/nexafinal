@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Mail, Phone, MapPin, Clock, Package, Pencil, ExternalLink, X, Building2, Trash2 } from "lucide-react";
 import {
   Dialog,

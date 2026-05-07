@@ -1,9 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
-export const Route = createFileRoute("/scan/$id")({
-  component: ScanRedirect,
-});
+export default ScanRedirect;
 
 function ScanRedirect() {
   const { id } = Route.useParams();

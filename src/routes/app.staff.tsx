@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { Plus, Users, UserPlus, Mail, Shield, Building2, Search, MoreVertical, Ban, CheckCircle2, Pencil, TrendingUp, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -38,10 +38,7 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Staff, Branch } from "@/types/tenant";
 
-export const Route = createFileRoute("/app/staff")({
-  component: StaffPage,
-  head: () => ({ meta: [{ title: "Staff Management — NEXA Store OS" }] }),
-});
+export default StaffPage;
 
 function StaffPage() {
   const { data: staff, isLoading } = useStaff();

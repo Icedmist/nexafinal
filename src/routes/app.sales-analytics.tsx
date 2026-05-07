@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { TrendingUp, TrendingDown, Banknote, Calendar, BarChart3, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,10 +10,7 @@ import { useRefunds } from "@/hooks/useRefundsData";
 
 const NAIRA = "₦";
 
-export const Route = createFileRoute("/app/sales-analytics")({
-  component: SalesAnalyticsPage,
-  head: () => ({ meta: [{ title: "Sales Analytics — NEXA Store OS" }] }),
-});
+export default SalesAnalyticsPage;
 
 function fmtN(n: number): string {
   return `${NAIRA}${n.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;

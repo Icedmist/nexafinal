@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -18,10 +18,7 @@ import { SmartFeatures } from "@/components/settings/SmartFeatures";
 import { UserProfile } from "@/components/settings/UserProfile";
 import { TourLauncher } from "@/components/settings/TourLauncher";
 
-export const Route = createFileRoute("/app/settings")({
-  component: SettingsPage,
-  head: () => ({ meta: [{ title: "Settings — NEXA Store OS" }] }),
-});
+export default SettingsPage;
 
 function SettingsPage() {
   const { can } = usePermissions();
@@ -31,7 +28,7 @@ function SettingsPage() {
   useEffect(() => {
     if (!can("access_settings")) {
       toast.error("Access denied");
-      navigate({ to: "/app/dashboard" });
+      navigate("/app/dashboard" );
     }
   }, [can, navigate]);
 

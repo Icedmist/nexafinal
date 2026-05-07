@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,7 @@ import { Building2 } from "lucide-react";
 import { collection, query, where, getDocs, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-export const Route = createFileRoute("/auth/login")({
-  component: LoginPage,
-});
+export default LoginPage;
 
 function LoginPage() {
   const { store } = useTenant();
@@ -106,7 +104,7 @@ function LoginPage() {
       }
 
       toast.success("Welcome back!");
-      navigate({ to: "/app/dashboard" });
+      navigate("/app/dashboard" );
     } catch (err: any) {
       const message = getAuthErrorMessage(err?.code, err?.message || "Invalid credentials");
       toast.error(message);

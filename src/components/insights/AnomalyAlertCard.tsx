@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, ShieldAlert, Search, X } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,8 +57,7 @@ export function AnomalyAlertCard({ alert, itemName, itemSku, onDismiss }: Anomal
           {(itemName || itemSku) && (
             <p className="mt-1 text-xs">
               <Link
-                to="/app/catalog"
-                search={{ item: alert.itemId }}
+                to={`/app/catalog?item=${alert.itemId}`}
                 className="text-primary hover:underline"
               >
                 {itemName}{itemSku ? ` (${itemSku})` : ""}
@@ -74,7 +73,7 @@ export function AnomalyAlertCard({ alert, itemName, itemSku, onDismiss }: Anomal
 
           <div className="mt-2 flex items-center gap-2">
             <Button size="sm" variant="outline" className="h-6 text-xs" asChild>
-              <Link to="/app/catalog" search={{ item: alert.itemId }}>
+              <Link to={`/app/catalog?item=${alert.itemId}`}>
                 <Search className="h-3 w-3 mr-1" />
                 Investigate
               </Link>

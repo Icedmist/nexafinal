@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { Search, HelpCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,10 +10,7 @@ import {
 } from "@/components/ui/accordion";
 import { FAQ_DATA } from "@/lib/faq-data";
 
-export const Route = createFileRoute("/app/help")({
-  component: HelpPage,
-  head: () => ({ meta: [{ title: "Help Center — NEXA Store OS" }] }),
-});
+export default HelpPage;
 
 function HelpPage() {
   const [search, setSearch] = useState("");

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import {  } from "react-router-dom";
 import { Plus, ArrowRightLeft, MapPin } from "lucide-react";
 import { useLocationTree } from "@/hooks/useLocations";
 import { useItems, useLocations as useLocationsData } from "@/hooks/useInventoryData";
@@ -14,10 +14,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import type { LocationTreeNode } from "@/hooks/useLocations";
 
-export const Route = createFileRoute("/app/locations")({
-  component: LocationsPage,
-  head: () => ({ meta: [{ title: "Locations — NEXA Store OS" }] }),
-});
+export default LocationsPage;
 
 function findNode(nodes: LocationTreeNode[], id: string): LocationTreeNode | null {
   for (const n of nodes) {

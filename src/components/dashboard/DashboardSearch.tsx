@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useItems } from "@/hooks/useInventoryData";
 import { StatusBadge } from "@/components/StatusBadge";

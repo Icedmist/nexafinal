@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { Plus, Upload, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
@@ -41,14 +41,7 @@ interface CatalogSearch {
   newItem?: string;
 }
 
-export const Route = createFileRoute("/app/catalog")({
-  component: CatalogPage,
-  head: () => ({ meta: [{ title: "Catalog — NEXA Store OS" }] }),
-  validateSearch: (search: Record<string, unknown>): CatalogSearch => ({
-    item: typeof search.item === "string" ? search.item : undefined,
-    newItem: typeof search.newItem === "string" ? search.newItem : undefined,
-  }),
-});
+export default CatalogPage;
 
 function CatalogPage() {
   const { item: itemId, newItem } = Route.useSearch();

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
@@ -22,10 +22,7 @@ import { SpendBySupplierChart } from "@/components/analytics/SpendBySupplierChar
 import { CostByCategoryChart } from "@/components/analytics/CostByCategoryChart";
 import { CostTrendChart } from "@/components/analytics/CostTrendChart";
 
-export const Route = createFileRoute("/app/analytics")({
-  component: AnalyticsPage,
-  head: () => ({ meta: [{ title: "Analytics — NEXA Store OS" }] }),
-});
+export default AnalyticsPage;
 
 function AnalyticsPage() {
   const { can } = usePermissions();
@@ -34,7 +31,7 @@ function AnalyticsPage() {
   useEffect(() => {
     if (!can("view_analytics")) {
       toast.error("Access denied");
-      navigate({ to: "/app/dashboard" });
+      navigate("/app/dashboard" );
     }
   }, [can, navigate]);
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import {
   Search, User, Phone, ShoppingBag, MessageCircle, Send,
   TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X,
@@ -19,10 +19,7 @@ import { toast } from "sonner";
 
 const NAIRA = "₦";
 
-export const Route = createFileRoute("/app/customers")({
-  component: CustomersPage,
-  head: () => ({ meta: [{ title: "Customers — NEXA Store OS" }] }),
-});
+export default CustomersPage;
 
 interface CustomerRecord {
   name: string;

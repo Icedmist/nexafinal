@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useItems, usePurchaseOrders } from "@/hooks/useInventoryData";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CheckCircle2 } from "lucide-react";

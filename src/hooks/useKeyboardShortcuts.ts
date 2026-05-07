@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 
 interface ShortcutDef {
@@ -12,17 +12,17 @@ interface ShortcutDef {
 
 export const SHORTCUTS: ShortcutDef[] = [
   // Navigation: G then …
-  { keys: ["g", "d"], label: "Go to Dashboard", action: (n) => n({ to: "/app/dashboard" }), category: "navigate" },
-  { keys: ["g", "c"], label: "Go to Catalog", action: (n) => n({ to: "/app/catalog", search: {} }), category: "navigate" },
-  { keys: ["g", "m"], label: "Go to Movements", action: (n) => n({ to: "/app/movements", search: { item: undefined } }), category: "navigate" },
-  { keys: ["g", "s"], label: "Go to Suppliers", action: (n) => n({ to: "/app/suppliers" }), category: "navigate" },
-  { keys: ["g", "p"], label: "Go to Purchase Orders", action: (n) => n({ to: "/app/purchase-orders", search: {} }), category: "navigate" },
-  { keys: ["g", "r"], label: "Go to Requests", action: (n) => n({ to: "/app/requests", search: { request: undefined } }), category: "navigate" },
+  { keys: ["g", "d"], label: "Go to Dashboard", action: (n) => n("/app/dashboard"), category: "navigate" },
+  { keys: ["g", "c"], label: "Go to Catalog", action: (n) => n("/app/catalog"), category: "navigate" },
+  { keys: ["g", "m"], label: "Go to Movements", action: (n) => n("/app/movements"), category: "navigate" },
+  { keys: ["g", "s"], label: "Go to Suppliers", action: (n) => n("/app/suppliers"), category: "navigate" },
+  { keys: ["g", "p"], label: "Go to Purchase Orders", action: (n) => n("/app/purchase-orders"), category: "navigate" },
+  { keys: ["g", "r"], label: "Go to Requests", action: (n) => n("/app/requests"), category: "navigate" },
   // Create: N then …
-  { keys: ["n", "i"], label: "New Item", action: (n) => n({ to: "/app/catalog", search: {} }), permission: "create_item", category: "create" },
-  { keys: ["n", "m"], label: "New Movement", action: (n) => n({ to: "/app/movements", search: { item: undefined } }), permission: "log_movement", category: "create" },
-  { keys: ["n", "p"], label: "New Purchase Order", action: (n) => n({ to: "/app/purchase-orders", search: {} }), permission: "create_po", category: "create" },
-  { keys: ["n", "r"], label: "New Request", action: (n) => n({ to: "/app/requests", search: { request: undefined } }), permission: "create_request", category: "create" },
+  { keys: ["n", "i"], label: "New Item", action: (n) => n("/app/catalog"), permission: "create_item", category: "create" },
+  { keys: ["n", "m"], label: "New Movement", action: (n) => n("/app/movements"), permission: "log_movement", category: "create" },
+  { keys: ["n", "p"], label: "New Purchase Order", action: (n) => n("/app/purchase-orders"), permission: "create_po", category: "create" },
+  { keys: ["n", "r"], label: "New Request", action: (n) => n("/app/requests"), permission: "create_request", category: "create" },
 ];
 
 const SEQUENCE_TIMEOUT = 500;
