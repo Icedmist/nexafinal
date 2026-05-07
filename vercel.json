@@ -4,7 +4,7 @@
   "outputDirectory": ".output",
   "functions": {
     "api/server.mjs": {
-      "runtime": "nodejs@18"
+      "runtime": "nodejs18.x@18"
     }
   },
   "rewrites": [
