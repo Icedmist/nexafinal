@@ -1,8 +1,8 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "outputDirectory": ".output",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/server" }
+  "routes": [
+    { "src": "/_build/(.*)", "dest": "/.output/client/_build/$1" },
+    { "src": "/(.*)", "dest": "/api/server" }
   ]
 }
