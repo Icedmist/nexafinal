@@ -160,9 +160,10 @@ function devServerFnErrorLogger() {
 }
 
 export default defineConfig(({ command }) => {
-  // Use Cloudflare Workers plugin for builds (produces worker output)
-  // Skip for dev server (command=serve) since workerd runtime isn't available
-  const useCloudflare = command === "build";
+  // Only use Cloudflare Workers plugin if explicitly requested via environment variable
+  // or if we are specifically building for Cloudflare.
+  // Vercel deployment is handled automatically by TanStack Start / Nitro.
+  const useCloudflare = command === "build" && process.env.NITRO_PRESET === "cloudflare-pages";
 
   return {
     server: {
