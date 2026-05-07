@@ -1,4 +1,4 @@
-import server from '../.output/server/index.mjs';
+import server from '../.output/server/server.js';
 
 function toNodeHeaders(headers) {
   const nodeHeaders = {};
