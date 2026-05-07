@@ -1,16 +1,5 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "outputDirectory": ".output",
-  "functions": {
-    "api/server.mjs": {
-      "runtime": "nodejs18.x@18"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/server.mjs"
-    }
-  ]
+  "outputDirectory": ".output"
 }
