@@ -1,12 +1,12 @@
 {
   "version": 2,
-  "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": ".output",
+  "outputDirectory": "dist",
+  "framework": null,
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api/server"
+      "destination": "/server/server.js"
     }
   ]
 }
