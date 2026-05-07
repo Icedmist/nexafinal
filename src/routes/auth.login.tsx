@@ -56,6 +56,36 @@ function LoginPage() {
     try {
       const cred = await login(email, password);
       
+      // Helper to find and format the correct store URL for a user
+      const getCorrectStoreUrl = async (uid: string) => {
+        const staffDoc = await getDoc(doc(db, "staff", uid));
+        let assignedStoreId = "";
+        if (staffDoc.exists()) {
+          assignedStoreId = staffDoc.data().storeId;
+        } else {
+          const userDoc = await getDoc(doc(db, "users", uid));
+          if (userDoc.exists()) assignedStoreId = userDoc.data().storeId;
+        }
+
+        if (assignedStoreId) {
+          const storeDoc = await getDoc(doc(db, "stores", assignedStoreId));
+          if (storeDoc.exists()) {
+            const storeData = storeDoc.data();
+            const slug = storeData.slug;
+            const host = window.location.host;
+            const parts = host.split(".");
+            // For production (e.g. app.nexastore.com), strip the first part.
+            // For localhost (e.g. nudge.localhost:8080), keep the rest.
+            const baseDomain = parts.length >= 3 ? parts.slice(1).join(".") : host;
+            return {
+              url: `${window.location.protocol}//${slug}.${baseDomain}`,
+              name: storeData.name
+            };
+          }
+        }
+        return null;
+      };
+
       // If we are on a store subdomain, verify authorization
       if (store) {
         const loggedInUser = cred.user;
@@ -98,45 +128,26 @@ function LoginPage() {
         }
 
         if (!isOwner && !isStaff) {
+          const correctStore = await getCorrectStoreUrl(loggedInUser.uid);
           await logout();
+          
+          if (correctStore) {
+            throw new Error(`This account belongs to ${correctStore.name}. Please login at: ${correctStore.url}`);
+          }
           throw new Error(`You are not authorized to access ${store.name}.`);
         }
       } else {
         // If we are on the main domain, check if user belongs to a specific store
         const loggedInUser = cred.user;
-        
-        // Check staff record
-        const staffDoc = await getDoc(doc(db, "staff", loggedInUser.uid));
-        let assignedStoreId = "";
-        
-        if (staffDoc.exists()) {
-          assignedStoreId = staffDoc.data().storeId;
-        } else {
-          // Check user record for storeId (Owners/Admins)
-          const userDoc = await getDoc(doc(db, "users", loggedInUser.uid));
-          if (userDoc.exists()) {
-            assignedStoreId = userDoc.data().storeId;
-          }
-        }
+        const tokenResult = await loggedInUser.getIdTokenResult(true);
+        const role = tokenResult.claims.role as string | undefined;
 
-        if (assignedStoreId) {
-          // Check if user is a system admin before redirecting
-          const tokenResult = await loggedInUser.getIdTokenResult(true);
-          const role = tokenResult.claims.role as string | undefined;
-          
-          if (role !== "system_admin") {
-            const storeDoc = await getDoc(doc(db, "stores", assignedStoreId));
-            if (storeDoc.exists()) {
-              const storeData = storeDoc.data();
-              const slug = storeData.slug;
-              const host = window.location.host;
-              const parts = host.split(".");
-              const baseDomain = parts.length >= 3 ? parts.slice(1).join(".") : host;
-              const correctUrl = `${window.location.protocol}//${slug}.${baseDomain}`;
-              
-              await logout();
-              throw new Error(`Staff and store owners must login through their store's link: ${correctUrl}`);
-            }
+        // System admins are allowed on the main domain
+        if (role !== "system_admin") {
+          const correctStore = await getCorrectStoreUrl(loggedInUser.uid);
+          if (correctStore) {
+            await logout();
+            throw new Error(`Staff and store owners must login through their store's link: ${correctStore.url}`);
           }
         }
       }
