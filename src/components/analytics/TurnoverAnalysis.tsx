@@ -43,7 +43,7 @@ export function TurnoverAnalysis({ items, movements }: TurnoverAnalysisProps) {
         ) : (
           <div className="divide-y divide-border">
             {list.map((item, i) => (
-              <button key={item.id} onClick={() => navigate({ to: "/app/catalog", search: { item: item.id } as any })}
+              <button key={item.id} onClick={() => navigate("/app/catalog?item=" + item.id)}
                 className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs text-muted-foreground w-5 shrink-0">{i + 1}.</span>

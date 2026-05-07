@@ -129,13 +129,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
       if (value.startsWith("item:")) {
         const itemId = value.replace("item:", "");
-        navigate({ to: "/app/catalog", search: { item: itemId } });
+        navigate("/app/catalog?item=" + itemId);
         return;
       }
 
       if (value.startsWith("page:")) {
         const path = value.replace("page:", "");
-        navigate({ to: path as "/app/dashboard" });
+        navigate(path);
         return;
       }
 

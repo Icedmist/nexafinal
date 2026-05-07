@@ -67,7 +67,7 @@ export function Header() {
 
   const handleLogout = async () => {
     await logout();
-    navigate({ to: "/" });
+    navigate("/");
   };
 
   // CMD+K / Ctrl+K shortcut
@@ -109,7 +109,7 @@ export function Header() {
       </PermissionGate>
 
       <PermissionGate permission="create_item">
-        <Button size="icon" variant="outline" className="shrink-0" aria-label="New item" onClick={() => navigate({ to: "/app/catalog", search: { newItem: "true" } })}>
+        <Button size="icon" variant="outline" className="shrink-0" aria-label="New item" onClick={() => navigate("/app/catalog?newItem=true")}>
           <Plus className="h-4 w-4" />
         </Button>
       </PermissionGate>
@@ -144,7 +144,7 @@ export function Header() {
             </Badge>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate({ to: "/app/settings" })}>
+          <DropdownMenuItem onClick={() => navigate("/app/settings")}>
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </DropdownMenuItem>

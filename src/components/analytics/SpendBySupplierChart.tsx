@@ -50,7 +50,7 @@ export function SpendBySupplierChart({ suppliers, purchaseOrders }: Props) {
           dataKey="spend"
           radius={[0, 4, 4, 0]}
           cursor="pointer"
-          onClick={(entry) => navigate({ to: "/app/suppliers", search: { supplier: entry.id } })}
+          onClick={(entry) => navigate("/app/suppliers?supplier=" + entry.id)}
         >
           {data.map((_, i) => (
             <Cell key={i} className="fill-primary/80 hover:fill-primary" />

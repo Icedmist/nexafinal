@@ -36,7 +36,7 @@ export function DashboardSearch() {
   const handleSelect = (item: Item) => {
     setQuery("");
     setOpen(false);
-    navigate({ to: "/app/catalog", search: { item: item.id } });
+    navigate("/app/catalog?item=" + item.id);
   };
 
   return (

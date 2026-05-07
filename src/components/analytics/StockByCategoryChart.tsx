@@ -33,7 +33,7 @@ export function StockByCategoryChart({ items, categories }: StockByCategoryChart
         <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} />
         <Tooltip formatter={(value: number) => [value, "Items"]} />
         <Bar dataKey="count" radius={[0, 4, 4, 0]} cursor="pointer"
-          onClick={(d: any) => navigate({ to: "/app/catalog", search: { category: d.id } as any })}>
+          onClick={(d: any) => navigate("/app/catalog?category=" + d.id)}>
           {data.map((_, i) => (
             <Cell key={i} className="fill-primary" />
           ))}

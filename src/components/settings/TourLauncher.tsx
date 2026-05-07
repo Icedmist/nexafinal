@@ -11,7 +11,7 @@ export function TourLauncher() {
 
   const handleLaunchTour = () => {
     tour.resetTour();
-    navigate({ to: "/app/dashboard" });
+    navigate("/app/dashboard");
     toast.info("Tour starting on dashboard...");
   };
 

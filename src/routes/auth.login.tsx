@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Package, Eye, EyeOff } from "lucide-react";
+import { Package, Eye, EyeOff, Building2 } from "lucide-react";
+import nexaLogo from "@/assets/nexa-logo.svg";
 
 import { useTenant } from "@/hooks/useTenant";
-import { Building2 } from "lucide-react";
 
 import { collection, query, where, getDocs, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -16,7 +16,7 @@ import { db } from "@/lib/firebase";
 export default LoginPage;
 
 function LoginPage() {
-  const { store } = useTenant();
+  const { store, loading: tenantLoading } = useTenant();
   const { login, logout } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -101,6 +101,44 @@ function LoginPage() {
           await logout();
           throw new Error(`You are not authorized to access ${store.name}.`);
         }
+      } else {
+        // If we are on the main domain, check if user belongs to a specific store
+        const loggedInUser = cred.user;
+        
+        // Check staff record
+        const staffDoc = await getDoc(doc(db, "staff", loggedInUser.uid));
+        let assignedStoreId = "";
+        
+        if (staffDoc.exists()) {
+          assignedStoreId = staffDoc.data().storeId;
+        } else {
+          // Check user record for storeId (Owners/Admins)
+          const userDoc = await getDoc(doc(db, "users", loggedInUser.uid));
+          if (userDoc.exists()) {
+            assignedStoreId = userDoc.data().storeId;
+          }
+        }
+
+        if (assignedStoreId) {
+          // Check if user is a system admin before redirecting
+          const tokenResult = await loggedInUser.getIdTokenResult(true);
+          const role = tokenResult.claims.role as string | undefined;
+          
+          if (role !== "system_admin") {
+            const storeDoc = await getDoc(doc(db, "stores", assignedStoreId));
+            if (storeDoc.exists()) {
+              const storeData = storeDoc.data();
+              const slug = storeData.slug;
+              const host = window.location.host;
+              const parts = host.split(".");
+              const baseDomain = parts.length >= 3 ? parts.slice(1).join(".") : host;
+              const correctUrl = `${window.location.protocol}//${slug}.${baseDomain}`;
+              
+              await logout();
+              throw new Error(`Staff and store owners must login through their store's link: ${correctUrl}`);
+            }
+          }
+        }
       }
 
       toast.success("Welcome back!");
@@ -117,10 +155,12 @@ function LoginPage() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center">
         <div className="mx-auto h-24 w-24 items-center justify-center rounded-3xl bg-white flex text-primary mb-6 shadow-inner ring-8 ring-primary/5 overflow-hidden">
-           {store?.branding?.logo ? (
+           {tenantLoading ? (
+             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+           ) : store?.branding?.logo ? (
              <img src={store.branding.logo} className="h-full w-full object-contain p-2" alt="Logo" />
            ) : (
-             store ? <Building2 className="h-12 w-12" /> : <Package className="h-12 w-12" />
+             <img src={nexaLogo} className="h-12 w-12 object-contain" alt="Nexa Logo" />
            )}
         </div>
         <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">

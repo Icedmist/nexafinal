@@ -48,7 +48,7 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
     if (!n.isRead) markAsRead(n.id);
     if (n.link) {
       onOpenChange(false);
-      navigate({ to: n.link as "/app/dashboard" });
+      navigate(n.link);
     }
   };
 
