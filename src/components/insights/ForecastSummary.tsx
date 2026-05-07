@@ -11,7 +11,7 @@ interface ForecastSummaryProps {
 interface MetricDef {
   label: string;
   value: string | number;
-  icon: React.ElementType;
+  icon: any;
   accent?: string;
 }
 

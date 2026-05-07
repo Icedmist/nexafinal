@@ -15,7 +15,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Sale } from "@/types/sales";
 import { isAdminRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { useSales } from "@/hooks/useSalesData";
