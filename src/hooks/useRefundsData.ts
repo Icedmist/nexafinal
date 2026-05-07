@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import type { Refund } from "@/types/finance";
+import { isAdminRole } from "@/lib/roles";
 
 interface QueryResult<T> {
   data: T;
@@ -41,7 +42,7 @@ export function useRefunds(): QueryResult<Refund[]> {
 
       // Filter by branch if user is restricted
       let filtered = refunds;
-      const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
+      const isAdmin = isAdminRole(claims?.role);
       const userBranchId = claims?.branchId;
       
       if (!isAdmin && userBranchId) {

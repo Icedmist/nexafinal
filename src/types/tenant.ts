@@ -22,7 +22,7 @@ export interface Staff {
   uid: string;
   email: string;
   displayName: string;
-  role: "admin" | "manager" | "staff" | "system_admin";
+  role: "admin" | "manager" | "staff" | "system_admin" | "owner";
   storeId: string;
   ownerId: string;
   branchId: string;

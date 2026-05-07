@@ -18,11 +18,24 @@ import { useStaff, useStaffMutations } from "@/hooks/useStaffData";
 import { useAllLocations } from "@/hooks/useInventoryData";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useRole } from "@/hooks/useRole";
+import { isAdminRole } from "@/lib/roles";
 import type { Staff } from "@/types/tenant";
 
-type RoleType = "admin" | "manager" | "staff" | "system_admin";
-const ROLE_LABELS: Record<RoleType, string> = { admin: "Admin", manager: "Inventory Manager", staff: "Staff", system_admin: "System Admin" };
-const ROLE_COLORS: Record<RoleType, string> = { admin: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", manager: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", staff: "bg-muted text-muted-foreground", system_admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" };
+type RoleType = "admin" | "manager" | "staff" | "system_admin" | "owner";
+const ROLE_LABELS: Record<RoleType, string> = { 
+  owner: "Store Owner",
+  admin: "Admin", 
+  manager: "Inventory Manager", 
+  staff: "Staff", 
+  system_admin: "System Admin" 
+};
+const ROLE_COLORS: Record<RoleType, string> = { 
+  owner: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+  admin: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", 
+  manager: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", 
+  staff: "bg-muted text-muted-foreground", 
+  system_admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" 
+};
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -58,8 +71,8 @@ export function UserManagement() {
     return staff.filter((u) => u.displayName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
   }, [staff, search]);
 
-  const adminCount = staff.filter((u) => u.role === "admin" && u.isActive).length;
-  const isLastAdmin = (user: Staff) => user.role === "admin" && user.isActive && adminCount <= 1;
+  const adminCount = staff.filter((u) => isAdminRole(u.role) && u.isActive).length;
+  const isLastAdmin = (user: Staff) => isAdminRole(user.role) && user.isActive && adminCount <= 1;
 
   const handleInvite = async () => {
     const email = inviteEmail.trim().toLowerCase();
@@ -238,6 +251,7 @@ export function UserManagement() {
                 <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as RoleType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    {currentRole === "system_admin" && <SelectItem value="owner">Store Owner</SelectItem>}
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Inventory Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
@@ -321,6 +335,7 @@ export function UserManagement() {
                 <Select value={editData.role} onValueChange={(v) => setEditData({ ...editData, role: v as RoleType })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    {currentRole === "system_admin" && <SelectItem value="owner">Store Owner</SelectItem>}
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
@@ -394,6 +409,11 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, currentRol
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
+        {currentRole === "system_admin" && (
+          <SelectItem value="owner">
+            <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Store Owner</div>
+          </SelectItem>
+        )}
         <SelectItem value="admin">
           <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Admin</div>
         </SelectItem>

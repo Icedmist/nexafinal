@@ -25,6 +25,7 @@ import { useRole } from "@/hooks/useRole";
 import { usePermissions } from "@/hooks/usePermissions";
 import { RequestStatus } from "@/types/inventory";
 import type { InventoryRequest } from "@/types/inventory";
+import { isAdminRole } from "@/lib/roles";
 import type { RequestFilters } from "@/components/requests/request-filter-types";
 import { EMPTY_REQUEST_FILTERS } from "@/components/requests/request-filter-types";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -62,7 +63,7 @@ function RequestsPage() {
   const updateRequest = useUpdateRequest();
   const navigate = useNavigate();
   const { request: requestParam } = Route.useSearch();
-  const isManagerOrAdmin = role === "admin" || role === "manager" || role === "system_admin";
+  const isManagerOrAdmin = isAdminRole(role) || role === "manager";
   const canApproveReq = can("approve_request");
   const [formOpen, setFormOpen] = useState(false);
   const [filters, setFilters] = useState<RequestFilters>(EMPTY_REQUEST_FILTERS);

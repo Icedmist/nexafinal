@@ -15,6 +15,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Sale } from "@/types/sales";
+import { isAdminRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { useSales } from "@/hooks/useSalesData";
 import { useRole } from "@/hooks/useRole";
@@ -64,7 +66,7 @@ export function SalesHistoryPage() {
   const totalItems = filtered.reduce((s, t) => s + t.items.reduce((a, li) => a + li.quantity, 0), 0);
 
   const storeName = profile?.storeDetails?.name || "NEXA Store OS";
-  const userName = role === "system_admin" ? "System Admin" : role === "admin" ? "Admin" : role === "manager" ? "Manager" : "Staff";
+  const userName = role === "system_admin" ? "System Admin" : role === "owner" ? "Store Owner" : role === "admin" ? "Admin" : role === "manager" ? "Manager" : "Staff";
 
   const handleSendReceipt = (sale: SaleTransaction) => {
     if (!sale.customerPhone) {

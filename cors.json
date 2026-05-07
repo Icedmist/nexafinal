@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:8080", "http://nudge-store.localhost:8080", "http://*.localhost:8080"],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "responseHeader": ["Content-Type", "x-goog-resumable"],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -1,5 +1,5 @@
 import { createContext, useMemo, useState, type ReactNode, useEffect } from "react";
-import { getPermissionsForRole, type RolePermissions, type UserRoleType } from "@/lib/roles";
+import { getPermissionsForRole, isAdminRole, type RolePermissions, type UserRoleType } from "@/lib/roles";
 import { useAuth } from "./FirebaseAuthContext";
 import { doc, onSnapshot, query, collection, where, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -30,22 +30,24 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     // 1. High Priority: Use Custom Claims (Zero DB Read)
     if (claims?.role) {
+      const roleFromClaims = claims.role as UserRoleType;
+
       // System admins are global and should bypass store-scoped claim validation.
-      if (claims.role === "system_admin") {
-        setRealRole(claims.role as UserRoleType);
+      if (roleFromClaims === "system_admin") {
+        setRealRole(roleFromClaims);
         return;
       }
 
       // Security Check: Ensure the user's token storeId matches the current tenant context
       if (claims.storeId === store?.id) {
-        setRealRole(claims.role as UserRoleType);
+        setRealRole(roleFromClaims);
         return;
       }
     }
 
     // 2. Fallback: Check if user is the store owner (merchant root)
     if (store && user.uid === store.ownerId) {
-      setRealRole("admin");
+      setRealRole("owner");
       return;
     }
 
@@ -57,14 +59,19 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<RoleContextValue>(() => {
     const permissions = getPermissionsForRole(role);
+    const isSysAdmin = role === "system_admin";
+    const isOwner = role === "owner";
+    const isAdmin = isAdminRole(role);
+    const isManager = role === "manager" || isAdmin;
+
     return {
       role,
       permissions,
-      isAdmin: role === "admin" || role === "system_admin",
-      isManager: role === "manager" || role === "system_admin",
+      isAdmin,
+      isManager,
       isStaff: role === "staff",
       isRequestor: role === "requestor",
-      isSystemAdmin: role === "system_admin",
+      isSystemAdmin: isSysAdmin,
     };
   }, [role]);
 

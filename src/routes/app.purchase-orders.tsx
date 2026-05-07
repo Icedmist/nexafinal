@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { OrderStatus, MovementType } from "@/types/inventory";
 import type { PurchaseOrder } from "@/types/inventory";
+import { isAdminRole } from "@/lib/roles";
 import type { POFilters } from "@/components/purchase-orders/po-filter-types";
 import { EMPTY_PO_FILTERS } from "@/components/purchase-orders/po-filter-types";
 
@@ -52,7 +53,7 @@ function PurchaseOrdersPage() {
   const createMovement = useCreateMovement();
   const updateItem = useUpdateItem();
   const canManagePOs = can("create_po");
-  const isAdmin = role === "admin" || role === "system_admin";
+  const isAdmin = isAdminRole(role);
   const [filters, setFilters] = useState<POFilters>(EMPTY_PO_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
   const [editPO, setEditPO] = useState<PurchaseOrder | null>(null);

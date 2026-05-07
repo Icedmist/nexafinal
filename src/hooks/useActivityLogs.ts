@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, query, orderBy, limit, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 export interface ActivityLog {
@@ -35,7 +36,7 @@ export function useActivityLogs(count = 10) {
       limit(count)
     );
 
-    const isAdmin = user && (user.uid === storeId || (claims?.role === "admin" || claims?.role === "system_admin"));
+    const isAdmin = user && (user.uid === storeId || isAdminRole(claims?.role));
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

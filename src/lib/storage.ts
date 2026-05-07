@@ -15,6 +15,22 @@ const compressionOptions = {
   useWebWorker: true,
 };
 
+const sanitizeFileName = (fileName: string): string => {
+  // Extract extension
+  const parts = fileName.split(".");
+  const extension = parts.length > 1 ? parts.pop() : "";
+  const baseName = parts.join(".");
+
+  // Sanitize baseName: keep only alphanumeric, dashes, and underscores
+  // Replace everything else with underscores
+  const cleanBase = baseName
+    .replace(/[^a-z0-9]/gi, "_")
+    .replace(/_+/g, "_") // Collapse multiple underscores
+    .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+  return extension ? `${cleanBase}.${extension}` : cleanBase;
+};
+
 export const uploadImage = async (
   file: File,
   path: UploadPath,
@@ -24,11 +40,15 @@ export const uploadImage = async (
     // 1. Compress image
     const compressedFile = await imageCompression(file, compressionOptions);
 
-    // 2. Create storage reference
-    const name = fileName || `${Date.now()}_${file.name}`;
-    const storageRef = ref(storage, `${path}/${name}`);
+    // 2. Create storage reference with sanitized name
+    const rawName = fileName || file.name;
+    const sanitizedName = sanitizeFileName(rawName);
+    const finalName = `${Date.now()}_${sanitizedName}`;
+    
+    const storageRef = ref(storage, `${path}/${finalName}`);
 
     // 3. Upload
+    console.log(`Uploading to: ${storageRef.fullPath}`);
     await uploadBytes(storageRef, compressedFile);
 
     // 4. Get URL
@@ -39,7 +59,12 @@ export const uploadImage = async (
       path: storageRef.fullPath,
     };
   } catch (error) {
-    console.error("Error uploading image:", error);
+    console.error("Detailed error uploading image:", {
+      error,
+      fileName: file.name,
+      path,
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
     throw error;
   }
 };

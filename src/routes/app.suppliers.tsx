@@ -9,6 +9,7 @@ import { useSuppliers, useItems, usePurchaseOrders } from "@/hooks/useInventoryD
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDeleteSupplier, useUpdateItem } from "@/hooks/useInventoryMutations";
 import { useRole } from "@/hooks/useRole";
+import { isAdminRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import type { Supplier } from "@/types/inventory";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -35,7 +36,7 @@ function SuppliersPage() {
   const { can } = usePermissions();
   const { role } = useRole();
   const canManageSuppliers = can("manage_suppliers");
-  const isAdmin = role === "admin" || role === "system_admin";
+  const isAdmin = isAdminRole(role);
   const deleteSupplier = useDeleteSupplier();
   const updateItem = useUpdateItem();
 

@@ -1,4 +1,4 @@
-export type UserRoleType = "admin" | "manager" | "staff" | "requestor" | "system_admin";
+export type UserRoleType = "admin" | "manager" | "staff" | "requestor" | "system_admin" | "owner";
 
 export interface RolePermissions {
   canManageItems: boolean;
@@ -13,6 +13,16 @@ export interface RolePermissions {
 
 const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
   admin: {
+    canManageItems: true,
+    canLogMovements: true,
+    canManagePOs: true,
+    canManageSuppliers: true,
+    canApproveRequests: true,
+    canViewAnalytics: true,
+    canAccessSettings: true,
+    canManageUsers: true,
+  },
+  owner: {
     canManageItems: true,
     canLogMovements: true,
     canManagePOs: true,
@@ -66,4 +76,8 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
 
 export function getPermissionsForRole(role: UserRoleType): RolePermissions {
   return ROLE_PERMISSIONS[role];
+}
+
+export function isAdminRole(role?: string | null): boolean {
+  return role === "admin" || role === "system_admin" || role === "owner";
 }

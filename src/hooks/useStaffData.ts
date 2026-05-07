@@ -6,6 +6,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { limit, writeBatch, getDocs } from "firebase/firestore";
 import type { Staff, Branch, Store } from "@/types/tenant";
+import { isAdminRole } from "@/lib/roles";
 
 interface QueryResult<T> {
   data: T;
@@ -42,7 +43,7 @@ export function useStaff(): QueryResult<Staff[]> {
         staff.push({ uid: doc.id, ...doc.data() } as any);
       });
 
-      const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
+      const isAdmin = isAdminRole(claims?.role);
       const userBranchId = claims?.branchId;
 
       let filtered = staff;
@@ -78,7 +79,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     }
 
     const storeRef = doc(db, "stores", targetStoreId);
-    const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
+    const isAdmin = isAdminRole(claims?.role);
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(storeRef, (snapshot) => {

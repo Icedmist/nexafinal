@@ -3,6 +3,7 @@ import { useAuth } from './FirebaseAuthContext';
 import { doc, onSnapshot, updateDoc, query, collection, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useTenant } from './TenantContext';
+import { isAdminRole } from '@/lib/roles';
 
 export interface BusinessProfile {
   id: string;
@@ -153,7 +154,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user || !ownerId) return;
     
     const isManager = claims?.role === 'manager' && claims?.storeId === storeId;
-    const isAdmin = claims?.role === 'admin' || claims?.role === 'owner' || claims?.role === 'system_admin';
+    const isAdmin = isAdminRole(claims?.role);
     
     // Only owners/admins/managers can update profile
     if (user.uid !== ownerId && !isManager && !isAdmin) {

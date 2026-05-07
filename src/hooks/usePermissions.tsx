@@ -27,6 +27,7 @@ export function usePermissions() {
   const { role } = useRole();
 
   const can = (action: PermissionAction): boolean => {
+    if (role === "owner") return true;
     return ACTION_ROLES[action]?.includes(role) ?? false;
   };
 

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import type { SaleTransaction } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
+import { isAdminRole } from "@/lib/roles";
 
 interface QueryResult<T> {
   data: T;
@@ -43,7 +44,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 
       // Filter by branch if user is restricted
       let filtered = sales;
-      const isAdmin = claims?.role === "admin" || claims?.role === "system_admin";
+      const isAdmin = isAdminRole(claims?.role);
       const userBranchId = claims?.branchId;
       
       if (!isAdmin && userBranchId) {
