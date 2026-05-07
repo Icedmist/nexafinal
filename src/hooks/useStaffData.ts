@@ -40,7 +40,7 @@ export function useStaff(): QueryResult<Staff[]> {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const staff: Staff[] = [];
       snapshot.forEach((doc) => {
-        staff.push({ uid: doc.id, ...doc.data() } as any);
+        staff.push({ ...doc.data(), uid: doc.id } as any);
       });
 
       const isAdmin = isAdminRole(claims?.role);
@@ -158,6 +158,7 @@ export function useUpdateSelf() {
           displayName: updates.displayName,
           photoURL: updates.photoURL 
         });
+        await user.reload();
       }
 
       // 2. Update staff document via the same cloud function

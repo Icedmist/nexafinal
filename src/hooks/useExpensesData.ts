@@ -37,7 +37,7 @@ export function useExpenses(): QueryResult<Expense[]> {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const expenses: Expense[] = [];
       snapshot.forEach((doc) => {
-        expenses.push({ id: doc.id, ...doc.data() } as Expense);
+        expenses.push({ ...doc.data(), id: doc.id } as Expense);
       });
 
       // Filter by branch if user is restricted

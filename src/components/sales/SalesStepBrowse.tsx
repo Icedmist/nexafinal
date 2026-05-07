@@ -241,28 +241,53 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                     isAnimating && "scale-[1.02]"
                   )}
                 >
-                  <div className="relative aspect-square bg-muted/20">
+                  <div className="relative aspect-square overflow-hidden bg-muted/30">
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                      <img 
+                        src={item.imageUrl} 
+                        alt={item.name} 
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                        loading="lazy"
+                      />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/15">📦</div>
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-muted/50 to-muted text-muted-foreground/20">
+                        <Package className="h-10 w-10 stroke-[1.5]" />
+                        <span className="text-[10px] font-medium tracking-tight opacity-50 uppercase">No Image</span>
+                      </div>
                     )}
+                    
+                    {/* Top Right Badge: Quantity in Cart */}
                     {qty > 0 && (
                       <div className={cn(
-                        "absolute right-1.5 top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground transition-transform",
-                        isAnimating && "scale-125"
+                        "absolute right-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-primary px-1.5 text-[12px] font-bold text-primary-foreground shadow-lg shadow-primary/30 ring-2 ring-background transition-all duration-300",
+                        isAnimating && "scale-125 rotate-12"
                       )}>
                         {qty}
                       </div>
                     )}
-                    <span className="absolute bottom-1.5 left-1.5 rounded-full bg-card/90 px-2 py-0.5 text-[9px] font-medium text-muted-foreground backdrop-blur-sm">
-                      {item.currentStock} left
-                    </span>
+                    
+                    {/* Bottom Left Badge: Stock Status */}
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1">
+                      <Badge 
+                        variant="secondary" 
+                        className={cn(
+                          "h-5 px-1.5 text-[9px] font-bold backdrop-blur-md",
+                          item.currentStock <= (item.reorderPoint || 5) 
+                            ? "bg-amber-500/90 text-amber-950" 
+                            : "bg-background/80 text-foreground"
+                        )}
+                      >
+                        {item.currentStock} left
+                      </Badge>
+                    </div>
                   </div>
 
-                  <div className="flex flex-1 flex-col gap-0.5 p-2.5">
-                    <p className="text-xs font-medium leading-tight line-clamp-2 text-foreground">{item.name}</p>
-                    <p className="mt-auto pt-0.5 text-sm font-bold text-foreground">{formatNaira(item.sellingPrice)}</p>
+                  <div className="flex flex-1 flex-col gap-1 p-3">
+                    <p className="text-[13px] font-semibold leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors">{item.name}</p>
+                    <div className="mt-auto flex items-end justify-between">
+                      <p className="text-sm font-black text-primary">{formatNaira(item.sellingPrice)}</p>
+                      <span className="text-[10px] text-muted-foreground font-medium opacity-60">{item.sku}</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center border-t border-border">

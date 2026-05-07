@@ -58,7 +58,8 @@ export function useTenant() {
     const fetchStore = async () => {
       // 1. Try Cache First
       const cacheKey = `nexa_tenant_${slug}`;
-      const cached = sessionStorage.getItem(cacheKey);
+      const isBrowser = typeof window !== "undefined";
+      const cached = isBrowser ? sessionStorage.getItem(cacheKey) : null;
       
       if (cached) {
         try {
@@ -67,7 +68,7 @@ export function useTenant() {
           setLoading(false);
           return;
         } catch (e) {
-          sessionStorage.removeItem(cacheKey);
+          if (isBrowser) sessionStorage.removeItem(cacheKey);
         }
       }
 
@@ -107,7 +108,9 @@ export function useTenant() {
           const storeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Store;
           setStore(storeData);
           // 2. Save to Cache
-          sessionStorage.setItem(cacheKey, JSON.stringify(storeData));
+          if (isBrowser) {
+            sessionStorage.setItem(cacheKey, JSON.stringify(storeData));
+          }
         }
       } catch (err: any) {
         // Only log once, not on every re-render

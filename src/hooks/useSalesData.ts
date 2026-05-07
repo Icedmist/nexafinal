@@ -39,7 +39,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const sales: SaleTransaction[] = [];
       snapshot.forEach((doc) => {
-        sales.push({ id: doc.id, ...doc.data() } as SaleTransaction);
+        sales.push({ ...doc.data(), id: doc.id } as SaleTransaction);
       });
 
       // Filter by branch if user is restricted

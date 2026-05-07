@@ -131,7 +131,7 @@ export const updatestaffprofile = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
 
-  const { uid, email: providedEmail, password, displayName, role, branchId } = request.data;
+  const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data;
 
   if (!uid) {
     throw new HttpsError('invalid-argument', 'User UID is required.');
@@ -151,6 +151,7 @@ export const updatestaffprofile = onCall(async (request) => {
       email: !!providedEmail, 
       password: !!password, 
       displayName: !!displayName, 
+      photoURL: !!photoURL,
       role: !!role 
     } 
   });
@@ -198,6 +199,7 @@ export const updatestaffprofile = onCall(async (request) => {
       const updatePayload: any = {};
       if (password) updatePayload.password = password;
       if (displayName) updatePayload.displayName = displayName;
+      if (photoURL) updatePayload.photoURL = photoURL;
       if (email) updatePayload.email = email;
 
       if (Object.keys(updatePayload).length > 0) {
@@ -206,11 +208,18 @@ export const updatestaffprofile = onCall(async (request) => {
 
       if (role || branchId !== undefined) {
         const currentClaims = userRecord.customClaims || {};
+        const storeId = currentClaims.storeId;
+        
+        if (!storeId) {
+          console.warn(`Warning: storeId missing from custom claims for user ${targetUid}. Attempting recovery from Firestore.`);
+        }
+
         await admin.auth().setCustomUserClaims(targetUid, {
           ...currentClaims,
           role: role || currentClaims.role,
           branchId: branchId !== undefined ? branchId : currentClaims.branchId || null,
         });
+        console.log(`Updated claims for ${targetUid}: role=${role || currentClaims.role}, branchId=${branchId}`);
       }
     }
 
@@ -220,6 +229,7 @@ export const updatestaffprofile = onCall(async (request) => {
     if (displayName) firestoreUpdate.displayName = displayName;
     if (role) firestoreUpdate.role = role;
     if (branchId) firestoreUpdate.branchId = branchId;
+    if (photoURL) firestoreUpdate.photoURL = photoURL;
     if (email) firestoreUpdate.email = email;
 
     if (Object.keys(firestoreUpdate).length > 0) {

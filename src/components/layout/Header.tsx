@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sidebar } from "./Sidebar";
 import { QuickEntryMode } from "@/components/data/QuickEntryMode";
 import { CommandPalette } from "@/components/command/CommandPalette";
@@ -60,7 +61,9 @@ export function Header() {
   const navigate = useNavigate();
 
   const storeName = profile?.storeDetails?.name || "NEXA";
-  const displayName = user?.email?.split("@")[0] || "User";
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
+  const userInitials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
+  const photoURL = user?.photoURL;
 
   const handleLogout = async () => {
     await logout();
@@ -115,12 +118,22 @@ export function Header() {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" className="flex items-center gap-1.5 rounded-full pl-1 pr-2 py-1 hover:bg-muted transition-colors" aria-label="User menu">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
+          <button type="button" className="group flex items-center gap-3 rounded-xl pl-1 pr-4 py-1.5 hover:bg-muted/50 transition-all border border-transparent hover:border-border active:scale-95" aria-label="User menu">
+            <Avatar className="h-10 w-10 border-2 border-background shadow-md ring-1 ring-border group-hover:ring-primary/30 transition-all">
+              {photoURL ? (
+                <AvatarImage src={photoURL} alt={displayName} />
+              ) : null}
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="hidden flex-col items-start md:flex">
+              <span className="text-sm font-bold tracking-tight leading-none group-hover:text-primary transition-colors">{displayName}</span>
+              <Badge variant="outline" className="mt-1 h-4 px-1.5 text-[9px] font-bold uppercase bg-background/50 border-border/50 text-muted-foreground group-hover:border-primary/20 group-hover:text-primary/70 transition-all">
+                {ROLE_LABELS[role]}
+              </Badge>
             </div>
-            <span className="hidden text-sm font-medium md:inline-block">{displayName}</span>
-            <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground md:inline-block" />
+            <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground/50 md:inline-block transition-transform group-data-[state=open]:rotate-180" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">

@@ -3,17 +3,44 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // HELPERS
     function isAuth() { return request.auth != null; }
-    function getStoreId() { return request.auth.token.storeId; }
-    function getRole() { return request.auth.token.role; }
-    function isAdmin() { return getRole() == 'admin' || getRole() == 'owner'; }
+    
+    function getStoreId() { 
+      return request.auth.token.storeId != null ? 
+        request.auth.token.storeId : 
+        (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
+          get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.storeId : 
+          null);
+    }
+    
+    function getRole() { 
+      return request.auth.token.role != null ? 
+        request.auth.token.role : 
+        (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
+          get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role : 
+          null);
+    }
+    
+    // Role Helpers
+    function isAdmin() { 
+      let role = getRole();
+      return role == 'admin' || role == 'owner' || role == 'system_admin'; 
+    }
+    
+    function isManager() {
+      let role = getRole();
+      return isAdmin() || role == 'manager';
+    }
 
     // STORES: Publicly readable for tenant resolution (subdomain lookup)
     match /stores/{storeId} {
       allow read: if true; 
       allow create: if isAuth(); 
-      allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin() || (getRole() == 'manager' && getStoreId() == storeId));
+      allow update, delete: if isAuth() && (
+        resource.data.ownerId == request.auth.uid || 
+        isAdmin() || 
+        (isManager() && getStoreId() == storeId)
+      );
       
-      // Subcollections of stores
       match /{allSubcollections=**} {
         allow read, write: if isAuth() && (
           getStoreId() == storeId || 
@@ -41,17 +68,32 @@ service cloud.firestore {
 
     // MULTI-TENANT DATA: Gated by storeId claim with owner fallback
     match /{collectionName}/{docId} {
-      allow read, write: if isAuth() && (
+      allow read: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
         isAdmin()
       );
-        
+
       allow create: if isAuth() && (
         (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
         (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
-        (request.resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.ownerId == request.auth.uid)
+        (request.resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.ownerId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      allow update: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      allow delete: if isAuth() && (
+        (isAdmin() && getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
+        isAdmin()
       );
     }
     

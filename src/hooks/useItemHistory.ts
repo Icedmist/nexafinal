@@ -42,11 +42,11 @@ export function useItemHistory(itemId: string) {
     );
 
     const unsubM = onSnapshot(mQuery, (snap) => {
-      setMovements(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as StockMovement)));
+      setMovements(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as StockMovement)));
     });
 
     const unsubS = onSnapshot(sQuery, (snap) => {
-      setSales(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SaleTransaction)));
+      setSales(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as SaleTransaction)));
     });
 
     setIsLoading(false);

@@ -74,18 +74,37 @@ export function useCreateItem() {
 
 export function useUpdateItem() {
   return useFirestoreMutation<{ id: string; updates: Partial<Item> }>(async (storeId, { id, updates }) => {
-    const docRef = doc(db, "products", id);
-    await updateDoc(docRef, {
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      const docRef = doc(db, "products", id);
+      await updateDoc(docRef, {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("Error updating item:", {
+        id,
+        updates,
+        errorCode: error.code,
+        errorMessage: error.message
+      });
+      throw error;
+    }
   });
 }
 
 export function useDeleteItem() {
   return useFirestoreMutation<string>(async (storeId, id) => {
-    const docRef = doc(db, "products", id);
-    await deleteDoc(docRef);
+    try {
+      const docRef = doc(db, "products", id);
+      await deleteDoc(docRef);
+    } catch (error: any) {
+      console.error("Error deleting item:", {
+        id,
+        errorCode: error.code,
+        errorMessage: error.message
+      });
+      throw error;
+    }
   });
 }
 

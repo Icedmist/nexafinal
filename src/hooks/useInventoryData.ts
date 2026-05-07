@@ -49,7 +49,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     const unsubscribe = onSnapshot(prodQuery, (snapshot) => {
       const items: Item[] = [];
       snapshot.forEach((doc) => {
-        items.push({ id: doc.id, ...doc.data() } as Item);
+        items.push({ ...doc.data(), id: doc.id } as Item);
       });
       
       let filtered = items;
@@ -108,7 +108,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const doc = snapshot.docs.find(d => d.id === id);
       if (doc) {
-        setData({ id: doc.id, ...doc.data() } as Item);
+        setData({ ...doc.data(), id: doc.id } as Item);
       } else {
         setData(undefined);
       }
