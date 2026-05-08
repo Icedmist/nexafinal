@@ -1,10 +1,16 @@
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentWritten, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as functionsV1 from "firebase-functions/v1";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+import { defineSecret } from "firebase-functions/params";
+import { sendEmailViaZoho } from "./utils/email";
 
 admin.initializeApp();
+
+// Secrets for Zoho email
+const ZOHO_EMAIL = defineSecret("ZOHO_EMAIL");
+const ZOHO_PASSWORD = defineSecret("ZOHO_PASSWORD");
 
 // Set global options to ensure all functions use the correct region
 setGlobalOptions({ region: "us-central1" });
@@ -315,4 +321,103 @@ export const onusercreated = functionsV1.auth.user().onCreate(async (user: admin
   } catch (error) {
     console.error("Error in onusercreated claim assignment:", error);
   }
+});
+
+/**
+ * SEND CUSTOM EMAIL: Callable Function (v2)
+ * Sends an email using Zoho SMTP. Requires ZOHO_EMAIL and ZOHO_PASSWORD secrets.
+ */
+export const sendcustomemail = onCall({
+  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be logged in.');
+  }
+
+  const { to, subject, text, html, fromName } = request.data;
+
+  if (!to || !subject || !text) {
+    throw new HttpsError('invalid-argument', 'Recipient, subject, and text are required.');
+  }
+
+  try {
+    return await sendEmailViaZoho({ to, subject, text, html, fromName });
+  } catch (error: any) {
+    console.error("Failed to send custom email:", error);
+    throw new HttpsError('internal', 'Failed to send email. Ensure Zoho credentials are configured.');
+  }
+});
+
+/**
+ * AUTO RECEIPT: Firestore Trigger (v2)
+ * Sends an email receipt automatically if a customer email is provided during checkout.
+ */
+export const sendautoreceipt = onDocumentCreated({
+  document: "sales/{saleId}",
+  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (event) => {
+  const data = event.data?.data();
+  if (!data || !data.customerEmail) return null;
+
+  const { customerName, customerEmail, totalNgn, items, isCreditSale } = data;
+  const itemsList = items.map((i: any) => `- ${i.itemName} (x${i.quantity}): ₦${i.unitPriceNgn.toLocaleString()}`).join("\n");
+
+  const debtNote = isCreditSale 
+    ? `\n\nIMPORTANT: This was a credit sale. You have an outstanding balance of ₦${totalNgn.toLocaleString()}. Kindly settle this at your earliest convenience.` 
+    : "";
+
+  const message = `Hi ${customerName || "Customer"},\n\nThank you for shopping with us! Your order total was ₦${totalNgn.toLocaleString()}.${debtNote}\n\nItems:\n${itemsList}\n\nWe appreciate your business! 🙏`;
+
+  try {
+    await sendEmailViaZoho({
+      to: customerEmail,
+      subject: "Your Receipt from Nexa Store",
+      text: message,
+    });
+  } catch (error) {
+    console.error("Auto-receipt failed:", error);
+  }
+  return null;
+});
+
+/**
+ * ACTIVITY ALERTS: Firestore Trigger (v2)
+ * Notifies the store owner about critical events like logins or inventory alerts.
+ */
+export const onactivitycreated = onDocumentCreated({
+  document: "activity_logs/{logId}",
+  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (event) => {
+  const data = event.data?.data();
+  if (!data || !data.storeId) return null;
+
+  // We only send emails for critical alerts to avoid spam
+  const criticalTypes = ["login", "inventory_alert", "staff_onboarding"];
+  if (!criticalTypes.includes(data.type)) return null;
+
+  try {
+    // 1. Get store owner email
+    const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
+    const storeData = storeDoc.data();
+    if (!storeData || !storeData.ownerId) return null;
+
+    const owner = await admin.auth().getUser(storeData.ownerId);
+    const ownerEmail = owner.email;
+    if (!ownerEmail) return null;
+
+    // 2. Format and send alert
+    const title = `Nexa OS Alert: ${data.title}`;
+    const message = `A new activity has been recorded in your store (${storeData.name}):\n\nEvent: ${data.title}\nDetails: ${data.message}\nUser: ${data.userEmail}\nTime: ${new Date().toLocaleString()}\n\nLog in to your dashboard to view more details.`;
+
+    await sendEmailViaZoho({
+      to: ownerEmail,
+      subject: title,
+      text: message,
+    });
+    
+    console.log(`Alert email sent to owner ${ownerEmail} for event type ${data.type}`);
+  } catch (error) {
+    console.error("Failed to send activity alert:", error);
+  }
+  return null;
 });

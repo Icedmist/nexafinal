@@ -6,6 +6,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   signOut,
+  sendPasswordResetEmail,
   type UserCredential
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -20,6 +21,7 @@ interface AuthContextType {
   signup: (email: string, pass: string, displayName?: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   refreshClaims: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextType>({
@@ -31,6 +33,7 @@ const AuthContext = React.createContext<AuthContextType>({
   signup: async () => ({} as UserCredential),
   logout: async () => {},
   refreshClaims: async () => {},
+  resetPassword: async () => {},
 });
 
 export const useAuth = () => React.useContext(AuthContext);
@@ -114,6 +117,10 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     await signOut(auth);
   };
 
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  };
+
   const refreshClaims = async () => {
     if (auth.currentUser) {
       try {
@@ -181,7 +188,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, claims, loading, claimsReady, login, signup, logout, refreshClaims }}>
+    <AuthContext.Provider value={{ user, claims, loading, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
       {!loading && children}
     </AuthContext.Provider>
   );

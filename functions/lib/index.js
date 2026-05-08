@@ -1,12 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onusercreated = exports.updatestaffprofile = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionstaff = exports.syncstaffclaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const functionsV1 = require("firebase-functions/v1");
 const v2_1 = require("firebase-functions/v2");
 const admin = require("firebase-admin");
+const params_1 = require("firebase-functions/params");
+const email_1 = require("./utils/email");
 admin.initializeApp();
+// Secrets for Zoho email
+const ZOHO_EMAIL = (0, params_1.defineSecret)("ZOHO_EMAIL");
+const ZOHO_PASSWORD = (0, params_1.defineSecret)("ZOHO_PASSWORD");
 // Set global options to ensure all functions use the correct region
 (0, v2_1.setGlobalOptions)({ region: "us-central1" });
 /**
@@ -117,7 +122,7 @@ exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
-    const { uid, email: providedEmail, password, displayName, role, branchId } = request.data;
+    const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data;
     if (!uid) {
         throw new https_1.HttpsError('invalid-argument', 'User UID is required.');
     }
@@ -133,6 +138,7 @@ exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
             email: !!providedEmail,
             password: !!password,
             displayName: !!displayName,
+            photoURL: !!photoURL,
             role: !!role
         }
     });
@@ -182,6 +188,8 @@ exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
                 updatePayload.password = password;
             if (displayName)
                 updatePayload.displayName = displayName;
+            if (photoURL)
+                updatePayload.photoURL = photoURL;
             if (email)
                 updatePayload.email = email;
             if (Object.keys(updatePayload).length > 0) {
@@ -189,11 +197,16 @@ exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
             }
             if (role || branchId !== undefined) {
                 const currentClaims = userRecord.customClaims || {};
+                const storeId = currentClaims.storeId;
+                if (!storeId) {
+                    console.warn(`Warning: storeId missing from custom claims for user ${targetUid}. Attempting recovery from Firestore.`);
+                }
                 await admin.auth().setCustomUserClaims(targetUid, {
                     ...currentClaims,
                     role: role || currentClaims.role,
                     branchId: branchId !== undefined ? branchId : currentClaims.branchId || null,
                 });
+                console.log(`Updated claims for ${targetUid}: role=${role || currentClaims.role}, branchId=${branchId}`);
             }
         }
         // 4. Update Firestore record
@@ -206,6 +219,8 @@ exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
             firestoreUpdate.role = role;
         if (branchId)
             firestoreUpdate.branchId = branchId;
+        if (photoURL)
+            firestoreUpdate.photoURL = photoURL;
         if (email)
             firestoreUpdate.email = email;
         if (Object.keys(firestoreUpdate).length > 0) {
@@ -284,5 +299,96 @@ exports.onusercreated = functionsV1.auth.user().onCreate(async (user) => {
     catch (error) {
         console.error("Error in onusercreated claim assignment:", error);
     }
+});
+/**
+ * SEND CUSTOM EMAIL: Callable Function (v2)
+ * Sends an email using Zoho SMTP. Requires ZOHO_EMAIL and ZOHO_PASSWORD secrets.
+ */
+exports.sendcustomemail = (0, https_1.onCall)({
+    secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
+    }
+    const { to, subject, text, html, fromName } = request.data;
+    if (!to || !subject || !text) {
+        throw new https_1.HttpsError('invalid-argument', 'Recipient, subject, and text are required.');
+    }
+    try {
+        return await (0, email_1.sendEmailViaZoho)({ to, subject, text, html, fromName });
+    }
+    catch (error) {
+        console.error("Failed to send custom email:", error);
+        throw new https_1.HttpsError('internal', 'Failed to send email. Ensure Zoho credentials are configured.');
+    }
+});
+/**
+ * AUTO RECEIPT: Firestore Trigger (v2)
+ * Sends an email receipt automatically if a customer email is provided during checkout.
+ */
+exports.sendautoreceipt = (0, firestore_1.onDocumentCreated)({
+    document: "sales/{saleId}",
+    secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data || !data.customerEmail)
+        return null;
+    const { customerName, customerEmail, totalNgn, items, isCreditSale } = data;
+    const itemsList = items.map((i) => `- ${i.itemName} (x${i.quantity}): ₦${i.unitPriceNgn.toLocaleString()}`).join("\n");
+    const debtNote = isCreditSale
+        ? `\n\nIMPORTANT: This was a credit sale. You have an outstanding balance of ₦${totalNgn.toLocaleString()}. Kindly settle this at your earliest convenience.`
+        : "";
+    const message = `Hi ${customerName || "Customer"},\n\nThank you for shopping with us! Your order total was ₦${totalNgn.toLocaleString()}.${debtNote}\n\nItems:\n${itemsList}\n\nWe appreciate your business! 🙏`;
+    try {
+        await (0, email_1.sendEmailViaZoho)({
+            to: customerEmail,
+            subject: "Your Receipt from Nexa Store",
+            text: message,
+        });
+    }
+    catch (error) {
+        console.error("Auto-receipt failed:", error);
+    }
+    return null;
+});
+/**
+ * ACTIVITY ALERTS: Firestore Trigger (v2)
+ * Notifies the store owner about critical events like logins or inventory alerts.
+ */
+exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
+    document: "activity_logs/{logId}",
+    secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data || !data.storeId)
+        return null;
+    // We only send emails for critical alerts to avoid spam
+    const criticalTypes = ["login", "inventory_alert", "staff_onboarding"];
+    if (!criticalTypes.includes(data.type))
+        return null;
+    try {
+        // 1. Get store owner email
+        const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
+        const storeData = storeDoc.data();
+        if (!storeData || !storeData.ownerId)
+            return null;
+        const owner = await admin.auth().getUser(storeData.ownerId);
+        const ownerEmail = owner.email;
+        if (!ownerEmail)
+            return null;
+        // 2. Format and send alert
+        const title = `Nexa OS Alert: ${data.title}`;
+        const message = `A new activity has been recorded in your store (${storeData.name}):\n\nEvent: ${data.title}\nDetails: ${data.message}\nUser: ${data.userEmail}\nTime: ${new Date().toLocaleString()}\n\nLog in to your dashboard to view more details.`;
+        await (0, email_1.sendEmailViaZoho)({
+            to: ownerEmail,
+            subject: title,
+            text: message,
+        });
+        console.log(`Alert email sent to owner ${ownerEmail} for event type ${data.type}`);
+    }
+    catch (error) {
+        console.error("Failed to send activity alert:", error);
+    }
+    return null;
 });
 //# sourceMappingURL=index.js.map

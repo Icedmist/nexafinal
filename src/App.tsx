@@ -21,6 +21,8 @@ const PurchaseOrdersPage = lazy(() => import('./routes/app.purchase-orders'));
 const RequestsPage = lazy(() => import('./routes/app.requests'));
 const ReturnsPage = lazy(() => import('./routes/app.returns'));
 const SalesAnalyticsPage = lazy(() => import('./routes/app.sales-analytics'));
+const SalesHistoryPage = lazy(() => import('./routes/app.sales-history'));
+const SalesPage = lazy(() => import('./routes/app.sales'));
 const SettingsPage = lazy(() => import('./routes/app.settings'));
 const StaffPage = lazy(() => import('./routes/app.staff'));
 const SuppliersPage = lazy(() => import('./routes/app.suppliers'));
@@ -62,6 +64,8 @@ function App() {
             <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
             <Route path="requests" element={<RequestsPage />} />
             <Route path="returns" element={<ReturnsPage />} />
+            <Route path="sales" element={<SalesPage />} />
+            <Route path="sales-history" element={<SalesHistoryPage />} />
             <Route path="sales-analytics" element={<SalesAnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="staff" element={<StaffPage />} />

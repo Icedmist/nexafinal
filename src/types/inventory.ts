@@ -13,6 +13,7 @@ export interface SaleTransaction {
   id: string;
   customerName?: string;
   customerPhone?: string;
+  customerEmail?: string;
   items: SaleLineItem[];
   totalNgn: number;
   paymentMethod?: "cash" | "transfer" | "card";

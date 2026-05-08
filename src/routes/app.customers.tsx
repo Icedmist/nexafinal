@@ -24,6 +24,7 @@ export default CustomersPage;
 interface CustomerRecord {
   name: string;
   phone: string;
+  email?: string;
   totalSpent: number;
   transactionCount: number;
   lastPurchase: string;
@@ -72,6 +73,7 @@ function CustomersPage() {
           transactionCount: 1,
           lastPurchase: sale.createdAt,
           debtBalance: sale.isCreditSale ? sale.totalNgn : 0,
+          email: sale.customerEmail || undefined,
         });
       }
     }
@@ -142,6 +144,34 @@ function CustomersPage() {
     }
     setMessageOpen(false);
     toast.success("WhatsApp opened — send manually");
+  };
+
+  const handleSendEmail = async () => {
+    if (!messageTarget || !messageTarget.email) {
+      toast.error("Customer email is missing");
+      return;
+    }
+
+    try {
+      const { httpsCallable } = await import("firebase/functions");
+      const { functions } = await import("@/lib/firebase");
+      const sendEmail = httpsCallable(functions, 'sendcustomemail');
+      
+      const result = await sendEmail({
+        to: messageTarget.email,
+        subject: "Message from Nexa OS",
+        text: messageText,
+        fromName: "Nexa Store"
+      });
+
+      if ((result.data as any).success) {
+        toast.success("Email sent successfully via Zoho!");
+      }
+    } catch (err) {
+      console.error("Email send error:", err);
+      toast.error("Failed to send email. Check Zoho configuration.");
+    }
+    setMessageOpen(false);
   };
 
   const daysSince = (iso: string) => {
@@ -228,9 +258,16 @@ function CustomersPage() {
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Phone className="h-3 w-3" />{c.phone}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3" />{c.phone}
+                      </p>
+                      {c.email && (
+                        <Badge variant="outline" className="text-[10px] h-4 py-0 font-normal opacity-70">
+                          {c.email}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   <div className="hidden sm:flex flex-col items-end gap-0.5">
@@ -302,15 +339,23 @@ function CustomersPage() {
               placeholder="Type your message…"
             />
 
-            <div className="flex gap-2 justify-end">
-              <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogClose>
-              <Button onClick={handleSendWhatsApp} className="gap-2 bg-green-600 hover:bg-green-700">
-                <Send className="h-4 w-4" />
-                Open WhatsApp
-              </Button>
-            </div>
+              <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <div className="flex gap-2">
+                  <Button onClick={handleSendWhatsApp} className="flex-1 gap-2 bg-green-600 hover:bg-green-700">
+                    <Send className="h-4 w-4" />
+                    WhatsApp
+                  </Button>
+                  {messageTarget?.email && (
+                    <Button onClick={handleSendEmail} className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700">
+                      <MessageCircle className="h-4 w-4" />
+                      Email (Zoho)
+                    </Button>
+                  )}
+                </div>
+              </div>
           </div>
         </DialogContent>
       </Dialog>

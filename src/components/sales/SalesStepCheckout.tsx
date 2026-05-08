@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone } from "lucide-react";
+import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const { addSale } = useSalesMutations();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [lastSale, setLastSale] = useState<SaleTransaction | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState<{ type: "percentage" | "flat"; value: number } | null>(null);
@@ -82,6 +83,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
     const saleData: any = {
       customerName: customerName.trim() || null,
       customerPhone: customerPhone.trim() || null,
+      customerEmail: customerEmail.trim() || null,
       items: items.map((ci) => ({
         itemId: ci.item.id,
         itemName: ci.item.name,
@@ -154,6 +156,13 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
             <div className="relative">
               <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input id="checkout-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="e.g. Chidi Okonkwo" className="pl-10 h-11" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="checkout-email" className="text-xs">Email Address (Optional)</Label>
+            <div className="relative">
+              <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input id="checkout-email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="customer@example.com" className="pl-10 h-11" />
             </div>
           </div>
           {/* Auto-suggest dropdown */}

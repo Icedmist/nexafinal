@@ -17,12 +17,27 @@ export default LoginPage;
 
 function LoginPage() {
   const { store, loading: tenantLoading } = useTenant();
-  const { login, logout } = useAuth();
+  const { login, logout, resetPassword } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error("Please enter your email address first.");
+      return;
+    }
+    
+    try {
+      await resetPassword(email);
+      toast.success("Password reset email sent! Check your inbox.");
+    } catch (err: any) {
+      const message = getAuthErrorMessage(err?.code, err?.message || "Failed to send reset email");
+      toast.error(message);
+    }
+  };
 
   const getAuthErrorMessage = (code: string | undefined, originalMessage: string) => {
     switch (code) {
@@ -199,8 +214,16 @@ function LoginPage() {
             />
           </div>
           
-          <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
+            <div className="flex items-center justify-between ml-1">
+              <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Password</Label>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+              >
+                Forgot Password?
+              </button>
+            </div>
             <div className="relative">
               <Input
                 id="password"
@@ -219,7 +242,6 @@ function LoginPage() {
               </button>
             </div>
           </div>
-        </div>
 
         <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 relative z-10 overflow-hidden group/btn" disabled={loading}>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />

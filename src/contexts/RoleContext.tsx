@@ -4,6 +4,7 @@ import { useAuth } from "./FirebaseAuthContext";
 import { doc, onSnapshot, query, collection, where, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useTenant } from "./TenantContext";
+import { useBusiness } from "./BusinessContext";
 
 export interface RoleContextValue {
   role: UserRoleType;
@@ -20,11 +21,12 @@ export const RoleContext = createContext<RoleContextValue | null>(null);
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user, claims } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
+  const { storeId: businessStoreId, ownerId: businessOwnerId, loadingProfile } = useBusiness();
   const [realRole, setRealRole] = useState<UserRoleType>("requestor");
 
   useEffect(() => {
-    if (!user || loadingTenant) {
-      if (!loadingTenant) setRealRole("requestor");
+    if (!user || loadingTenant || loadingProfile) {
+      if (!loadingTenant && !loadingProfile && !user) setRealRole("requestor");
       return;
     }
 
@@ -38,22 +40,26 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Security Check: Ensure the user's token storeId matches the current tenant context
-      if (claims.storeId === store?.id) {
+      // Security Check: Ensure the user's token storeId matches the current tenant context OR business context
+      const activeStoreId = store?.id || businessStoreId;
+      if (claims.storeId === activeStoreId && activeStoreId) {
         setRealRole(roleFromClaims);
         return;
       }
     }
 
     // 2. Fallback: Check if user is the store owner (merchant root)
-    if (store && user.uid === store.ownerId) {
+    // We check both the tenant store and the business context store
+    const isOwner = (store && user.uid === store.ownerId) || (user.uid === businessOwnerId);
+    
+    if (isOwner) {
       setRealRole("owner");
       return;
     }
 
     // 3. If no claims and not owner, default to requestor
     setRealRole("requestor");
-  }, [user, store, loadingTenant, claims]);
+  }, [user, store, loadingTenant, claims, businessStoreId, businessOwnerId, loadingProfile]);
 
   const role: UserRoleType = realRole;
 
