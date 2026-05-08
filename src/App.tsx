@@ -29,6 +29,12 @@ const SuppliersPage = lazy(() => import('./routes/app.suppliers'));
 const OnboardingPage = lazy(() => import('./routes/onboarding'));
 const ScanPage = lazy(() => import('./routes/scan.$id'));
 
+// System Admin Pages
+const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout').then(m => ({ default: m.SystemAdminLayout })));
+const SystemDashboardPage = lazy(() => import('./routes/system-admin.dashboard'));
+const SystemBusinessesPage = lazy(() => import('./routes/system-admin.businesses'));
+const SystemUsersPage = lazy(() => import('./routes/system-admin.users'));
+
 const Loading = () => (
   <div className="flex h-screen items-center justify-center bg-background">
     <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
@@ -70,6 +76,14 @@ function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="staff" element={<StaffPage />} />
             <Route path="suppliers" element={<SuppliersPage />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+          </Route>
+
+          {/* System Admin Routes (Platform Oversight) */}
+          <Route path="/system-admin" element={<SystemAdminLayout />}>
+            <Route path="dashboard" element={<SystemDashboardPage />} />
+            <Route path="businesses" element={<SystemBusinessesPage />} />
+            <Route path="users" element={<SystemUsersPage />} />
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>
 

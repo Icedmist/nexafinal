@@ -1,0 +1,13 @@
+.output
+functions
+firestore.rules
+firestore.indexes.json
+.firebaserc
+firebase.json
+node_modules
+pnpm-lock.yaml
+package-lock.json
+scripts
+docs
+e2e
+tests
