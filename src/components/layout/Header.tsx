@@ -67,7 +67,27 @@ export function Header() {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/");
+    
+    // Clear all caches to prevent session ghosting
+    sessionStorage.clear();
+    localStorage.clear();
+
+    // Reset domain context for localhost or production
+    const host = window.location.hostname;
+    const protocol = window.location.protocol;
+    const port = window.location.port;
+
+    if (host.includes("localhost") || host.includes("127.0.0.1")) {
+      window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}`;
+    } else {
+      const parts = host.split(".");
+      if (parts.length > 2) {
+        const domain = parts.slice(-2).join(".");
+        window.location.href = `${protocol}//${domain}`;
+      } else {
+        window.location.href = `${protocol}//${host}`;
+      }
+    }
   };
 
   // CMD+K / Ctrl+K shortcut

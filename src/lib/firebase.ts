@@ -13,8 +13,12 @@ import { getAnalytics, type Analytics } from "firebase/analytics";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 
+if (!import.meta.env.VITE_FIREBASE_API_KEY) {
+  console.error("FIREBASE ERROR: VITE_FIREBASE_API_KEY is missing! Please check your .env file.");
+}
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "missing-api-key",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
