@@ -166,7 +166,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           };
 
           // Temporary: Force system_admin role for dev user
-          if (currentUser.uid === '1TgfYzMcu5NXhqswqLpdPSUrnOJ2') {
+          if (currentUser.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2') {
             finalClaims.role = 'system_admin';
           }
 

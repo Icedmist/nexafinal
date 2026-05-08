@@ -18,6 +18,9 @@ import {
   Receipt,
   TrendingUp,
   Users,
+  ShieldCheck,
+  Building2,
+  Globe,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -86,6 +89,17 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+const systemAdminGroups: NavGroup[] = [
+  {
+    label: "Platform Admin",
+    items: [
+      { label: "Command Center", href: "/system-admin/dashboard", icon: ShieldCheck },
+      { label: "Businesses", href: "/system-admin/businesses", icon: Building2 },
+      { label: "User Directory", href: "/system-admin/users", icon: Globe },
+    ],
+  },
+];
+
 const standaloneLinks: NavItem[] = [
   { label: "Requests", href: "/app/requests", icon: Inbox },
   { label: "Help", href: "/app/help", icon: HelpCircle },
@@ -108,20 +122,28 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   };
 
   const isActive = (href: string) => location.pathname === href;
+  const isSystemRoute = location.pathname.startsWith("/system-admin");
 
   // Filter groups and items based on permissions AND business complexity
-
   const visibleGroups = navGroups
-    .filter((g) => !g.permKey || permissions[g.permKey])
     .filter((g) => {
       if (isSystemAdmin) return true;
-      return isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true;
+      const hasPerm = !g.permKey || permissions[g.permKey];
+      const isAllowedByComplexity = isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true;
+      return hasPerm && isAllowedByComplexity;
     })
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => !i.permKey || permissions[i.permKey]),
+      items: g.items.filter((i) => isSystemAdmin || !i.permKey || permissions[i.permKey]),
     }))
     .filter((g) => g.items.length > 0);
+
+  // For System Admins: 
+  // If on a system route, show ONLY system groups.
+  // If on an app route, show both but prioritize app groups (or just show all).
+  const allVisibleGroups = isSystemAdmin 
+    ? (isSystemRoute ? systemAdminGroups : [...systemAdminGroups, ...visibleGroups])
+    : visibleGroups;
 
   return (
     <nav data-tour="sidebar" className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -130,12 +152,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           <img src={nexaLogo} className="h-5 w-5 text-primary" alt="NEXA Logo" />
         </div>
         <span className="text-lg font-black tracking-tight uppercase italic text-sidebar-primary-foreground truncate">
-          {profile?.storeDetails?.name || "NEXA Store OS"}
+          {isSystemAdmin ? "NEXA Platform" : (profile?.storeDetails?.name || "NEXA Store OS")}
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        {visibleGroups.map((group, idx) => {
+        {allVisibleGroups.map((group, idx) => {
           const isCollapsed = collapsed[group.label] ?? false;
           return (
             <div key={group.label}>
@@ -192,6 +214,26 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               {item.label}
             </Link>
           ))}
+          
+          {/* System Admin View Toggle */}
+          {isSystemAdmin && (
+            <Link
+              to={isSystemRoute ? "/app/dashboard" : "/system-admin/dashboard"}
+              className="mt-4 flex items-center gap-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm font-bold text-primary transition-all hover:bg-primary/20"
+            >
+              {isSystemRoute ? (
+                <>
+                  <LayoutDashboard className="h-4 w-4" />
+                  Enter Store View
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  Platform Command
+                </>
+              )}
+            </Link>
+          )}
         </div>
       </div>
     </nav>

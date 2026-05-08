@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function AppLayout() {
   const auth = useAuth();
@@ -86,11 +88,19 @@ export function AppLayout() {
 
   // Role-based route guard
   useEffect(() => {
-    if (user && claimsReady && !loadingProfile && !needsOnboarding && !canAccessRoute(location.pathname, role)) {
-      toast.error("You don't have permission to access that page.");
-      navigate("/app/dashboard");
+    const isSystemRoute = location.pathname.startsWith("/system-admin");
+    
+    // For normal users, we wait until onboarding is done to check routes (or they'll be redirected anyway)
+    // For system admins OR system routes, we check immediately.
+    const shouldCheckPermissions = isSystemAdmin || isSystemRoute || !needsOnboarding;
+
+    if (user && claimsReady && !loadingProfile && shouldCheckPermissions) {
+      if (!canAccessRoute(location.pathname, role)) {
+        toast.error("You don't have permission to access that page.");
+        navigate(isSystemAdmin ? "/system-admin/dashboard" : "/app/dashboard");
+      }
     }
-  }, [location.pathname, role, navigate, user, claimsReady, loadingProfile, needsOnboarding]);
+  }, [location.pathname, role, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin]);
 
   // Auth guard — redirect to landing if not logged in
   useEffect(() => {
@@ -101,10 +111,11 @@ export function AppLayout() {
 
   // Onboarding guard — redirect to setup if store is incomplete
   useEffect(() => {
-    if (user && claimsReady && !loadingProfile && needsOnboarding) {
+    const isSystemRoute = location.pathname.startsWith("/system-admin");
+    if (user && claimsReady && !loadingProfile && needsOnboarding && !isSystemAdmin && !isSystemRoute) {
       navigate("/onboarding", { replace: true });
     }
-  }, [user, needsOnboarding, claimsReady, loadingProfile, navigate]);
+  }, [user, needsOnboarding, claimsReady, loadingProfile, navigate, isSystemAdmin, location.pathname]);
 
   if (loading || !user || !claimsReady) {
     return (
@@ -121,8 +132,18 @@ export function AppLayout() {
           <Sidebar />
         </aside>
         <div className="flex flex-1 flex-col overflow-hidden md:my-2 md:mr-2 md:rounded-2xl md:border md:border-border md:bg-card md:shadow-sm">
+          {/* Admin Audit Banner */}
+          {isSystemAdmin && store && (
+            <div className="flex h-8 w-full items-center justify-center gap-2 bg-blue-600 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+              <ShieldCheck className="h-3 w-3" />
+              Platform Admin Mode — Full Operational Oversight Enabled
+            </div>
+          )}
           <Header />
-          <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8 md:rounded-b-2xl">
+          <main className={cn(
+            "flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8",
+            isSystemAdmin && store ? "md:rounded-none" : "md:rounded-b-2xl"
+          )}>
             <AnimatePresence mode="wait">
               <PageTransition key={location.pathname} routeKey={location.pathname}>
                 <Outlet />

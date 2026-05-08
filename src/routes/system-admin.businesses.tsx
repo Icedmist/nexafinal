@@ -219,8 +219,24 @@ export default function SystemBusinesses() {
                           {biz.status === "active" ? <Ban className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
                         </button>
                         <button 
+                          onClick={() => {
+                            const host = window.location.hostname;
+                            const protocol = window.location.protocol;
+                            const port = window.location.port;
+                            const slug = biz.slug;
+                            
+                            let targetUrl = "";
+                            if (host.includes("localhost") || host.includes("127.0.0.1")) {
+                              targetUrl = `${protocol}//${slug}.localhost${port ? `:${port}` : ""}/app/dashboard`;
+                            } else {
+                              const parts = host.split(".");
+                              const domain = parts.slice(-2).join(".");
+                              targetUrl = `${protocol}//${slug}.${domain}/app/dashboard`;
+                            }
+                            window.open(targetUrl, "_blank");
+                          }}
                           className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-blue-400 hover:border-blue-500/50 transition-all"
-                          title="View Operations"
+                          title="View Operations (Audit Mode)"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </button>

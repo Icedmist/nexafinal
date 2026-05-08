@@ -12,9 +12,11 @@ import {
   ArrowUpDown
 } from "lucide-react";
 import { collection, query, getDocs, orderBy, limit } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface UserProfile {
   id: string;
@@ -38,20 +40,44 @@ export default function SystemUsers() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // For a platform admin, we want to see users. 
-      // Note: In a real large-scale app, we'd use a Cloud Function to list Auth users.
-      const snap = await getDocs(query(collection(db, "users"), limit(100)));
-      const data = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as UserProfile[];
+      const listUsers = httpsCallable(functions, 'listallusers');
+      const result = await listUsers();
+      const data = result.data as any;
       
-      setUsers(data);
+      // Map Auth users to UserProfile format
+      const mapped = data.users.map((u: any) => ({
+        id: u.uid,
+        email: u.email,
+        displayName: u.displayName,
+        role: u.customClaims?.role || "user",
+        storeId: u.customClaims?.storeId,
+        createdAt: u.creationTime,
+        lastLogin: u.lastSignInTime,
+      })) as UserProfile[];
+
+      setUsers(mapped);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Failed to load platform users.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleWipeUser = async (uid: string) => {
+    if (!confirm("Are you sure you want to WIPE this user? This will delete their Auth account and all associated platform data. This action is IRREVERSIBLE.")) {
+      return;
+    }
+
+    const toastId = toast.loading("Wiping user from platform...");
+    try {
+      const wipe = httpsCallable(functions, 'wipeuser');
+      await wipe({ uid });
+      toast.success("User successfully wiped.", { id: toastId });
+      fetchUsers(); // Refresh list
+    } catch (error) {
+      console.error("Wipe error:", error);
+      toast.error("Failed to wipe user.", { id: toastId });
     }
   };
 
@@ -169,9 +195,29 @@ export default function SystemUsers() {
                        </div>
                     </td>
                     <td className="px-8 py-5 text-right">
-                       <button className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-white hover:bg-slate-800 transition-all">
-                         <MoreHorizontal className="h-5 w-5" />
-                       </button>
+                       <DropdownMenu>
+                         <DropdownMenuTrigger asChild>
+                           <button className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-white hover:bg-slate-800 transition-all">
+                             <MoreHorizontal className="h-5 w-5" />
+                           </button>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent align="end" className="w-48 bg-slate-950 border-slate-800">
+                           <DropdownMenuLabel className="text-slate-500">Actions</DropdownMenuLabel>
+                           <DropdownMenuItem className="text-white hover:bg-slate-900 cursor-pointer">
+                             View Profile
+                           </DropdownMenuItem>
+                           <DropdownMenuItem className="text-white hover:bg-slate-900 cursor-pointer">
+                             Force Password Reset
+                           </DropdownMenuItem>
+                           <DropdownMenuSeparator className="bg-slate-800" />
+                           <DropdownMenuItem 
+                             className="text-rose-500 hover:bg-rose-500/10 cursor-pointer font-bold"
+                             onClick={() => handleWipeUser(user.id)}
+                           >
+                             Wipe Data & Delete
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
+                       </DropdownMenu>
                     </td>
                   </tr>
                 ))

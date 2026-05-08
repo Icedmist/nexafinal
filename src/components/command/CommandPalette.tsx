@@ -19,6 +19,9 @@ import { parseQuery } from "@/lib/nl-search-parser";
 import { PAGES } from "./palette-pages";
 import { ACTIONS } from "./palette-actions";
 import { ItemResultRow } from "./ItemResultRow";
+import { collection, query as fsQuery, getDocs, where, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Building2, User as UserIcon } from "lucide-react";
 
 // ─── Component ───────────────────────────────────────────
 
@@ -34,7 +37,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const { data: categories } = useCategories();
   const { data: suppliers } = useSuppliers();
   const { can } = usePermissions();
-  const { role } = useRole();
+  const { role, isSystemAdmin } = useRole();
+  
+  // Platform-wide search results
+  const [platformStores, setPlatformStores] = useState<any[]>([]);
+  const [platformUsers, setPlatformUsers] = useState<any[]>([]);
+  const [searchingPlatform, setSearchingPlatform] = useState(false);
 
   // Reset query on close
   useEffect(() => {
@@ -95,6 +103,46 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     return results.slice(0, 10);
   }, [isNL, items, parsed, categories, suppliers]);
 
+  // Platform-wide search (Firestore)
+  useEffect(() => {
+    if (!isSystemAdmin || q.length < 2) {
+      setPlatformStores([]);
+      setPlatformUsers([]);
+      return;
+    }
+
+    const searchPlatform = async () => {
+      setSearchingPlatform(true);
+      try {
+        // Search stores
+        const storesSnap = await getDocs(fsQuery(
+          collection(db, "stores"),
+          where("name", ">=", query),
+          where("name", "<=", query + "\uf8ff"),
+          limit(5)
+        ));
+        
+        // Search users
+        const usersSnap = await getDocs(fsQuery(
+          collection(db, "users"),
+          where("displayName", ">=", query),
+          where("displayName", "<=", query + "\uf8ff"),
+          limit(5)
+        ));
+
+        setPlatformStores(storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'store' })));
+        setPlatformUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'user' })));
+      } catch (err) {
+        console.error("Platform search error:", err);
+      } finally {
+        setSearchingPlatform(false);
+      }
+    };
+
+    const timeout = setTimeout(searchPlatform, 300);
+    return () => clearTimeout(timeout);
+  }, [isSystemAdmin, query, q]);
+
   // Standard item search results (max 8)
   const matchedItems = useMemo(() => {
     if (isNL || q.length < 1) return [];
@@ -121,11 +169,29 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     return allowed.filter((a) => a.label.toLowerCase().includes(q));
   }, [q, can]);
 
-  const hasResults = matchedItems.length > 0 || nlItems.length > 0 || matchedPages.length > 0 || matchedActions.length > 0;
+  const hasResults = matchedItems.length > 0 || nlItems.length > 0 || matchedPages.length > 0 || matchedActions.length > 0 || platformStores.length > 0 || platformUsers.length > 0;
 
   const handleSelect = useCallback(
     (value: string) => {
       onOpenChange(false);
+
+      if (value.startsWith("store:")) {
+        const slug = value.replace("store:", "");
+        const host = window.location.hostname;
+        const protocol = window.location.protocol;
+        const port = window.location.port;
+        
+        let targetUrl = "";
+        if (host.includes("localhost") || host.includes("127.0.0.1")) {
+          targetUrl = `${protocol}//${slug}.localhost${port ? `:${port}` : ""}/app/dashboard`;
+        } else {
+          const parts = host.split(".");
+          const domain = parts.slice(-2).join(".");
+          targetUrl = `${protocol}//${slug}.${domain}/app/dashboard`;
+        }
+        window.open(targetUrl, "_blank");
+        return;
+      }
 
       if (value.startsWith("item:")) {
         const itemId = value.replace("item:", "");
@@ -162,7 +228,51 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             onValueChange={setQuery}
           />
           <CommandList>
-            {!hasResults && <CommandEmpty>No items match your query.</CommandEmpty>}
+            {searchingPlatform && (
+              <div className="p-4 text-center text-xs text-muted-foreground animate-pulse">
+                Searching platform...
+              </div>
+            )}
+            {!hasResults && !searchingPlatform && <CommandEmpty>No results found.</CommandEmpty>}
+
+            {/* Platform Results (Global) */}
+            {isSystemAdmin && platformStores.length > 0 && (
+              <CommandGroup heading="Platform: Businesses">
+                {platformStores.map((store) => (
+                  <CommandItem
+                    key={store.id}
+                    value={`store:${store.slug}`}
+                    onSelect={handleSelect}
+                    className="flex items-center gap-3"
+                  >
+                    <Building2 className="h-4 w-4 text-blue-500" />
+                    <div className="flex flex-col">
+                      <span className="font-bold">{store.name}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{store.slug}.nexa.os</span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {isSystemAdmin && platformUsers.length > 0 && (
+              <CommandGroup heading="Platform: Global Users">
+                {platformUsers.map((user) => (
+                  <CommandItem
+                    key={user.id}
+                    value={`user:${user.id}`}
+                    onSelect={handleSelect}
+                    className="flex items-center gap-3"
+                  >
+                    <UserIcon className="h-4 w-4 text-purple-500" />
+                    <div className="flex flex-col">
+                      <span className="font-bold">{user.displayName || user.email}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Global User Account</span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
 
             {/* NL Search Results */}
             {isNL && nlItems.length > 0 && (

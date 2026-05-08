@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Plus, Menu, User, LogOut, Settings, ChevronDown, ScanBarcode } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sidebar } from "./Sidebar";
+import { SystemAdminSidebar } from "@/components/system-admin/SystemAdminSidebar";
 import { QuickEntryMode } from "@/components/data/QuickEntryMode";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -27,6 +28,7 @@ import { useRole } from "@/hooks/useRole";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { cn } from "@/lib/utils";
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
   admin: "bg-primary/15 text-primary border-primary/20",
@@ -55,12 +57,14 @@ export function Header() {
   const [prefsOpen, setPrefsOpen] = useState(false);
   
   const { logout } = useAuth();
-  const { role } = useRole();
+  const { role, isSystemAdmin } = useRole();
   const { profile } = useBusiness();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const storeName = profile?.storeDetails?.name || "NEXA";
+  const isSystemRoute = location.pathname.startsWith("/system-admin");
+  const storeName = isSystemAdmin && isSystemRoute ? "PLATFORM COMMAND" : (profile?.storeDetails?.name || "NEXA");
   const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
   const userInitials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
   const photoURL = user?.photoURL;
@@ -113,7 +117,12 @@ export function Header() {
   }, []);
 
   return (
-    <header className="flex h-16 items-center gap-3 border-b border-border bg-card px-4 shadow-sm md:px-8 md:rounded-t-2xl">
+    <header className={cn(
+      "flex h-16 items-center gap-3 border-b px-4 shadow-sm md:px-8 transition-colors duration-300",
+      isSystemRoute 
+        ? "border-slate-800 bg-slate-950 md:rounded-none" 
+        : "border-border bg-card md:rounded-t-2xl"
+    )}>
       <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
         <Menu className="h-5 w-5" />
       </Button>
@@ -122,29 +131,51 @@ export function Header() {
         <span className="text-sm font-black tracking-tight truncate max-w-[120px]">{storeName}</span>
       </div>
 
-      <button data-tour="search" type="button" onClick={() => setPaletteOpen(true)} className="flex h-9 flex-1 items-center gap-2 rounded-md border border-input bg-white px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 md:max-w-sm">
+      <button 
+        data-tour="search" 
+        type="button" 
+        onClick={() => setPaletteOpen(true)} 
+        className={cn(
+          "flex h-9 flex-1 items-center gap-2 rounded-md border px-3 text-sm transition-colors md:max-w-sm",
+          isSystemRoute 
+            ? "border-slate-800 bg-slate-900 text-slate-400 hover:border-blue-500/50" 
+            : "border-input bg-white text-muted-foreground hover:border-primary/40"
+        )}
+      >
         <Search className="h-4 w-4 shrink-0" />
         <span>Search…</span>
-        <kbd className="ml-auto hidden rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs md:inline-block">⌘K</kbd>
+        <kbd className={cn(
+          "ml-auto hidden rounded border px-1.5 py-0.5 font-mono text-xs md:inline-block",
+          isSystemRoute ? "border-slate-800 bg-slate-950 text-slate-500" : "border-border bg-muted text-muted-foreground"
+        )}>⌘K</kbd>
       </button>
 
       <div className="hidden flex-1 items-center justify-center md:flex">
-         <span className="text-base font-black tracking-widest uppercase text-muted-foreground/40">{storeName}</span>
+         <span className={cn(
+           "text-base font-black tracking-[0.2em] uppercase italic transition-all",
+           isSystemRoute ? "text-blue-500 drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" : "text-muted-foreground/40"
+         )}>
+           {storeName}
+         </span>
       </div>
 
-      <PermissionGate permission="log_movement">
-        <Button size="icon" variant="outline" className="shrink-0" aria-label="Quick entry" onClick={() => setQuickEntryOpen(true)}>
-          <ScanBarcode className="h-4 w-4" />
-        </Button>
-      </PermissionGate>
+      {!isSystemRoute && (
+        <>
+          <PermissionGate permission="log_movement">
+            <Button size="icon" variant="outline" className="shrink-0" aria-label="Quick entry" onClick={() => setQuickEntryOpen(true)}>
+              <ScanBarcode className="h-4 w-4" />
+            </Button>
+          </PermissionGate>
 
-      <PermissionGate permission="create_item">
-        <Button size="icon" variant="outline" className="shrink-0" aria-label="New item" onClick={() => navigate("/app/catalog?newItem=true")}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </PermissionGate>
+          <PermissionGate permission="create_item">
+            <Button size="icon" variant="outline" className="shrink-0" aria-label="New item" onClick={() => navigate("/app/catalog?newItem=true")}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </PermissionGate>
+        </>
+      )}
 
-      <NotificationBell onClick={() => setNotifOpen(true)} />
+      {!isSystemRoute && <NotificationBell onClick={() => setNotifOpen(true)} />}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -159,9 +190,16 @@ export function Header() {
             </Avatar>
             <div className="hidden flex-col items-start md:flex">
               <span className="text-sm font-bold tracking-tight leading-none group-hover:text-primary transition-colors">{displayName}</span>
-              <Badge variant="outline" className="mt-1 h-4 px-1.5 text-[9px] font-bold uppercase bg-background/50 border-border/50 text-muted-foreground group-hover:border-primary/20 group-hover:text-primary/70 transition-all">
-                {ROLE_LABELS[role]}
-              </Badge>
+              <div className="flex items-center gap-1 mt-1">
+                <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-bold uppercase bg-background/50 border-border/50 text-muted-foreground group-hover:border-primary/20 group-hover:text-primary/70 transition-all">
+                  {ROLE_LABELS[role]}
+                </Badge>
+                {isSystemAdmin && (
+                  <span className="h-4 flex items-center px-1 rounded-sm bg-blue-500 text-white text-[8px] font-black uppercase leading-none">
+                    PLATFORM
+                  </span>
+                )}
+              </div>
             </div>
             <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground/50 md:inline-block transition-transform group-data-[state=open]:rotate-180" />
           </button>
@@ -186,9 +224,13 @@ export function Header() {
       </DropdownMenu>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-[260px] p-0">
+        <SheetContent side="left" className="w-[280px] p-0 border-r border-slate-800">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <Sidebar onNavigate={() => setMobileOpen(false)} />
+          {isSystemRoute ? (
+            <SystemAdminSidebar />
+          ) : (
+            <Sidebar onNavigate={() => setMobileOpen(false)} />
+          )}
         </SheetContent>
       </Sheet>
 

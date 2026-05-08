@@ -421,3 +421,115 @@ export const onactivitycreated = onDocumentCreated({
   }
   return null;
 });
+
+/**
+ * HELPER: Verify System Admin status
+ */
+const checkSystemAdmin = (request: any) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in.");
+  }
+  if (request.auth.token.role !== "system_admin") {
+    throw new HttpsError("permission-denied", "Only system admins can perform this action.");
+  }
+};
+
+/**
+ * LIST ALL USERS: Callable Function (v2)
+ * Returns a list of all users from Firebase Auth.
+ */
+export const listallusers = onCall(async (request) => {
+  checkSystemAdmin(request);
+
+  const { maxResults = 1000, pageToken } = request.data;
+
+  try {
+    const listUsersResult = await admin.auth().listUsers(maxResults, pageToken);
+    
+    // Fetch associated staff/user records from Firestore to enrich the data
+    const users = listUsersResult.users.map((user) => ({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      disabled: user.disabled,
+      lastSignInTime: user.metadata.lastSignInTime,
+      creationTime: user.metadata.creationTime,
+      customClaims: user.customClaims || {},
+    }));
+
+    return {
+      users,
+      pageToken: listUsersResult.pageToken,
+    };
+  } catch (error) {
+    console.error("Error listing users:", error);
+    throw new HttpsError("internal", "Failed to list users.");
+  }
+});
+
+/**
+ * WIPE USER: Callable Function (v2)
+ * Completely deletes a user from Auth and all related Firestore collections.
+ */
+export const wipeuser = onCall(async (request) => {
+  checkSystemAdmin(request);
+
+  const { uid } = request.data;
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "User UID is required.");
+  }
+
+  try {
+    // 1. Delete from Firebase Auth
+    await admin.auth().deleteUser(uid);
+
+    // 2. Delete from Firestore 'users' and 'staff'
+    const batch = admin.firestore().batch();
+    batch.delete(admin.firestore().collection("users").doc(uid));
+    batch.delete(admin.firestore().collection("staff").doc(uid));
+    
+    // Also check for any 'staff' documents where 'uid' field matches (if docId was email/other)
+    const staffQuery = await admin.firestore().collection("staff").where("uid", "==", uid).get();
+    staffQuery.forEach((doc) => batch.delete(doc.ref));
+
+    await batch.commit();
+
+    console.log(`Successfully wiped user ${uid} from platform.`);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error wiping user:", error);
+    if (error.code === 'auth/user-not-found') {
+      // If user not in Auth, still try to clean Firestore
+      await admin.firestore().collection("staff").doc(uid).delete();
+      return { success: true, message: "User not found in Auth, but Firestore record cleaned." };
+    }
+    throw new HttpsError("internal", "Failed to wipe user data.");
+  }
+});
+
+/**
+ * GET PLATFORM STATS: Callable Function (v2)
+ * Aggregates high-level metrics across the entire platform.
+ */
+export const getplatformstats = onCall(async (request) => {
+  checkSystemAdmin(request);
+
+  try {
+    const storesSnap = await admin.firestore().collection("stores").get();
+    const usersSnap = await admin.firestore().collection("users").get();
+    const staffSnap = await admin.firestore().collection("staff").get();
+    
+    // More complex metrics can be added here (e.g. total revenue if indexed)
+    
+    return {
+      totalStores: storesSnap.size,
+      totalUsers: usersSnap.size,
+      totalStaff: staffSnap.size,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error("Error getting platform stats:", error);
+    throw new HttpsError("internal", "Failed to retrieve platform statistics.");
+  }
+});

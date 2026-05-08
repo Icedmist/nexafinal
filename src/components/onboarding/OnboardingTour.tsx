@@ -128,7 +128,10 @@ export function OnboardingTour({ steps, currentStep, isActive, onNext, onBack, o
       endY = pos.top;
     }
 
-    return `M ${startX} ${startY} L ${endX} ${endY}`;
+    const controlX = startX + (endX - startX) * 0.5;
+    const controlY = startY;
+
+    return `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
   };
 
   return (
@@ -137,25 +140,44 @@ export function OnboardingTour({ steps, currentStep, isActive, onNext, onBack, o
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-background/30 backdrop-blur-[1px] pointer-events-auto" 
+        className="absolute inset-0 bg-background/20 backdrop-blur-[2px] pointer-events-auto" 
         onClick={onSkip} 
       />
 
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-[10001]">
         <AnimatePresence mode="wait">
           {hasTarget && pos && (
-            <motion.path
-              key={currentStep}
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 1 }}
-              exit={{ opacity: 0 }}
-              d={getLinePath()}
-              stroke="hsl(var(--primary))"
-              strokeWidth="2"
-              strokeDasharray="6 4"
-              fill="none"
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-            />
+            <g key={currentStep}>
+              <motion.path
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                exit={{ opacity: 0 }}
+                d={getLinePath()}
+                stroke="hsl(var(--primary))"
+                strokeWidth="3"
+                strokeDasharray="8 6"
+                strokeLinecap="round"
+                fill="none"
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              />
+              <motion.circle
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                cx={(() => {
+                  const path = getLinePath();
+                  const match = path.match(/([0-9.]+)\s+([0-9.]+)$/);
+                  return match ? match[1] : 0;
+                })()}
+                cy={(() => {
+                  const path = getLinePath();
+                  const match = path.match(/([0-9.]+)\s+([0-9.]+)$/);
+                  return match ? match[2] : 0;
+                })()}
+                r="4"
+                fill="hsl(var(--primary))"
+                transition={{ delay: 0.5 }}
+              />
+            </g>
           )}
         </AnimatePresence>
       </svg>
