@@ -66,27 +66,37 @@ export function Header() {
   const photoURL = user?.photoURL;
 
   const handleLogout = async () => {
-    await logout();
-    
-    // Clear all caches to prevent session ghosting
-    sessionStorage.clear();
-    localStorage.clear();
+    try {
+      await logout();
+      
+      // Clear all caches to prevent session ghosting
+      sessionStorage.clear();
+      localStorage.clear();
 
-    // Reset domain context for localhost or production
-    const host = window.location.hostname;
-    const protocol = window.location.protocol;
-    const port = window.location.port;
+      // Small delay to allow state to settle
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-    if (host.includes("localhost") || host.includes("127.0.0.1")) {
-      window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}`;
-    } else {
-      const parts = host.split(".");
-      if (parts.length > 2) {
-        const domain = parts.slice(-2).join(".");
-        window.location.href = `${protocol}//${domain}`;
+      // Reset domain context for localhost or production
+      const host = window.location.hostname;
+      const protocol = window.location.protocol;
+      const port = window.location.port;
+
+      if (host.includes("localhost") || host.includes("127.0.0.1")) {
+        window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}/`;
       } else {
-        window.location.href = `${protocol}//${host}`;
+        const parts = host.split(".");
+        // If we are on a subdomain (e.g. store.nexastoreos.com)
+        if (parts.length > 2) {
+          const domain = parts.slice(-2).join(".");
+          window.location.href = `${protocol}//${domain}/`;
+        } else {
+          window.location.href = `${protocol}//${host}/`;
+        }
       }
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Fallback redirect
+      window.location.href = "/";
     }
   };
 

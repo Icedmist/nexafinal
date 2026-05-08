@@ -20,6 +20,13 @@ const ROUTE_ACCESS: Record<string, UserRoleType[]> = {
   "/app/sales-analytics": ["admin", "manager", "system_admin", "owner"],
   "/app/expenses": ["admin", "manager", "staff", "system_admin", "owner"],
   "/app/returns": ["admin", "manager", "staff", "system_admin", "owner"],
+  
+  // System Admin Routes
+  "/system-admin": ["system_admin"],
+  "/system-admin/dashboard": ["system_admin"],
+  "/system-admin/businesses": ["system_admin"],
+  "/system-admin/users": ["system_admin"],
+  "/system-admin/settings": ["system_admin"],
 };
 
 /**
