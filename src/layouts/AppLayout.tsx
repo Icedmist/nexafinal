@@ -16,10 +16,10 @@ import { useTenant } from "@/contexts/TenantContext";
 
 export function AppLayout() {
   const auth = useAuth();
-  const { user, loading, claims } = auth;
+  const { user, loading, claims, claimsReady } = auth;
   const { profile, needsOnboarding, loadingProfile } = useBusiness();
   const { store } = useTenant();
-  const { role } = useRole();
+  const { role, isSystemAdmin } = useRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -29,9 +29,8 @@ export function AppLayout() {
 
   // Cross-Tenant Security Check: Ensure user belongs to the current subdomain store
   useEffect(() => {
-    if (user && !loadingProfile && store && profile) {
+    if (user && claimsReady && !loadingProfile && store && profile) {
       const isOwner = user.uid === profile.ownerId;
-      const isSystemAdmin = role === "system_admin";
       
       // Safety check for claims to prevent ReferenceError
       const currentStoreId = claims?.storeId;
@@ -54,11 +53,11 @@ export function AppLayout() {
         }
       }
     }
-  }, [user, loadingProfile, store, profile, role, claims]);
+  }, [user, claimsReady, loadingProfile, store, profile, isSystemAdmin, claims]);
 
   // Domain Access Enforcement: Staff MUST use subdomains, Owners can use main domain.
   useEffect(() => {
-    if (user && !loadingProfile && !needsOnboarding && !store) {
+    if (user && claimsReady && !loadingProfile && !needsOnboarding && !store && !isSystemAdmin) {
       // We are on the main domain (no store from TenantContext)
       // Check if user is a staff member (not owner or system_admin)
       const isStaffMember = role === "staff" || role === "manager" || role === "admin";
@@ -83,15 +82,15 @@ export function AppLayout() {
         window.location.href = targetUrl;
       }
     }
-  }, [user, loadingProfile, needsOnboarding, store, role, profile, location]);
+  }, [user, claimsReady, loadingProfile, needsOnboarding, store, role, isSystemAdmin, profile, location]);
 
   // Role-based route guard
   useEffect(() => {
-    if (user && !loadingProfile && !needsOnboarding && !canAccessRoute(location.pathname, role)) {
+    if (user && claimsReady && !loadingProfile && !needsOnboarding && !canAccessRoute(location.pathname, role)) {
       toast.error("You don't have permission to access that page.");
       navigate("/app/dashboard");
     }
-  }, [location.pathname, role, navigate, user, loadingProfile, needsOnboarding]);
+  }, [location.pathname, role, navigate, user, claimsReady, loadingProfile, needsOnboarding]);
 
   // Auth guard — redirect to landing if not logged in
   useEffect(() => {
@@ -102,12 +101,12 @@ export function AppLayout() {
 
   // Onboarding guard — redirect to setup if store is incomplete
   useEffect(() => {
-    if (user && !loadingProfile && needsOnboarding) {
+    if (user && claimsReady && !loadingProfile && needsOnboarding) {
       navigate("/onboarding", { replace: true });
     }
-  }, [user, needsOnboarding, loadingProfile, navigate]);
+  }, [user, needsOnboarding, claimsReady, loadingProfile, navigate]);
 
-  if (loading || !user) {
+  if (loading || !user || !claimsReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
