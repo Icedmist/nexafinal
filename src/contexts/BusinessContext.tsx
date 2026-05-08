@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './FirebaseAuthContext';
-import { doc, onSnapshot, updateDoc, query, collection, where, limit, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, query, collection, where, limit, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useTenant } from './TenantContext';
 import { isAdminRole } from '@/lib/roles';
@@ -78,11 +78,25 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         if (!store) {
-          // FALLBACK: Find store by ownerId on main domain
-          const q = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
-          const snap = await getDocs(q);
+          // FALLBACK: Find store by ownerId OR by staff storeId claim on main domain
+          const ownerQuery = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
+          const ownerSnap = await getDocs(ownerQuery);
           
-          if (snap.empty) {
+          if (!ownerSnap.empty) {
+            activeStoreId = ownerSnap.docs[0].id;
+            activeOwnerId = ownerSnap.docs[0].data().ownerId;
+          } else if (claims?.storeId) {
+            // Try finding by storeId claim directly via document ID
+            const storeRef = doc(db, "stores", claims.storeId);
+            const storeSnap = await getDoc(storeRef);
+            
+            if (storeSnap.exists()) {
+              activeStoreId = storeSnap.id;
+              activeOwnerId = storeSnap.data().ownerId;
+            }
+          }
+
+          if (!activeStoreId) {
             if (mounted) {
               setProfile(null);
               setOwnerId(null);
@@ -92,9 +106,6 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
             return;
           }
-          
-          activeStoreId = snap.docs[0].id;
-          activeOwnerId = snap.docs[0].data().ownerId;
         }
 
         if (mounted) {

@@ -2,7 +2,7 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, limit, getDoc, doc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,29 +23,50 @@ function OnboardingPage() {
     if (!user) return;
 
     const checkExisting = async () => {
-      // 1. Check if staff (has storeId claim)
+      // 1. Check if staff or owner via claims
       if (claims?.storeId) {
-        // Fetch the slug for this storeId to redirect
-        const q = query(collection(db, "stores"), where("id", "==", claims.storeId), limit(1));
-        // Note: collection(db, "stores") works, but we might need to query by ID directly if we had it.
-        // Actually, stores are indexed by ID.
-        // Let's just use the ownerId check as a primary for merchants.
+        try {
+          const storeRef = doc(db, "stores", claims.storeId);
+          const storeSnap = await getDoc(storeRef);
+          
+          if (storeSnap.exists()) {
+            const data = storeSnap.data();
+            const targetSlug = data.slug;
+            const host = window.location.hostname;
+            const port = window.location.port;
+            const protocol = window.location.protocol;
+
+            if (host.includes("localhost") || host.includes("127.0.0.1")) {
+              window.location.href = `${protocol}//${targetSlug}.localhost${port ? `:${port}` : ""}/app/dashboard`;
+            } else {
+              const parts = host.split(".");
+              const domain = parts.slice(-2).join(".");
+              window.location.href = `${protocol}//${targetSlug}.${domain}/app/dashboard`;
+            }
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to check existing store for staff:", e);
+        }
       }
 
-      // 2. Check if owner
+      // 2. Check if owner by UID fallback (for users whose claims haven't synced)
       const q = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
       const snap = await getDocs(q);
+      
       if (!snap.empty) {
         const existingStore = snap.docs[0].data();
-        const host = window.location.host;
-        const protocol = window.location.protocol;
         const targetSlug = existingStore.slug;
+        const host = window.location.hostname;
+        const port = window.location.port;
+        const protocol = window.location.protocol;
 
-        if (host.includes("localhost")) {
-          window.location.href = `${protocol}//${host}/app/dashboard?s=${targetSlug}`;
+        if (host.includes("localhost") || host.includes("127.0.0.1")) {
+          window.location.href = `${protocol}//${targetSlug}.localhost${port ? `:${port}` : ""}/app/dashboard`;
         } else {
-          const baseDomain = host.split(".").slice(-2).join(".");
-          window.location.href = `${protocol}//${targetSlug}.${baseDomain}/app/dashboard`;
+          const parts = host.split(".");
+          const domain = parts.slice(-2).join(".");
+          window.location.href = `${protocol}//${targetSlug}.${domain}/app/dashboard`;
         }
       }
     };

@@ -12,10 +12,12 @@ import { canAccessRoute } from "@/lib/route-guard";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 export function AppLayout() {
   const { user, loading } = useAuth();
-  const { needsOnboarding, loadingProfile } = useBusiness();
+  const { profile, needsOnboarding, loadingProfile } = useBusiness();
+  const { store } = useTenant();
   const { role } = useRole();
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,6 +25,37 @@ export function AppLayout() {
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({ onHelpOpen: () => setHelpOpen(true) });
+
+  // Domain Access Enforcement: Staff MUST use subdomains, Owners can use main domain.
+  useEffect(() => {
+    if (user && !loadingProfile && !needsOnboarding && !store) {
+      // We are on the main domain (no store from TenantContext)
+      // Check if user is a staff member (not owner or system_admin)
+      const isStaffMember = role === "staff" || role === "manager" || role === "admin";
+      
+      if (isStaffMember && profile?.storeDetails?.slug) {
+        const slug = profile.storeDetails.slug;
+        const host = window.location.hostname;
+        const port = window.location.port;
+        const protocol = window.location.protocol;
+        
+        // Construct target URL
+        let targetUrl = "";
+        if (host.includes("localhost") || host.includes("127.0.0.1")) {
+          targetUrl = `${protocol}//${slug}.localhost${port ? `:${port}` : ""}${location.pathname}${location.search}`;
+        } else {
+          // Assume production domain nexa-storeos.vercel.app or similar
+          // Extract the main domain parts
+          const parts = host.split(".");
+          const domain = parts.slice(-2).join("."); // e.g. "nexa.com"
+          targetUrl = `${protocol}//${slug}.${domain}${location.pathname}${location.search}`;
+        }
+        
+        toast.info("Redirecting to your store's dedicated domain...");
+        window.location.href = targetUrl;
+      }
+    }
+  }, [user, loadingProfile, needsOnboarding, store, role, profile, location]);
 
   // Role-based route guard
   useEffect(() => {
