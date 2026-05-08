@@ -5,7 +5,6 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ShortcutsHelpDialog } from "@/components/command/ShortcutsHelpDialog";
-import { TourGuide } from "@/components/layout/TourGuide";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { useRole } from "@/hooks/useRole";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -16,7 +15,8 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 
 export function AppLayout() {
-  const { user, loading } = useAuth();
+  const auth = useAuth();
+  const { user, loading, claims } = auth;
   const { profile, needsOnboarding, loadingProfile } = useBusiness();
   const { store } = useTenant();
   const { role } = useRole();
@@ -26,6 +26,35 @@ export function AppLayout() {
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({ onHelpOpen: () => setHelpOpen(true) });
+
+  // Cross-Tenant Security Check: Ensure user belongs to the current subdomain store
+  useEffect(() => {
+    if (user && !loadingProfile && store && profile) {
+      const isOwner = user.uid === profile.ownerId;
+      const isSystemAdmin = role === "system_admin";
+      
+      // Safety check for claims to prevent ReferenceError
+      const currentStoreId = claims?.storeId;
+      
+      // If we are on a subdomain but user is NOT owner and has no staff claim for this store
+      if (!isOwner && !isSystemAdmin && (!currentStoreId || currentStoreId !== store.id)) {
+        toast.error("You don't have access to this store.");
+        
+        // Redirect to main domain to start onboarding or login to their own store
+        const host = window.location.hostname;
+        const protocol = window.location.protocol;
+        const port = window.location.port;
+
+        if (host.includes("localhost") || host.includes("127.0.0.1")) {
+          window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}/onboarding`;
+        } else {
+          const parts = host.split(".");
+          const domain = parts.slice(-2).join(".");
+          window.location.href = `${protocol}//${domain}/onboarding`;
+        }
+      }
+    }
+  }, [user, loadingProfile, store, profile, role, claims]);
 
   // Domain Access Enforcement: Staff MUST use subdomains, Owners can use main domain.
   useEffect(() => {
@@ -45,10 +74,8 @@ export function AppLayout() {
         if (host.includes("localhost") || host.includes("127.0.0.1")) {
           targetUrl = `${protocol}//${slug}.localhost${port ? `:${port}` : ""}${location.pathname}${location.search}`;
         } else {
-          // Assume production domain nexa-storeos.vercel.app or similar
-          // Extract the main domain parts
           const parts = host.split(".");
-          const domain = parts.slice(-2).join("."); // e.g. "nexa.com"
+          const domain = parts.slice(-2).join("."); 
           targetUrl = `${protocol}//${slug}.${domain}${location.pathname}${location.search}`;
         }
         
@@ -96,7 +123,6 @@ export function AppLayout() {
         </aside>
         <div className="flex flex-1 flex-col overflow-hidden md:my-2 md:mr-2 md:rounded-2xl md:border md:border-border md:bg-card md:shadow-sm">
           <Header />
-          <TourGuide />
           <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8 md:rounded-b-2xl">
             <AnimatePresence mode="wait">
               <PageTransition key={location.pathname} routeKey={location.pathname}>

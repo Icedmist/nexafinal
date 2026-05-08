@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -29,9 +29,9 @@ const TOUR_STEPS: TourStep[] = [
   { target: "metrics", title: "Business overview", description: "Your key metrics at a glance — revenue, profit, expenses, and customer counts." },
   { target: "needs-attention", title: "Alerts & activity", description: "Items that need action appear here — low stock, overdue POs, and pending requests." },
   { target: "search", title: "Quick search", description: "Press CMD+K (or Ctrl+K) to search anything — items, suppliers, orders, and more." },
-  { title: "Sales & POS", description: "Head to Sales to ring up orders, apply discounts, accept multiple payment methods, and send receipts via WhatsApp." },
-  { title: "Customers", description: "The Customers page shows purchase history, debt tracking, and lets you message customers directly via WhatsApp." },
-  { title: "Settings", description: "Admins can configure store branding, smart features, staff roles, and launch this tour again from Settings > Help." },
+  { target: "sales", title: "Sales & POS", description: "Head to Sales to ring up orders, apply discounts, accept multiple payment methods, and send receipts via WhatsApp." },
+  { target: "customers", title: "Customers", description: "The Customers page shows purchase history, debt tracking, and lets you message customers directly via WhatsApp." },
+  { target: "settings", title: "Settings", description: "Admins can configure store branding, smart features, staff roles, and launch this tour again from Settings > Help." },
   { title: "You're all set!", description: "Explore freely! You can restart this tour anytime from Settings > Help." },
 ];
 
@@ -89,6 +89,14 @@ function DashboardPage() {
 
   const tour = useOnboarding("dashboard");
   const [openSection, setOpenSection] = useState<string | null>("metrics");
+  const [searchParams] = useSearchParams();
+
+  // Auto-start tour if coming from onboarding
+  useEffect(() => {
+    if (searchParams.get("tour") === "true") {
+      tour.startTour();
+    }
+  }, [searchParams, tour.startTour]);
 
   const toggleSection = (id: string) => {
     setOpenSection((prev) => (prev === id ? null : id));
