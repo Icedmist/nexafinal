@@ -23,6 +23,8 @@ import {
   Building2,
   Linkedin,
   Layers,
+  LayoutDashboard,
+  CheckCircle2,
 } from "lucide-react";
 import heroMockup from "@/assets/landing/hero-mockup.png";
 import nexaLogo from "@/assets/nexa-logo.svg";
@@ -94,6 +96,8 @@ function Nav() {
   );
 }
 
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+
 export default function LandingPage() {
   const { store, loading: tenantLoading } = useTenant();
   const navigate = useNavigate();
@@ -118,248 +122,317 @@ export default function LandingPage() {
     return <StoreLoginPage store={store} />;
   }
 
+  const features = [
+    {
+      title: "QR & Barcode Ready",
+      desc: "Scan and track with ease. Integrated support for QR and Barcodes across POS and inventory checks.",
+      icon: <ScanLine className="h-8 w-8" />,
+      color: "bg-amber-500",
+    },
+    {
+      title: "Global Inventory",
+      desc: "Real-time tracking across all your branches. Manage stock levels with precision and zero latency.",
+      icon: <Package className="h-8 w-8" />,
+      color: "bg-primary",
+    },
+    {
+      title: "Customer Follow-up",
+      desc: "Built-in CRM to track purchase history and automate follow-ups via WhatsApp or Email.",
+      icon: <Users className="h-8 w-8" />,
+      color: "bg-green-500",
+    },
+    {
+      title: "Simple Navigation",
+      desc: "Clean, non-cluttered interface. Switch between power-user and simple modes instantly.",
+      icon: <LayoutDashboard className="h-8 w-8" />,
+      color: "bg-blue-500",
+    },
+    {
+      title: "AI Insights",
+      desc: "Intelligent forecasting and reorder alerts. Let our OS predict your next big move.",
+      icon: <Sparkles className="h-8 w-8" />,
+      color: "bg-purple-500",
+    },
+    {
+      title: "Role Security",
+      desc: "Granular role-based access control. Secure data isolation for staff, managers, and owners.",
+      icon: <Shield className="h-8 w-8" />,
+      color: "bg-pink-500",
+    },
+  ];
+
   return (
-    <>
-      <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30">
-        <Nav />
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30 font-sans">
+      <Nav />
 
-        {/* ── Hero Section ─────────────────────────────── */}
-        <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-40 px-6">
-          <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+      {/* ── HERO ── */}
+      <section className="relative pt-32 pb-20 lg:pt-56 lg:pb-40 px-6">
+        <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary/5 blur-[120px] animate-pulse" />
+          <div className="absolute bottom-[0%] right-[-10%] w-[60%] h-[60%] rounded-full bg-secondary/5 blur-[150px]" />
+        </div>
+
+        <div className="max-w-7xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <div className="inline-flex items-center gap-2 rounded-full border-2 border-primary/20 bg-primary/5 px-4 py-1.5 mb-8">
+              <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">v2.0 Store OS</span>
+            </div>
+            <h1 className="text-6xl md:text-8xl lg:text-9xl font-black leading-[0.85] tracking-tighter mb-10 bg-gradient-to-b from-foreground to-foreground/50 bg-clip-text text-transparent uppercase italic">
+              Retail <br /> Reimagined.
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground font-medium max-w-2xl mx-auto leading-relaxed mb-12">
+              The unified operating system for modern commerce. Track every unit, manage global teams, and scale your vision with speed.
+            </p>
             
-            {/* Left Column: Text */}
-            <div className="flex-1 text-center lg:text-left">
-              <RevealSection>
-                <div className="inline-flex items-center gap-2 rounded-full border-2 border-primary/20 bg-primary/5 px-4 py-1.5 mb-8">
-                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">v2.0 Inventory System</span>
-                </div>
-                <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tighter mb-8 bg-gradient-to-b from-foreground to-foreground/50 bg-clip-text text-transparent">
-                  Control your <br /> Commerce. <br /> 
-                  <span className="text-primary italic">Anywhere.</span>
-                </h1>
-                <p className="text-lg md:text-xl text-muted-foreground font-medium max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10">
-                  NEXA is the unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand — all from a single interface designed for speed.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-                  <Link to="/auth/signup">
-                    <Button 
-                      className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform"
-                    >
-                      Get Started <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link to="/auth/login">
-                    <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold text-sm border-2">
-                      Login to Portal
-                    </Button>
-                  </Link>
-                </div>
-
-                <div className="mt-12 flex items-center gap-6 justify-center lg:justify-start grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Cloud OS</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Secure Cloud</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Real-time sync</span>
-                  </div>
-                </div>
-              </RevealSection>
+            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
+              <Link to="/auth/signup">
+                <Button className="h-16 px-10 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-2xl shadow-primary/40 hover:scale-105 transition-transform">
+                  Launch Your OS <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link to="/auth/login">
+                <Button variant="outline" className="h-16 px-10 rounded-2xl font-bold text-sm border-2">
+                  Portal Login
+                </Button>
+              </Link>
             </div>
+          </motion.div>
+        </div>
+      </section>
 
-            {/* Right Column: Visual */}
-            <div className="flex-1 relative lg:w-1/2">
-              <RevealSection delay={300} className="relative z-10">
-                <div className="absolute -inset-4 bg-primary/20 blur-[100px] rounded-full -z-10 animate-pulse" />
-                
-                <div className="relative rounded-[2rem] overflow-hidden border-4 border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] bg-card/50 backdrop-blur-3xl group">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                  <img src={heroMockup} alt="NEXA Dashboard Mockup" className="w-full h-auto scale-105 group-hover:scale-110 transition-transform duration-1000 ease-out" />
-                  
-                  {/* Glass overlays */}
-                  <div className="absolute top-4 left-4 right-4 h-12 bg-white/5 backdrop-blur-md rounded-xl border border-white/10 flex items-center px-4 gap-2">
-                    <div className="flex gap-1.5">
-                       <div className="h-2 w-2 rounded-full bg-red-500/50" />
-                       <div className="h-2 w-2 rounded-full bg-amber-500/50" />
-                       <div className="h-2 w-2 rounded-full bg-green-500/50" />
-                    </div>
-                    <div className="mx-auto h-1.5 w-32 bg-white/10 rounded-full" />
-                  </div>
-                </div>
-                
-                {/* Floating elements */}
-                <div className="absolute top-1/4 -right-12 hidden xl:block animate-float">
-                  <div className="bg-card/80 backdrop-blur-md border-2 border-border p-4 rounded-2xl shadow-2xl flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-stock-healthy/10 flex items-center justify-center text-stock-healthy">
-                      <TrendingUp className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sales Trend</p>
-                      <p className="text-lg font-black text-foreground">+24.8%</p>
-                    </div>
-                  </div>
-                </div>
+      {/* ── FEATURES CARDS ── */}
+      <section className="py-32 px-6">
+        <div className="max-w-7xl mx-auto space-y-24">
+          <div className="text-center max-w-3xl mx-auto">
+            <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight mb-6">Built for Performance</h2>
+            <p className="text-muted-foreground font-medium italic">Everything you need to run a high-velocity retail operation.</p>
+          </div>
 
-                <div className="absolute bottom-1/4 -left-12 hidden xl:block animate-float-delayed">
-                  <div className="bg-card/80 backdrop-blur-md border-2 border-border p-4 rounded-2xl shadow-2xl flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                      <Package className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Active Stock</p>
-                      <p className="text-lg font-black text-foreground">1,284 Units</p>
-                    </div>
-                  </div>
-                </div>
-              </RevealSection>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, i) => (
+              <FeatureCard 
+                key={i}
+                icon={feature.icon}
+                title={feature.title}
+                desc={feature.desc}
+                color={feature.color}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ── */}
+      <section id="pricing" className="py-32 px-6 bg-muted/20">
+        <div className="max-w-7xl mx-auto space-y-24">
+          <div className="text-center max-w-3xl mx-auto">
+            <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight mb-6">Fair Prices</h2>
+            <p className="text-muted-foreground font-medium italic">Transparent, tiered plans that grow with your business.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+            <PricingCard 
+              title="Starter"
+              price="₦15,000"
+              desc="Perfect for single stores."
+              features={["1 Branch", "5 Staff Members", "QR/Barcode Support", "Basic Analytics"]}
+            />
+            <PricingCard 
+              title="Scale"
+              price="₦45,000"
+              desc="For growing retail brands."
+              featured={true}
+              features={["Up to 5 Branches", "Unlimited Staff", "Customer CRM", "AI Insights", "Advanced Reports"]}
+            />
+            <PricingCard 
+              title="Enterprise"
+              price="Custom"
+              desc="Maximum control and volume."
+              features={["Unlimited Everything", "White-label Support", "Dedicated Manager", "API Access"]}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ── */}
+      <section className="py-32 bg-muted/30 px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+            <div className="space-y-8">
+              <h2 className="text-4xl md:text-6xl font-black uppercase leading-none tracking-tighter">
+                Loved by <br /> <span className="text-primary italic">Fast-Moving</span> <br /> Brands.
+              </h2>
+              <div className="space-y-6">
+                <Testimonial 
+                  quote="Nexa transformed our inventory management from a mess of spreadsheets to a clean, automated engine."
+                  author="Sarah J."
+                  role="CEO, Urban Retail"
+                />
+                <Testimonial 
+                  quote="The speed of the POS system is unmatched. Our checkout times dropped by 40% in the first week."
+                  author="David K."
+                  role="Logistics Manager"
+                />
+              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full animate-pulse" />
+              <div className="relative rounded-[3rem] border-2 border-border bg-card p-12 shadow-2xl space-y-8 overflow-hidden group">
+                 <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                 <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-8">
+                   <Sparkles className="h-10 w-10" />
+                 </div>
+                 <h3 className="text-2xl font-black uppercase tracking-tight italic text-foreground">Next-Gen Interface</h3>
+                 <p className="text-muted-foreground font-medium leading-relaxed">
+                   Designed for focus. We stripped away the noise of legacy ERPs to give you a tool that feels like part of your workflow, not a hurdle.
+                 </p>
+                 <div className="flex gap-4">
+                   {[1, 2, 3, 4, 5].map((i) => (
+                     <div key={i} className="h-1 flex-1 bg-primary/20 rounded-full" />
+                   ))}
+                 </div>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* ── Value Propositions ───────────────────────── */}
-        <section className="py-24 bg-muted/30">
-          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12">
-            <ValueProp 
-              icon={Globe}
-              title="Global Availability"
-              description="A professional web-based interface accessible from any device. Manage your entire retail operation through a browser."
-            />
-            <ValueProp 
-              icon={Command}
-              title="Unified Operations"
-              description="Inventory, Suppliers, Analytics, and Staff Management in one cohesive OS. No more jumping between apps."
-            />
-            <ValueProp 
-              icon={Sparkles}
-              title="Intelligent Insights"
-              description="AI-powered forecasting and smart reorder alerts help you stay ahead of demand without the guesswork."
-            />
-          </div>
-        </section>
+      {/* ── FINAL CTA ── */}
+      <section className="py-32 px-6">
+        <div className="max-w-5xl mx-auto rounded-[4rem] bg-foreground text-background p-16 md:p-32 text-center relative overflow-hidden shadow-2xl group">
+           <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 blur-[120px] group-hover:bg-primary/30 transition-colors" />
+           <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-12 italic">
+             The OS <br /> For Retail.
+           </h2>
+           <Link to="/auth/signup">
+             <Button className="h-20 px-12 rounded-[2rem] bg-background text-foreground font-black uppercase tracking-[0.2em] text-xs hover:bg-background/90 transition-all shadow-2xl">
+               Get Started Now
+             </Button>
+           </Link>
+        </div>
+      </section>
 
-        {/* ── Section F: Feature Showcase ── */}
-        <section id="features" className="py-32 px-6 relative">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 blur-[150px] rounded-full -z-10" />
-          <div className="max-w-7xl mx-auto">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-                <RevealSection>
-                   <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1 mb-6">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Advanced Features</span>
-                   </div>
-                   <h2 className="text-4xl md:text-6xl lg:text-7xl font-black leading-[0.95] tracking-tighter mb-10">
-                     Built for the <br /> <span className="text-primary italic">next generation</span> <br /> of retail.
-                   </h2>
-                   <div className="space-y-10">
-                      <FeaturePoint 
-                        icon={ScanLine}
-                        title="Hyper-Fast Scanning"
-                        text="Integrated barcode support designed for rapid-fire logistics. Process hundreds of units in minutes, not hours."
-                      />
-                      <FeaturePoint 
-                        icon={Globe}
-                        title="Global Synchronization"
-                        text="Your data follows you everywhere. Real-time cloud sync ensures every branch is always perfectly aligned."
-                      />
-                      <FeaturePoint 
-                        icon={Shield}
-                        title="Enterprise Security"
-                        text="Granular role-based access control. Protect your sensitive business data with bank-grade encryption."
-                      />
-                   </div>
-                </RevealSection>
-                <RevealSection delay={200} className="relative lg:h-[600px] flex items-center justify-center">
-                   <div className="relative w-full max-w-lg aspect-square">
-                      {/* Glassmorphism UI Deck */}
-                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-primary/10 to-transparent rounded-[3rem] blur-[80px]" />
-                      
-                      <div className="relative rounded-[3rem] border border-white/10 bg-white/5 backdrop-blur-2xl p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] overflow-hidden group">
-                         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                         
-                         <div className="bg-muted/30 aspect-video rounded-[2rem] flex items-center justify-center p-8 overflow-hidden relative mb-6">
-                            <div className="absolute inset-0 bg-primary/20" />
-                            <div className="relative z-10 text-center">
-                               <div className="h-20 w-20 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mx-auto mb-4 border border-white/20">
-                                  <Layers className="h-10 w-10 text-white animate-pulse" />
-                               </div>
-                               <p className="font-black text-xl uppercase tracking-widest text-white">Cloud Architecture</p>
-                            </div>
-                         </div>
+      <footer className="py-20 border-t border-border px-6">
+         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="flex items-center gap-3">
+               <div className="bg-primary/10 rounded-xl p-2">
+                 <img src={nexaLogo} className="h-6 w-6 text-primary" alt="NEXA Logo" />
+               </div>
+               <span className="font-black italic text-xl uppercase tracking-tighter">NEXA Store OS</span>
+            </div>
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">© 2026 NEXA Store OS</p>
+            <div className="flex gap-8 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
+               <a href="#" className="hover:text-primary transition-colors">LinkedIn</a>
+               <a href="#" className="hover:text-primary transition-colors">Contact</a>
+            </div>
+         </div>
+      </footer>
+    </div>
+  );
+}
 
-                         <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                               <TrendingUp className="h-5 w-5 text-primary mb-2" />
-                               <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                                  <div className="h-full bg-primary w-3/4" />
-                               </div>
-                            </div>
-                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                               <Users className="h-5 w-5 text-primary mb-2" />
-                               <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                                  <div className="h-full bg-secondary w-1/2" />
-                               </div>
-                            </div>
-                         </div>
-                      </div>
-
-                      {/* Floating Accent */}
-                      <div className="absolute -bottom-10 -right-10 h-32 w-32 bg-primary/30 rounded-full blur-[60px] animate-pulse" />
-                   </div>
-                </RevealSection>
-             </div>
-          </div>
-        </section>
-
-        {/* ── Final CTA ── */}
-        <section className="py-32 px-6">
-          <div className="max-w-4xl mx-auto rounded-[3rem] bg-foreground text-background p-12 md:p-24 text-center relative overflow-hidden shadow-2xl">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] -z-10" />
-             <RevealSection>
-                <h2 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-8">
-                  The OS your store <br /> deserves.
-                </h2>
-                <p className="text-background/60 text-lg md:text-xl font-medium max-w-xl mx-auto mb-12">
-                  Stop wrestling with spreadsheets. Start scaling with a modern, high-performance inventory system.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
-                   <Link to="/auth/signup">
-                    <Button className="h-16 px-10 rounded-2xl bg-background text-foreground font-black uppercase tracking-widest text-xs hover:bg-background/90 transition-all">
-                      Get Started Now
-                    </Button>
-                   </Link>
-                   <Link to="/auth/login">
-                     <Button variant="ghost" className="h-16 px-10 rounded-2xl text-background/80 hover:text-background font-bold text-lg">
-                       Staff Login <ArrowRight className="ml-2 h-5 w-5" />
-                     </Button>
-                   </Link>
-                </div>
-             </RevealSection>
-          </div>
-        </section>
-
-        <footer className="py-20 border-t border-border px-6">
-           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-              <div className="flex items-center gap-2">
-                 <Package className="h-5 w-5 text-primary" />
-                 <span className="font-black italic text-lg uppercase">NEXA Store OS</span>
-              </div>
-              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">© 2026 NEXA Store OS</p>
-              <div className="flex gap-8 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
-                 <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors flex items-center gap-2">
-                   <Linkedin className="h-3 w-3" /> LinkedIn
-                 </a>
-              </div>
-           </div>
-        </footer>
+function PricingCard({ title, price, desc, features, featured }: { title: string, price: string, desc: string, features: string[], featured?: boolean }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className={`p-10 rounded-[3rem] border-2 transition-all relative overflow-hidden flex flex-col h-full ${featured ? "bg-foreground text-background border-foreground shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] scale-105 z-10" : "bg-card border-border hover:border-primary/50"}`}
+    >
+      {featured && <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-bl-3xl">Most Popular</div>}
+      
+      <div className="space-y-2 mb-8">
+        <h3 className="text-xl font-black uppercase tracking-tight italic">{title}</h3>
+        <p className={`${featured ? "text-background/60" : "text-muted-foreground"} text-sm font-medium`}>{desc}</p>
       </div>
-    </>
+
+      <div className="mb-10">
+        <span className="text-5xl font-black tracking-tighter">{price}</span>
+        {price !== "Custom" && <span className={`${featured ? "text-background/40" : "text-muted-foreground"} text-sm font-bold ml-2 uppercase tracking-widest`}>/ Month</span>}
+      </div>
+
+      <div className="space-y-4 mb-10 flex-1">
+        {features.map((f, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <CheckCircle2 className={`h-5 w-5 ${featured ? "text-primary" : "text-primary"}`} />
+            <span className="text-sm font-bold opacity-80">{f}</span>
+          </div>
+        ))}
+      </div>
+
+      <Link to="/auth/signup" className="w-full">
+        <Button className={`w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] ${featured ? "bg-background text-foreground hover:bg-background/90 shadow-2xl shadow-black/20" : "shadow-xl shadow-primary/20"}`}>
+          Choose Plan
+        </Button>
+      </Link>
+    </motion.div>
+  );
+}
+
+function FeatureCard({ icon, title, desc, color }: { icon: any, title: string, desc: string, color: string }) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const mouseXSpring = useSpring(x);
+  const mouseYSpring = useSpring(y);
+
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const xPct = mouseX / width - 0.5;
+    const yPct = mouseY / height - 0.5;
+    x.set(xPct);
+    y.set(yPct);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.div 
+      style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="p-8 rounded-[2.5rem] bg-card border-2 border-border shadow-xl relative overflow-hidden group h-full cursor-pointer transition-colors hover:border-primary/50"
+    >
+      <div 
+        style={{ transform: "translateZ(50px)" }}
+        className="relative z-10"
+      >
+        <div className={`absolute top-0 right-0 w-32 h-32 ${color}/10 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity`} />
+        <div className={`h-16 w-16 rounded-2xl ${color}/10 flex items-center justify-center text-foreground mb-8 shadow-inner ring-4 ring-background transition-transform group-hover:scale-110`}>
+          {icon}
+        </div>
+        <h3 className="text-xl font-black uppercase tracking-tight mb-4">{title}</h3>
+        <p className="text-muted-foreground font-medium text-sm leading-relaxed">{desc}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+function Testimonial({ quote, author, role }: { quote: string, author: string, role: string }) {
+  return (
+    <div className="p-8 rounded-[2rem] bg-background border-2 border-border relative group hover:border-primary/50 transition-colors">
+      <div className="absolute top-4 right-8 text-6xl text-primary/10 font-serif font-black">"</div>
+      <p className="text-lg font-bold italic mb-6 leading-relaxed relative z-10">"{quote}"</p>
+      <div>
+        <p className="text-xs font-black uppercase tracking-widest text-foreground">{author}</p>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase">{role}</p>
+      </div>
+    </div>
   );
 }
 

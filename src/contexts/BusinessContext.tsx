@@ -10,7 +10,7 @@ export interface BusinessProfile {
   storeDetails: { name: string; phone: string; address: string; receiptFooter?: string; taxRate?: number; slug?: string; };
   businessType: string;
   categories: string[];
-  complexityLevel: "basic" | "full";
+  complexityLevel: "basic" | "advanced";
   branding?: { logo?: string; primaryColor?: string; };
   settings?: Record<string, any>;
   ownerId?: string; // The root owner's UID
