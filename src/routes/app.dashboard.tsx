@@ -117,11 +117,7 @@ function DashboardPage() {
   const netProfit = totalRevenue - totalExpenses - totalRefunds;
   const todayExpenses = expenses.filter((e) => new Date(e.date).toDateString() === new Date().toDateString()).reduce((s, e) => s + e.amount, 0);
 
-  const [currentTime, setCurrentTime] = useState(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setCurrentTime(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
+
 
   const storeName = profile?.storeDetails?.name || "NEXA Store OS";
 
@@ -145,15 +141,7 @@ function DashboardPage() {
             {isAdmin ? "Admin Dashboard" : "Manager Dashboard"}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-foreground flex items-center gap-1.5 justify-end">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            {currentTime.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {currentTime.toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
-          </p>
-        </div>
+
       </div>
 
 

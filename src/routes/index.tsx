@@ -24,7 +24,7 @@ import {
   Linkedin,
   Layers,
 } from "lucide-react";
-import { NexaHero3D } from "@/components/landing/NexaHero3D";
+import heroMockup from "@/assets/landing/hero-mockup.png";
 import nexaLogo from "@/assets/nexa-logo.svg";
 import type { Store } from "@/types/tenant";
 
@@ -179,7 +179,20 @@ export default function LandingPage() {
               <RevealSection delay={300} className="relative z-10">
                 <div className="absolute -inset-4 bg-primary/20 blur-[100px] rounded-full -z-10 animate-pulse" />
                 
-                <NexaHero3D />
+                <div className="relative rounded-[2rem] overflow-hidden border-4 border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] bg-card/50 backdrop-blur-3xl group">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                  <img src={heroMockup} alt="NEXA Dashboard Mockup" className="w-full h-auto scale-105 group-hover:scale-110 transition-transform duration-1000 ease-out" />
+                  
+                  {/* Glass overlays */}
+                  <div className="absolute top-4 left-4 right-4 h-12 bg-white/5 backdrop-blur-md rounded-xl border border-white/10 flex items-center px-4 gap-2">
+                    <div className="flex gap-1.5">
+                       <div className="h-2 w-2 rounded-full bg-red-500/50" />
+                       <div className="h-2 w-2 rounded-full bg-amber-500/50" />
+                       <div className="h-2 w-2 rounded-full bg-green-500/50" />
+                    </div>
+                    <div className="mx-auto h-1.5 w-32 bg-white/10 rounded-full" />
+                  </div>
+                </div>
                 
                 {/* Floating elements */}
                 <div className="absolute top-1/4 -right-12 hidden xl:block animate-float">
