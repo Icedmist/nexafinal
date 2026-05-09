@@ -216,7 +216,9 @@ export function UserManagement() {
                     {staffMember.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{format(new Date(staffMember.createdAt), "MMM d, yyyy")}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {staffMember.createdAt ? format(new Date(staffMember.createdAt), "MMM d, yyyy") : "N/A"}
+                </TableCell>
                 <TableCell>
                   <UserActions user={staffMember} currentUserId={currentUser?.uid || ""} isLastAdmin={isLastAdmin(staffMember)}
                     onEdit={() => handleEditClick(staffMember)}

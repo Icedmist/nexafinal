@@ -46,6 +46,13 @@ export default function SystemUsers() {
       const listUsers = httpsCallable(functions, 'listallusers');
       const result = await listUsers();
       const data = result.data as any;
+
+      if (data.error) {
+        console.error("Backend error details:", data);
+        toast.error(`Auth Error: ${data.errorMessage} (${data.errorCode})`);
+        setLoading(false);
+        return;
+      }
       
       // Map Auth users to UserProfile format
       const mapped = data.users.map((u: any) => ({

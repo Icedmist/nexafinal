@@ -149,7 +149,56 @@ function DashboardPage() {
             {isAdmin ? "Admin Dashboard" : "Manager Dashboard"}
           </p>
         </div>
+        <button 
+          onClick={() => navigate("/app/settings")}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border hover:bg-muted/50 transition-colors text-sm font-medium shadow-sm"
+        >
+          <Store className="h-4 w-4 text-muted-foreground" />
+          Store Settings
+        </button>
+      </div>
 
+      {/* ─── Quick Access Shortcuts ─── */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <button 
+          onClick={() => navigate("/app/catalog?action=add")}
+          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xs"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+            <Package className="h-6 w-6" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Add Product</span>
+        </button>
+
+        <button 
+          onClick={() => navigate("/app/inventory?action=new-po")}
+          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-all shadow-xs"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
+            <Receipt className="h-6 w-6" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">New PO</span>
+        </button>
+
+        <button 
+          onClick={() => navigate("/app/sales-analytics")}
+          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-all shadow-xs"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10 text-purple-500 group-hover:scale-110 transition-transform">
+            <TrendingUp className="h-6 w-6" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Analytics</span>
+        </button>
+
+        <button 
+          onClick={() => navigate("/app/sales")}
+          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-healthy/50 hover:bg-healthy/5 transition-all shadow-xs"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-healthy/10 text-healthy group-hover:scale-110 transition-transform">
+            <ShoppingCart className="h-6 w-6" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">New Sale</span>
+        </button>
       </div>
 
 

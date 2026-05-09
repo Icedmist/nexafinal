@@ -87,12 +87,15 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
  * PROVISION STAFF: Callable Function (v2)
  * Allows an admin/owner to create a staff user with a password.
  */
-export const provisionstaff = onCall({ cors: true }, async (request) => {
+export const provisionstaff = onCall({ 
+  cors: true,
+  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
 
-  const { email, password, displayName, role, storeId, branchId } = request.data;
+  const { email, password, displayName, role, storeId, branchId } = request.data || {};
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     throw new HttpsError('invalid-argument', 'A valid email address is required.');
@@ -125,6 +128,37 @@ export const provisionstaff = onCall({ cors: true }, async (request) => {
       branchId: branchId || null,
     });
 
+    // Send invitation email
+    try {
+      await sendEmailViaZoho({
+        to: normalizedEmail,
+        subject: `Welcome to Nexa OS - Your Staff Account`,
+        text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
+        html: `
+          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
+            </div>
+            <div style="padding: 30px;">
+              <p>Hi <strong>${displayName || "there"}</strong>,</p>
+              <p>You have been invited as a <strong>${role}</strong> to join a store on the Nexa platform.</p>
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
+                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
+                <p style="margin-top: 0;">Password: <code>${password}</code></p>
+              </div>
+              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
+              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                Please change your password immediately after your first login for security purposes.
+              </p>
+            </div>
+          </div>
+        `
+      });
+    } catch (emailError) {
+      console.error("Failed to send provision email:", emailError);
+    }
+
     return { success: true, uid: userRecord.uid };
   } catch (error: any) {
     console.error("Provisioning error:", error);
@@ -136,10 +170,13 @@ export const provisionstaff = onCall({ cors: true }, async (request) => {
  * PROVISION PLATFORM USER: Callable Function (v2)
  * Allows a system admin to create a Store Owner or another System Admin.
  */
-export const provisionplatformuser = onCall({ cors: true }, async (request) => {
-  checkSystemAdmin(request);
+export const provisionplatformuser = onCall({ 
+  cors: true, 
+  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
+  await checkSystemAdmin(request);
 
-  const { email, password, displayName, role, storeName, storeSlug } = request.data;
+  const { email, password, displayName, role, storeName, storeSlug } = request.data || {};
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     throw new HttpsError('invalid-argument', 'A valid email address is required.');
@@ -202,6 +239,37 @@ export const provisionplatformuser = onCall({ cors: true }, async (request) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
+    // Send invitation email
+    try {
+      await sendEmailViaZoho({
+        to: normalizedEmail,
+        subject: `Welcome to Nexa OS - ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} Account`,
+        text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role} on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
+        html: `
+          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
+            </div>
+            <div style="padding: 30px;">
+              <p>Hi <strong>${displayName || "there"}</strong>,</p>
+              <p>You have been provisioned as a <strong>${role === 'system_admin' ? 'System Admin' : 'Store Owner'}</strong> on the Nexa platform.</p>
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
+                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
+                <p style="margin-top: 0;">Password: <code>${password}</code></p>
+              </div>
+              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
+              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                Please change your password immediately after your first login for security purposes.
+              </p>
+            </div>
+          </div>
+        `
+      });
+    } catch (emailError) {
+      console.error("Failed to send platform provision email:", emailError);
+    }
+
     // 4. Record Activity
     await admin.firestore().collection("activity_logs").add({
       type: "platform_user_provisioned",
@@ -225,7 +293,7 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
 
-  const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data;
+  const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data || {};
 
   if (!uid) {
     throw new HttpsError('invalid-argument', 'User UID is required.');
@@ -513,23 +581,46 @@ export const onactivitycreated = onDocumentCreated({
 /**
  * HELPER: Verify System Admin status
  */
-const checkSystemAdmin = (request: any) => {
+const checkSystemAdmin = async (request: any) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be logged in.");
   }
+
+  // SELF-HEAL: Ensure the primary dev user has the system_admin role
+  if (request.auth.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
+    console.log(`Self-healing role for dev user ${request.auth.uid}`);
+    try {
+      // ONLY set the necessary claims to avoid "reserved claim" errors
+      await admin.auth().setCustomUserClaims(request.auth.uid, {
+        role: 'system_admin'
+      });
+      throw new HttpsError("permission-denied", "System Admin role assigned. PLEASE LOG OUT AND LOG IN AGAIN.");
+    } catch (e: any) {
+      console.error("Self-heal failed:", e);
+      if (e instanceof HttpsError) throw e;
+    }
+  }
+
   if (request.auth.token.role !== "system_admin") {
     throw new HttpsError("permission-denied", "Only system admins can perform this action.");
   }
 };
 
 /**
+ * PING: Connectivity Test
+ */
+export const ping = onCall({ cors: true }, async () => {
+  return { message: "Pong!", timestamp: new Date().toISOString() };
+});
+
+/**
  * LIST ALL USERS: Callable Function (v2)
  * Returns a list of all users from Firebase Auth.
  */
 export const listallusers = onCall({ cors: true }, async (request) => {
-  checkSystemAdmin(request);
+  await checkSystemAdmin(request);
 
-  const { maxResults = 1000, pageToken } = request.data;
+  const { maxResults = 1000, pageToken } = request.data || {};
 
   try {
     console.log(`System Admin ${request.auth?.uid} is listing users...`);
@@ -558,8 +649,13 @@ export const listallusers = onCall({ cors: true }, async (request) => {
       code: error.code,
       stack: error.stack
     });
-    // Return more detail in development to debug the 500 error
-    throw new HttpsError("internal", `Auth listUsers failed: ${error.message || "Unknown error"} [${error.code || 'no-code'}]`);
+    // Return error info as data to avoid SDK stripping
+    return {
+      error: true,
+      errorMessage: error.message || "Unknown error",
+      errorCode: error.code || 'no-code',
+      errorStack: error.stack
+    };
   }
 });
 
@@ -568,9 +664,9 @@ export const listallusers = onCall({ cors: true }, async (request) => {
  * Completely deletes a user from Auth and all related Firestore collections.
  */
 export const wipeuser = onCall({ cors: true }, async (request) => {
-  checkSystemAdmin(request);
+  await checkSystemAdmin(request);
 
-  const { uid } = request.data;
+  const { uid } = request.data || {};
   if (!uid) {
     throw new HttpsError("invalid-argument", "User UID is required.");
   }
@@ -608,16 +704,7 @@ export const wipeuser = onCall({ cors: true }, async (request) => {
  * Aggregates high-level metrics across the entire platform.
  */
 export const getplatformstats = onCall({ cors: true }, async (request) => {
-  // SELF-HEAL: Ensure the primary dev user has the system_admin role
-  if (request.auth?.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
-    console.log(`Self-healing role for dev user ${request.auth.uid}`);
-    await admin.auth().setCustomUserClaims(request.auth.uid, {
-      ...request.auth.token,
-      role: 'system_admin'
-    });
-  }
-
-  checkSystemAdmin(request);
+  await checkSystemAdmin(request);
 
   try {
     const storesSnap = await admin.firestore().collection("stores").get();

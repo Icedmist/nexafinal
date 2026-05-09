@@ -53,7 +53,7 @@ function HelpPage() {
           <p className="text-sm text-muted-foreground">No matching questions for "{search}"</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-12">
           {filtered.map((category) => (
             <div key={category.title}>
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">{category.title}</h2>
@@ -74,6 +74,23 @@ function HelpPage() {
           {search && (
             <p className="text-xs text-muted-foreground text-center">{totalResults} result{totalResults !== 1 ? "s" : ""} found</p>
           )}
+
+          <div className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-8 text-center">
+            <h2 className="text-lg font-semibold text-foreground">Still need help?</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Our support team is available Monday through Saturday, 8am — 8pm.</p>
+            
+            <div className="mt-6 flex flex-col items-center justify-center gap-6 sm:flex-row sm:gap-12">
+              <div className="text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email us</p>
+                <p className="mt-1 font-medium text-primary">support@nexa-os.com</p>
+              </div>
+              <div className="hidden h-8 w-px bg-border sm:block" />
+              <div className="text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Call or WhatsApp</p>
+                <p className="mt-1 font-medium text-primary">+234 813 862 8218</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

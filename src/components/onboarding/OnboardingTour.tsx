@@ -73,8 +73,18 @@ export function OnboardingTour({ steps, currentStep, isActive, onNext, onBack, o
 
     const vh = window.innerHeight;
     const vw = window.innerWidth;
-    const padding = 60; 
+    const isMobile = vw < 768;
+    const padding = isMobile ? 20 : 60; 
     
+    if (isMobile) {
+      // On mobile, if centered or target is high, place at bottom. 
+      // Otherwise, try to avoid the target.
+      if (isCentered || pos.top < vh * 0.4) {
+        return { top: vh - 300, left: (vw - 340) / 2, x: 0, y: 0, arrowDir: "none", isCentered: false };
+      }
+      return { top: 20, left: (vw - 340) / 2, x: 0, y: 0, arrowDir: "none", isCentered: false };
+    }
+
     let top = pos.top + pos.height + padding;
     let left = pos.left;
     let arrowDir = "top";

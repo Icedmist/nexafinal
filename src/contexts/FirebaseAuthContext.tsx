@@ -147,12 +147,13 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           
           // 2. If claims are missing (e.g. fresh signup), try refreshing a few times
           // This handles the delay in the background Cloud Function trigger
-          if (!tokenResult.claims.storeId || !tokenResult.claims.role) {
+          // Note: System admins might not have a storeId, so we only wait if role is missing
+          if (!tokenResult.claims.role) {
             console.log("Claims missing, attempting to sync permissions...");
             let attempts = 0;
             const maxAttempts = 3;
             
-            while (attempts < maxAttempts && (!tokenResult.claims.storeId || !tokenResult.claims.role)) {
+            while (attempts < maxAttempts && !tokenResult.claims.role) {
               await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s for trigger
               tokenResult = await currentUser.getIdTokenResult(true); // Force refresh
               attempts++;

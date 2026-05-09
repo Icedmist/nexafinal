@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getplatformstats = exports.wipeuser = exports.listallusers = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.getplatformstats = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const functionsV1 = require("firebase-functions/v1");
@@ -84,7 +84,7 @@ exports.provisionstaff = (0, https_1.onCall)({ cors: true }, async (request) => 
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
-    const { email, password, displayName, role, storeId, branchId } = request.data;
+    const { email, password, displayName, role, storeId, branchId } = request.data || {};
     if (!email || typeof email !== 'string' || !email.includes('@')) {
         throw new https_1.HttpsError('invalid-argument', 'A valid email address is required.');
     }
@@ -123,8 +123,8 @@ exports.provisionstaff = (0, https_1.onCall)({ cors: true }, async (request) => 
  * Allows a system admin to create a Store Owner or another System Admin.
  */
 exports.provisionplatformuser = (0, https_1.onCall)({ cors: true }, async (request) => {
-    checkSystemAdmin(request);
-    const { email, password, displayName, role, storeName, storeSlug } = request.data;
+    await checkSystemAdmin(request);
+    const { email, password, displayName, role, storeName, storeSlug } = request.data || {};
     if (!email || typeof email !== 'string' || !email.includes('@')) {
         throw new https_1.HttpsError('invalid-argument', 'A valid email address is required.');
     }
@@ -196,7 +196,7 @@ exports.updatestaffprofile = (0, https_1.onCall)({ cors: true }, async (request)
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
-    const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data;
+    const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data || {};
     if (!uid) {
         throw new https_1.HttpsError('invalid-argument', 'User UID is required.');
     }
@@ -468,21 +468,43 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
 /**
  * HELPER: Verify System Admin status
  */
-const checkSystemAdmin = (request) => {
+const checkSystemAdmin = async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
+    }
+    // SELF-HEAL: Ensure the primary dev user has the system_admin role
+    if (request.auth.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
+        console.log(`Self-healing role for dev user ${request.auth.uid}`);
+        try {
+            // ONLY set the necessary claims to avoid "reserved claim" errors
+            await admin.auth().setCustomUserClaims(request.auth.uid, {
+                role: 'system_admin'
+            });
+            throw new https_1.HttpsError("permission-denied", "System Admin role assigned. PLEASE LOG OUT AND LOG IN AGAIN.");
+        }
+        catch (e) {
+            console.error("Self-heal failed:", e);
+            if (e instanceof https_1.HttpsError)
+                throw e;
+        }
     }
     if (request.auth.token.role !== "system_admin") {
         throw new https_1.HttpsError("permission-denied", "Only system admins can perform this action.");
     }
 };
 /**
+ * PING: Connectivity Test
+ */
+exports.ping = (0, https_1.onCall)({ cors: true }, async () => {
+    return { message: "Pong!", timestamp: new Date().toISOString() };
+});
+/**
  * LIST ALL USERS: Callable Function (v2)
  * Returns a list of all users from Firebase Auth.
  */
 exports.listallusers = (0, https_1.onCall)({ cors: true }, async (request) => {
-    checkSystemAdmin(request);
-    const { maxResults = 1000, pageToken } = request.data;
+    await checkSystemAdmin(request);
+    const { maxResults = 1000, pageToken } = request.data || {};
     try {
         console.log(`System Admin ${request.auth?.uid} is listing users...`);
         const listUsersResult = await admin.auth().listUsers(maxResults, pageToken);
@@ -509,8 +531,13 @@ exports.listallusers = (0, https_1.onCall)({ cors: true }, async (request) => {
             code: error.code,
             stack: error.stack
         });
-        // Return more detail in development to debug the 500 error
-        throw new https_1.HttpsError("internal", `Auth listUsers failed: ${error.message || "Unknown error"} [${error.code || 'no-code'}]`);
+        // Return error info as data to avoid SDK stripping
+        return {
+            error: true,
+            errorMessage: error.message || "Unknown error",
+            errorCode: error.code || 'no-code',
+            errorStack: error.stack
+        };
     }
 });
 /**
@@ -518,8 +545,8 @@ exports.listallusers = (0, https_1.onCall)({ cors: true }, async (request) => {
  * Completely deletes a user from Auth and all related Firestore collections.
  */
 exports.wipeuser = (0, https_1.onCall)({ cors: true }, async (request) => {
-    checkSystemAdmin(request);
-    const { uid } = request.data;
+    await checkSystemAdmin(request);
+    const { uid } = request.data || {};
     if (!uid) {
         throw new https_1.HttpsError("invalid-argument", "User UID is required.");
     }
@@ -552,15 +579,7 @@ exports.wipeuser = (0, https_1.onCall)({ cors: true }, async (request) => {
  * Aggregates high-level metrics across the entire platform.
  */
 exports.getplatformstats = (0, https_1.onCall)({ cors: true }, async (request) => {
-    // SELF-HEAL: Ensure the primary dev user has the system_admin role
-    if (request.auth?.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
-        console.log(`Self-healing role for dev user ${request.auth.uid}`);
-        await admin.auth().setCustomUserClaims(request.auth.uid, {
-            ...request.auth.token,
-            role: 'system_admin'
-        });
-    }
-    checkSystemAdmin(request);
+    await checkSystemAdmin(request);
     try {
         const storesSnap = await admin.firestore().collection("stores").get();
         const usersSnap = await admin.firestore().collection("users").get();
