@@ -53,7 +53,11 @@ function CatalogPage() {
     if (newItem === "true") {
       setEditItem(null);
       setSheetOpen(true);
-      navigate("/app/catalog", { replace: true });
+      // Small delay before replacing URL to prevent race conditions in some routers
+      const timer = setTimeout(() => {
+        navigate("/app/catalog", { replace: true });
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [newItem, navigate]);
 

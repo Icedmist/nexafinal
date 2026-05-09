@@ -21,6 +21,14 @@ import { CreditCard, DollarSign } from "lucide-react";
 
 const NAIRA = "₦";
 
+function daysSince(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return `${days}d ago`;
+}
+
 export default CustomersPage;
 
 interface CustomerRecord {
@@ -95,7 +103,7 @@ function CustomersPage() {
       const phone = payment.customerPhone.trim();
       const record = map.get(phone);
       if (record) {
-        record.debtBalance -= payment.amount;
+        record.debtBalance -= payment.amountNgn;
       }
     }
 
@@ -216,9 +224,8 @@ function CustomersPage() {
       await recordDebtPayment({
         customerPhone: messageTarget.phone,
         customerName: messageTarget.name,
-        amount,
-        note: paymentNote,
-        paymentMethod: "Cash", // Default to Cash, could add a selector if needed
+        amountNgn: amount,
+        notes: paymentNote,
       });
       toast.success(`Payment of ${NAIRA}${amount.toLocaleString()} recorded for ${messageTarget.name}`);
       setPaymentOpen(false);

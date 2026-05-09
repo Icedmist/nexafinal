@@ -176,11 +176,14 @@ export function useSalesMutations() {
     return { id: saleRef.id };
   };
 
-  const addDebtPayment = async (payment: Omit<DebtPayment, "id" | "recordedBy" | "recordedByName" | "storeId" | "branchId" | "createdAt">) => {
-    if (!user || !storeId) {
-      throw new Error("Authentication required.");
-    }
-
+  const recordDebtPayment = async (payment: { 
+    customerPhone: string; 
+    customerName: string; 
+    amountNgn: number; 
+    notes?: string;
+  }) => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    
     const paymentRef = doc(collection(db, "debt_payments"));
     const paymentData = {
       ...payment,
@@ -191,27 +194,8 @@ export function useSalesMutations() {
       createdAt: new Date().toISOString(),
     };
 
-    await batch.set(paymentRef, paymentData);
-    // Since we don't need a batch for a single write usually, but the hook uses writeBatch pattern
-    // I'll just use a direct set or a new batch. Let's use a simple addDoc or setDoc.
-    // Actually, useSalesMutations uses a batch for addSale. I'll just use setDoc for simplicity here.
-  };
-
-  const recordDebtPayment = async (payment: Omit<DebtPayment, "id" | "recordedBy" | "recordedByName" | "storeId" | "branchId" | "createdAt">) => {
-     if (!user || !storeId) throw new Error("Auth required");
-     const { setDoc, collection, doc } = await import("firebase/firestore");
-     const { db } = await import("@/lib/firebase");
-     
-     const ref = doc(collection(db, "debt_payments"));
-     await setDoc(ref, {
-       ...payment,
-       storeId,
-       branchId: claims?.branchId || null,
-       recordedBy: user.uid,
-       recordedByName: user.displayName || user.email?.split("@")[0] || "Staff",
-       createdAt: new Date().toISOString(),
-     });
-     return ref.id;
+    await setDoc(paymentRef, paymentData);
+    return paymentRef.id;
   };
 
   return { addSale, recordDebtPayment };

@@ -28,7 +28,7 @@ const TOUR_STEPS: TourStep[] = [
   { title: "Welcome to NEXA Store OS!", description: "Let's take a quick tour of all the key features. This will only take a minute." },
   { target: "sidebar", title: "Navigation", description: "Use the sidebar to switch between sections — sales, catalog, customers, analytics, and more." },
   { target: "metrics", title: "Business overview", description: "Your key metrics at a glance — revenue, profit, expenses, and customer counts." },
-  { target: "needs-attention", title: "Alerts & activity", description: "Items that need action appear here — low stock, overdue POs, and pending requests." },
+  { target: "needs-attention", title: "Alerts & activity", description: "Items that need action appear here — low stock, overdue Restocking, and pending requests." },
   { target: "search", title: "Quick search", description: "Press CMD+K (or Ctrl+K) to search anything — items, suppliers, orders, and more." },
   { target: "sales", title: "Sales & POS", description: "Head to Sales to ring up orders, apply discounts, accept multiple payment methods, and send receipts via WhatsApp." },
   { target: "customers", title: "Customers", description: "The Customers page shows purchase history, debt tracking, and lets you message customers directly via WhatsApp." },
