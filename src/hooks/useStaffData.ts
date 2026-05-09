@@ -146,7 +146,7 @@ export function useUpdateSelf() {
   const { updateStaff } = useStaffMutations();
   const [isLoading, setIsLoading] = useState(false);
 
-  const updateProfile = async (updates: { displayName?: string; photoURL?: string; password?: string }) => {
+  const updateProfile = async (updates: { displayName?: string; photoURL?: string; password?: string; email?: string }) => {
     if (!user) throw new Error("Not authenticated");
     setIsLoading(true);
 

@@ -91,6 +91,27 @@ export default function SystemUsers() {
     }
   };
 
+  const handleUpdateEmail = async (uid: string, currentEmail: string) => {
+    const newEmail = prompt("Enter the new email address for this user:", currentEmail);
+    if (!newEmail || newEmail === currentEmail) return;
+
+    if (!newEmail.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    const toastId = toast.loading(`Updating email to ${newEmail}...`);
+    try {
+      const updateEmail = httpsCallable(functions, 'updateuseremail');
+      await updateEmail({ uid, newEmail });
+      toast.success("Email updated successfully.", { id: toastId });
+      fetchUsers(); // Refresh list
+    } catch (error: any) {
+      console.error("Email update error:", error);
+      toast.error(error.message || "Failed to update email.", { id: toastId });
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -219,10 +240,16 @@ export default function SystemUsers() {
                            <DropdownMenuItem className="text-white hover:bg-slate-900 cursor-pointer">
                              View Profile
                            </DropdownMenuItem>
-                           <DropdownMenuItem className="text-white hover:bg-slate-900 cursor-pointer">
-                             Force Password Reset
-                           </DropdownMenuItem>
-                           <DropdownMenuSeparator className="bg-slate-800" />
+                             <DropdownMenuItem 
+                               className="text-white hover:bg-slate-900 cursor-pointer"
+                               onClick={() => handleUpdateEmail(user.id, user.email)}
+                             >
+                               Change Email
+                             </DropdownMenuItem>
+                             <DropdownMenuItem className="text-white hover:bg-slate-900 cursor-pointer">
+                               Force Password Reset
+                             </DropdownMenuItem>
+                             <DropdownMenuSeparator className="bg-slate-800" />
                            <DropdownMenuItem 
                              className="text-rose-500 hover:bg-rose-500/10 cursor-pointer font-bold"
                              onClick={() => handleWipeUser(user.id)}

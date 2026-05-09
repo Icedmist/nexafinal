@@ -10,6 +10,7 @@ import { DashboardReorderSection } from "@/components/insights/DashboardReorderS
 import { DashboardAnomalySection } from "@/components/insights/DashboardAnomalySection";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { useStockSummary, useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
 import { useAlertGenerator } from "@/hooks/useStockAlertGenerator";
@@ -56,11 +57,21 @@ function AccordionSection({ id, title, openSection, onToggle, children, dataTour
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", isOpen && "rotate-180")} />
       </button>
-      <div className={cn("transition-all duration-200 ease-in-out", isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 overflow-hidden")}>
-        <div className="px-4 pb-4">
-          {children}
-        </div>
-      </div>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -161,8 +172,27 @@ function DashboardPage() {
       </div>
 
       {/* ─── Quick Access Shortcuts ─── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <button 
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.1
+            }
+          }
+        }}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-5"
+      >
+        <motion.button 
+          variants={{
+            hidden: { y: 20, opacity: 0 },
+            visible: { y: 0, opacity: 1 }
+          }}
+          whileHover={{ scale: 1.02, translateY: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => navigate("/app/catalog?action=add")}
           className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xs"
         >
@@ -170,9 +200,15 @@ function DashboardPage() {
             <Package className="h-5 w-5" />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Add Product</span>
-        </button>
+        </motion.button>
 
-        <button 
+        <motion.button 
+          variants={{
+            hidden: { y: 20, opacity: 0 },
+            visible: { y: 0, opacity: 1 }
+          }}
+          whileHover={{ scale: 1.02, translateY: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => navigate("/app/purchase-orders?action=new")}
           className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-all shadow-xs"
         >
@@ -180,9 +216,15 @@ function DashboardPage() {
             <Receipt className="h-5 w-5" />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">New PO</span>
-        </button>
+        </motion.button>
 
-        <button 
+        <motion.button 
+          variants={{
+            hidden: { y: 20, opacity: 0 },
+            visible: { y: 0, opacity: 1 }
+          }}
+          whileHover={{ scale: 1.02, translateY: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => navigate("/app/analytics")}
           className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-all shadow-xs"
         >
@@ -190,9 +232,15 @@ function DashboardPage() {
             <TrendingUp className="h-5 w-5" />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Analytics</span>
-        </button>
+        </motion.button>
 
-        <button 
+        <motion.button 
+          variants={{
+            hidden: { y: 20, opacity: 0 },
+            visible: { y: 0, opacity: 1 }
+          }}
+          whileHover={{ scale: 1.02, translateY: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => navigate("/app/sales")}
           className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all shadow-xs"
         >
@@ -200,9 +248,15 @@ function DashboardPage() {
             <ShoppingCart className="h-5 w-5" />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">New Sale</span>
-        </button>
+        </motion.button>
 
-        <button 
+        <motion.button 
+          variants={{
+            hidden: { y: 20, opacity: 0 },
+            visible: { y: 0, opacity: 1 }
+          }}
+          whileHover={{ scale: 1.02, translateY: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => navigate("/app/settings")}
           className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-orange-500/50 hover:bg-orange-500/5 transition-all shadow-xs"
         >
@@ -210,8 +264,8 @@ function DashboardPage() {
             <Settings className="h-5 w-5" />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Settings</span>
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
 
       {/* ─── Admin Dashboard ─── */}

@@ -716,6 +716,50 @@ export const wipeuser = onCall({ cors: true }, async (request) => {
 });
 
 /**
+ * UPDATE USER EMAIL: Callable Function (v2)
+ * Allows a system admin to change any user's email address.
+ * Syncs changes across Auth, 'users' collection, and 'staff' collection.
+ */
+export const updateuseremail = onCall({ cors: true }, async (request) => {
+  await checkSystemAdmin(request);
+
+  const { uid, newEmail } = request.data || {};
+
+  if (!uid || !newEmail || !newEmail.includes('@')) {
+    throw new HttpsError("invalid-argument", "Valid UID and new email address are required.");
+  }
+
+  try {
+    const normalizedEmail = newEmail.toLowerCase();
+    console.log(`System Admin ${request.auth?.uid} is updating email for user ${uid} to ${normalizedEmail}`);
+
+    // 1. Update Firebase Auth
+    await admin.auth().updateUser(uid, { email: normalizedEmail });
+
+    // 2. Update Firestore 'users' collection
+    const userRef = admin.firestore().collection("users").doc(uid);
+    await userRef.set({ email: normalizedEmail, updatedAt: new Date().toISOString() }, { merge: true });
+
+    // 3. Update Firestore 'staff' collection (if exists)
+    const staffRef = admin.firestore().collection("staff").doc(uid);
+    await staffRef.set({ email: normalizedEmail, updatedAt: new Date().toISOString() }, { merge: true });
+
+    // 4. Also check for any 'staff' documents where 'uid' field matches (if docId was email/other)
+    const staffQuery = await admin.firestore().collection("staff").where("uid", "==", uid).get();
+    const batch = admin.firestore().batch();
+    staffQuery.forEach((doc) => {
+      batch.update(doc.ref, { email: normalizedEmail, updatedAt: new Date().toISOString() });
+    });
+    await batch.commit();
+
+    return { success: true, message: `Email updated to ${normalizedEmail} successfully.` };
+  } catch (error: any) {
+    console.error("Error updating user email:", error);
+    throw mapAuthError(error);
+  }
+});
+
+/**
  * GET PLATFORM STATS: Callable Function (v2)
  * Aggregates high-level metrics across the entire platform.
  */

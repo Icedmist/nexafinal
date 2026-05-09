@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getplatformstats = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.getplatformstats = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const functionsV1 = require("firebase-functions/v1");
@@ -652,6 +652,42 @@ exports.wipeuser = (0, https_1.onCall)({ cors: true }, async (request) => {
             return { success: true, message: "User not found in Auth, but Firestore record cleaned." };
         }
         throw new https_1.HttpsError("internal", "Failed to wipe user data.");
+    }
+});
+/**
+ * UPDATE USER EMAIL: Callable Function (v2)
+ * Allows a system admin to change any user's email address.
+ * Syncs changes across Auth, 'users' collection, and 'staff' collection.
+ */
+exports.updateuseremail = (0, https_1.onCall)({ cors: true }, async (request) => {
+    await checkSystemAdmin(request);
+    const { uid, newEmail } = request.data || {};
+    if (!uid || !newEmail || !newEmail.includes('@')) {
+        throw new https_1.HttpsError("invalid-argument", "Valid UID and new email address are required.");
+    }
+    try {
+        const normalizedEmail = newEmail.toLowerCase();
+        console.log(`System Admin ${request.auth?.uid} is updating email for user ${uid} to ${normalizedEmail}`);
+        // 1. Update Firebase Auth
+        await admin.auth().updateUser(uid, { email: normalizedEmail });
+        // 2. Update Firestore 'users' collection
+        const userRef = admin.firestore().collection("users").doc(uid);
+        await userRef.set({ email: normalizedEmail, updatedAt: new Date().toISOString() }, { merge: true });
+        // 3. Update Firestore 'staff' collection (if exists)
+        const staffRef = admin.firestore().collection("staff").doc(uid);
+        await staffRef.set({ email: normalizedEmail, updatedAt: new Date().toISOString() }, { merge: true });
+        // 4. Also check for any 'staff' documents where 'uid' field matches (if docId was email/other)
+        const staffQuery = await admin.firestore().collection("staff").where("uid", "==", uid).get();
+        const batch = admin.firestore().batch();
+        staffQuery.forEach((doc) => {
+            batch.update(doc.ref, { email: normalizedEmail, updatedAt: new Date().toISOString() });
+        });
+        await batch.commit();
+        return { success: true, message: `Email updated to ${normalizedEmail} successfully.` };
+    }
+    catch (error) {
+        console.error("Error updating user email:", error);
+        throw mapAuthError(error);
     }
 });
 /**

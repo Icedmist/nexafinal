@@ -18,8 +18,8 @@ export function UserProfile() {
   const [fullName, setFullName] = useState(user?.displayName || "");
   const [photoURL, setPhotoURL] = useState(user?.photoURL || "");
   const [isUploading, setIsUploading] = useState(false);
-  const [email] = useState(user?.email || ""); // Email is usually fixed for staff
-  const [password, setPassword] = useState("");
+   const [email, setEmail] = useState(user?.email || ""); 
+   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
@@ -71,6 +71,7 @@ export function UserProfile() {
         displayName: fullName,
         photoURL: photoURL,
         password: password || undefined,
+        email: email !== user?.email ? email : undefined,
       });
       
       setPassword("");
@@ -154,13 +155,13 @@ export function UserProfile() {
               id="email"
               type="email"
               value={email}
-              readOnly
-              className="bg-muted pl-10 cursor-not-allowed"
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10"
               placeholder="Enter your email"
             />
           </div>
           <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-            Email cannot be changed by staff. Contact admin if needed.
+            Changing your email will update your login credentials.
           </p>
         </div>
 
