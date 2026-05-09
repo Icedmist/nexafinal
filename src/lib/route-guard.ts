@@ -26,7 +26,9 @@ const ROUTE_ACCESS: Record<string, UserRoleType[]> = {
   "/system-admin/dashboard": ["system_admin"],
   "/system-admin/businesses": ["system_admin"],
   "/system-admin/users": ["system_admin"],
+  "/system-admin/health": ["system_admin"],
   "/system-admin/settings": ["system_admin"],
+  "/system-admin/audit": ["system_admin"],
 };
 
 /**

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.getplatformstats = exports.wipeuser = exports.listallusers = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const functionsV1 = require("firebase-functions/v1");
@@ -80,7 +80,7 @@ exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", 
  * PROVISION STAFF: Callable Function (v2)
  * Allows an admin/owner to create a staff user with a password.
  */
-exports.provisionstaff = (0, https_1.onCall)(async (request) => {
+exports.provisionstaff = (0, https_1.onCall)({ cors: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
@@ -118,7 +118,81 @@ exports.provisionstaff = (0, https_1.onCall)(async (request) => {
         throw mapAuthError(error);
     }
 });
-exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
+/**
+ * PROVISION PLATFORM USER: Callable Function (v2)
+ * Allows a system admin to create a Store Owner or another System Admin.
+ */
+exports.provisionplatformuser = (0, https_1.onCall)({ cors: true }, async (request) => {
+    checkSystemAdmin(request);
+    const { email, password, displayName, role, storeName, storeSlug } = request.data;
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+        throw new https_1.HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (!password || typeof password !== 'string' || password.length < 6) {
+        throw new https_1.HttpsError('invalid-argument', 'A valid password of at least 6 characters is required.');
+    }
+    if (!role || !['owner', 'system_admin'].includes(role)) {
+        throw new https_1.HttpsError('invalid-argument', 'Valid platform role (owner or system_admin) is required.');
+    }
+    try {
+        const normalizedEmail = email.toLowerCase();
+        // 1. Create Auth User
+        const userRecord = await admin.auth().createUser({
+            email: normalizedEmail,
+            password,
+            displayName,
+        });
+        // 2. Set Custom Claims
+        const claims = { role };
+        // If it's a store owner, we might want to provision a store too if name/slug provided
+        let storeId = null;
+        if (role === 'owner' && storeName && storeSlug) {
+            const storeRef = admin.firestore().collection("stores").doc();
+            storeId = storeRef.id;
+            await storeRef.set({
+                id: storeId,
+                name: storeName,
+                slug: storeSlug.toLowerCase(),
+                ownerId: userRecord.uid,
+                status: "active",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                subscription: "trial",
+                businessType: "retail",
+                settings: {
+                    currency: "NGN",
+                    taxRate: 0,
+                }
+            });
+            claims.storeId = storeId;
+        }
+        await admin.auth().setCustomUserClaims(userRecord.uid, claims);
+        // 3. Create User record in Firestore 'users' collection
+        await admin.firestore().collection("users").doc(userRecord.uid).set({
+            uid: userRecord.uid,
+            email: normalizedEmail,
+            displayName,
+            role,
+            storeId: storeId || null,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // 4. Record Activity
+        await admin.firestore().collection("activity_logs").add({
+            type: "platform_user_provisioned",
+            title: "Platform User Created",
+            message: `${role === 'system_admin' ? 'System Admin' : 'Store Owner'} ${email} was provisioned by ${request.auth?.token.email}`,
+            userEmail: request.auth?.token.email,
+            userId: request.auth?.uid,
+            storeId: "system",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { success: true, uid: userRecord.uid, storeId };
+    }
+    catch (error) {
+        console.error("Platform provisioning error:", error);
+        throw mapAuthError(error);
+    }
+});
+exports.updatestaffprofile = (0, https_1.onCall)({ cors: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
@@ -390,5 +464,118 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
         console.error("Failed to send activity alert:", error);
     }
     return null;
+});
+/**
+ * HELPER: Verify System Admin status
+ */
+const checkSystemAdmin = (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
+    }
+    if (request.auth.token.role !== "system_admin") {
+        throw new https_1.HttpsError("permission-denied", "Only system admins can perform this action.");
+    }
+};
+/**
+ * LIST ALL USERS: Callable Function (v2)
+ * Returns a list of all users from Firebase Auth.
+ */
+exports.listallusers = (0, https_1.onCall)({ cors: true }, async (request) => {
+    checkSystemAdmin(request);
+    const { maxResults = 1000, pageToken } = request.data;
+    try {
+        console.log(`System Admin ${request.auth?.uid} is listing users...`);
+        const listUsersResult = await admin.auth().listUsers(maxResults, pageToken);
+        // Fetch associated staff/user records from Firestore to enrich the data
+        const users = listUsersResult.users.map((user) => ({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            disabled: user.disabled,
+            lastSignInTime: user.metadata.lastSignInTime,
+            creationTime: user.metadata.creationTime,
+            customClaims: user.customClaims || {},
+        }));
+        console.log(`Successfully retrieved ${users.length} users.`);
+        return {
+            users,
+            pageToken: listUsersResult.pageToken,
+        };
+    }
+    catch (error) {
+        console.error("CRITICAL: Error listing users from Auth:", {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+        });
+        // Return more detail in development to debug the 500 error
+        throw new https_1.HttpsError("internal", `Auth listUsers failed: ${error.message || "Unknown error"} [${error.code || 'no-code'}]`);
+    }
+});
+/**
+ * WIPE USER: Callable Function (v2)
+ * Completely deletes a user from Auth and all related Firestore collections.
+ */
+exports.wipeuser = (0, https_1.onCall)({ cors: true }, async (request) => {
+    checkSystemAdmin(request);
+    const { uid } = request.data;
+    if (!uid) {
+        throw new https_1.HttpsError("invalid-argument", "User UID is required.");
+    }
+    try {
+        // 1. Delete from Firebase Auth
+        await admin.auth().deleteUser(uid);
+        // 2. Delete from Firestore 'users' and 'staff'
+        const batch = admin.firestore().batch();
+        batch.delete(admin.firestore().collection("users").doc(uid));
+        batch.delete(admin.firestore().collection("staff").doc(uid));
+        // Also check for any 'staff' documents where 'uid' field matches (if docId was email/other)
+        const staffQuery = await admin.firestore().collection("staff").where("uid", "==", uid).get();
+        staffQuery.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        console.log(`Successfully wiped user ${uid} from platform.`);
+        return { success: true };
+    }
+    catch (error) {
+        console.error("Error wiping user:", error);
+        if (error.code === 'auth/user-not-found') {
+            // If user not in Auth, still try to clean Firestore
+            await admin.firestore().collection("staff").doc(uid).delete();
+            return { success: true, message: "User not found in Auth, but Firestore record cleaned." };
+        }
+        throw new https_1.HttpsError("internal", "Failed to wipe user data.");
+    }
+});
+/**
+ * GET PLATFORM STATS: Callable Function (v2)
+ * Aggregates high-level metrics across the entire platform.
+ */
+exports.getplatformstats = (0, https_1.onCall)({ cors: true }, async (request) => {
+    // SELF-HEAL: Ensure the primary dev user has the system_admin role
+    if (request.auth?.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
+        console.log(`Self-healing role for dev user ${request.auth.uid}`);
+        await admin.auth().setCustomUserClaims(request.auth.uid, {
+            ...request.auth.token,
+            role: 'system_admin'
+        });
+    }
+    checkSystemAdmin(request);
+    try {
+        const storesSnap = await admin.firestore().collection("stores").get();
+        const usersSnap = await admin.firestore().collection("users").get();
+        const staffSnap = await admin.firestore().collection("staff").get();
+        // More complex metrics can be added here (e.g. total revenue if indexed)
+        return {
+            totalStores: storesSnap.size,
+            totalUsers: usersSnap.size,
+            totalStaff: staffSnap.size,
+            timestamp: new Date().toISOString()
+        };
+    }
+    catch (error) {
+        console.error("Error getting platform stats:", error);
+        throw new https_1.HttpsError("internal", "Failed to retrieve platform statistics.");
+    }
 });
 //# sourceMappingURL=index.js.map

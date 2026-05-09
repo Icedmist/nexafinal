@@ -34,6 +34,10 @@ const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout').then(
 const SystemDashboardPage = lazy(() => import('./routes/system-admin.dashboard'));
 const SystemBusinessesPage = lazy(() => import('./routes/system-admin.businesses'));
 const SystemUsersPage = lazy(() => import('./routes/system-admin.users'));
+const SystemHealthPage = lazy(() => import('./routes/system-admin.health'));
+const SystemSettingsPage = lazy(() => import('./routes/system-admin.settings'));
+const SystemAuditPage = lazy(() => import('./routes/system-admin.audit'));
+
 
 const Loading = () => (
   <div className="flex h-screen items-center justify-center bg-background">
@@ -84,6 +88,9 @@ function App() {
             <Route path="dashboard" element={<SystemDashboardPage />} />
             <Route path="businesses" element={<SystemBusinessesPage />} />
             <Route path="users" element={<SystemUsersPage />} />
+            <Route path="health" element={<SystemHealthPage />} />
+            <Route path="settings" element={<SystemSettingsPage />} />
+            <Route path="audit" element={<SystemAuditPage />} />
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>
 

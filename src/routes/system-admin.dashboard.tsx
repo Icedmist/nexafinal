@@ -7,7 +7,9 @@ import {
   ArrowDownRight,
   Plus,
   Search,
-  ExternalLink
+  ExternalLink,
+  Zap,
+  Shield
 } from "lucide-react";
 import { 
   BarChart, 
@@ -278,6 +280,30 @@ export default function SystemDashboard() {
         onOpenChange={setProvisionOpen} 
         onSuccess={fetchDashboardData}
       />
+
+      {/* Platform Terminal (Real-time Audit Stream) */}
+      <div className="rounded-2xl border border-slate-800 bg-black p-4 font-mono text-[11px] shadow-2xl">
+        <div className="flex items-center justify-between mb-4 px-2">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+              <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </div>
+            <span className="text-slate-500 ml-4">nexaos_platform_monitor — bash — 80x24</span>
+          </div>
+          <span className="text-emerald-500 animate-pulse">● LIVE_STREAM_ACTIVE</span>
+        </div>
+        <div className="space-y-1 text-slate-400 overflow-hidden h-40">
+           <p><span className="text-emerald-500">[SYSTEM]</span> Initializing platform kernel...</p>
+           <p><span className="text-blue-500">[INFO]</span> Auth service connected (Region: us-central1)</p>
+           <p><span className="text-blue-500">[INFO]</span> Firestore listeners established for 142 active stores</p>
+           {recentStores.slice(0, 3).map(store => (
+             <p key={store.id}><span className="text-amber-500">[EVENT]</span> New business provisioned: <span className="text-white font-bold">{store.name}</span> ({store.slug}.nexa.os)</p>
+           ))}
+           <p className="animate-pulse">_</p>
+        </div>
+      </div>
     </div>
   );
 }

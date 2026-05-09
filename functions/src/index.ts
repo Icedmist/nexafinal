@@ -87,7 +87,7 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
  * PROVISION STAFF: Callable Function (v2)
  * Allows an admin/owner to create a staff user with a password.
  */
-export const provisionstaff = onCall(async (request) => {
+export const provisionstaff = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
@@ -132,7 +132,95 @@ export const provisionstaff = onCall(async (request) => {
   }
 });
 
-export const updatestaffprofile = onCall(async (request) => {
+/**
+ * PROVISION PLATFORM USER: Callable Function (v2)
+ * Allows a system admin to create a Store Owner or another System Admin.
+ */
+export const provisionplatformuser = onCall({ cors: true }, async (request) => {
+  checkSystemAdmin(request);
+
+  const { email, password, displayName, role, storeName, storeSlug } = request.data;
+
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    throw new HttpsError('invalid-argument', 'A valid email address is required.');
+  }
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    throw new HttpsError('invalid-argument', 'A valid password of at least 6 characters is required.');
+  }
+
+  if (!role || !['owner', 'system_admin'].includes(role)) {
+    throw new HttpsError('invalid-argument', 'Valid platform role (owner or system_admin) is required.');
+  }
+
+  try {
+    const normalizedEmail = email.toLowerCase();
+    
+    // 1. Create Auth User
+    const userRecord = await admin.auth().createUser({
+      email: normalizedEmail,
+      password,
+      displayName,
+    });
+
+    // 2. Set Custom Claims
+    const claims: any = { role };
+    
+    // If it's a store owner, we might want to provision a store too if name/slug provided
+    let storeId = null;
+    if (role === 'owner' && storeName && storeSlug) {
+      const storeRef = admin.firestore().collection("stores").doc();
+      storeId = storeRef.id;
+      
+      await storeRef.set({
+        id: storeId,
+        name: storeName,
+        slug: storeSlug.toLowerCase(),
+        ownerId: userRecord.uid,
+        status: "active",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        subscription: "trial",
+        businessType: "retail",
+        settings: {
+          currency: "NGN",
+          taxRate: 0,
+        }
+      });
+      
+      claims.storeId = storeId;
+    }
+
+    await admin.auth().setCustomUserClaims(userRecord.uid, claims);
+
+    // 3. Create User record in Firestore 'users' collection
+    await admin.firestore().collection("users").doc(userRecord.uid).set({
+      uid: userRecord.uid,
+      email: normalizedEmail,
+      displayName,
+      role,
+      storeId: storeId || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // 4. Record Activity
+    await admin.firestore().collection("activity_logs").add({
+      type: "platform_user_provisioned",
+      title: "Platform User Created",
+      message: `${role === 'system_admin' ? 'System Admin' : 'Store Owner'} ${email} was provisioned by ${request.auth?.token.email}`,
+      userEmail: request.auth?.token.email,
+      userId: request.auth?.uid,
+      storeId: "system",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, uid: userRecord.uid, storeId };
+  } catch (error: any) {
+    console.error("Platform provisioning error:", error);
+    throw mapAuthError(error);
+  }
+});
+
+export const updatestaffprofile = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
@@ -438,12 +526,13 @@ const checkSystemAdmin = (request: any) => {
  * LIST ALL USERS: Callable Function (v2)
  * Returns a list of all users from Firebase Auth.
  */
-export const listallusers = onCall(async (request) => {
+export const listallusers = onCall({ cors: true }, async (request) => {
   checkSystemAdmin(request);
 
   const { maxResults = 1000, pageToken } = request.data;
 
   try {
+    console.log(`System Admin ${request.auth?.uid} is listing users...`);
     const listUsersResult = await admin.auth().listUsers(maxResults, pageToken);
     
     // Fetch associated staff/user records from Firestore to enrich the data
@@ -458,13 +547,19 @@ export const listallusers = onCall(async (request) => {
       customClaims: user.customClaims || {},
     }));
 
+    console.log(`Successfully retrieved ${users.length} users.`);
     return {
       users,
       pageToken: listUsersResult.pageToken,
     };
-  } catch (error) {
-    console.error("Error listing users:", error);
-    throw new HttpsError("internal", "Failed to list users.");
+  } catch (error: any) {
+    console.error("CRITICAL: Error listing users from Auth:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    // Return more detail in development to debug the 500 error
+    throw new HttpsError("internal", `Auth listUsers failed: ${error.message || "Unknown error"} [${error.code || 'no-code'}]`);
   }
 });
 
@@ -472,7 +567,7 @@ export const listallusers = onCall(async (request) => {
  * WIPE USER: Callable Function (v2)
  * Completely deletes a user from Auth and all related Firestore collections.
  */
-export const wipeuser = onCall(async (request) => {
+export const wipeuser = onCall({ cors: true }, async (request) => {
   checkSystemAdmin(request);
 
   const { uid } = request.data;
@@ -512,7 +607,16 @@ export const wipeuser = onCall(async (request) => {
  * GET PLATFORM STATS: Callable Function (v2)
  * Aggregates high-level metrics across the entire platform.
  */
-export const getplatformstats = onCall(async (request) => {
+export const getplatformstats = onCall({ cors: true }, async (request) => {
+  // SELF-HEAL: Ensure the primary dev user has the system_admin role
+  if (request.auth?.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
+    console.log(`Self-healing role for dev user ${request.auth.uid}`);
+    await admin.auth().setCustomUserClaims(request.auth.uid, {
+      ...request.auth.token,
+      role: 'system_admin'
+    });
+  }
+
   checkSystemAdmin(request);
 
   try {

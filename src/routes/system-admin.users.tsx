@@ -17,6 +17,8 @@ import { httpsCallable } from "firebase/functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { InvitePlatformUserDialog } from "@/components/system-admin/InvitePlatformUserDialog";
+
 
 interface UserProfile {
   id: string;
@@ -32,6 +34,7 @@ export default function SystemUsers() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -108,7 +111,10 @@ export default function SystemUsers() {
           <p className="text-slate-400">Audit and manage all users registered on the Nexa platform.</p>
         </div>
         
-        <button className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs font-black text-white uppercase tracking-[0.1em] transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/20">
+        <button 
+          onClick={() => setInviteOpen(true)}
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs font-black text-white uppercase tracking-[0.1em] transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/20"
+        >
           <UserPlus className="h-4 w-4" />
           Invite User
         </button>
@@ -226,6 +232,11 @@ export default function SystemUsers() {
           </table>
         </div>
       </div>
+      <InvitePlatformUserDialog 
+        open={inviteOpen} 
+        onOpenChange={setInviteOpen} 
+        onSuccess={fetchUsers}
+      />
     </div>
   );
 }
