@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +44,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.Draft]: "Draft",
   [OrderStatus.Submitted]: "Submitted",
   [OrderStatus.Partial]: "Partially Received",
-  [OrderStatus.Received]: "Fully Received",
+  [OrderStatus.Received]: "Restocked",
   [OrderStatus.Cancelled]: "Cancelled",
 };
 
@@ -51,17 +52,18 @@ const schema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
   expectedDelivery: z.string().min(1, "Expected delivery date is required"),
   notes: z.string(),
+  isInstant: z.boolean(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-function generatePONumber(): string {
+function generateRONumber(): string {
   const year = new Date().getFullYear();
   const seq = String(Math.floor(Math.random() * 9000) + 1000);
-  return `PO-${year}-${seq}`;
+  return `RO-${year}-${seq}`;
 }
 
-interface PurchaseOrderFormSheetProps {
+interface RestockingFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   purchaseOrder?: PurchaseOrder | null;
@@ -69,13 +71,13 @@ interface PurchaseOrderFormSheetProps {
   items: Item[];
 }
 
-export function PurchaseOrderFormSheet({
+export function RestockingFormSheet({
   open,
   onOpenChange,
   purchaseOrder,
   suppliers,
   items,
-}: PurchaseOrderFormSheetProps) {
+}: RestockingFormSheetProps) {
   const isEdit = !!purchaseOrder;
   const createPO = useCreatePurchaseOrder();
   const updatePO = useUpdatePurchaseOrder();
@@ -87,7 +89,7 @@ export function PurchaseOrderFormSheet({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { supplierId: "", expectedDelivery: "", notes: "" },
+    defaultValues: { supplierId: "", expectedDelivery: new Date().toISOString().split("T")[0], notes: "", isInstant: false },
   });
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function PurchaseOrderFormSheet({
           supplierId: purchaseOrder.supplierId,
           expectedDelivery: purchaseOrder.expectedDelivery?.slice(0, 10) ?? "",
           notes: purchaseOrder.notes ?? "",
+          isInstant: false,
         });
         setLineItems(
           purchaseOrder.items.map((li) => ({
@@ -107,7 +110,7 @@ export function PurchaseOrderFormSheet({
           })),
         );
       } else {
-        form.reset({ supplierId: "", expectedDelivery: "", notes: "" });
+        form.reset({ supplierId: "", expectedDelivery: new Date().toISOString().split("T")[0], notes: "", isInstant: false });
         setLineItems([]);
       }
       setLineError("");
@@ -131,7 +134,7 @@ export function PurchaseOrderFormSheet({
       purchaseOrderId: "",
       itemId: r.itemId,
       quantityOrdered: r.quantity,
-      quantityReceived: 0,
+      quantityReceived: values.isInstant ? r.quantity : 0,
       unitCost: r.unitCost,
     }));
     const totalCost = poItems.reduce((s, i) => s + i.quantityOrdered * i.unitCost, 0);
@@ -152,18 +155,18 @@ export function PurchaseOrderFormSheet({
         },
         {
           onSuccess: () => { toast.success(`${purchaseOrder.orderNumber} updated`); onOpenChange(false); },
-          onError: (e) => toast.error(e.message || "Failed to update purchase order."),
+          onError: (e) => toast.error(e.message || "Failed to update restock order."),
         },
       );
     } else {
-      const orderNumber = generatePONumber();
+      const orderNumber = generateRONumber();
       const id = crypto.randomUUID();
       poItems.forEach((p) => (p.purchaseOrderId = id));
       const newPO: PurchaseOrder = {
         id,
         orderNumber,
         supplierId: values.supplierId,
-        status: OrderStatus.Draft,
+        status: values.isInstant ? OrderStatus.Received : OrderStatus.Draft,
         items: poItems,
         totalCost,
         expectedDelivery: new Date(values.expectedDelivery).toISOString(),
@@ -175,17 +178,20 @@ export function PurchaseOrderFormSheet({
         updatedAt: now,
       };
 
-      createPO.mutate(newPO, {
-        onSuccess: () => { toast.success(`${orderNumber} created`); onOpenChange(false); },
-        onError: (e) => toast.error(e.message || "Failed to create purchase order."),
+      createPO.mutate({ ...newPO, isInstant: values.isInstant }, {
+        onSuccess: () => { 
+          toast.success(`${orderNumber} created ${values.isInstant ? "and inventory updated" : ""}`); 
+          onOpenChange(false); 
+        },
+        onError: (e) => toast.error(e.message || "Failed to create restock order."),
       });
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[680px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+      <DialogContent className="sm:max-w-[720px] p-6 max-h-[95vh] flex flex-col overflow-hidden">
+        <div className="flex flex-col h-full">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -193,13 +199,13 @@ export function PurchaseOrderFormSheet({
               </div>
               <div>
                 <DialogTitle className="text-2xl font-black tracking-tight">
-                  {isEdit ? `Edit ${purchaseOrder?.orderNumber}` : "New Purchase Order"}
+                  {isEdit ? `Edit ${purchaseOrder?.orderNumber}` : "Restock Order"}
                 </DialogTitle>
                 <div className="mt-1 flex items-center gap-2">
                   {isEdit && purchaseOrder ? (
                     <Badge variant="outline" className="rounded-full font-black uppercase text-[9px] tracking-widest border-2">{STATUS_LABEL[purchaseOrder.status]}</Badge>
                   ) : (
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Procurement Workflow</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Inventory Replenishment</span>
                   )}
                 </div>
               </div>
@@ -259,13 +265,44 @@ export function PurchaseOrderFormSheet({
                     <FormItem className="space-y-1.5">
                       <div className="flex items-center gap-2 ml-1">
                         <FileText className="h-3 w-3 text-muted-foreground" />
-                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">PO Internal Notes</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Internal Notes</FormLabel>
                       </div>
                       <FormControl><Textarea {...field} rows={2} placeholder="Reference numbers, specific instructions, etc." className="rounded-xl border-2 font-bold resize-none" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {!isEdit && (
+                  <FormField
+                    control={form.control}
+                    name="isInstant"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-xl border-2 p-3 bg-muted/20">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-xs font-bold uppercase tracking-wider">Instant Restock</FormLabel>
+                          <p className="text-[10px] text-muted-foreground">Automatically update stock levels upon saving.</p>
+                        </div>
+                        <FormControl>
+                          <div 
+                            className={cn(
+                              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                              field.value ? "bg-primary" : "bg-muted-foreground/30"
+                            )}
+                            onClick={() => field.onChange(!field.value)}
+                          >
+                            <span
+                              className={cn(
+                                "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+                                field.value ? "translate-x-6" : "translate-x-1"
+                              )}
+                            />
+                          </div>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <div className="py-2">
                   <Separator className="h-0.5" />
@@ -294,7 +331,7 @@ export function PurchaseOrderFormSheet({
 
                 <div className="flex gap-3 pt-4">
                   <Button type="submit" className="flex-1 h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20">
-                    {isEdit ? "Update Order" : "Generate Purchase Order"}
+                    {isEdit ? "Update Order" : "Generate Restock Order"}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-12 font-bold px-6 border-2">
                     Cancel

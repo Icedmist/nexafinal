@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, increment, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -133,14 +133,57 @@ export function useCreateMovement() {
 }
 
 export function useCreatePurchaseOrder() {
-  return useFirestoreMutation<Omit<PurchaseOrder, "id">>(async (storeId, data, uid, claims) => {
-    await addDoc(collection(db, "purchase_orders"), { 
-      ...data, 
-      storeId, 
-      branchId: claims?.branchId || null,
-      ownerId: uid, 
-      createdAt: new Date().toISOString() 
-    });
+  return useFirestoreMutation<Omit<PurchaseOrder, "id"> & { isInstant?: boolean }>(async (storeId, data, uid, claims) => {
+    const { isInstant, ...poData } = data;
+    
+    if (isInstant) {
+      const batch = writeBatch(db);
+      const poRef = doc(collection(db, "purchase_orders"));
+      const poId = poRef.id;
+
+      // 1. Create Purchase Order
+      batch.set(poRef, {
+        ...poData,
+        id: poId,
+        storeId,
+        branchId: claims?.branchId || null,
+        ownerId: uid,
+        status: "RECEIVED", // Instant is automatically received
+        createdAt: new Date().toISOString()
+      });
+
+      // 2. Update stock and create movements
+      for (const item of poData.items) {
+        const itemRef = doc(db, "products", item.itemId);
+        batch.update(itemRef, {
+          currentStock: increment(item.quantityOrdered),
+          updatedAt: new Date().toISOString()
+        });
+
+        const movementRef = doc(collection(db, "movements"));
+        batch.set(movementRef, {
+          itemId: item.itemId,
+          type: MovementType.Received,
+          quantity: item.quantityOrdered,
+          reason: `Restock Order ${poData.orderNumber}`,
+          referenceId: poId,
+          storeId,
+          branchId: claims?.branchId || null,
+          ownerId: uid,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      await batch.commit();
+    } else {
+      await addDoc(collection(db, "purchase_orders"), { 
+        ...poData, 
+        storeId, 
+        branchId: claims?.branchId || null,
+        ownerId: uid, 
+        createdAt: new Date().toISOString() 
+      });
+    }
   });
 }
 

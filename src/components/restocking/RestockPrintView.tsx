@@ -10,13 +10,13 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.Cancelled]: "Cancelled",
 };
 
-interface POPrintViewProps {
+interface RestockPrintViewProps {
   purchaseOrder: PurchaseOrder;
   supplier: Supplier | undefined;
   items: Map<string, Item>;
 }
 
-export function POPrintView({ purchaseOrder, supplier, items }: POPrintViewProps) {
+export function RestockPrintView({ purchaseOrder, supplier, items }: RestockPrintViewProps) {
   return (
     <div className="po-print-view hidden print:block print:p-8">
       {/* Header */}

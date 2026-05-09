@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useStockSummary, useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
 import { useAlertGenerator } from "@/hooks/useStockAlertGenerator";
 import { useRole } from "@/hooks/useRole";
-import { useSales } from "@/hooks/useSalesData";
+import { useSales, useDebtPayments } from "@/hooks/useSalesData";
 import { useExpenses } from "@/hooks/useExpensesData";
 import { useRefunds } from "@/hooks/useRefundsData";
 import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";

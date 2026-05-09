@@ -32,9 +32,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { OrderStatus } from "@/types/inventory";
 import type { PurchaseOrder, Supplier, Item, StockMovement } from "@/types/inventory";
-import { POStatusActions } from "./POStatusActions";
+import { RestockStatusActions } from "./RestockStatusActions";
 import { cn } from "@/lib/utils";
-import { POPrintView } from "./POPrintView";
+import { RestockPrintView } from "./RestockPrintView";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.Draft]: "Draft",
@@ -52,7 +52,7 @@ const STATUS_CLASS: Record<OrderStatus, string> = {
   [OrderStatus.Cancelled]: "bg-destructive/15 text-destructive border-destructive/20",
 };
 
-interface PurchaseOrderDetailSheetProps {
+interface RestockingDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   purchaseOrder: PurchaseOrder | null;
@@ -66,7 +66,7 @@ interface PurchaseOrderDetailSheetProps {
   movements?: StockMovement[];
 }
 
-export function PurchaseOrderDetailSheet({
+export function RestockingDetailSheet({
   open,
   onOpenChange,
   purchaseOrder,
@@ -78,7 +78,7 @@ export function PurchaseOrderDetailSheet({
   onDelete,
   onReceive,
   movements = [],
-}: PurchaseOrderDetailSheetProps) {
+}: RestockingDetailSheetProps) {
   const supplierMap = useMemo(
     () => new Map(suppliers.map((s) => [s.id, s])),
     [suppliers],
@@ -127,7 +127,7 @@ export function PurchaseOrderDetailSheet({
                   <Badge variant="outline" className={cn("rounded-full font-black uppercase text-[9px] tracking-widest border-2", STATUS_CLASS[purchaseOrder.status])}>
                     {STATUS_LABEL[purchaseOrder.status]}
                   </Badge>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Procurement Reference</span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Restocking Reference</span>
                 </div>
               </div>
             </div>
@@ -160,9 +160,9 @@ export function PurchaseOrderDetailSheet({
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-3xl border-none p-6 nexa-card bg-card">
                       <AlertDialogHeader>
-                        <AlertDialogTitle className="text-xl font-black">Delete Draft PO?</AlertDialogTitle>
+                        <AlertDialogTitle className="text-xl font-black">Delete Restocking Order?</AlertDialogTitle>
                         <AlertDialogDescription className="font-medium">
-                          Are you sure? This draft purchase order will be permanently removed.
+                          Are you sure? This restocking order will be permanently removed.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter className="mt-4">
@@ -353,12 +353,12 @@ export function PurchaseOrderDetailSheet({
 
             {/* Actions */}
             <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 mt-6">
-              <POStatusActions purchaseOrder={purchaseOrder} />
+              <RestockStatusActions purchaseOrder={purchaseOrder} />
             </div>
           </div>
         </div>
 
-        <POPrintView
+        <RestockPrintView
           purchaseOrder={purchaseOrder}
           supplier={supplier}
           items={itemMap}

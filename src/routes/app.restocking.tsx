@@ -3,12 +3,12 @@ import { useSearchParams } from "react-router-dom";
 import { Plus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-import { PurchaseOrdersTable } from "@/components/purchase-orders/PurchaseOrdersTable";
-import { POSummaryStats } from "@/components/purchase-orders/POSummaryStats";
-import { PurchaseOrdersFilters } from "@/components/purchase-orders/PurchaseOrdersFilters";
-import { PurchaseOrderFormSheet } from "@/components/purchase-orders/PurchaseOrderFormSheet";
-import { PurchaseOrderDetailSheet } from "@/components/purchase-orders/PurchaseOrderDetailSheet";
-import { ReceiveShipmentSheet } from "@/components/purchase-orders/ReceiveShipmentSheet";
+import { RestockingTable } from "@/components/restocking/RestockingTable";
+import { RestockSummaryStats } from "@/components/restocking/RestockSummaryStats";
+import { RestockingFilters } from "@/components/restocking/RestockingFilters";
+import { RestockingFormSheet } from "@/components/restocking/RestockingFormSheet";
+import { RestockingDetailSheet } from "@/components/restocking/RestockingDetailSheet";
+import { ReceiveShipmentSheet } from "@/components/restocking/ReceiveShipmentSheet";
 import { usePurchaseOrders, useSuppliers, useItems, useMovements } from "@/hooks/useInventoryData";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
@@ -24,8 +24,8 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { OrderStatus, MovementType } from "@/types/inventory";
 import type { PurchaseOrder } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
-import type { POFilters } from "@/components/purchase-orders/po-filter-types";
-import { EMPTY_PO_FILTERS } from "@/components/purchase-orders/po-filter-types";
+import type { RestockFilters } from "@/components/restocking/restock-filter-types";
+import { EMPTY_RESTOCK_FILTERS } from "@/components/restocking/restock-filter-types";
 
 interface POSearch {
   po?: string;
@@ -49,7 +49,7 @@ function RestockingPage() {
   const updateItem = useUpdateItem();
   const canManagePOs = can("create_po");
   const isAdmin = isAdminRole(role);
-  const [filters, setFilters] = useState<POFilters>(EMPTY_PO_FILTERS);
+  const [filters, setFilters] = useState<RestockFilters>(EMPTY_RESTOCK_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
   const [editPO, setEditPO] = useState<PurchaseOrder | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -131,9 +131,9 @@ function RestockingPage() {
         )}
       </div>
 
-      <POSummaryStats purchaseOrders={filtered} />
+      <RestockSummaryStats purchaseOrders={filtered} />
 
-      <PurchaseOrdersFilters filters={filters} onChange={setFilters} suppliers={suppliers} />
+      <RestockingFilters filters={filters} onChange={setFilters} suppliers={suppliers} />
 
       <ErrorBoundary>
       {purchaseOrders.length === 0 ? (
@@ -145,7 +145,7 @@ function RestockingPage() {
           onAction={canManagePOs ? openCreate : undefined}
         />
       ) : (
-        <PurchaseOrdersTable
+        <RestockingTable
           purchaseOrders={filtered}
           suppliers={suppliers}
           onRowClick={handleRowClick}
@@ -153,7 +153,7 @@ function RestockingPage() {
       )}
       </ErrorBoundary>
 
-      <PurchaseOrderDetailSheet
+      <RestockingDetailSheet
         open={detailOpen}
         onOpenChange={setDetailOpen}
         purchaseOrder={currentDetailPO}
@@ -241,7 +241,7 @@ function RestockingPage() {
         />
       )}
 
-      <PurchaseOrderFormSheet
+      <RestockingFormSheet
         open={formOpen}
         onOpenChange={setFormOpen}
         purchaseOrder={editPO}

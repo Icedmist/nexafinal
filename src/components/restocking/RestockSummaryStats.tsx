@@ -2,11 +2,11 @@ import { useMemo } from "react";
 import { OrderStatus } from "@/types/inventory";
 import type { PurchaseOrder } from "@/types/inventory";
 
-interface POSummaryStatsProps {
+interface RestockSummaryStatsProps {
   purchaseOrders: PurchaseOrder[];
 }
 
-export function POSummaryStats({ purchaseOrders }: POSummaryStatsProps) {
+export function RestockSummaryStats({ purchaseOrders }: RestockSummaryStatsProps) {
   const stats = useMemo(() => {
     let draft = 0;
     let awaiting = 0;

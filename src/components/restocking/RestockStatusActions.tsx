@@ -17,11 +17,11 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { OrderStatus } from "@/types/inventory";
 import type { PurchaseOrder } from "@/types/inventory";
 
-interface POStatusActionsProps {
+interface RestockStatusActionsProps {
   purchaseOrder: PurchaseOrder;
 }
 
-export function POStatusActions({ purchaseOrder }: POStatusActionsProps) {
+export function RestockStatusActions({ purchaseOrder }: RestockStatusActionsProps) {
   const { can } = usePermissions();
   const canManage = can("create_po");
   const updatePO = useUpdatePurchaseOrder();
@@ -76,7 +76,7 @@ export function POStatusActions({ purchaseOrder }: POStatusActionsProps) {
           onClick={() => setCancelOpen(true)}
         >
           <Ban className="h-3.5 w-3.5" />
-          Cancel PO
+          Cancel Order
         </Button>
       </div>
 
