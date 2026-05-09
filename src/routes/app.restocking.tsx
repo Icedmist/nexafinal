@@ -31,12 +31,12 @@ interface POSearch {
   po?: string;
 }
 
-export default PurchaseOrdersPage;
+export default RestockingPage;
 
-function PurchaseOrdersPage() {
+function RestockingPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const { po: poParam } = Object.fromEntries(searchParams.entries()) as any;
+  const { po: poParam, action } = Object.fromEntries(searchParams.entries()) as any;
   const { data: purchaseOrders } = usePurchaseOrders();
   const { data: suppliers } = useSuppliers();
   const { data: catalogItems } = useItems();
@@ -67,6 +67,18 @@ function PurchaseOrdersPage() {
       }
     }
   }, [poParam, purchaseOrders]);
+
+  // Handle action=new from dashboard
+  useEffect(() => {
+    if (action === "new") {
+      setEditPO(null);
+      setFormOpen(true);
+      // Clean up URL
+      const params = new URLSearchParams(searchParams);
+      params.delete("action");
+      window.history.replaceState({}, "", `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`);
+    }
+  }, [action, searchParams]);
 
   const filtered = useMemo(() => {
     return purchaseOrders.filter((po) => {
@@ -108,13 +120,13 @@ function PurchaseOrdersPage() {
     <div className="mx-auto max-w-[1400px] space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Purchase orders</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} orders</p>
+          <h1 className="text-2xl font-semibold text-foreground">Restocking</h1>
+          <p className="text-sm text-muted-foreground">{filtered.length} records</p>
         </div>
         {canManagePOs && (
           <Button size="sm" onClick={openCreate}>
             <Plus className="mr-1.5 h-4 w-4" />
-            New PO
+            New Restock
           </Button>
         )}
       </div>
@@ -127,9 +139,9 @@ function PurchaseOrdersPage() {
       {purchaseOrders.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title="No purchase orders created"
-          description="Create purchase orders to track inventory procurement from your suppliers."
-          actionLabel={canManagePOs ? "Create PO" : undefined}
+          title="No restocking records created"
+          description="Create restocking records to track inventory procurement from your suppliers."
+          actionLabel={canManagePOs ? "New Restock" : undefined}
           onAction={canManagePOs ? openCreate : undefined}
         />
       ) : (
@@ -156,7 +168,7 @@ function PurchaseOrdersPage() {
             onSuccess: () => {
               setDetailOpen(false);
               setDetailPO(null);
-              toast.success("Purchase order deleted");
+              toast.success("Restocking record deleted");
             },
           });
         }}

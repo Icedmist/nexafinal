@@ -33,10 +33,10 @@ export const ACTIONS: ActionDef[] = [
     permission: "log_movement",
   },
   {
-    label: "New Purchase Order",
+    label: "New Restock",
     icon: <ShoppingCart className="h-4 w-4" />,
     shortcut: "N P",
-    action: (nav) => nav("/app/purchase-orders"),
+    action: (nav) => nav("/app/restocking"),
     permission: "create_po",
   },
   {

@@ -10,7 +10,7 @@ export interface UploadResult {
 }
 
 const compressionOptions = {
-  maxSizeMB: 1,
+  maxSizeMB: 0.5,
   maxWidthOrHeight: 1024,
   useWebWorker: true,
 };

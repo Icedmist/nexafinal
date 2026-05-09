@@ -20,6 +20,7 @@ function OnboardingPage() {
   const [slug, setSlug] = React.useState("");
   const [businessType, setBusinessType] = React.useState("retail");
   const [complexity, setComplexity] = React.useState("basic");
+  const [selectedUnits, setSelectedUnits] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
 
   const businessTypes = [
@@ -28,6 +29,39 @@ function OnboardingPage() {
     { id: "services", label: "Services", icon: "🛠️" },
     { id: "restaurant", label: "Restaurant", icon: "🍳" },
     { id: "other", label: "Other", icon: "✨" },
+  ];
+
+  const unitPresets = [
+    { 
+      id: "bulk", 
+      label: "Bulk Food", 
+      desc: "Sacks (50kg), Paint Buckets", 
+      units: [
+        { name: "Sack", conversionFactor: 50 },
+        { name: "Half-Sack", conversionFactor: 25 },
+        { name: "Paint-Bucket", conversionFactor: 4 }
+      ]
+    },
+    { 
+      id: "fmcg", 
+      label: "Drinks/FMCG", 
+      desc: "Cartons, Packs, Trays", 
+      units: [
+        { name: "Carton", conversionFactor: 24 },
+        { name: "Pack", conversionFactor: 12 },
+        { name: "Crate", conversionFactor: 30 }
+      ]
+    },
+    { 
+      id: "construction", 
+      label: "Construction", 
+      desc: "Bundles, Bags, Pallets", 
+      units: [
+        { name: "Bundle", conversionFactor: 20 },
+        { name: "Bag", conversionFactor: 1 },
+        { name: "Pallet", conversionFactor: 100 }
+      ]
+    },
   ];
 
   const complexityLevels = [
@@ -40,7 +74,7 @@ function OnboardingPage() {
     { 
       id: "advanced", 
       label: "Power User", 
-      desc: "Full analytics & complex inventory.",
+      desc: "Multi-unit inventory & wholesale.",
       icon: "💎" 
     },
   ];
@@ -97,8 +131,7 @@ function OnboardingPage() {
     checkExisting();
   }, [user, claims]);
 
-  const handleCreateStore = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateStore = async () => {
     if (!user) return;
     setLoading(true);
 
@@ -111,6 +144,11 @@ function OnboardingPage() {
         return;
       }
 
+      // Collect units from selected presets
+      const unitsToSave = selectedUnits.flatMap(presetId => 
+        unitPresets.find(p => p.id === presetId)?.units || []
+      );
+
       const storeRef = await addDoc(collection(db, "stores"), {
         name: storeName,
         slug: slug.toLowerCase(),
@@ -119,6 +157,7 @@ function OnboardingPage() {
         businessType,
         complexityLevel: complexity,
         setupComplete: true,
+        unitPresets: unitsToSave,
         storeDetails: {
           name: storeName,
           address: "",
@@ -154,6 +193,14 @@ function OnboardingPage() {
     }
   };
 
+  const nextStep = () => {
+    if (step === 2 && complexity === "basic") {
+      handleCreateStore();
+    } else {
+      setStep(step + 1);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 selection:bg-primary/30">
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
@@ -168,8 +215,11 @@ function OnboardingPage() {
           </div>
           <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">Setup Nexa OS</h1>
           <div className="flex items-center justify-center gap-1 mt-2">
-            {[1, 2].map((s) => (
-              <div key={s} className={`h-1 rounded-full transition-all duration-500 ${step === s ? "w-8 bg-primary" : "w-2 bg-muted"}`} />
+            {[1, 2, 3].map((s) => (
+              <div 
+                key={s} 
+                className={`h-1 rounded-full transition-all duration-500 ${step === s ? "w-8 bg-primary" : "w-2 bg-muted"} ${s === 3 && complexity === 'basic' ? 'hidden' : ''}`} 
+              />
             ))}
           </div>
         </div>
@@ -179,10 +229,14 @@ function OnboardingPage() {
           
           <CardHeader className="relative z-10 pb-4">
             <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-              {step === 1 ? <><Building2 className="h-5 w-5" /> Identity</> : <><Layers className="h-5 w-5" /> Preferences</>}
+              {step === 1 ? <><Building2 className="h-5 w-5" /> Identity</> : 
+               step === 2 ? <><Layers className="h-5 w-5" /> Preferences</> :
+               <><Sparkles className="h-5 w-5" /> Strategy</>}
             </CardTitle>
             <CardDescription className="font-medium">
-              {step === 1 ? "Start with your store name and custom URL." : "Customize Nexa for your business needs."}
+              {step === 1 ? "Start with your store name and custom URL." : 
+               step === 2 ? "Customize Nexa for your business needs." :
+               "Set up your inventory conversion rules."}
             </CardDescription>
           </CardHeader>
           
@@ -224,14 +278,14 @@ function OnboardingPage() {
                 </div>
 
                 <Button 
-                  onClick={() => storeName && slug && setStep(2)} 
+                  onClick={nextStep} 
                   className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 gap-2"
                   disabled={!storeName || !slug}
                 >
                   Continue <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
-            ) : (
+            ) : step === 2 ? (
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="space-y-4">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Business Type</Label>
@@ -271,6 +325,42 @@ function OnboardingPage() {
 
                 <div className="flex gap-3">
                   <Button variant="ghost" onClick={() => setStep(1)} className="h-12 rounded-xl font-bold px-6">Back</Button>
+                  <Button onClick={nextStep} className="flex-1 h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 gap-2" disabled={loading}>
+                    {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 
+                     complexity === "basic" ? <>Launch OS <Sparkles className="h-4 w-4" /></> : <>Continue <ArrowRight className="h-4 w-4" /></>}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Unit Presets</Label>
+                  <div className="space-y-3">
+                    {unitPresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => {
+                          setSelectedUnits(prev => 
+                            prev.includes(preset.id) ? prev.filter(p => p !== preset.id) : [...prev, preset.id]
+                          );
+                        }}
+                        className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center justify-between group/item ${selectedUnits.includes(preset.id) ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}
+                      >
+                        <div>
+                          <span className={`text-xs font-black uppercase ${selectedUnits.includes(preset.id) ? "text-primary" : "text-foreground"}`}>{preset.label}</span>
+                          <p className="text-[9px] text-muted-foreground font-medium">{preset.desc}</p>
+                        </div>
+                        <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedUnits.includes(preset.id) ? "bg-primary border-primary" : "border-muted"}`}>
+                          {selectedUnits.includes(preset.id) && <Sparkles className="h-3 w-3 text-white" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic px-1">You can always add custom units later in settings.</p>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button variant="ghost" onClick={() => setStep(2)} className="h-12 rounded-xl font-bold px-6">Back</Button>
                   <Button onClick={handleCreateStore} className="flex-1 h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 gap-2" disabled={loading}>
                     {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <>Launch OS <Sparkles className="h-4 w-4" /></>}
                   </Button>
@@ -281,5 +371,6 @@ function OnboardingPage() {
         </Card>
       </div>
     </div>
+
   );
 }

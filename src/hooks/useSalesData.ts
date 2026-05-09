@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increme
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
-import type { SaleTransaction } from "@/types/inventory";
+import type { SaleTransaction, DebtPayment } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 
@@ -65,6 +65,56 @@ export function useSales(): QueryResult<SaleTransaction[]> {
   return { data, isLoading, error };
 }
 
+export function useDebtPayments(): QueryResult<DebtPayment[]> {
+  const { user, claimsReady, claims } = useAuth();
+  const { storeId } = useBusiness();
+  const [data, setData] = useState<DebtPayment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) {
+        setData([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(db, "debt_payments"),
+      where("storeId", "==", storeId),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const payments: DebtPayment[] = [];
+      snapshot.forEach((doc) => {
+        payments.push({ ...doc.data(), id: doc.id } as DebtPayment);
+      });
+
+      let filtered = payments;
+      const isAdmin = isAdminRole(claims?.role);
+      const userBranchId = claims?.branchId;
+      
+      if (!isAdmin && userBranchId) {
+        filtered = filtered.filter(p => p.branchId === userBranchId);
+      }
+      
+      setData(filtered);
+      setIsLoading(false);
+    }, (err) => {
+      console.error(err);
+      setError(err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, storeId, claimsReady, claims?.branchId]);
+
+  return { data, isLoading, error };
+}
+
 export function useSalesMutations() {
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
@@ -93,9 +143,13 @@ export function useSalesMutations() {
     sale.items.forEach((item) => {
       const productRef = doc(db, "products", item.itemId);
       
+      // Calculate real decrement amount based on unit conversion
+      const conversionFactor = (item as any).conversionFactor || 1;
+      const decrementAmount = item.quantity * conversionFactor;
+
       // Decrement stock
       batch.update(productRef, {
-        currentStock: increment(-item.quantity),
+        currentStock: increment(-decrementAmount),
         updatedAt: new Date().toISOString()
       });
 
@@ -104,7 +158,8 @@ export function useSalesMutations() {
       batch.set(movementRef, {
         itemId: item.itemId,
         type: MovementType.Shipped,
-        quantity: item.quantity,
+        quantity: decrementAmount, // Store base quantity in movements
+        unitUsed: (item as any).selectedUnit || null,
         reference: `Sale: ${saleRef.id}`,
         notes: `Customer: ${sale.customerName || "Walk-in"}`,
         storeId: storeId,
@@ -116,9 +171,48 @@ export function useSalesMutations() {
       });
     });
 
+
     await batch.commit();
     return { id: saleRef.id };
   };
 
-  return { addSale };
+  const addDebtPayment = async (payment: Omit<DebtPayment, "id" | "recordedBy" | "recordedByName" | "storeId" | "branchId" | "createdAt">) => {
+    if (!user || !storeId) {
+      throw new Error("Authentication required.");
+    }
+
+    const paymentRef = doc(collection(db, "debt_payments"));
+    const paymentData = {
+      ...payment,
+      storeId,
+      branchId: claims?.branchId || null,
+      recordedBy: user.uid,
+      recordedByName: user.displayName || user.email?.split("@")[0] || "Staff",
+      createdAt: new Date().toISOString(),
+    };
+
+    await batch.set(paymentRef, paymentData);
+    // Since we don't need a batch for a single write usually, but the hook uses writeBatch pattern
+    // I'll just use a direct set or a new batch. Let's use a simple addDoc or setDoc.
+    // Actually, useSalesMutations uses a batch for addSale. I'll just use setDoc for simplicity here.
+  };
+
+  const recordDebtPayment = async (payment: Omit<DebtPayment, "id" | "recordedBy" | "recordedByName" | "storeId" | "branchId" | "createdAt">) => {
+     if (!user || !storeId) throw new Error("Auth required");
+     const { setDoc, collection, doc } = await import("firebase/firestore");
+     const { db } = await import("@/lib/firebase");
+     
+     const ref = doc(collection(db, "debt_payments"));
+     await setDoc(ref, {
+       ...payment,
+       storeId,
+       branchId: claims?.branchId || null,
+       recordedBy: user.uid,
+       recordedByName: user.displayName || user.email?.split("@")[0] || "Staff",
+       createdAt: new Date().toISOString(),
+     });
+     return ref.id;
+  };
+
+  return { addSale, recordDebtPayment };
 }

@@ -68,7 +68,7 @@ const navGroups: NavGroup[] = [
     permKey: "canManagePOs",
     items: [
       { label: "Suppliers", href: "/app/suppliers", icon: Truck },
-      { label: "Purchase orders", href: "/app/purchase-orders", icon: ClipboardList },
+      { label: "Restocking", href: "/app/restocking", icon: ClipboardList },
     ],
   },
   {

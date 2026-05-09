@@ -50,7 +50,8 @@ function CatalogPage() {
 
   // Auto-open create form when navigated with newItem param
   useEffect(() => {
-    if (newItem) {
+    if (newItem === "true") {
+      setEditItem(null);
       setSheetOpen(true);
       navigate("/app/catalog", { replace: true });
     }

@@ -37,8 +37,16 @@ export function AppLayout() {
       // Safety check for claims to prevent ReferenceError
       const currentStoreId = claims?.storeId;
       
+      console.log("[AppLayout] Security Check:", {
+        isOwner,
+        isSystemAdmin,
+        currentStoreId,
+        storeId: store.id
+      });
+
       // If we are on a subdomain but user is NOT owner and has no staff claim for this store
       if (!isOwner && !isSystemAdmin && (!currentStoreId || currentStoreId !== store.id)) {
+        console.error("[AppLayout] Access Denied: User does not belong to this store.");
         toast.error("You don't have access to this store.");
         
         // Redirect to main domain to start onboarding or login to their own store
@@ -56,6 +64,7 @@ export function AppLayout() {
       }
     }
   }, [user, claimsReady, loadingProfile, store, profile, isSystemAdmin, claims]);
+
 
   // Domain Access Enforcement: Staff MUST use subdomains, Owners can use main domain.
   useEffect(() => {
@@ -95,12 +104,21 @@ export function AppLayout() {
     const shouldCheckPermissions = isSystemAdmin || isSystemRoute || !needsOnboarding;
 
     if (user && claimsReady && !loadingProfile && shouldCheckPermissions) {
-      if (!canAccessRoute(location.pathname, role)) {
+      const hasAccess = canAccessRoute(location.pathname, role);
+      console.log("[AppLayout] Route Guard:", {
+        path: location.pathname,
+        role,
+        hasAccess,
+        isSystemAdmin
+      });
+
+      if (!hasAccess) {
         toast.error("You don't have permission to access that page.");
         navigate(isSystemAdmin ? "/system-admin/dashboard" : "/app/dashboard");
       }
     }
   }, [location.pathname, role, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin]);
+
 
   // Auth guard — redirect to landing if not logged in
   useEffect(() => {

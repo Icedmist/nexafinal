@@ -26,9 +26,21 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user || loadingTenant || loadingProfile) {
-      if (!loadingTenant && !loadingProfile && !user) setRealRole("requestor");
+      if (!loadingTenant && !loadingProfile && !user) {
+        console.log("[RoleContext] No user found, setting role to requestor");
+        setRealRole("requestor");
+      }
       return;
     }
+
+    console.log("[RoleContext] Determining role for:", {
+      uid: user.uid,
+      claimsRole: claims?.role,
+      claimsStoreId: claims?.storeId,
+      storeId: store?.id,
+      businessStoreId,
+      ownerId: store?.ownerId || businessOwnerId
+    });
 
     // 1. High Priority: Use Custom Claims (Zero DB Read)
     if (claims?.role) {
@@ -36,6 +48,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
       // System admins are global and should bypass store-scoped claim validation.
       if (roleFromClaims === "system_admin") {
+        console.log("[RoleContext] System Admin detected via claims");
         setRealRole(roleFromClaims);
         return;
       }
@@ -43,8 +56,14 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       // Security Check: Ensure the user's token storeId matches the current tenant context OR business context
       const activeStoreId = store?.id || businessStoreId;
       if (claims.storeId === activeStoreId && activeStoreId) {
+        console.log("[RoleContext] Valid store claim found:", roleFromClaims);
         setRealRole(roleFromClaims);
         return;
+      } else {
+        console.warn("[RoleContext] Store ID mismatch:", {
+          claimsStoreId: claims.storeId,
+          activeStoreId
+        });
       }
     }
 
@@ -53,13 +72,16 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     const isOwner = (store && user.uid === store.ownerId) || (user.uid === businessOwnerId);
     
     if (isOwner) {
+      console.log("[RoleContext] User is store owner, setting role to owner");
       setRealRole("owner");
       return;
     }
 
     // 3. If no claims and not owner, default to requestor
+    console.log("[RoleContext] Defaulting to requestor");
     setRealRole("requestor");
   }, [user, store, loadingTenant, claims, businessStoreId, businessOwnerId, loadingProfile]);
+
 
   const role: UserRoleType = realRole;
 

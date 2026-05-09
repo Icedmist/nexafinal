@@ -17,6 +17,8 @@ import { useBusiness } from "@/contexts/BusinessContext";
 
 const NAIRA = "₦";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 export interface CheckoutItem {
   item: Item;
   quantity: number;
@@ -39,9 +41,24 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const [discount, setDiscount] = useState<Discount | null>(null);
   const [payOnCredit, setPayOnCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
+  const [unitOverrides, setUnitOverrides] = useState<Record<string, string>>({});
 
-  const subtotal = items.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
+  // Get current price for an item based on its selected unit
+  const getItemPrice = (ci: CheckoutItem) => {
+    const selectedUnitName = unitOverrides[ci.item.id];
+    if (selectedUnitName) {
+      const unit = ci.item.units?.find(u => u.name === selectedUnitName);
+      if (unit) {
+        // Use override price if set, otherwise calculate from base price
+        return unit.sellingPrice ?? (ci.item.sellingPrice * unit.conversionFactor);
+      }
+    }
+    return ci.item.sellingPrice;
+  };
+
+  const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0);
   const [isProcessing, setIsProcessing] = useState(false);
+
 
   // Calculate discount
   const discountAmount = useMemo(() => {
@@ -84,14 +101,23 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       customerName: customerName.trim() || null,
       customerPhone: customerPhone.trim() || null,
       customerEmail: customerEmail.trim() || null,
-      items: items.map((ci) => ({
-        itemId: ci.item.id,
-        itemName: ci.item.name,
-        sku: ci.item.sku,
-        quantity: ci.quantity,
-        unitPriceNgn: ci.item.sellingPrice,
-        imageUrl: ci.item.imageUrl || null,
-      })),
+      items: items.map((ci) => {
+        const selectedUnitName = unitOverrides[ci.item.id];
+        const unit = ci.item.units?.find(u => u.name === selectedUnitName);
+        const price = getItemPrice(ci);
+        
+        return {
+          itemId: ci.item.id,
+          itemName: ci.item.name,
+          sku: ci.item.sku,
+          quantity: ci.quantity,
+          unitPriceNgn: price,
+          imageUrl: ci.item.imageUrl || null,
+          selectedUnit: selectedUnitName || ci.item.unit,
+          conversionFactor: unit?.conversionFactor || 1,
+        };
+      }),
+
       totalNgn: grandTotal,
       paymentMethod,
       isCreditSale: payOnCredit,
@@ -284,31 +310,74 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       <Separator className="my-4" />
 
       {/* Order summary */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <h3 className="text-sm font-semibold text-foreground">Order Summary</h3>
-        <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5">
-          {items.map((ci) => (
-            <div key={ci.item.id} className="flex justify-between text-xs">
-              <span className="text-muted-foreground truncate mr-2">{ci.item.name} × {ci.quantity}</span>
-              <span className="font-mono font-medium text-foreground shrink-0">
-                {NAIRA}{(ci.item.sellingPrice * ci.quantity).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
-              </span>
-            </div>
-          ))}
-          {discountAmount > 0 && (
-            <div className="flex justify-between text-xs text-primary pt-1 border-t border-border/50">
-              <span>Discount</span>
-              <span className="font-mono">-{NAIRA}{discountAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
-            </div>
-          )}
-          {taxAmount > 0 && (
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Tax ({taxRate}%)</span>
-              <span className="font-mono">+{NAIRA}{taxAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+        <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
+          {items.map((ci) => {
+            const hasMultiUnits = ci.item.units && ci.item.units.length > 0;
+            const price = getItemPrice(ci);
+            
+            return (
+              <div key={ci.item.id} className="space-y-2">
+                <div className="flex justify-between items-start text-xs">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <span className="font-medium text-foreground block truncate">{ci.item.name}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-muted-foreground whitespace-nowrap">Qty: {ci.quantity}</span>
+                      {hasMultiUnits && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">in</span>
+                          <Select
+                            value={unitOverrides[ci.item.id] || ci.item.unit}
+                            onValueChange={(val) => setUnitOverrides(prev => ({ ...prev, [ci.item.id]: val }))}
+                          >
+                            <SelectTrigger className="h-6 w-auto min-w-[60px] px-2 text-[10px] py-0 border-none bg-background/50 hover:bg-background transition-colors rounded-md shadow-none">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={ci.item.unit} className="text-[10px]">{ci.item.unit} (Base)</SelectItem>
+                              {ci.item.units?.map(u => (
+                                <SelectItem key={u.name} value={u.name} className="text-[10px]">
+                                  {u.name} (x{u.conversionFactor})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-mono font-bold text-foreground shrink-0 pt-0.5">
+                    {NAIRA}{(price * ci.quantity).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+          
+          {items.length > 0 && (
+            <div className="pt-2 border-t border-border/50 space-y-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-mono text-foreground font-medium">{NAIRA}{subtotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-[11px] text-primary">
+                  <span>Discount</span>
+                  <span className="font-mono">-{NAIRA}{discountAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+                </div>
+              )}
+              {taxAmount > 0 && (
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>Tax ({taxRate}%)</span>
+                  <span className="font-mono">+{NAIRA}{taxAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
 
       {/* Total and checkout button */}
       <div className="mt-auto pt-5 space-y-3">

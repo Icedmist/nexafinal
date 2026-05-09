@@ -17,7 +17,7 @@ const ExpensesPage = lazy(() => import('./routes/app.expenses'));
 const HelpPage = lazy(() => import('./routes/app.help'));
 const LocationsPage = lazy(() => import('./routes/app.locations'));
 const MovementsPage = lazy(() => import('./routes/app.movements'));
-const PurchaseOrdersPage = lazy(() => import('./routes/app.purchase-orders'));
+const RestockingPage = lazy(() => import('./routes/app.restocking'));
 const RequestsPage = lazy(() => import('./routes/app.requests'));
 const ReturnsPage = lazy(() => import('./routes/app.returns'));
 const SalesAnalyticsPage = lazy(() => import('./routes/app.sales-analytics'));
@@ -71,7 +71,7 @@ function App() {
             <Route path="help" element={<HelpPage />} />
             <Route path="locations" element={<LocationsPage />} />
             <Route path="movements" element={<MovementsPage />} />
-            <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
+            <Route path="restocking" element={<RestockingPage />} />
             <Route path="requests" element={<RequestsPage />} />
             <Route path="returns" element={<ReturnsPage />} />
             <Route path="sales" element={<SalesPage />} />

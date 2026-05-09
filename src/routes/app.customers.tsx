@@ -4,7 +4,7 @@ import {
   Search, User, Phone, ShoppingBag, MessageCircle, Send,
   TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X,
 } from "lucide-react";
-import { useSales } from "@/hooks/useSalesData";
+import { useSales, useDebtPayments, useSalesMutations } from "@/hooks/useSalesData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { toast } from "sonner";
+import { CreditCard, DollarSign } from "lucide-react";
 
 const NAIRA = "₦";
 
@@ -41,16 +43,26 @@ const MESSAGE_TEMPLATES = [
 ];
 
 function CustomersPage() {
-  const { data: sales, isLoading } = useSales();
+  const { data: sales, isLoading: salesLoading } = useSales();
+  const { data: payments, isLoading: paymentsLoading } = useDebtPayments();
+  const { recordDebtPayment } = useSalesMutations();
+  
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<CustomerTab>("all");
   const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
   const [messageOpen, setMessageOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [messageTarget, setMessageTarget] = useState<CustomerRecord | null>(null);
+  
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const customers = useMemo(() => {
     const map = new Map<string, CustomerRecord>();
+    
+    // Process Sales
     for (const sale of sales) {
       const phone = sale.customerPhone?.trim();
       if (!phone) continue;
@@ -77,8 +89,18 @@ function CustomersPage() {
         });
       }
     }
+
+    // Subtract Payments
+    for (const payment of payments) {
+      const phone = payment.customerPhone.trim();
+      const record = map.get(phone);
+      if (record) {
+        record.debtBalance -= payment.amount;
+      }
+    }
+
     return Array.from(map.values()).sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [sales]);
+  }, [sales, payments]);
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
@@ -174,14 +196,40 @@ function CustomersPage() {
     setMessageOpen(false);
   };
 
-  const daysSince = (iso: string) => {
-    const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-    if (d === 0) return "Today";
-    if (d === 1) return "Yesterday";
-    return `${d}d ago`;
+  const handleClearDebt = (customer: CustomerRecord) => {
+    setMessageTarget(customer);
+    setPaymentAmount("");
+    setPaymentNote("");
+    setPaymentOpen(true);
   };
 
-  if (isLoading) {
+  const submitPayment = async () => {
+    if (!messageTarget) return;
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Enter a valid payment amount");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await recordDebtPayment({
+        customerPhone: messageTarget.phone,
+        customerName: messageTarget.name,
+        amount,
+        note: paymentNote,
+        paymentMethod: "Cash", // Default to Cash, could add a selector if needed
+      });
+      toast.success(`Payment of ${NAIRA}${amount.toLocaleString()} recorded for ${messageTarget.name}`);
+      setPaymentOpen(false);
+    } catch (err) {
+      toast.error("Failed to record payment");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (salesLoading || paymentsLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -286,9 +334,22 @@ function CustomersPage() {
                     )}
                   </div>
 
-                  <Button variant="ghost" size="icon" onClick={() => handleSendMessage(c)} className="shrink-0 h-9 w-9 text-primary">
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {c.debtBalance > 0 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleClearDebt(c)}
+                        className="h-9 px-3 gap-1.5 text-destructive border-destructive/20 hover:bg-destructive/10"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        <span className="hidden xs:inline text-[10px] font-medium uppercase tracking-wider">Clear</span>
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={() => handleSendMessage(c)} className="h-9 w-9 text-primary">
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -357,6 +418,60 @@ function CustomersPage() {
                 </div>
               </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Clear Debt Dialog */}
+      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Clear Customer Debt
+            </DialogTitle>
+            <DialogDescription>
+              Record a payment for {messageTarget?.name}. Current balance: <span className="font-mono text-destructive font-bold">{NAIRA}{messageTarget?.debtBalance.toLocaleString()}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Payment Amount ({NAIRA})</label>
+              <Input
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="e.g. 5000"
+                className="font-mono text-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Note (Optional)</label>
+              <Textarea
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                placeholder="Reference info, partial payment details, etc."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={submitPayment} 
+              disabled={isSubmitting || !paymentAmount}
+              className="gap-2"
+            >
+              {isSubmitting ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <CheckSquare className="h-4 w-4" />
+              )}
+              Confirm Payment
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

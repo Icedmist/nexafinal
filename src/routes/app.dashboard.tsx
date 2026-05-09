@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Settings } from "lucide-react";
+import { Package, PackagePlus, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Settings, Plus as PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
@@ -82,6 +82,7 @@ function DashboardPage() {
   const navigate = useNavigate();
   const { data: summary } = useStockSummary();
   const { data: sales, isLoading: salesLoading } = useSales();
+  const { data: payments, isLoading: paymentsLoading } = useDebtPayments();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: refunds, isLoading: refundsLoading } = useRefunds();
   const { data: realItems } = useItems();
@@ -96,7 +97,7 @@ function DashboardPage() {
   const movements = realMovements;
   const suppliers = realSuppliers;
 
-  const isLoading = salesLoading || expensesLoading || refundsLoading;
+  const isLoading = salesLoading || expensesLoading || refundsLoading || paymentsLoading;
 
   const tour = useOnboarding("dashboard");
   const [openSection, setOpenSection] = useState<string | null>("metrics");
@@ -129,6 +130,11 @@ function DashboardPage() {
   });
   const todayRevenue = todaySales.reduce((s, sale) => s + sale.totalNgn, 0);
   const uniqueCustomers = new Set(sales.filter((s) => s.customerPhone).map((s) => s.customerPhone)).size;
+
+  // Debt metrics
+  const totalCreditSales = sales.filter(s => s.isCreditSale).reduce((s, sale) => s + sale.totalNgn, 0);
+  const totalPayments = payments.reduce((s, p) => s + p.amount, 0);
+  const totalOutstandingDebt = totalCreditSales - totalPayments;
 
   // Expense & refund metrics
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -193,11 +199,11 @@ function DashboardPage() {
           }}
           whileHover={{ scale: 1.02, translateY: -2 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => navigate("/app/catalog?action=add")}
+          onClick={() => navigate("/app/catalog?newItem=true")}
           className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xs"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-            <Package className="h-5 w-5" />
+            <PlusIcon className="h-5 w-5" />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Add Product</span>
         </motion.button>
@@ -209,13 +215,13 @@ function DashboardPage() {
           }}
           whileHover={{ scale: 1.02, translateY: -2 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => navigate("/app/purchase-orders?action=new")}
+          onClick={() => navigate("/app/restocking?action=new")}
           className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-all shadow-xs"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
-            <Receipt className="h-5 w-5" />
+            <PackagePlus className="h-5 w-5" />
           </div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">New PO</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Restocking</span>
         </motion.button>
 
         <motion.button 
@@ -276,7 +282,7 @@ function DashboardPage() {
               <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={Banknote} /></button>
               <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Net Profit" value={`${NAIRA}${netProfit.toLocaleString("en-NG")}`} accentColor={netProfit >= 0 ? "healthy" : "danger"} icon={netProfit >= 0 ? TrendingUp : TrendingDown} /></button>
               <button type="button" onClick={() => navigate("/app/expenses" )} className="text-left"><MetricCard label="Expenses" value={`${NAIRA}${totalExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
-              <button type="button" onClick={() => navigate("/app/customers" )} className="text-left"><MetricCard label="Unique Customers" value={uniqueCustomers} accentColor="neutral" icon={Users} /></button>
+              <button type="button" onClick={() => navigate("/app/customers" )} className="text-left"><MetricCard label="Outstanding Debt" value={`${NAIRA}${totalOutstandingDebt.toLocaleString("en-NG")}`} accentColor="danger" icon={AlertTriangle} /></button>
             </div>
           </AccordionSection>
 
