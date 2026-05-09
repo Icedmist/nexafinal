@@ -89,7 +89,7 @@ export function RestockingFormSheet({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { supplierId: "", expectedDelivery: new Date().toISOString().split("T")[0], notes: "", isInstant: false },
+    defaultValues: { supplierId: "", expectedDelivery: new Date().toISOString().split("T")[0], notes: "", isInstant: true },
   });
 
   useEffect(() => {
@@ -107,10 +107,11 @@ export function RestockingFormSheet({
             itemId: li.itemId,
             quantity: li.quantityOrdered,
             unitCost: li.unitCost,
+            sellingPrice: li.sellingPrice || items.find(i => i.id === li.itemId)?.sellingPrice || 0,
           })),
         );
       } else {
-        form.reset({ supplierId: "", expectedDelivery: new Date().toISOString().split("T")[0], notes: "", isInstant: false });
+        form.reset({ supplierId: "", expectedDelivery: new Date().toISOString().split("T")[0], notes: "", isInstant: true });
         setLineItems([]);
       }
       setLineError("");
@@ -136,6 +137,7 @@ export function RestockingFormSheet({
       quantityOrdered: r.quantity,
       quantityReceived: values.isInstant ? r.quantity : 0,
       unitCost: r.unitCost,
+      sellingPrice: r.sellingPrice,
     }));
     const totalCost = poItems.reduce((s, i) => s + i.quantityOrdered * i.unitCost, 0);
 
@@ -190,9 +192,10 @@ export function RestockingFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[720px] p-6 max-h-[95vh] flex flex-col overflow-hidden">
-        <div className="flex flex-col h-full">
-          <div className="flex items-start justify-between mb-6">
+      <DialogContent className="max-w-[95vw] sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-background flex flex-col max-h-[90vh]">
+        <div className="flex flex-col h-full overflow-hidden">
+          {/* Header */}
+          <div className="p-6 border-b bg-card flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <ShoppingCart className="h-6 w-6" />
@@ -210,14 +213,12 @@ export function RestockingFormSheet({
                 </div>
               </div>
             </div>
-            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
-              <X className="h-4 w-4" />
-            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-1">
+          {/* Form Content */}
+          <div className="flex-1 overflow-y-auto p-6">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form id="restock-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormField
                     control={form.control}
@@ -328,17 +329,37 @@ export function RestockingFormSheet({
                     error={lineError}
                   />
                 </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="flex-1 h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20">
-                    {isEdit ? "Update Order" : "Generate Restock Order"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-12 font-bold px-6 border-2">
-                    Cancel
-                  </Button>
-                </div>
-              </form>
+                </form>
             </Form>
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 border-t bg-muted/10 flex items-center justify-between">
+            <div className="hidden sm:block">
+              {lineItems.length > 0 && (
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  {lineItems.length} items selected
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => onOpenChange(false)} 
+                className="flex-1 sm:flex-none rounded-xl font-bold"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                form="restock-form"
+                disabled={createPO.isLoading || updatePO.isLoading}
+                className="flex-1 sm:flex-none rounded-xl font-bold px-8 shadow-lg shadow-primary/20"
+              >
+                {createPO.isLoading || updatePO.isLoading ? "Saving..." : isEdit ? "Update Order" : "Save Restock Order"}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

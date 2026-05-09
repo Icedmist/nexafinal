@@ -155,10 +155,17 @@ export function useCreatePurchaseOrder() {
       // 2. Update stock and create movements
       for (const item of poData.items) {
         const itemRef = doc(db, "products", item.itemId);
-        batch.update(itemRef, {
+        
+        // Update stock, cost price, and selling price
+        const productUpdates: any = {
           currentStock: increment(item.quantityOrdered),
           updatedAt: new Date().toISOString()
-        });
+        };
+
+        if (item.unitCost > 0) productUpdates.costPrice = item.unitCost;
+        if (item.sellingPrice && item.sellingPrice > 0) productUpdates.sellingPrice = item.sellingPrice;
+
+        batch.update(itemRef, productUpdates);
 
         const movementRef = doc(collection(db, "movements"));
         batch.set(movementRef, {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Package, PackagePlus, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Settings, Plus as PlusIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -15,12 +15,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useStockSummary, useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
 import { useAlertGenerator } from "@/hooks/useStockAlertGenerator";
 import { useRole } from "@/hooks/useRole";
-import { useSales, useDebtPayments } from "@/hooks/useSalesData";
+import { useSales, useDebtPayments, useSalesMutations } from "@/hooks/useSalesData";
 import { useExpenses } from "@/hooks/useExpensesData";
 import { useRefunds } from "@/hooks/useRefundsData";
 import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const NAIRA = "₦";
 
@@ -97,6 +102,12 @@ function DashboardPage() {
   const movements = realMovements;
   const suppliers = realSuppliers;
 
+  const { recordDebtPayment } = useSalesMutations();
+  const [paymentTarget, setPaymentTarget] = useState<{ phone: string; name: string; balance: number } | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
+
   const isLoading = salesLoading || expensesLoading || refundsLoading || paymentsLoading;
 
   const tour = useOnboarding("dashboard");
@@ -143,6 +154,54 @@ function DashboardPage() {
   const todayExpenses = expenses.filter((e) => new Date(e.date).toDateString() === new Date().toDateString()).reduce((s, e) => s + e.amount, 0);
 
 
+  // Debt management list
+  const debtors = useMemo(() => {
+    const customerDebts: Record<string, { name: string; phone: string; balance: number }> = {};
+    
+    sales.filter(s => s.isCreditSale && s.customerPhone).forEach(s => {
+      if (!customerDebts[s.customerPhone!]) {
+        customerDebts[s.customerPhone!] = { name: s.customerName || "Unknown", phone: s.customerPhone!, balance: 0 };
+      }
+      customerDebts[s.customerPhone!].balance += s.totalNgn;
+    });
+
+    payments.forEach(p => {
+      if (customerDebts[p.customerPhone]) {
+        customerDebts[p.customerPhone].balance -= p.amount;
+      }
+    });
+
+    return Object.values(customerDebts)
+      .filter(c => c.balance > 0.5)
+      .sort((a, b) => b.balance - a.balance);
+  }, [sales, payments]);
+
+  const handleClearDebt = async () => {
+    if (!paymentTarget || !paymentAmount) return;
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    setIsPaying(true);
+    try {
+      await recordDebtPayment({
+        customerPhone: paymentTarget.phone,
+        customerName: paymentTarget.name,
+        amountNgn: amount,
+        notes: paymentNotes,
+      });
+      toast.success(`Recorded payment of ${NAIRA}${amount.toLocaleString()} for ${paymentTarget.name}`);
+      setPaymentTarget(null);
+      setPaymentAmount("");
+      setPaymentNotes("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to record payment");
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   const storeName = profile?.storeDetails?.name || "NEXA Store OS";
 
@@ -286,6 +345,61 @@ function DashboardPage() {
             </div>
           </AccordionSection>
 
+          <AccordionSection id="debts" title="Debt Management & Collections" openSection={openSection} onToggle={toggleSection}>
+            {debtors.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                </div>
+                <p className="text-sm font-medium text-foreground">No outstanding debts</p>
+                <p className="text-xs text-muted-foreground">All customers have cleared their balances.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Debtor List</span>
+                  <Badge variant="outline" className="text-[10px] border-destructive/20 text-destructive bg-destructive/5 font-black uppercase tracking-widest">
+                    {debtors.length} Customers
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-1">
+                  {debtors.map((d) => (
+                    <div key={d.phone} className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                          {d.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-foreground leading-none mb-1">{d.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-medium">{d.phone}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-sm font-black font-mono text-destructive leading-none mb-1">
+                            {NAIRA}{d.balance.toLocaleString("en-NG")}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest text-center">Balance</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 rounded-lg border-primary/20 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all"
+                          onClick={() => {
+                            setPaymentTarget(d);
+                            setPaymentAmount(d.balance.toString());
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </AccordionSection>
+
           <AccordionSection id="stock" title="Stock Health" openSection={openSection} onToggle={toggleSection}>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard label="Total SKUs" value={summary.total} accentColor="neutral" icon={Package} />
@@ -374,6 +488,61 @@ function DashboardPage() {
         onSkip={tour.skipTour}
         onComplete={handleTourComplete}
       />
+
+      <Dialog open={!!paymentTarget} onOpenChange={(v) => !v && setPaymentTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clear Debt</DialogTitle>
+            <DialogDescription>
+              Record a payment for {paymentTarget?.name}. This will update their outstanding balance.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Payment Amount ({NAIRA})</label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="h-11 rounded-xl border-2 font-bold pl-8"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">{NAIRA}</span>
+              </div>
+              {paymentTarget && (
+                <p className="text-[10px] text-muted-foreground ml-1 font-medium">
+                  Full balance: {NAIRA}{paymentTarget.balance.toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Notes (Optional)</label>
+              <Textarea
+                placeholder="Reference number, payment method, etc."
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                className="rounded-xl border-2 min-h-[80px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost" className="rounded-xl font-bold">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={handleClearDebt} 
+              disabled={isPaying || !paymentAmount}
+              className="rounded-xl font-bold px-8"
+            >
+              {isPaying ? "Recording..." : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

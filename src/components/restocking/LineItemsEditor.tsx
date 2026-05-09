@@ -1,4 +1,4 @@
-import { Plus, X } from "lucide-react";
+import { Plus, X, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,6 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { QRScannerDialog } from "./QRScannerDialog";
+import { toast } from "sonner";
+import { useState } from "react";
 import type { Item } from "@/types/inventory";
 
 export interface LineItemRow {
@@ -16,6 +19,9 @@ export interface LineItemRow {
   itemId: string;
   quantity: number;
   unitCost: number;
+  sellingPrice: number;
+  selectedUnit?: string;
+  conversionFactor?: number;
 }
 
 interface LineItemsEditorProps {
@@ -26,10 +32,12 @@ interface LineItemsEditorProps {
 }
 
 export function LineItemsEditor({ items, lineItems, onChange, error }: LineItemsEditorProps) {
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
   function addRow() {
     onChange([
       ...lineItems,
-      { id: crypto.randomUUID(), itemId: "", quantity: 1, unitCost: 0 },
+      { id: crypto.randomUUID(), itemId: "", quantity: 1, unitCost: 0, sellingPrice: 0, selectedUnit: "", conversionFactor: 1 },
     ]);
   }
 
@@ -45,13 +53,78 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
     );
   }
 
+  function handleScan(code: string) {
+    // Find item by SKU or ID
+    const item = items.find((i) => i.sku === code || i.id === code);
+    
+    if (!item) {
+      toast.error(`Product with code "${code}" not found`);
+      return;
+    }
+
+    // Check if item already in list
+    const existingRow = lineItems.find((r) => r.itemId === item.id);
+    
+    if (existingRow) {
+      // Increment quantity
+      onChange(
+        lineItems.map((r) =>
+          r.id === existingRow.id ? { ...r, quantity: r.quantity + 1 } : r
+        )
+      );
+      toast.success(`Incremented ${item.name} quantity`);
+    } else {
+      // Add new row
+      onChange([
+        ...lineItems,
+        { 
+          id: crypto.randomUUID(), 
+          itemId: item.id, 
+          quantity: 1, 
+          unitCost: item.costPrice || 0,
+          sellingPrice: item.sellingPrice || 0,
+          selectedUnit: item.unit || "",
+          conversionFactor: 1
+        },
+      ]);
+      toast.success(`Added ${item.name} to list`);
+    }
+  }
+
   function handleItemSelect(rowId: string, itemId: string) {
     const item = items.find((i) => i.id === itemId);
     onChange(
       lineItems.map((r) =>
         r.id === rowId
-          ? { ...r, itemId, unitCost: item?.costPrice ?? r.unitCost }
+          ? { 
+              ...r, 
+              itemId, 
+              unitCost: item?.costPrice ?? r.unitCost,
+              sellingPrice: item?.sellingPrice ?? r.sellingPrice,
+              selectedUnit: item?.unit || "",
+              conversionFactor: 1
+            }
           : r,
+      ),
+    );
+  }
+
+  function handleUnitChange(rowId: string, unitName: string) {
+    const row = lineItems.find((r) => r.id === rowId);
+    if (!row) return;
+
+    const item = items.find((i) => i.id === row.itemId);
+    if (!item) return;
+
+    let factor = 1;
+    if (unitName !== item.unit) {
+      const uom = item.units?.find((u) => u.name === unitName);
+      if (uom) factor = uom.conversionFactor;
+    }
+
+    onChange(
+      lineItems.map((r) =>
+        r.id === rowId ? { ...r, selectedUnit: unitName, conversionFactor: factor } : r,
       ),
     );
   }
@@ -65,10 +138,16 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Line Items</Label>
-        <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-1">
-          <Plus className="h-3.5 w-3.5" />
-          Add Item
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setIsScannerOpen(true)} className="gap-1 border-primary/20 hover:bg-primary/5 text-primary">
+            <Camera className="h-3.5 w-3.5" />
+            Scan QR
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-1">
+            <Plus className="h-3.5 w-3.5" />
+            Add Item
+          </Button>
+        </div>
       </div>
 
       {lineItems.length === 0 && (
@@ -82,7 +161,7 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
         return (
           <div
             key={row.id}
-            className="grid grid-cols-[1fr_80px_100px_90px_32px] items-end gap-2 rounded-md border border-border bg-muted/30 p-3"
+            className="grid grid-cols-[1fr_120px_60px_90px_90px_80px_32px] items-end gap-2 rounded-md border border-border bg-muted/30 p-3"
           >
             {/* Item select */}
             <div>
@@ -107,6 +186,36 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
               </Select>
             </div>
 
+            {/* Unit Selection */}
+            <div>
+              {idx === 0 && (
+                <Label className="mb-1 block text-xs text-muted-foreground">Unit</Label>
+              )}
+              <Select
+                value={row.selectedUnit || "__none__"}
+                onValueChange={(v) => handleUnitChange(row.id, v)}
+                disabled={!row.itemId}
+              >
+                <SelectTrigger className="h-8 text-[10px] font-bold">
+                  <SelectValue placeholder="Unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {row.itemId && (
+                    <>
+                      <SelectItem value={items.find(i => i.id === row.itemId)?.unit || "Base"}>
+                        {items.find(i => i.id === row.itemId)?.unit || "Base"} (1x)
+                      </SelectItem>
+                      {items.find(i => i.id === row.itemId)?.units?.map((u) => (
+                        <SelectItem key={u.name} value={u.name}>
+                          {u.name} ({u.conversionFactor}x)
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Quantity */}
             <div>
               {idx === 0 && (
@@ -124,25 +233,40 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
             {/* Unit Cost */}
             <div>
               {idx === 0 && (
-                <Label className="mb-1 block text-xs text-muted-foreground">Unit Cost</Label>
+                <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Cost</Label>
               )}
               <Input
                 type="number"
                 min={0}
                 step="0.01"
-                className="h-8 text-xs"
+                className="h-8 text-xs font-bold"
                 value={row.unitCost}
                 onChange={(e) => updateRow(row.id, "unitCost", Math.max(0, Number(e.target.value) || 0))}
+              />
+            </div>
+
+            {/* Selling Price */}
+            <div>
+              {idx === 0 && (
+                <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Price</Label>
+              )}
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                className="h-8 text-xs font-bold border-primary/20"
+                value={row.sellingPrice}
+                onChange={(e) => updateRow(row.id, "sellingPrice", Math.max(0, Number(e.target.value) || 0))}
               />
             </div>
 
             {/* Line total */}
             <div>
               {idx === 0 && (
-                <Label className="mb-1 block text-xs text-muted-foreground">Total</Label>
+                <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Total</Label>
               )}
-              <span className="flex h-8 items-center text-xs font-mono font-medium text-foreground">
-                ${lineTotal.toFixed(2)}
+              <span className="flex h-8 items-center text-[10px] font-mono font-black text-foreground">
+                ${lineTotal.toLocaleString()}
               </span>
             </div>
 
@@ -178,6 +302,13 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
           </span>
         </div>
       )}
+
+      <QRScannerDialog 
+        open={isScannerOpen} 
+        onOpenChange={setIsScannerOpen} 
+        onScan={handleScan} 
+      />
+    </div>
     </div>
   );
 }

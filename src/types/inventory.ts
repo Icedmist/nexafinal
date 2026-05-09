@@ -169,6 +169,9 @@ export interface PurchaseOrderItem {
   quantityOrdered: number;
   quantityReceived: number;
   unitCost: number;
+  selectedUnit?: string;
+  conversionFactor?: number;
+  sellingPrice?: number;
 }
 
 export interface PurchaseOrder {
