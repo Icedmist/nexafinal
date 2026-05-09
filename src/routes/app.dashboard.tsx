@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store } from "lucide-react";
+import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
@@ -149,55 +149,67 @@ function DashboardPage() {
             {isAdmin ? "Admin Dashboard" : "Manager Dashboard"}
           </p>
         </div>
-        <button 
-          onClick={() => navigate("/app/settings")}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border hover:bg-muted/50 transition-colors text-sm font-medium shadow-sm"
-        >
-          <Store className="h-4 w-4 text-muted-foreground" />
-          Store Settings
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => navigate("/app/settings")}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border hover:border-primary/30 hover:bg-muted/50 transition-all text-sm font-medium shadow-sm group"
+          >
+            <Settings className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            Store Settings
+          </button>
+        </div>
       </div>
 
       {/* ─── Quick Access Shortcuts ─── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <button 
           onClick={() => navigate("/app/catalog?action=add")}
-          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xs"
+          className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xs"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-            <Package className="h-6 w-6" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+            <Package className="h-5 w-5" />
           </div>
-          <span className="text-sm font-semibold text-foreground">Add Product</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Add Product</span>
         </button>
 
         <button 
-          onClick={() => navigate("/app/inventory?action=new-po")}
-          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-all shadow-xs"
+          onClick={() => navigate("/app/purchase-orders?action=new")}
+          className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-all shadow-xs"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
-            <Receipt className="h-6 w-6" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
+            <Receipt className="h-5 w-5" />
           </div>
-          <span className="text-sm font-semibold text-foreground">New PO</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">New PO</span>
         </button>
 
         <button 
-          onClick={() => navigate("/app/sales-analytics")}
-          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-all shadow-xs"
+          onClick={() => navigate("/app/analytics")}
+          className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-all shadow-xs"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10 text-purple-500 group-hover:scale-110 transition-transform">
-            <TrendingUp className="h-6 w-6" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10 text-purple-500 group-hover:scale-110 transition-transform">
+            <TrendingUp className="h-5 w-5" />
           </div>
-          <span className="text-sm font-semibold text-foreground">Analytics</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Analytics</span>
         </button>
 
         <button 
           onClick={() => navigate("/app/sales")}
-          className="group flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-card border border-border hover:border-healthy/50 hover:bg-healthy/5 transition-all shadow-xs"
+          className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all shadow-xs"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-healthy/10 text-healthy group-hover:scale-110 transition-transform">
-            <ShoppingCart className="h-6 w-6" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 group-hover:scale-110 transition-transform">
+            <ShoppingCart className="h-5 w-5" />
           </div>
-          <span className="text-sm font-semibold text-foreground">New Sale</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">New Sale</span>
+        </button>
+
+        <button 
+          onClick={() => navigate("/app/settings")}
+          className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-card border border-border hover:border-orange-500/50 hover:bg-orange-500/5 transition-all shadow-xs"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/10 text-orange-500 group-hover:scale-110 transition-transform">
+            <Settings className="h-5 w-5" />
+          </div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Settings</span>
         </button>
       </div>
 

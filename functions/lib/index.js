@@ -12,8 +12,12 @@ admin.initializeApp();
 // Secrets for Zoho email
 const ZOHO_EMAIL = (0, params_1.defineSecret)("ZOHO_EMAIL");
 const ZOHO_PASSWORD = (0, params_1.defineSecret)("ZOHO_PASSWORD");
-// Set global options to ensure all functions use the correct region
-(0, v2_1.setGlobalOptions)({ region: "us-central1" });
+// Set global options to ensure all functions use the correct region and minimize resource usage
+(0, v2_1.setGlobalOptions)({
+    region: "us-central1",
+    memory: "256MiB", // Lower default memory to save quota
+    maxInstances: 10 // Prevent runaway scaling and quota consumption
+});
 /**
  * Maps Firebase Auth error codes to descriptive HttpsErrors.
  */
@@ -80,7 +84,10 @@ exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", 
  * PROVISION STAFF: Callable Function (v2)
  * Allows an admin/owner to create a staff user with a password.
  */
-exports.provisionstaff = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.provisionstaff = (0, https_1.onCall)({
+    cors: true,
+    secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
@@ -111,6 +118,37 @@ exports.provisionstaff = (0, https_1.onCall)({ cors: true }, async (request) => 
             storeId,
             branchId: branchId || null,
         });
+        // Send invitation email
+        try {
+            await (0, email_1.sendEmailViaZoho)({
+                to: normalizedEmail,
+                subject: `Welcome to Nexa OS - Your Staff Account`,
+                text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
+                html: `
+          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
+            </div>
+            <div style="padding: 30px;">
+              <p>Hi <strong>${displayName || "there"}</strong>,</p>
+              <p>You have been invited as a <strong>${role}</strong> to join a store on the Nexa platform.</p>
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
+                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
+                <p style="margin-top: 0;">Password: <code>${password}</code></p>
+              </div>
+              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
+              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                Please change your password immediately after your first login for security purposes.
+              </p>
+            </div>
+          </div>
+        `
+            });
+        }
+        catch (emailError) {
+            console.error("Failed to send provision email:", emailError);
+        }
         return { success: true, uid: userRecord.uid };
     }
     catch (error) {
@@ -122,7 +160,10 @@ exports.provisionstaff = (0, https_1.onCall)({ cors: true }, async (request) => 
  * PROVISION PLATFORM USER: Callable Function (v2)
  * Allows a system admin to create a Store Owner or another System Admin.
  */
-exports.provisionplatformuser = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.provisionplatformuser = (0, https_1.onCall)({
+    cors: true,
+    secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
     await checkSystemAdmin(request);
     const { email, password, displayName, role, storeName, storeSlug } = request.data || {};
     if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -175,6 +216,37 @@ exports.provisionplatformuser = (0, https_1.onCall)({ cors: true }, async (reque
             storeId: storeId || null,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        // Send invitation email
+        try {
+            await (0, email_1.sendEmailViaZoho)({
+                to: normalizedEmail,
+                subject: `Welcome to Nexa OS - ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} Account`,
+                text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role} on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
+                html: `
+          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
+            </div>
+            <div style="padding: 30px;">
+              <p>Hi <strong>${displayName || "there"}</strong>,</p>
+              <p>You have been provisioned as a <strong>${role === 'system_admin' ? 'System Admin' : 'Store Owner'}</strong> on the Nexa platform.</p>
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
+                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
+                <p style="margin-top: 0;">Password: <code>${password}</code></p>
+              </div>
+              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
+              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                Please change your password immediately after your first login for security purposes.
+              </p>
+            </div>
+          </div>
+        `
+            });
+        }
+        catch (emailError) {
+            console.error("Failed to send platform provision email:", emailError);
+        }
         // 4. Record Activity
         await admin.firestore().collection("activity_logs").add({
             type: "platform_user_provisioned",
@@ -472,15 +544,23 @@ const checkSystemAdmin = async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
-    // SELF-HEAL: Ensure the primary dev user has the system_admin role
-    if (request.auth.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
-        console.log(`Self-healing role for dev user ${request.auth.uid}`);
+    // SELF-HEAL: Ensure primary dev users have the system_admin role
+    const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
+    const devEmails = ['hello@nexastoreos.com', 'talk2icedmist@gmail.com'];
+    const isDev = devUids.includes(request.auth.uid) || devEmails.includes(request.auth.token.email);
+    if (isDev && request.auth.token.role !== 'system_admin') {
+        console.log(`CRITICAL: Self-healing role for dev user ${request.auth.uid} (${request.auth.token.email})`);
         try {
-            // ONLY set the necessary claims to avoid "reserved claim" errors
             await admin.auth().setCustomUserClaims(request.auth.uid, {
-                role: 'system_admin'
+                role: 'system_admin',
+                isPlatformAdmin: true
             });
-            throw new https_1.HttpsError("permission-denied", "System Admin role assigned. PLEASE LOG OUT AND LOG IN AGAIN.");
+            // Also update their Firestore record to match
+            await admin.firestore().collection("users").doc(request.auth.uid).set({
+                role: 'system_admin',
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            throw new https_1.HttpsError("permission-denied", "SYSTEM ADMIN ROLE GRANTED. Please LOG OUT and LOG IN AGAIN to refresh your session.");
         }
         catch (e) {
             console.error("Self-heal failed:", e);
@@ -584,11 +664,31 @@ exports.getplatformstats = (0, https_1.onCall)({ cors: true }, async (request) =
         const storesSnap = await admin.firestore().collection("stores").get();
         const usersSnap = await admin.firestore().collection("users").get();
         const staffSnap = await admin.firestore().collection("staff").get();
-        // More complex metrics can be added here (e.g. total revenue if indexed)
+        // Calculate monthly growth (last 6 months)
+        const now = new Date();
+        const monthlyGrowth = {};
+        // Initialize last 6 months
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthYear = d.toLocaleString('default', { month: 'short' });
+            monthlyGrowth[monthYear] = 0;
+        }
+        storesSnap.docs.forEach(doc => {
+            const createdAt = doc.data().createdAt;
+            if (createdAt) {
+                const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+                const monthYear = date.toLocaleString('default', { month: 'short' });
+                if (monthlyGrowth[monthYear] !== undefined) {
+                    monthlyGrowth[monthYear]++;
+                }
+            }
+        });
+        const growthData = Object.entries(monthlyGrowth).map(([name, stores]) => ({ name, stores }));
         return {
             totalStores: storesSnap.size,
             totalUsers: usersSnap.size,
             totalStaff: staffSnap.size,
+            growthData,
             timestamp: new Date().toISOString()
         };
     }

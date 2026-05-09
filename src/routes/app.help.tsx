@@ -82,12 +82,12 @@ function HelpPage() {
             <div className="mt-6 flex flex-col items-center justify-center gap-6 sm:flex-row sm:gap-12">
               <div className="text-center">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email us</p>
-                <p className="mt-1 font-medium text-primary">support@nexa-os.com</p>
+                <p className="mt-1 font-medium text-primary">hello@nexastoreos.com</p>
               </div>
               <div className="hidden h-8 w-px bg-border sm:block" />
               <div className="text-center">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Call or WhatsApp</p>
-                <p className="mt-1 font-medium text-primary">+234 813 862 8218</p>
+                <p className="mt-1 font-medium text-primary">+234 911 379 1618</p>
               </div>
             </div>
           </div>

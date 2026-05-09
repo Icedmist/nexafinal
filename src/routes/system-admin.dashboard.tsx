@@ -42,11 +42,10 @@ export default function SystemDashboard() {
   const [stats, setStats] = useState({
     totalStores: 0,
     totalUsers: 0,
-    totalRevenue: "$1.2M", // Global mock
-    systemHealth: 99.9,
-    activeSessions: 142,
-    uptime: "99.98%"
+    totalStaff: 0,
+    systemHealth: 100,
   });
+  const [growthData, setGrowthData] = useState<any[]>([]);
   const [recentStores, setRecentStores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [provisionOpen, setProvisionOpen] = useState(false);
@@ -59,19 +58,21 @@ export default function SystemDashboard() {
       const statsResult = await getStats();
       const platformData = statsResult.data as any;
 
-      // 2. Fetch recent stores (Direct Firestore is fine for this)
+      // 2. Fetch recent stores
       const recentSnap = await getDocs(query(
         collection(db, "stores"), 
         orderBy("createdAt", "desc"), 
         limit(5)
       ));
 
-      setStats(prev => ({
-        ...prev,
+      setStats({
         totalStores: platformData.totalStores || 0,
         totalUsers: platformData.totalUsers || 0,
         totalStaff: platformData.totalStaff || 0,
-      }));
+        systemHealth: 100,
+      });
+
+      setGrowthData(platformData.growthData || []);
 
       setRecentStores(recentSnap.docs.map(doc => ({
         id: doc.id,
@@ -92,17 +93,17 @@ export default function SystemDashboard() {
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-black tracking-tight text-white uppercase italic">Command Center</h1>
+        <h1 className="text-3xl font-black tracking-tight text-white uppercase italic text-glow">Command Center</h1>
         <p className="text-slate-400">Platform-wide overview and real-time system metrics.</p>
       </div>
 
       {/* KPI Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Total Businesses", value: stats.totalStores, trend: "+12.5%", positive: true, icon: Building2, color: "blue" },
-          { label: "Platform Users", value: stats.totalUsers, trend: "+18.2%", positive: true, icon: Users, color: "indigo" },
-          { label: "Global Revenue", value: stats.totalRevenue, trend: "+24.8%", positive: true, icon: Zap, color: "amber" },
-          { label: "System Health", value: `${stats.systemHealth}%`, trend: "Stable", positive: true, icon: Shield, color: "emerald" },
+          { label: "Total Businesses", value: stats.totalStores, trend: "Live", icon: Building2, color: "blue" },
+          { label: "Platform Users", value: stats.totalUsers, trend: "Live", icon: Users, color: "indigo" },
+          { label: "Total Staff", value: stats.totalStaff, trend: "Live", icon: Activity, color: "amber" },
+          { label: "System Health", value: `${stats.systemHealth}%`, trend: "Optimal", icon: Shield, color: "emerald" },
         ].map((kpi) => (
           <div key={kpi.label} className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-6 transition-all hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10">
             <div className="relative z-10 flex flex-col gap-4">
@@ -116,16 +117,15 @@ export default function SystemDashboard() {
                 )}>
                   <kpi.icon className="h-6 w-6" />
                 </div>
-                <div className={`flex items-center gap-1 text-xs font-bold ${kpi.positive ? "text-emerald-500" : "text-rose-500"}`}>
+                <div className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500`}>
                   {kpi.trend}
-                  {kpi.positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 </div>
               </div>
               <div className="flex flex-col">
                 <span className="text-3xl font-black text-white">
                   {loading ? "..." : kpi.value}
                 </span>
-                <span className="text-sm font-medium text-slate-500">{kpi.label}</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{kpi.label}</span>
               </div>
             </div>
             <div className={cn(
@@ -143,15 +143,14 @@ export default function SystemDashboard() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-950 p-6">
           <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white uppercase italic tracking-wider">Business Registration Growth</h3>
-            <select className="bg-slate-900 text-xs font-bold text-slate-400 border-none rounded-lg ring-1 ring-slate-800 px-3 py-1.5 focus:ring-blue-500 outline-none">
-              <option>Last 6 Months</option>
-              <option>Last Year</option>
-            </select>
+            <h3 className="text-lg font-bold text-white uppercase italic tracking-wider">Onboarding Growth</h3>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 ring-1 ring-slate-800 px-2 py-1 rounded">
+              Last 6 Months
+            </div>
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={growthData}>
                 <defs>
                   <linearGradient id="colorStores" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -159,8 +158,8 @@ export default function SystemDashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: "#020617", border: "1px solid #1e293b", borderRadius: "12px" }}
                   itemStyle={{ color: "#fff", fontWeight: "bold" }}
@@ -297,7 +296,7 @@ export default function SystemDashboard() {
         <div className="space-y-1 text-slate-400 overflow-hidden h-40">
            <p><span className="text-emerald-500">[SYSTEM]</span> Initializing platform kernel...</p>
            <p><span className="text-blue-500">[INFO]</span> Auth service connected (Region: us-central1)</p>
-           <p><span className="text-blue-500">[INFO]</span> Firestore listeners established for 142 active stores</p>
+           <p><span className="text-blue-500">[INFO]</span> Firestore listeners established for {stats.totalStores} stores</p>
            {recentStores.slice(0, 3).map(store => (
              <p key={store.id}><span className="text-amber-500">[EVENT]</span> New business provisioned: <span className="text-white font-bold">{store.name}</span> ({store.slug}.nexa.os)</p>
            ))}

@@ -297,11 +297,14 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
               </div>
 
               {/* Footer */}
-              <div className="pt-4 space-y-3">
-                <p className="text-xs font-bold text-muted-foreground">Thank you for your purchase! 🙏</p>
+              <div className="pt-4 space-y-4">
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-xs font-bold text-foreground">Thank you for your purchase! 🙏</p>
+                  <p className="text-[10px] text-muted-foreground">Items can be returned within 48 hours with receipt.</p>
+                </div>
                 <div className="flex items-center justify-center gap-2">
                    <div className="h-1 w-1 rounded-full bg-primary/30" />
-                   <p className="text-[9px] font-black text-muted-foreground/20 uppercase tracking-[0.5em]">NEXA Store OS</p>
+                   <p className="text-[9px] font-black text-muted-foreground/20 uppercase tracking-[0.5em]">NEXA STORE OS</p>
                    <div className="h-1 w-1 rounded-full bg-primary/30" />
                 </div>
               </div>

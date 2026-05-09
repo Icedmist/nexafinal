@@ -9,7 +9,9 @@ service cloud.firestore {
         request.auth.token.storeId : 
         (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
           get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.storeId : 
-          null);
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeId :
+            null));
     }
     
     function getRole() { 
@@ -17,7 +19,9 @@ service cloud.firestore {
         request.auth.token.role : 
         (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
           get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role : 
-          null);
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role :
+            null));
     }
     
     // Role Helpers

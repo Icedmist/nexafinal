@@ -12,8 +12,12 @@ admin.initializeApp();
 const ZOHO_EMAIL = defineSecret("ZOHO_EMAIL");
 const ZOHO_PASSWORD = defineSecret("ZOHO_PASSWORD");
 
-// Set global options to ensure all functions use the correct region
-setGlobalOptions({ region: "us-central1" });
+// Set global options to ensure all functions use the correct region and minimize resource usage
+setGlobalOptions({ 
+  region: "us-central1",
+  memory: "256MiB", // Lower default memory to save quota
+  maxInstances: 10 // Prevent runaway scaling and quota consumption
+});
 
 /**
  * Maps Firebase Auth error codes to descriptive HttpsErrors.
@@ -586,15 +590,27 @@ const checkSystemAdmin = async (request: any) => {
     throw new HttpsError("unauthenticated", "You must be logged in.");
   }
 
-  // SELF-HEAL: Ensure the primary dev user has the system_admin role
-  if (request.auth.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2' && request.auth.token.role !== 'system_admin') {
-    console.log(`Self-healing role for dev user ${request.auth.uid}`);
+  // SELF-HEAL: Ensure primary dev users have the system_admin role
+  const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
+  const devEmails = ['hello@nexastoreos.com', 'talk2icedmist@gmail.com'];
+  
+  const isDev = devUids.includes(request.auth.uid) || devEmails.includes(request.auth.token.email);
+
+  if (isDev && request.auth.token.role !== 'system_admin') {
+    console.log(`CRITICAL: Self-healing role for dev user ${request.auth.uid} (${request.auth.token.email})`);
     try {
-      // ONLY set the necessary claims to avoid "reserved claim" errors
       await admin.auth().setCustomUserClaims(request.auth.uid, {
-        role: 'system_admin'
+        role: 'system_admin',
+        isPlatformAdmin: true
       });
-      throw new HttpsError("permission-denied", "System Admin role assigned. PLEASE LOG OUT AND LOG IN AGAIN.");
+      
+      // Also update their Firestore record to match
+      await admin.firestore().collection("users").doc(request.auth.uid).set({
+        role: 'system_admin',
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      throw new HttpsError("permission-denied", "SYSTEM ADMIN ROLE GRANTED. Please LOG OUT and LOG IN AGAIN to refresh your session.");
     } catch (e: any) {
       console.error("Self-heal failed:", e);
       if (e instanceof HttpsError) throw e;
@@ -710,13 +726,35 @@ export const getplatformstats = onCall({ cors: true }, async (request) => {
     const storesSnap = await admin.firestore().collection("stores").get();
     const usersSnap = await admin.firestore().collection("users").get();
     const staffSnap = await admin.firestore().collection("staff").get();
+    // Calculate monthly growth (last 6 months)
+    const now = new Date();
+    const monthlyGrowth: Record<string, number> = {};
     
-    // More complex metrics can be added here (e.g. total revenue if indexed)
-    
+    // Initialize last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthYear = d.toLocaleString('default', { month: 'short' });
+      monthlyGrowth[monthYear] = 0;
+    }
+
+    storesSnap.docs.forEach(doc => {
+      const createdAt = doc.data().createdAt;
+      if (createdAt) {
+        const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+        const monthYear = date.toLocaleString('default', { month: 'short' });
+        if (monthlyGrowth[monthYear] !== undefined) {
+          monthlyGrowth[monthYear]++;
+        }
+      }
+    });
+
+    const growthData = Object.entries(monthlyGrowth).map(([name, stores]) => ({ name, stores }));
+
     return {
       totalStores: storesSnap.size,
       totalUsers: usersSnap.size,
       totalStaff: staffSnap.size,
+      growthData,
       timestamp: new Date().toISOString()
     };
   } catch (error) {

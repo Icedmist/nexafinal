@@ -145,17 +145,25 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           // 1. Initial claim fetch
           let tokenResult = await currentUser.getIdTokenResult();
           
-          // 2. If claims are missing (e.g. fresh signup), try refreshing a few times
-          // This handles the delay in the background Cloud Function trigger
-          // Note: System admins might not have a storeId, so we only wait if role is missing
-          if (!tokenResult.claims.role) {
-            console.log("Claims missing, attempting to sync permissions...");
+          // 2. If claims are missing, try refreshing a few times
+          // Note: Dev users and System admins are prioritized for fast entry
+          const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
+          const isDev = devUids.includes(currentUser.uid);
+          const hasRole = !!tokenResult.claims.role;
+          const isSystemAdmin = tokenResult.claims.role === 'system_admin';
+          
+          // Only wait if it's NOT a dev user AND (role is missing OR (not system_admin and storeId missing))
+          const needsWait = !isDev && (!hasRole || (!isSystemAdmin && !tokenResult.claims.storeId));
+
+          if (needsWait) {
+            console.log("Claims incomplete, attempting to sync permissions...");
             let attempts = 0;
             const maxAttempts = 3;
             
-            while (attempts < maxAttempts && !tokenResult.claims.role) {
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s for trigger
-              tokenResult = await currentUser.getIdTokenResult(true); // Force refresh
+            while (attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              tokenResult = await currentUser.getIdTokenResult(true);
+              if (tokenResult.claims.role) break;
               attempts++;
             }
           }
@@ -166,8 +174,8 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
             branchId: tokenResult.claims.branchId as string | null,
           };
 
-          // Temporary: Force system_admin role for dev user
-          if (currentUser.uid === 'cbCWDA2C8KT35O2FyhQG397vAJg2') {
+          // Temporary: Force system_admin role for dev users if not already set in Auth
+          if (isDev && finalClaims.role !== 'system_admin') {
             finalClaims.role = 'system_admin';
           }
 
