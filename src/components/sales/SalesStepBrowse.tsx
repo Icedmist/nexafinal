@@ -1,12 +1,12 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ShoppingCart, ScanBarcode } from "lucide-react";
+import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ShoppingCart, ScanBarcode, QrCode } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useItems, useCategories } from "@/hooks/useInventoryData";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/types/inventory";
-
+import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { toast } from "sonner";
 
 const NAIRA = "₦";
@@ -26,6 +26,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   const { data: categories } = useCategories();
   const [search, setSearch] = useState("");
   const [barcodeMode, setBarcodeMode] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
 
@@ -131,6 +132,15 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
             </button>
           )}
         </div>
+        <Button
+          variant={isScannerOpen ? "default" : "outline"}
+          size="icon"
+          className="h-10 w-10 shrink-0"
+          onClick={() => setIsScannerOpen(true)}
+          title="Open Camera QR Scanner"
+        >
+          <QrCode className="h-4 w-4" />
+        </Button>
         <Button
           variant={barcodeMode ? "default" : "outline"}
           size="icon"
@@ -355,6 +365,11 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
           </Badge>
         </button>
       </div>
+      <QRScannerDialog
+        open={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+        onScan={handleBarcodeSubmit}
+      />
     </div>
   );
 }

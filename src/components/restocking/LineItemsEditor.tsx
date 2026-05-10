@@ -1,4 +1,4 @@
-import { Plus, X, Camera } from "lucide-react";
+import { Plus, X, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-// import { QRScannerDialog } from "./QRScannerDialog";
+import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { toast } from "sonner";
 import { useState } from "react";
 import type { Item } from "@/types/inventory";
@@ -147,7 +147,7 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
         <Label className="text-sm font-medium">Line Items</Label>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setIsScannerOpen(true)} className="gap-1 border-primary/20 hover:bg-primary/5 text-primary">
-            <Camera className="h-3.5 w-3.5" />
+            <QrCode className="h-3.5 w-3.5" />
             Scan QR
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-1">
