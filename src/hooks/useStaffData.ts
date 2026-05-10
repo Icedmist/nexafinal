@@ -31,11 +31,18 @@ export function useStaff(): QueryResult<Staff[]> {
       return;
     }
 
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
     // STRICT TENANT FILTER: Use storeId
-    const q = query(
+    let q = query(
       collection(db, "staff"),
       where("storeId", "==", targetStoreId)
     );
+
+    if (!isAdmin && userBranchId) {
+      q = query(q, where("branchId", "==", userBranchId));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const staff: Staff[] = [];
@@ -43,15 +50,7 @@ export function useStaff(): QueryResult<Staff[]> {
         staff.push({ ...doc.data(), uid: doc.id } as any);
       });
 
-      const isAdmin = isAdminRole(claims?.role);
-      const userBranchId = claims?.branchId;
-
-      let filtered = staff;
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(s => s.branchId === userBranchId);
-      }
-
-      setData(filtered);
+      setData(staff);
       setIsLoading(false);
     }, (err) => {
       console.error("Staff fetch error:", err);

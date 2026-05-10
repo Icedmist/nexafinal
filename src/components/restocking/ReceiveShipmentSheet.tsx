@@ -97,9 +97,6 @@ export function ReceiveShipmentSheet({
                 </div>
               </div>
             </div>
-            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
-              <X className="h-4 w-4" />
-            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-6 pr-1">

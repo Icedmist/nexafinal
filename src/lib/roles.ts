@@ -9,6 +9,8 @@ export interface RolePermissions {
   canViewAnalytics: boolean;
   canAccessSettings: boolean;
   canManageUsers: boolean;
+  canViewSales: boolean;
+  canRecordSales: boolean;
 }
 
 const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
@@ -21,6 +23,8 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewAnalytics: true,
     canAccessSettings: true,
     canManageUsers: true,
+    canViewSales: true,
+    canRecordSales: true,
   },
   owner: {
     canManageItems: true,
@@ -31,6 +35,8 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewAnalytics: true,
     canAccessSettings: true,
     canManageUsers: true,
+    canViewSales: true,
+    canRecordSales: true,
   },
   manager: {
     canManageItems: true,
@@ -41,6 +47,8 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewAnalytics: true,
     canAccessSettings: true,
     canManageUsers: false,
+    canViewSales: true,
+    canRecordSales: true,
   },
   staff: {
     canManageItems: false,
@@ -51,6 +59,8 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewAnalytics: false,
     canAccessSettings: true,
     canManageUsers: false,
+    canViewSales: true,
+    canRecordSales: true,
   },
   requestor: {
     canManageItems: false,
@@ -61,6 +71,8 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewAnalytics: false,
     canAccessSettings: false,
     canManageUsers: false,
+    canViewSales: false,
+    canRecordSales: false,
   },
   system_admin: {
     canManageItems: true,
@@ -71,6 +83,8 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewAnalytics: true,
     canAccessSettings: true,
     canManageUsers: true,
+    canViewSales: true,
+    canRecordSales: true,
   },
 };
 

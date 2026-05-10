@@ -30,11 +30,18 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       return;
     }
 
-    const q = query(
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
+    let q = query(
       collection(db, "sales"),
       where("storeId", "==", storeId),
       orderBy("createdAt", "desc")
     );
+
+    if (!isAdmin && userBranchId) {
+      q = query(q, where("branchId", "==", userBranchId));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const sales: SaleTransaction[] = [];
@@ -42,16 +49,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
         sales.push({ ...doc.data(), id: doc.id } as SaleTransaction);
       });
 
-      // Filter by branch if user is restricted
-      let filtered = sales;
-      const isAdmin = isAdminRole(claims?.role);
-      const userBranchId = claims?.branchId;
-      
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(s => s.branchId === userBranchId);
-      }
-      
-      setData(filtered);
+      setData(sales);
       setIsLoading(false);
     }, (err) => {
       console.error(err);
@@ -81,11 +79,18 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
       return;
     }
 
-    const q = query(
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
+    let q = query(
       collection(db, "debt_payments"),
       where("storeId", "==", storeId),
       orderBy("createdAt", "desc")
     );
+
+    if (!isAdmin && userBranchId) {
+      q = query(q, where("branchId", "==", userBranchId));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const payments: DebtPayment[] = [];
@@ -93,15 +98,7 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
         payments.push({ ...doc.data(), id: doc.id } as DebtPayment);
       });
 
-      let filtered = payments;
-      const isAdmin = isAdminRole(claims?.role);
-      const userBranchId = claims?.branchId;
-      
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(p => p.branchId === userBranchId);
-      }
-      
-      setData(filtered);
+      setData(payments);
       setIsLoading(false);
     }, (err) => {
       console.error(err);

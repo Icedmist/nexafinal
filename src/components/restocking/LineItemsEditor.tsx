@@ -75,14 +75,21 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
       toast.success(`Incremented ${item.name} quantity`);
     } else {
       // Add new row
+      const costPrice = item.costPrice || 0;
+      const sellingPrice = item.sellingPrice || 0;
+
+      if (costPrice === 0) {
+        toast.warning(`${item.name} has no default cost price. Please enter it manually.`);
+      }
+
       onChange([
         ...lineItems,
         { 
           id: crypto.randomUUID(), 
           itemId: item.id, 
           quantity: 1, 
-          unitCost: item.costPrice || 0,
-          sellingPrice: item.sellingPrice || 0,
+          unitCost: costPrice,
+          sellingPrice: sellingPrice,
           selectedUnit: item.unit || "",
           conversionFactor: 1
         },
@@ -308,7 +315,6 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
         onOpenChange={setIsScannerOpen} 
         onScan={handleScan} 
       />
-    </div>
     </div>
   );
 }
