@@ -25,6 +25,7 @@ import {
 import type { Item, Category, Supplier, Location } from "@/types/inventory";
 import { ItemStatus } from "@/types/inventory";
 import type { Branch } from "@/types/tenant";
+import { useRole } from "@/hooks/useRole";
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
@@ -70,6 +71,7 @@ export function ItemFormSheet({
   onSave,
   loading,
 }: ItemFormSheetProps) {
+  const { isAdmin } = useRole();
   const isEdit = !!item;
   const [isUploading, setIsUploading] = React.useState(false);
 
@@ -447,27 +449,29 @@ export function ItemFormSheet({
                   />
                   {errors.locationId && <p className={errCls}>{errors.locationId.message}</p>}
                 </div>
-                <div>
-                  <label className={labelCls}>Branch Visibility</label>
-                  <Controller
-                    name="branchId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger className={`${inputCls} mt-1.5 h-10`}>
-                          <SelectValue placeholder="All branches" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All branches</SelectItem>
-                          {branches.filter(b => b && b.id && b.id.trim() !== "").map((b) => (
-                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.branchId && <p className={errCls}>{errors.branchId.message}</p>}
-                </div>
+                {isAdmin && (
+                  <div>
+                    <label className={labelCls}>Branch Visibility</label>
+                    <Controller
+                      name="branchId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className={`${inputCls} mt-1.5 h-10`}>
+                            <SelectValue placeholder="All branches" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All branches</SelectItem>
+                            {branches.filter(b => b && b.id && b.id.trim() !== "").map((b) => (
+                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.branchId && <p className={errCls}>{errors.branchId.message}</p>}
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Product Status</label>
                   <Controller

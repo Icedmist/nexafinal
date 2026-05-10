@@ -45,7 +45,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     }
 
     if (!isAdmin) {
-      prodQuery = query(prodQuery, where("branchId", "==", userBranchId || "none"));
+      prodQuery = query(prodQuery, where("branchId", "in", [userBranchId || "none", "all"]));
     }
     
     prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
@@ -175,7 +175,7 @@ export function useLocations(): QueryResult<Location[]> {
 
     let q = locQuery;
     if (!isAdmin) {
-      q = query(q, where("branchId", "==", userBranchId || "none"));
+      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -273,7 +273,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
     );
 
     if (!isAdmin) {
-      q = query(q, where("branchId", "==", userBranchId || "none"));
+      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
     }
 
     q = query(
@@ -328,7 +328,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
     let q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
     
     if (!isAdmin) {
-      q = query(q, where("branchId", "==", userBranchId || "none"));
+      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -366,7 +366,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
     let q = query(collection(db, "requests"), where("storeId", "==", storeId));
     
     if (!isAdmin) {
-      q = query(q, where("branchId", "==", userBranchId || "none"));
+      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

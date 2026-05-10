@@ -15,6 +15,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NexaCoreLoader } from "@/components/shared/NexaCoreLoader";
 
 export function AppLayout() {
   const auth = useAuth();
@@ -137,8 +138,8 @@ export function AppLayout() {
 
   if (loading || !user || !claimsReady) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+      <div className="flex h-screen items-center justify-center bg-background p-6">
+        <NexaCoreLoader />
       </div>
     );
   }

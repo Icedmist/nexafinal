@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { canAccessRoute } from "@/lib/route-guard";
 
 import { Header } from "@/components/layout/Header";
+import { NexaCoreLoader } from "@/components/shared/NexaCoreLoader";
 
 export function SystemAdminLayout() {
   const { user, loading } = useAuth();
@@ -41,8 +42,8 @@ export function SystemAdminLayout() {
 
   if (loading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-950">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500/30 border-t-blue-500" />
+      <div className="flex h-screen items-center justify-center bg-slate-950 p-6">
+        <NexaCoreLoader />
       </div>
     );
   }
