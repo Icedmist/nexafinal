@@ -35,7 +35,7 @@ export default RestockingPage;
 
 function RestockingPage() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { po: poParam, action } = Object.fromEntries(searchParams.entries()) as any;
   const { data: purchaseOrders } = usePurchaseOrders();
   const { data: suppliers } = useSuppliers();
@@ -73,12 +73,14 @@ function RestockingPage() {
     if (action === "new") {
       setEditPO(null);
       setFormOpen(true);
-      // Clean up URL
-      const params = new URLSearchParams(searchParams);
-      params.delete("action");
-      window.history.replaceState({}, "", `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`);
+      // Clean up URL stably
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("action");
+        return next;
+      }, { replace: true });
     }
-  }, [action, searchParams]);
+  }, [action, setSearchParams]);
 
   const filtered = useMemo(() => {
     return purchaseOrders.filter((po) => {
@@ -202,12 +204,18 @@ function RestockingPage() {
                 createdAt: now,
               });
 
-              // 2. Update item currentStock
+              // 2. Update item currentStock and costPrice
               const item = catalogItems.find((i) => i.id === line.itemId);
               if (item) {
+                const poItem = po.items.find((pi) => pi.id === line.lineItemId);
                 updateItem.mutate({
                   id: item.id,
-                  updates: { currentStock: item.currentStock + line.qty, updatedAt: now },
+                  updates: { 
+                    currentStock: item.currentStock + line.qty, 
+                    costPrice: poItem?.unitCost ?? item.costPrice,
+                    sellingPrice: poItem?.sellingPrice ?? item.sellingPrice,
+                    updatedAt: now 
+                  },
                 });
               }
             }

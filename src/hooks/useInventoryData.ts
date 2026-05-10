@@ -32,6 +32,9 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       return;
     }
 
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
     let prodQuery = query(
       collection(db, "products"),
       where("storeId", "==", storeId)
@@ -40,11 +43,12 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     if (filters?.categoryId) {
       prodQuery = query(prodQuery, where("categoryId", "==", filters.categoryId));
     }
+
+    if (!isAdmin) {
+      prodQuery = query(prodQuery, where("branchId", "==", userBranchId || "none"));
+    }
     
     prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
-
-    const isAdmin = isAdminRole(claims?.role);
-    const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(prodQuery, (snapshot) => {
       const items: Item[] = [];
@@ -53,12 +57,6 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       });
       
       let filtered = items;
-      
-      // For non-admins, restrict to their branch.
-      // Items with no branchId (null/undefined) are considered "Global" and visible to everyone.
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(i => !i.branchId || i.branchId === userBranchId);
-      }
 
       if (filters?.search) {
         const lowerSearch = filters.search.toLowerCase();
@@ -108,7 +106,16 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const doc = snapshot.docs.find(d => d.id === id);
       if (doc) {
-        setData({ ...doc.data(), id: doc.id } as Item);
+        const item = { ...doc.data(), id: doc.id } as Item;
+        const isAdmin = isAdminRole(claims?.role);
+        const userBranchId = claims?.branchId;
+        
+        // Final security check for single item fetch
+        if (!isAdmin && item.branchId !== userBranchId) {
+          setData(undefined);
+        } else {
+          setData(item);
+        }
       } else {
         setData(undefined);
       }
@@ -162,18 +169,20 @@ export function useLocations(): QueryResult<Location[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
+    const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
     const isAdmin = isAdminRole(claims?.role);
     const userBranchId = claims?.branchId;
 
-    const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
-    const unsubscribe = onSnapshot(locQuery, (snapshot) => {
+    let q = locQuery;
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Location[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));
       
       let filtered = items;
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(l => l.branchId === userBranchId);
-      }
       
       setData(filtered);
       setIsLoading(false);
@@ -255,24 +264,29 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const q = query(
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
+    let q = query(
       collection(db, "movements"), 
-      where("storeId", "==", storeId),
+      where("storeId", "==", storeId)
+    );
+
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
+    }
+
+    q = query(
+      q,
       orderBy("createdAt", "desc"),
       firestoreLimit(count)
     );
-    const isAdmin = isAdminRole(claims?.role);
-    const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: StockMovement[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as StockMovement));
       
       let filtered = items;
-      
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(m => m.branchId === userBranchId);
-      }
       
       setData(filtered);
       setIsLoading(false);
@@ -308,18 +322,20 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
     const isAdmin = isAdminRole(claims?.role);
     const userBranchId = claims?.branchId;
+
+    let q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
+    
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: PurchaseOrder[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as PurchaseOrder));
       
       let filtered = items;
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(po => po.branchId === userBranchId);
-      }
       
       setData(filtered);
       setIsLoading(false);
@@ -344,18 +360,20 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const q = query(collection(db, "requests"), where("storeId", "==", storeId));
     const isAdmin = isAdminRole(claims?.role);
     const userBranchId = claims?.branchId;
+
+    let q = query(collection(db, "requests"), where("storeId", "==", storeId));
+    
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: InventoryRequest[] = [];
       snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as InventoryRequest));
       
       let filtered = items;
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(r => r.branchId === userBranchId);
-      }
       
       setData(filtered);
       setIsLoading(false);

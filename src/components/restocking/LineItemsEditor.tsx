@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { QRScannerDialog } from "./QRScannerDialog";
+// import { QRScannerDialog } from "./QRScannerDialog";
 import { toast } from "sonner";
 import { useState } from "react";
 import type { Item } from "@/types/inventory";

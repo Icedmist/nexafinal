@@ -144,7 +144,7 @@ function DashboardPage() {
 
   // Debt metrics
   const totalCreditSales = sales.filter(s => s.isCreditSale).reduce((s, sale) => s + sale.totalNgn, 0);
-  const totalPayments = payments.reduce((s, p) => s + p.amount, 0);
+  const totalPayments = payments.reduce((s, p) => s + p.amountNgn, 0);
   const totalOutstandingDebt = totalCreditSales - totalPayments;
 
   // Expense & refund metrics
@@ -167,7 +167,7 @@ function DashboardPage() {
 
     payments.forEach(p => {
       if (customerDebts[p.customerPhone]) {
-        customerDebts[p.customerPhone].balance -= p.amount;
+        customerDebts[p.customerPhone].balance -= p.amountNgn;
       }
     });
 

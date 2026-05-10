@@ -39,8 +39,8 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       orderBy("createdAt", "desc")
     );
 
-    if (!isAdmin && userBranchId) {
-      q = query(q, where("branchId", "==", userBranchId));
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -88,8 +88,8 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
       orderBy("createdAt", "desc")
     );
 
-    if (!isAdmin && userBranchId) {
-      q = query(q, where("branchId", "==", userBranchId));
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

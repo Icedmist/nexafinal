@@ -28,11 +28,19 @@ export function useExpenses(): QueryResult<Expense[]> {
       return;
     }
 
-    const q = query(
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
+    let q = query(
       collection(db, "expenses"),
-      where("storeId", "==", storeId),
-      orderBy("createdAt", "desc")
+      where("storeId", "==", storeId)
     );
+
+    if (!isAdmin && userBranchId) {
+      q = query(q, where("branchId", "==", userBranchId));
+    }
+
+    q = query(q, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const expenses: Expense[] = [];
@@ -40,14 +48,7 @@ export function useExpenses(): QueryResult<Expense[]> {
         expenses.push({ ...doc.data(), id: doc.id } as Expense);
       });
 
-      // Filter by branch if user is restricted
       let filtered = expenses;
-      const isAdmin = isAdminRole(claims?.role);
-      const userBranchId = claims?.branchId;
-      
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(e => e.branchId === userBranchId);
-      }
 
       setData(filtered);
       setIsLoading(false);

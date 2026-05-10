@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
-import { Pencil, ExternalLink, Trash2, PackageCheck, Clock, Check, Printer, X, ShoppingCart, Calendar, FileText, History } from "lucide-react";
+import { Pencil, ExternalLink, Trash2, PackageCheck, Clock, Check, Printer, ShoppingCart, Calendar, FileText, History } from "lucide-react";
 import {
   Dialog,
   DialogContent,

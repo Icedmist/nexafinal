@@ -44,7 +44,7 @@ interface CatalogSearch {
 export default CatalogPage;
 
 function CatalogPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { item: itemId, newItem } = Object.fromEntries(searchParams.entries()) as any;
   const navigate = useNavigate();
 
@@ -53,13 +53,14 @@ function CatalogPage() {
     if (newItem === "true") {
       setEditItem(null);
       setSheetOpen(true);
-      // Small delay before replacing URL to prevent race conditions in some routers
-      const timer = setTimeout(() => {
-        navigate("/app/catalog", { replace: true });
-      }, 100);
-      return () => clearTimeout(timer);
+      // Clean up URL stably
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("newItem");
+        return next;
+      }, { replace: true });
     }
-  }, [newItem, navigate]);
+  }, [newItem, setSearchParams]);
 
   const [filters, setFilters] = useState<ItemFilters>({});
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });

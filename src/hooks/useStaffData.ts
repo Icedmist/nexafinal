@@ -40,8 +40,8 @@ export function useStaff(): QueryResult<Staff[]> {
       where("storeId", "==", targetStoreId)
     );
 
-    if (!isAdmin && userBranchId) {
-      q = query(q, where("branchId", "==", userBranchId));
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -87,8 +87,8 @@ export function useStoreBranches(): QueryResult<Branch[]> {
         const allBranches = storeData.branches || [];
         
         let filtered = allBranches;
-        if (!isAdmin && userBranchId) {
-          filtered = allBranches.filter(b => b.id === userBranchId);
+        if (!isAdmin) {
+          filtered = allBranches.filter(b => b.id === (userBranchId || "none"));
         }
         setData(filtered);
       }
