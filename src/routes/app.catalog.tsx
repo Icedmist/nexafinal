@@ -53,14 +53,22 @@ function CatalogPage() {
     if (newItem === "true") {
       setEditItem(null);
       setSheetOpen(true);
-      // Clean up URL stably
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("newItem");
-        return next;
-      }, { replace: true });
     }
-  }, [newItem, setSearchParams]);
+  }, [newItem]);
+
+  const handleSheetOpenChange = useCallback((open: boolean) => {
+    setSheetOpen(open);
+    if (!open) {
+      setEditItem(null);
+      if (searchParams.get("newItem") === "true") {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("newItem");
+          return next;
+        }, { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams]);
 
   const [filters, setFilters] = useState<ItemFilters>({});
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
@@ -285,7 +293,7 @@ function CatalogPage() {
 
       <ItemFormSheet
         open={sheetOpen}
-        onOpenChange={(v) => { setSheetOpen(v); if (!v) setEditItem(null); }}
+        onOpenChange={handleSheetOpenChange}
         item={editItem}
         categories={categories}
         suppliers={suppliers}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
@@ -73,7 +73,12 @@ function RestockingPage() {
     if (action === "new") {
       setEditPO(null);
       setFormOpen(true);
-      // Clean up URL stably
+    }
+  }, [action]);
+
+  const handleFormOpenChange = useCallback((open: boolean) => {
+    setFormOpen(open);
+    if (!open && action === "new") {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("action");
@@ -251,7 +256,7 @@ function RestockingPage() {
 
       <RestockingFormSheet
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={handleFormOpenChange}
         purchaseOrder={editPO}
         suppliers={suppliers}
         items={catalogItems}

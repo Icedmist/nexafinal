@@ -9,6 +9,14 @@ import type {
 } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 
+const getBranchAccessValues = (userBranchId: string | null) => {
+  const values = ["all", null] as const;
+  if (userBranchId) {
+    return [userBranchId, ...values] as const;
+  }
+  return values;
+};
+
 interface QueryResult<T> {
   data: T;
   isLoading: boolean;
@@ -45,7 +53,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     }
 
     if (!isAdmin) {
-      prodQuery = query(prodQuery, where("branchId", "in", [userBranchId || "none", "all"]));
+      prodQuery = query(prodQuery, where("branchId", "in", getBranchAccessValues(userBranchId)));
     }
     
     prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
@@ -175,7 +183,7 @@ export function useLocations(): QueryResult<Location[]> {
 
     let q = locQuery;
     if (!isAdmin) {
-      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
+      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -273,7 +281,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
     );
 
     if (!isAdmin) {
-      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
+      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
     }
 
     q = query(
@@ -328,7 +336,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
     let q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
     
     if (!isAdmin) {
-      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
+      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -366,7 +374,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
     let q = query(collection(db, "requests"), where("storeId", "==", storeId));
     
     if (!isAdmin) {
-      q = query(q, where("branchId", "in", [userBranchId || "none", "all"]));
+      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

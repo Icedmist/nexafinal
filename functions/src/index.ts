@@ -45,6 +45,15 @@ const mapAuthError = (error: any): HttpsError => {
   }
 };
 
+const getDefaultBranchId = async (storeId: string): Promise<string | null> => {
+  const storeDoc = await admin.firestore().collection("stores").doc(storeId).get();
+  if (!storeDoc.exists) return null;
+  const storeData = storeDoc.data() as any;
+  const branches = Array.isArray(storeData?.branches) ? storeData.branches : [];
+  const defaultBranch = branches.find((b: any) => b?.isMain) || branches[0];
+  return defaultBranch?.id ?? null;
+};
+
 /**
  * AUTOMATIC ONBOARDING: Firestore Trigger (v2)
  * Synchronizes Custom Claims whenever a staff record changes.
@@ -60,11 +69,21 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
     const userRecord = await admin.auth().getUserByEmail(email);
     
     if (userRecord) {
+      let actualBranchId = data.branchId || null;
+      if (!actualBranchId && storeId) {
+        actualBranchId = await getDefaultBranchId(storeId);
+      }
+      
+      if (!data.branchId && actualBranchId) {
+        await admin.firestore().collection("staff").doc(event.params.staffId).update({ branchId: actualBranchId, updatedAt: new Date().toISOString() });
+        console.log(`Assigned default branch ${actualBranchId} for staff ${email}`);
+      }
+
       // Update custom claims
       await admin.auth().setCustomUserClaims(userRecord.uid, {
         storeId: storeId,
         role: isActive ? role : "requestor",
-        branchId: data.branchId || null,
+        branchId: actualBranchId,
       });
       
       // NEW: Sync displayName to Auth profile if it has changed
@@ -117,11 +136,13 @@ export const provisionstaff = onCall({
       displayName,
     });
 
+    const assignedBranchId = branchId || await getDefaultBranchId(storeId);
+
     await admin.auth().setCustomUserClaims(userRecord.uid, {
       storeId,
       role,
-        branchId: branchId || null,
-      });
+      branchId: assignedBranchId,
+    });
 
     await admin.firestore().collection("staff").doc(userRecord.uid).set({
       uid: userRecord.uid,
@@ -129,7 +150,7 @@ export const provisionstaff = onCall({
       displayName,
       role,
       storeId,
-      branchId: branchId || null,
+      branchId: assignedBranchId,
     });
 
     // Send invitation email

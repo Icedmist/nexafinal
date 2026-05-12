@@ -44,13 +44,30 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [loading, setLoading] = React.useState(true);
   const [claimsReady, setClaimsReady] = React.useState(false);
 
+  const refreshClaims = async () => {
+    if (auth.currentUser) {
+      try {
+        const tokenResult = await auth.currentUser.getIdTokenResult(true);
+        setClaims({
+          storeId: tokenResult.claims.storeId as string,
+          role: tokenResult.claims.role as string,
+          branchId: tokenResult.claims.branchId as string | null,
+        });
+        setClaimsReady(true);
+      } catch (error) {
+        console.error("Error refreshing custom claims:", error);
+      }
+    }
+  };
+
   const login = async (email: string, pass: string) => {
     try {
       console.log(`[Auth] Attempting login for: ${email}`);
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       
-      // Reset claimsReady on new login to force a resync check
+      // Reset claimsReady on new login and refresh custom claims immediately
       setClaimsReady(false);
+      await refreshClaims();
       
       if (cred.user) {
         console.log(`[Auth] Login successful for UID: ${cred.user.uid}`);
@@ -92,6 +109,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         await updateProfile(cred.user, { displayName });
       }
       if (cred.user) {
+        await refreshClaims();
         await notifyActivity(
           "staff_onboarding",
           "New Account Created",
@@ -119,22 +137,6 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
-  };
-
-  const refreshClaims = async () => {
-    if (auth.currentUser) {
-      try {
-        const tokenResult = await auth.currentUser.getIdTokenResult(true);
-        setClaims({
-          storeId: tokenResult.claims.storeId as string,
-          role: tokenResult.claims.role as string,
-          branchId: tokenResult.claims.branchId as string | null,
-        });
-        setClaimsReady(true);
-      } catch (error) {
-        console.error("Error refreshing custom claims:", error);
-      }
-    }
   };
 
   React.useEffect(() => {
