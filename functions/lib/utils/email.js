@@ -26,7 +26,9 @@ const sendEmailViaZoho = async (options) => {
         text: options.text,
         html: options.html || (0, email_template_1.getBaseEmailTemplate)({
             title: options.subject,
-            message: options.text
+            message: options.text,
+            actionUrl: options.actionUrl,
+            actionLabel: options.actionLabel
         }),
     };
     try {

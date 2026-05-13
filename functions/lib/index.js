@@ -8,6 +8,7 @@ const v2_1 = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 const params_1 = require("firebase-functions/params");
 const email_1 = require("./utils/email");
+const email_template_1 = require("./utils/email-template");
 admin.initializeApp();
 // Secrets for Zoho email
 const ZOHO_EMAIL = (0, params_1.defineSecret)("ZOHO_EMAIL");
@@ -42,6 +43,15 @@ const mapAuthError = (error) => {
             return new https_1.HttpsError("internal", message);
     }
 };
+const getDefaultBranchId = async (storeId) => {
+    const storeDoc = await admin.firestore().collection("stores").doc(storeId).get();
+    if (!storeDoc.exists)
+        return null;
+    const storeData = storeDoc.data();
+    const branches = Array.isArray(storeData?.branches) ? storeData.branches : [];
+    const defaultBranch = branches.find((b) => b?.isMain) || branches[0];
+    return defaultBranch?.id ?? null;
+};
 /**
  * AUTOMATIC ONBOARDING: Firestore Trigger (v2)
  * Synchronizes Custom Claims whenever a staff record changes.
@@ -54,11 +64,19 @@ exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", 
     try {
         const userRecord = await admin.auth().getUserByEmail(email);
         if (userRecord) {
+            let actualBranchId = data.branchId || null;
+            if (!actualBranchId && storeId) {
+                actualBranchId = await getDefaultBranchId(storeId);
+            }
+            if (!data.branchId && actualBranchId) {
+                await admin.firestore().collection("staff").doc(event.params.staffId).update({ branchId: actualBranchId, updatedAt: new Date().toISOString() });
+                console.log(`Assigned default branch ${actualBranchId} for staff ${email}`);
+            }
             // Update custom claims
             await admin.auth().setCustomUserClaims(userRecord.uid, {
                 storeId: storeId,
-                role: isActive ? role : "requestor",
-                branchId: data.branchId || null,
+                role: isActive ? role : "suspended",
+                branchId: actualBranchId,
             });
             // NEW: Sync displayName to Auth profile if it has changed
             if (data.displayName && data.displayName !== userRecord.displayName) {
@@ -105,10 +123,11 @@ exports.provisionstaff = (0, https_1.onCall)({
             password,
             displayName,
         });
+        const assignedBranchId = branchId || await getDefaultBranchId(storeId);
         await admin.auth().setCustomUserClaims(userRecord.uid, {
             storeId,
             role,
-            branchId: branchId || null,
+            branchId: assignedBranchId,
         });
         await admin.firestore().collection("staff").doc(userRecord.uid).set({
             uid: userRecord.uid,
@@ -116,34 +135,16 @@ exports.provisionstaff = (0, https_1.onCall)({
             displayName,
             role,
             storeId,
-            branchId: branchId || null,
+            branchId: assignedBranchId,
         });
         // Send invitation email
         try {
             await (0, email_1.sendEmailViaZoho)({
                 to: normalizedEmail,
                 subject: `Welcome to Nexa OS - Your Staff Account`,
-                text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
-                html: `
-          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
-            </div>
-            <div style="padding: 30px;">
-              <p>Hi <strong>${displayName || "there"}</strong>,</p>
-              <p>You have been invited as a <strong>${role}</strong> to join a store on the Nexa platform.</p>
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
-                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
-                <p style="margin-top: 0;">Password: <code>${password}</code></p>
-              </div>
-              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
-              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                Please change your password immediately after your first login for security purposes.
-              </p>
-            </div>
-          </div>
-        `
+                text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store on the Nexa platform.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+                actionUrl: "https://nexa-os.com/auth/login",
+                actionLabel: "Login to Dashboard"
             });
         }
         catch (emailError) {
@@ -221,27 +222,9 @@ exports.provisionplatformuser = (0, https_1.onCall)({
             await (0, email_1.sendEmailViaZoho)({
                 to: normalizedEmail,
                 subject: `Welcome to Nexa OS - ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} Account`,
-                text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role} on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
-                html: `
-          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
-            </div>
-            <div style="padding: 30px;">
-              <p>Hi <strong>${displayName || "there"}</strong>,</p>
-              <p>You have been provisioned as a <strong>${role === 'system_admin' ? 'System Admin' : 'Store Owner'}</strong> on the Nexa platform.</p>
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
-                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
-                <p style="margin-top: 0;">Password: <code>${password}</code></p>
-              </div>
-              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
-              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                Please change your password immediately after your first login for security purposes.
-              </p>
-            </div>
-          </div>
-        `
+                text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} on the Nexa platform.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+                actionUrl: "https://nexa-os.com/auth/login",
+                actionLabel: "Login to Dashboard"
             });
         }
         catch (emailError) {
@@ -484,12 +467,14 @@ exports.sendautoreceipt = (0, firestore_1.onDocumentCreated)({
     const debtNote = isCreditSale
         ? `\n\nIMPORTANT: This was a credit sale. You have an outstanding balance of ₦${totalNgn.toLocaleString()}. Kindly settle this at your earliest convenience.`
         : "";
+    const title = "Your Receipt from Nexa Store";
     const message = `Hi ${customerName || "Customer"},\n\nThank you for shopping with us! Your order total was ₦${totalNgn.toLocaleString()}.${debtNote}\n\nItems:\n${itemsList}\n\nWe appreciate your business! 🙏`;
     try {
         await (0, email_1.sendEmailViaZoho)({
             to: customerEmail,
-            subject: "Your Receipt from Nexa Store",
+            subject: title,
             text: message,
+            // The sendEmailViaZoho utility will automatically wrap this in the beautified HTML template
         });
     }
     catch (error) {
@@ -508,12 +493,8 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
     const data = event.data?.data();
     if (!data || !data.storeId)
         return null;
-    // We only send emails for critical alerts to avoid spam
-    const criticalTypes = ["login", "inventory_alert", "staff_onboarding"];
-    if (!criticalTypes.includes(data.type))
-        return null;
     try {
-        // 1. Get store owner email
+        // 1. Get store details for branding and owner email
         const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
         const storeData = storeDoc.data();
         if (!storeData || !storeData.ownerId)
@@ -522,18 +503,61 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
         const ownerEmail = owner.email;
         if (!ownerEmail)
             return null;
-        // 2. Format and send alert
-        const title = `Nexa OS Alert: ${data.title}`;
-        const message = `A new activity has been recorded in your store (${storeData.name}):\n\nEvent: ${data.title}\nDetails: ${data.message}\nUser: ${data.userEmail}\nTime: ${new Date().toLocaleString()}\n\nLog in to your dashboard to view more details.`;
-        await (0, email_1.sendEmailViaZoho)({
-            to: ownerEmail,
-            subject: title,
-            text: message,
+        // 2. Determine if email should be sent (High severity or critical categories)
+        const shouldSendEmail = data.severity === "high" || data.severity === "critical" ||
+            ["security", "procurement"].includes(data.category);
+        if (shouldSendEmail) {
+            let emailHtml = "";
+            const emailSubject = `NEXA CORE ALERT: ${data.title}`;
+            // Choose template based on category
+            if (data.category === "sales" && data.type === "sale") {
+                emailHtml = (0, email_template_1.getReceiptEmailTemplate)(data.metadata?.order || {}, storeData);
+            }
+            else if (data.category === "system" && data.type === "report") {
+                emailHtml = (0, email_template_1.getReportEmailTemplate)({
+                    title: data.title,
+                    period: data.metadata?.period || "Daily",
+                    summary: data.message
+                });
+            }
+            else {
+                emailHtml = (0, email_template_1.getAlertEmailTemplate)({
+                    title: data.title,
+                    severity: data.severity || "info",
+                    details: data.message
+                });
+            }
+            await (0, email_1.sendEmailViaZoho)({
+                to: ownerEmail,
+                subject: emailSubject,
+                text: data.message,
+                html: emailHtml
+            });
+        }
+        // 3. Create/Update In-App Notification document
+        // We map categories to notification types for the UI
+        const categoryToType = {
+            "inventory": "low_stock",
+            "procurement": "inventory_request",
+            "security": "security",
+            "sales": "sale",
+            "system": "system"
+        };
+        await admin.firestore().collection("notifications").add({
+            storeId: data.storeId,
+            title: data.title,
+            message: data.message,
+            type: categoryToType[data.category] || "system",
+            severity: data.severity || "low",
+            isRead: false,
+            link: data.actionUrl || "/app/dashboard",
+            metadata: data.metadata || {},
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(`Alert email sent to owner ${ownerEmail} for event type ${data.type}`);
+        console.log(`Activity processed: ${data.category}/${data.type} (Email: ${shouldSendEmail})`);
     }
     catch (error) {
-        console.error("Failed to send activity alert:", error);
+        console.error("Failed to process activity log:", error);
     }
     return null;
 });

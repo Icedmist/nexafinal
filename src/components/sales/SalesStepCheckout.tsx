@@ -129,16 +129,22 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       const sale = { id: docRef?.id || `sale-${Date.now()}`, ...saleData };
       setLastSale(sale);
       
-      await notifyActivity(
-        "sale",
-        "Sale Recorded",
-        `A sale of ${NAIRA}${grandTotal.toLocaleString()} was recorded by ${user?.email || "Staff"}.`,
-        user?.uid || "unknown",
-        user?.email || "unknown",
-        claims?.storeId,
-        claims?.branchId,
-        { saleId: sale.id, total: grandTotal }
-      );
+      await notifyActivity({
+        type: "sale",
+        category: "sales",
+        severity: "low",
+        title: "Sale Recorded",
+        message: `A sale of ${NAIRA}${grandTotal.toLocaleString()} was recorded by ${user?.email || "Staff"}.`,
+        userId: user?.uid || "unknown",
+        userEmail: user?.email || "unknown",
+        storeId: claims?.storeId as string,
+        branchId: claims?.branchId,
+        metadata: { 
+          saleId: sale.id, 
+          total: grandTotal,
+          order: sale // Pass full order for receipt template
+        }
+      });
 
       toast.success(`Sale recorded — ${NAIRA}${grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
     } catch (err) {

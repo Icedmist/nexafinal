@@ -40,6 +40,7 @@ const SystemAuditPage = lazy(() => import('./routes/system-admin.audit'));
 
 
 import { NexaCoreLoader } from './components/shared/NexaCoreLoader';
+import { LogoutOverlay } from './components/shared/LogoutOverlay';
 
 const Loading = () => (
   <div className="flex h-screen items-center justify-center bg-background p-6">
@@ -49,7 +50,9 @@ const Loading = () => (
 
 function App() {
   return (
-    <Suspense fallback={<Loading />}>
+    <>
+      <LogoutOverlay />
+      <Suspense fallback={<Loading />}>
       <Routes>
         <Route element={<RootLayout />}>
           {/* Public Routes */}
@@ -105,6 +108,7 @@ function App() {
         </Route>
       </Routes>
     </Suspense>
+    </>
   );
 }
 

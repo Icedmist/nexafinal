@@ -1,56 +1,129 @@
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-import { NotificationType } from "@/types/inventory";
+export type NotificationSeverity = "low" | "medium" | "high" | "critical";
+export type NotificationCategory = "inventory" | "sales" | "security" | "system" | "procurement";
 
 export interface ActivityNotification {
-  type: NotificationType;
+  type: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
   title: string;
   message: string;
   userId: string;
   userEmail: string;
+  storeId: string;
+  branchId?: string | null;
   metadata?: Record<string, any>;
-  createdAt: any;
+  actionUrl?: string;
+  actionLabel?: string;
+  isRead?: boolean;
 }
 
-export const notifyActivity = async (
-  type: NotificationType,
-  title: string,
-  message: string,
-  userId: string,
-  userEmail: string,
-  storeId?: string,
-  branchId?: string | null,
-  metadata?: Record<string, any>
-) => {
+/**
+ * Enhanced notification service for rich activity logging and automated alerts.
+ * Logs are stored in 'activity_logs' which triggers backend email/push notifications.
+ */
+export const notifyActivity = async (options: {
+  type: string;
+  category: NotificationCategory;
+  severity?: NotificationSeverity;
+  title: string;
+  message: string;
+  userId: string;
+  userEmail: string;
+  storeId: string;
+  branchId?: string | null;
+  metadata?: Record<string, any>;
+  actionUrl?: string;
+  actionLabel?: string;
+}) => {
+  const {
+    type,
+    category,
+    severity = "low",
+    title,
+    message,
+    userId,
+    userEmail,
+    storeId,
+    branchId = null,
+    metadata = {},
+    actionUrl,
+    actionLabel,
+  } = options;
+
   try {
-    const logData: Record<string, any> = {
+    const logData = {
       type,
+      category,
+      severity,
       title,
       message,
       userId,
       userEmail,
-      storeId: storeId || null,
-      branchId: branchId || null,
+      storeId,
+      branchId,
+      metadata: Object.fromEntries(
+        Object.entries(metadata).filter(([_, v]) => v !== undefined)
+      ),
+      actionUrl: actionUrl || null,
+      actionLabel: actionLabel || null,
+      isRead: false,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
-    if (metadata !== undefined) {
-      // Filter out any undefined values within metadata itself
-      const cleanMeta: Record<string, any> = {};
-      for (const [k, v] of Object.entries(metadata)) {
-        if (v !== undefined) cleanMeta[k] = v;
-      }
-      if (Object.keys(cleanMeta).length > 0) {
-        logData.metadata = cleanMeta;
-      }
-    }
-    await addDoc(collection(db, "activity_logs"), logData);
 
-    // Placeholder for real email sending
-    // In production, this would trigger a Firebase Cloud Function that sends an email via SendGrid/Mailgun
-    console.log(`[Email Notification] To: admin@store.com | Subject: ${title} | Body: ${message}`);
+    const docRef = await addDoc(collection(db, "activity_logs"), logData);
     
+    console.log(`[Notification Engine] Activity logged: ${category}/${type} (${severity}) - ID: ${docRef.id}`);
+    
+    return docRef.id;
   } catch (err) {
     console.error("Failed to log activity notification:", err);
+    return null;
   }
+};
+
+/**
+ * Specialized security alert notification
+ */
+export const notifySecurityAlert = async (options: {
+  title: string;
+  message: string;
+  userId: string;
+  userEmail: string;
+  storeId: string;
+  severity: "high" | "critical";
+  metadata?: Record<string, any>;
+}) => {
+  return notifyActivity({
+    ...options,
+    type: "security_alert",
+    category: "security",
+    actionUrl: "/settings/security",
+    actionLabel: "Review Security Logs"
+  });
+};
+
+/**
+ * Specialized inventory alert notification
+ */
+export const notifyInventoryAlert = async (options: {
+  title: string;
+  message: string;
+  userId: string;
+  userEmail: string;
+  storeId: string;
+  branchId?: string;
+  metadata?: Record<string, any>;
+}) => {
+  return notifyActivity({
+    ...options,
+    type: "low_stock_alert",
+    category: "inventory",
+    severity: "medium",
+    actionUrl: "/inventory",
+    actionLabel: "Restock Inventory"
+  });
 };

@@ -5,6 +5,12 @@ import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { defineSecret } from "firebase-functions/params";
 import { sendEmailViaZoho } from "./utils/email";
+import { 
+  getAlertEmailTemplate, 
+  getReceiptEmailTemplate, 
+  getReportEmailTemplate,
+  getBaseEmailTemplate
+} from "./utils/email-template";
 
 admin.initializeApp();
 
@@ -538,12 +544,8 @@ export const onactivitycreated = onDocumentCreated({
   const data = event.data?.data();
   if (!data || !data.storeId) return null;
 
-  // We only send emails for critical alerts to avoid spam
-  const criticalTypes = ["login", "inventory_alert", "staff_onboarding", "inventory_request", "sale", "movement"];
-  if (!criticalTypes.includes(data.type)) return null;
-
   try {
-    // 1. Get store owner email
+    // 1. Get store details for branding and owner email
     const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
     const storeData = storeDoc.data();
     if (!storeData || !storeData.ownerId) return null;
@@ -552,42 +554,64 @@ export const onactivitycreated = onDocumentCreated({
     const ownerEmail = owner.email;
     if (!ownerEmail) return null;
 
-    // 2. Format and send alert
-    const title = `Nexa OS Alert: ${data.title}`;
-    const message = `A new activity has been recorded in your store (${storeData.name}):\n\nEvent: ${data.title}\nDetails: ${data.message}\nUser: ${data.userEmail}\nTime: ${new Date().toLocaleString()}\n\nLog in to your dashboard to view more details.`;
+    // 2. Determine if email should be sent (High severity or critical categories)
+    const shouldSendEmail = data.severity === "high" || data.severity === "critical" || 
+                           ["security", "procurement"].includes(data.category);
 
-    await sendEmailViaZoho({
-      to: ownerEmail,
-      subject: title,
-      text: message,
-      actionUrl: `https://${storeData.slug}.nexastoreos.com/app/dashboard`,
-      actionLabel: "View Activity Log"
-    });
-    
-    // 3. Create In-App Notification document
-    const notificationTypeMap: Record<string, string> = {
-      "inventory_alert": "low_stock",
-      "inventory_request": "inventory_request",
-      "staff_onboarding": "staff_onboarding",
-      "login": "login",
-      "sale": "sale",
-      "movement": "movement"
+    if (shouldSendEmail) {
+      let emailHtml = "";
+      const emailSubject = `NEXA CORE ALERT: ${data.title}`;
+
+      // Choose template based on category
+      if (data.category === "sales" && data.type === "sale") {
+        emailHtml = getReceiptEmailTemplate(data.metadata?.order || {}, storeData);
+      } else if (data.category === "system" && data.type === "report") {
+        emailHtml = getReportEmailTemplate({
+          title: data.title,
+          period: data.metadata?.period || "Daily",
+          summary: data.message
+        });
+      } else {
+        emailHtml = getAlertEmailTemplate({
+          title: data.title,
+          severity: data.severity || "info",
+          details: data.message
+        });
+      }
+
+      await sendEmailViaZoho({
+        to: ownerEmail,
+        subject: emailSubject,
+        text: data.message,
+        html: emailHtml
+      });
+    }
+
+    // 3. Create/Update In-App Notification document
+    // We map categories to notification types for the UI
+    const categoryToType: Record<string, string> = {
+      "inventory": "low_stock",
+      "procurement": "inventory_request",
+      "security": "security",
+      "sales": "sale",
+      "system": "system"
     };
 
     await admin.firestore().collection("notifications").add({
       storeId: data.storeId,
       title: data.title,
       message: data.message,
-      type: notificationTypeMap[data.type] || "system",
+      type: categoryToType[data.category] || "system",
+      severity: data.severity || "low",
       isRead: false,
-      link: data.type === "inventory_request" ? "/app/requests" : (data.type === "inventory_alert" ? "/app/catalog" : (data.type === "sale" ? "/app/sales" : "/app/dashboard")),
-      referenceId: data.itemId || data.requestId || data.saleId || null,
+      link: data.actionUrl || "/app/dashboard",
+      metadata: data.metadata || {},
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    console.log(`Alert email sent and notification created for owner ${ownerEmail} (event: ${data.type})`);
+    console.log(`Activity processed: ${data.category}/${data.type} (Email: ${shouldSendEmail})`);
   } catch (error) {
-    console.error("Failed to send activity alert:", error);
+    console.error("Failed to process activity log:", error);
   }
   return null;
 });

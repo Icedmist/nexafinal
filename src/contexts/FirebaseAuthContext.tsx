@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   claims: { storeId?: string; role?: string; branchId?: string | null } | null;
   loading: boolean;
+  isLoggingOut: boolean; // NEW: Indicates if the logout process is active
   claimsReady: boolean; // NEW: Indicates if claims have been synced for the current user
   login: (email: string, pass: string) => Promise<UserCredential>;
   signup: (email: string, pass: string, displayName?: string) => Promise<UserCredential>;
@@ -28,6 +29,7 @@ const AuthContext = React.createContext<AuthContextType>({
   user: null,
   claims: null,
   loading: true,
+  isLoggingOut: false,
   claimsReady: false,
   login: async () => ({} as UserCredential),
   signup: async () => ({} as UserCredential),
@@ -42,6 +44,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [user, setUser] = React.useState<User | null>(null);
   const [claims, setClaims] = React.useState<{ storeId?: string; role?: string; branchId?: string | null } | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [claimsReady, setClaimsReady] = React.useState(false);
 
   const refreshClaims = async () => {
@@ -74,15 +77,17 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const tokenResult = await cred.user.getIdTokenResult();
         console.log(`[Auth] Custom claims found:`, tokenResult.claims);
         
-        await notifyActivity(
-          "login",
-          "Staff Login",
-          `${cred.user.email} logged into the store.`,
-          cred.user.uid,
-          cred.user.email || "",
-          tokenResult.claims.storeId as string,
-          tokenResult.claims.branchId as string | null
-        );
+        await notifyActivity({
+          type: "login",
+          category: "security",
+          severity: "low",
+          title: "Staff Login",
+          message: `${cred.user.email} logged into the store.`,
+          userId: cred.user.uid,
+          userEmail: cred.user.email || "",
+          storeId: tokenResult.claims.storeId as string,
+          branchId: tokenResult.claims.branchId as string | null
+        });
       }
       return cred;
     } catch (error: any) {
@@ -110,14 +115,16 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
       if (cred.user) {
         await refreshClaims();
-        await notifyActivity(
-          "staff_onboarding",
-          "New Account Created",
-          `${cred.user.email} created a new account.`,
-          cred.user.uid,
-          cred.user.email || "",
-          undefined // No storeId yet for new signups
-        );
+        await notifyActivity({
+          type: "staff_onboarding",
+          category: "system",
+          severity: "medium",
+          title: "New Account Created",
+          message: `${cred.user.email} created a new account.`,
+          userId: cred.user.uid,
+          userEmail: cred.user.email || "",
+          storeId: "PLATFORM" // Using PLATFORM as placeholder for initial signup
+        });
       }
       return cred;
     } catch (error: any) {
@@ -131,6 +138,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const logout = async () => {
+    setIsLoggingOut(true);
     setClaimsReady(false);
     
     try {
@@ -158,6 +166,16 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
     } catch (e) {
       console.warn("Failed to clear IndexedDB:", e);
+    }
+
+    // 4. Clear Cache Storage (Service Workers, etc.)
+    try {
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(key => caches.delete(key)));
+      }
+    } catch (e) {
+      console.warn("Failed to clear Cache Storage:", e);
     }
 
     // 4. Force a full page reload to the root domain to reset all application state/contexts
@@ -242,7 +260,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, claims, loading, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
+    <AuthContext.Provider value={{ user, claims, loading, isLoggingOut, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
       {!loading && children}
     </AuthContext.Provider>
   );
