@@ -1,4 +1,5 @@
 import { StoreAccessGuard } from "@/components/shared/StoreAccessGuard";
+import { FirebaseAuthProvider } from "@/contexts/FirebaseAuthContext";
 
 // ... (DynamicTitle remains same)
 
