@@ -311,16 +311,31 @@ export const getReceiptEmailTemplate = (order: any, store: any) => {
   });
 };
 
-export const getAlertEmailTemplate = (alert: { title: string; severity: string; details: string }) => {
+export const getAlertEmailTemplate = (alert: { 
+  title: string; 
+  severity: string; 
+  details: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  performedBy?: string;
+}) => {
+  const severityToType: Record<string, "alert" | "security" | "info"> = {
+    critical: "alert",
+    high: "alert",
+    medium: "info",
+  };
+
   return getBaseEmailTemplate({
     title: alert.title,
     message: alert.details,
-    type: alert.severity === "high" ? "alert" : "info",
+    type: severityToType[alert.severity] || "info",
     metadata: {
       "Severity": alert.severity.toUpperCase(),
+      "Performed By": alert.performedBy || "System",
       "Timestamp": new Date().toLocaleString(),
-      "System Component": "Nexa Security Engine"
-    }
+    },
+    actionUrl: alert.actionUrl,
+    actionLabel: alert.actionLabel || "View in Dashboard",
   });
 };
 
