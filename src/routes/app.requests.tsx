@@ -36,7 +36,7 @@ export default RequestsPage;
 function applyFilters(requests: InventoryRequest[], filters: RequestFilters): InventoryRequest[] {
   return requests.filter((r) => {
     if (filters.statuses.length > 0 && !filters.statuses.includes(r.status)) return false;
-    if (filters.requestor && !r.requestedBy.toLowerCase().includes(filters.requestor.toLowerCase())) return false;
+    if (filters.requestedBy && !r.requestedBy.toLowerCase().includes(filters.requestedBy.toLowerCase())) return false;
     if (filters.dateFrom && r.createdAt < new Date(filters.dateFrom).toISOString()) return false;
     if (filters.dateTo) {
       const toEnd = new Date(filters.dateTo);

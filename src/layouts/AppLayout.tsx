@@ -22,7 +22,7 @@ export function AppLayout() {
   const { user, loading, claims, claimsReady } = auth;
   const { profile, needsOnboarding, loadingProfile } = useBusiness();
   const { store } = useTenant();
-  const { role, isSystemAdmin } = useRole();
+  const { role, isSystemAdmin, loading: roleLoading } = useRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -104,7 +104,7 @@ export function AppLayout() {
     // For system admins OR system routes, we check immediately.
     const shouldCheckPermissions = isSystemAdmin || isSystemRoute || !needsOnboarding;
 
-    if (user && claimsReady && !loadingProfile && shouldCheckPermissions) {
+    if (user && claimsReady && !loadingProfile && !roleLoading && shouldCheckPermissions) {
       const hasAccess = canAccessRoute(location.pathname, role);
       console.log("[AppLayout] Route Guard:", {
         path: location.pathname,
@@ -145,12 +145,16 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="hidden w-[260px] shrink-0 md:block">
+    <div className="flex h-screen flex-col overflow-hidden bg-background nexa-gradient-mesh">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Subtle background glow */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 blur-[120px] pointer-events-none rounded-full" />
+        
+        <aside className="hidden w-[280px] shrink-0 md:block">
           <Sidebar />
         </aside>
-        <div className="flex flex-1 flex-col overflow-hidden md:my-2 md:mr-2 md:rounded-2xl md:border md:border-border md:bg-card md:shadow-sm">
+        <div className="flex flex-1 flex-col overflow-hidden md:my-3 md:mr-3 md:rounded-[2rem] md:border md:border-border/50 md:bg-card/80 md:backdrop-blur-xl md:shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
           {/* Admin Audit Banner */}
           {isSystemAdmin && store && (
             <div className="flex h-8 w-full items-center justify-center gap-2 bg-blue-600 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white">
@@ -161,7 +165,7 @@ export function AppLayout() {
           <Header />
           <main className={cn(
             "flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8",
-            isSystemAdmin && store ? "md:rounded-none" : "md:rounded-b-2xl"
+            isSystemAdmin && store ? "md:rounded-none" : "md:rounded-b-[2rem]"
           )}>
             <AnimatePresence mode="wait">
               <PageTransition key={location.pathname} routeKey={location.pathname}>

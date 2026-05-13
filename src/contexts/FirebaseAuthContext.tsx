@@ -132,7 +132,15 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const logout = async () => {
     setClaimsReady(false);
+    
+    // Clear all local session data
+    localStorage.clear();
+    sessionStorage.clear();
+    
     await signOut(auth);
+    
+    // Force a full page reload to reset all application state/contexts
+    window.location.href = "/";
   };
 
   const resetPassword = async (email: string) => {

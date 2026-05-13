@@ -82,7 +82,7 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
       // Update custom claims
       await admin.auth().setCustomUserClaims(userRecord.uid, {
         storeId: storeId,
-        role: isActive ? role : "requestor",
+        role: isActive ? role : "suspended",
         branchId: actualBranchId,
       });
       
@@ -573,7 +573,7 @@ export const onactivitycreated = onDocumentCreated({
   if (!data || !data.storeId) return null;
 
   // We only send emails for critical alerts to avoid spam
-  const criticalTypes = ["login", "inventory_alert", "staff_onboarding"];
+  const criticalTypes = ["login", "inventory_alert", "staff_onboarding", "inventory_request"];
   if (!criticalTypes.includes(data.type)) return null;
 
   try {

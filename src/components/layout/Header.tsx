@@ -36,7 +36,6 @@ const ROLE_BADGE_STYLES: Record<string, string> = {
   manager: "bg-secondary/15 text-secondary-foreground border-secondary/20",
   staff: "bg-blue-500/15 text-blue-600 border-blue-500/20",
   system_admin: "bg-purple-500/15 text-purple-600 border-purple-500/20",
-  requestor: "bg-muted text-muted-foreground border-border",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -45,7 +44,6 @@ const ROLE_LABELS: Record<string, string> = {
   manager: "Manager",
   staff: "Staff",
   system_admin: "System Admin",
-  requestor: "Requestor",
 };
 
 

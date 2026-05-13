@@ -231,9 +231,19 @@ export function useCreateRequest() {
       storeId, 
       branchId: claims?.branchId || null,
       ownerId: uid, 
-      requestorId: uid, 
+      requestedByUid: uid, 
       createdAt: new Date().toISOString() 
     });
+
+    await notifyActivity(
+      "inventory_request" as any,
+      "New Inventory Request",
+      `${data.requestedBy} submitted a new request: ${data.title}`,
+      uid,
+      user?.email || "unknown",
+      storeId,
+      claims?.branchId
+    );
   });
 }
 

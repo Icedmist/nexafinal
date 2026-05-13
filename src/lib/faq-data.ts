@@ -16,7 +16,7 @@ export const FAQ_DATA: FaqCategory[] = [
       { question: "How do I get started?", answer: "Create an account or log in to your store dashboard. You can begin by adding your product catalog or importing existing data." },
       { question: "How do I navigate the app?", answer: "Use the sidebar (desktop) or bottom navigation bar (mobile) to switch between sections. Press CMD+K to open the command palette for quick search." },
       { question: "Is my data secure?", answer: "Yes, NEXA uses enterprise-grade encryption and secure authentication via Google Firebase to ensure your store data is protected and private." },
-      { question: "What roles are available?", answer: "Three roles: Admin (full access), Manager (can manage inventory and POs), and Requestor (can browse catalog and submit requests)." },
+      { question: "What roles are available?", answer: "Three primary roles: Owner/Admin (full access), Manager (can manage inventory and POs), and Staff (can log movements and view catalog)." },
     ],
   },
   {

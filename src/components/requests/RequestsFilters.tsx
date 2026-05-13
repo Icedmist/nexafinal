@@ -22,7 +22,7 @@ interface RequestsFiltersProps {
 
 export function RequestsFilters({ filters, onChange }: RequestsFiltersProps) {
   const hasFilters =
-    filters.statuses.length > 0 || filters.requestor || filters.dateFrom || filters.dateTo;
+    filters.statuses.length > 0 || filters.requestedBy || filters.dateFrom || filters.dateTo;
 
   function toggleStatus(status: RequestStatus) {
     const next = filters.statuses.includes(status)
@@ -44,9 +44,9 @@ export function RequestsFilters({ filters, onChange }: RequestsFiltersProps) {
         </Badge>
       ))}
       <Input
-        placeholder="Requestor..."
-        value={filters.requestor}
-        onChange={(e) => onChange({ ...filters, requestor: e.target.value })}
+        placeholder="Staff Name..."
+        value={filters.requestedBy}
+        onChange={(e) => onChange({ ...filters, requestedBy: e.target.value })}
         className="h-8 w-32"
       />
       <Input

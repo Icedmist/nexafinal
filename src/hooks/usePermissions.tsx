@@ -19,7 +19,7 @@ const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
   manage_users: ["admin", "system_admin"],
   view_analytics: ["admin", "manager", "system_admin"],
   export_data: ["admin", "manager", "system_admin"],
-  create_request: ["admin", "manager", "staff", "requestor", "system_admin"],
+  create_request: ["admin", "manager", "staff", "system_admin"],
   access_settings: ["admin", "manager", "staff", "system_admin"],
   manage_suppliers: ["admin", "manager", "system_admin"],
   view_sales: ["admin", "manager", "staff", "system_admin"],
@@ -27,14 +27,15 @@ const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
 };
 
 export function usePermissions() {
-  const { role } = useRole();
+  const { role, loading } = useRole();
 
   const can = (action: PermissionAction): boolean => {
+    if (loading) return false;
     if (role === "owner") return true;
     return ACTION_ROLES[action]?.includes(role) ?? false;
   };
 
-  return { can };
+  return { can, loading };
 }
 
 interface PermissionGateProps {
@@ -44,6 +45,9 @@ interface PermissionGateProps {
 }
 
 export function PermissionGate({ permission, fallback = null, children }: PermissionGateProps) {
-  const { can } = usePermissions();
+  const { can, loading } = usePermissions();
+  
+  if (loading) return null; // Or a skeleton loader
+  
   return can(permission) ? <>{children}</> : <>{fallback}</>;
 }

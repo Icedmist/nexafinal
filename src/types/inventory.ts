@@ -62,7 +62,9 @@ export enum ItemStatus {
 export enum UserRoleType {
   Admin = "admin",
   Manager = "manager",
-  Requestor = "requestor",
+  Staff = "staff",
+  SystemAdmin = "system_admin",
+  Owner = "owner",
 }
 
 // ─── Interfaces ──────────────────────────────────────────

@@ -146,14 +146,19 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     : visibleGroups;
 
   return (
-    <nav data-tour="sidebar" className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center gap-2 px-5">
-        <div className="bg-primary/10 rounded-lg p-1">
-          <img src={nexaLogo} className="h-5 w-5 text-primary" alt="NEXA Logo" />
+    <nav data-tour="sidebar" className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border/30">
+      <div className="flex h-20 items-center gap-3 px-6">
+        <div className="bg-sidebar-primary/20 rounded-xl p-2.5 shadow-[0_0_15px_rgba(var(--sidebar-primary),0.2)]">
+          <img src={nexaLogo} className="h-6 w-6" alt="NEXA Logo" />
         </div>
-        <span className="text-lg font-black tracking-tight uppercase italic text-sidebar-primary-foreground truncate">
-          {isSystemAdmin ? "NEXA Platform" : (profile?.storeDetails?.name || "NEXA Store OS")}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-xs font-black tracking-[0.2em] uppercase text-sidebar-primary-foreground/40 leading-none mb-1">
+            NEXA OS
+          </span>
+          <span className="text-sm font-bold tracking-tight text-sidebar-primary-foreground truncate max-w-[160px]">
+            {isSystemAdmin ? "Platform Admin" : (profile?.storeDetails?.name || "Store OS")}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-2">
@@ -180,13 +185,19 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       onClick={onNavigate}
                       data-tour={item.label.toLowerCase()}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+                        "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all duration-200",
                         isActive(item.href)
-                          ? "bg-sidebar-accent font-medium text-sidebar-primary-foreground"
-                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                          ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
                       )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      {isActive(item.href) && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full shadow-[0_0_10px_rgba(var(--sidebar-primary),0.5)]" />
+                      )}
+                      <item.icon className={cn(
+                        "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+                        isActive(item.href) ? "text-sidebar-primary" : "text-sidebar-foreground/40"
+                      )} />
                       {item.label}
                     </Link>
                   ))}
@@ -196,7 +207,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           );
         })}
 
-        <div className="mx-2 my-2 border-t border-sidebar-border" />
+        <div className="mx-2 my-2 border-t border-sidebar-border/20" />
         <div className="space-y-0.5">
           {standaloneLinks.map((item) => (
             <Link
@@ -204,13 +215,19 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               to={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+                "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all duration-200",
                 isActive(item.href)
-                  ? "bg-sidebar-accent font-medium text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
               )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              {isActive(item.href) && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full" />
+              )}
+              <item.icon className={cn(
+                "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+                isActive(item.href) ? "text-sidebar-primary" : "text-sidebar-foreground/40"
+              )} />
               {item.label}
             </Link>
           ))}
@@ -219,7 +236,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           {isSystemAdmin && (
             <Link
               to={isSystemRoute ? "/app/dashboard" : "/system-admin/dashboard"}
-              className="mt-4 flex items-center gap-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm font-bold text-primary transition-all hover:bg-primary/20"
+              className="mt-6 flex items-center gap-3 rounded-2xl bg-primary/20 px-4 py-3 text-xs font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/30 border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
             >
               {isSystemRoute ? (
                 <>
@@ -234,6 +251,23 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               )}
             </Link>
           )}
+        </div>
+      </div>
+
+      {/* User Section */}
+      <div className="p-4 border-t border-sidebar-border/20 bg-sidebar-accent/10">
+        <div className="flex items-center gap-3 px-2 py-1">
+          <div className="h-10 w-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary-foreground font-bold border border-sidebar-primary/10 shadow-inner">
+            {profile?.ownerId === "system" ? "S" : (profile?.storeDetails?.name?.charAt(0) || "N")}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-bold text-sidebar-primary-foreground truncate">
+              {isSystemAdmin ? "System Admin" : (profile?.ownerId?.slice(0, 8) || "User")}
+            </span>
+            <span className="text-[10px] text-sidebar-foreground/40 font-medium uppercase tracking-wider">
+              {isSystemAdmin ? "Superuser" : "Store Manager"}
+            </span>
+          </div>
         </div>
       </div>
     </nav>
