@@ -12,7 +12,7 @@ export interface ActivityNotification {
   message: string;
   userId: string;
   userEmail: string;
-  storeId: string;
+  storeId?: string;
   branchId?: string | null;
   metadata?: Record<string, any>;
   actionUrl?: string;
@@ -32,7 +32,7 @@ export const notifyActivity = async (options: {
   message: string;
   userId: string;
   userEmail: string;
-  storeId: string;
+  storeId?: string;
   branchId?: string | null;
   metadata?: Record<string, any>;
   actionUrl?: string;
@@ -52,7 +52,11 @@ export const notifyActivity = async (options: {
     actionUrl,
     actionLabel,
   } = options;
-
+  // Skip logging if storeId is not provided (required for proper activity filtering)
+  if (!storeId) {
+    console.warn(`[Notification Engine] Skipping activity log for ${category}/${type} - no storeId provided`);
+    return null;
+  }
   try {
     const logData = {
       type,
