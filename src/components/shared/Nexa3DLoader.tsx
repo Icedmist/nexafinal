@@ -56,8 +56,11 @@ function Scene() {
         <bufferGeometry>
           <bufferAttribute
             attach="attributes-position"
+            args={[new Float32Array(300).map(() => (Math.random() - 0.5) * 10), 3]}
             count={100}
             array={new Float32Array(300).map(() => (Math.random() - 0.5) * 10)}
+            itemSize={3}
+          />
             itemSize={3}
           />
         </bufferGeometry>

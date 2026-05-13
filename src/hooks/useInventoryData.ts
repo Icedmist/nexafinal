@@ -9,7 +9,7 @@ import type {
 } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 
-const getBranchAccessValues = (userBranchId: string | null) => {
+const getBranchAccessValues = (userBranchId: string | null | undefined) => {
   const values = ["all", null] as const;
   if (userBranchId) {
     return [userBranchId, ...values] as const;

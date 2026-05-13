@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, increment, getDoc } from "firebase/firestore";
+import { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -159,7 +160,7 @@ export function useCreateMovement() {
       userEmail: user.email || "unknown",
       storeId,
       branchId: claims?.branchId,
-      metadata: { movementType: data.type, quantity: data.quantity, reason: data.reason }
+      metadata: { movementType: data.type, quantity: data.quantity, reason: data.reference }
     });
   });
 }
@@ -229,7 +230,7 @@ export function useCreatePurchaseOrder() {
       category: "procurement",
       severity: "medium",
       title: "New Purchase Order",
-      message: `Order ${poData.orderNumber} was created for ${poData.supplierName}.`,
+      message: `Order ${poData.orderNumber} was created for supplier ${poData.supplierId}.`,
       userId: user.uid,
       userEmail: user.email || "unknown",
       storeId,
