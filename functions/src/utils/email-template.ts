@@ -293,7 +293,6 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
 };
 
 export const getReceiptEmailTemplate = (order: any, store: any) => {
-  const items = order.items || [];
   const total = order.total || 0;
   
   return getBaseEmailTemplate({

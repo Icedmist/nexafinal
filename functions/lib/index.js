@@ -484,7 +484,8 @@ exports.sendautoreceipt = (0, firestore_1.onDocumentCreated)({
 });
 /**
  * ACTIVITY ALERTS: Firestore Trigger (v2)
- * Notifies the store owner about critical events like logins or inventory alerts.
+ * Notifies the store owner about critical events like logins, inventory alerts,
+ * and important operational changes (medium+ severity).
  */
 exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
     document: "activity_logs/{logId}",
@@ -503,12 +504,27 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
         const ownerEmail = owner.email;
         if (!ownerEmail)
             return null;
-        // 2. Determine if email should be sent (High severity or critical categories)
-        const shouldSendEmail = data.severity === "high" || data.severity === "critical" ||
-            ["security", "procurement"].includes(data.category);
+        // 2. Determine if email should be sent
+        // Emails are triggered for: medium, high, critical severities, or security/procurement categories
+        const emailSeverities = ["medium", "high", "critical"];
+        const emailCategories = ["security", "procurement"];
+        const shouldSendEmail = emailSeverities.includes(data.severity) ||
+            emailCategories.includes(data.category);
         if (shouldSendEmail) {
             let emailHtml = "";
-            const emailSubject = `NEXA CORE ALERT: ${data.title}`;
+            // Build a severity-aware subject line
+            const severityPrefix = {
+                critical: "🔴 CRITICAL",
+                high: "🟠 ALERT",
+                medium: "🟡 NOTICE",
+            };
+            const prefix = severityPrefix[data.severity] || "📋 INFO";
+            const emailSubject = `${prefix} — ${data.title}`;
+            // Build the dashboard deep-link for CTA buttons
+            const storeSlug = storeData.slug || data.storeId;
+            const dashboardUrl = data.actionUrl
+                ? `https://${storeSlug}.nexastoreos.com${data.actionUrl}`
+                : `https://${storeSlug}.nexastoreos.com/app/dashboard`;
             // Choose template based on category
             if (data.category === "sales" && data.type === "sale") {
                 emailHtml = (0, email_template_1.getReceiptEmailTemplate)(data.metadata?.order || {}, storeData);
@@ -524,7 +540,10 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
                 emailHtml = (0, email_template_1.getAlertEmailTemplate)({
                     title: data.title,
                     severity: data.severity || "info",
-                    details: data.message
+                    details: data.message,
+                    actionUrl: dashboardUrl,
+                    actionLabel: data.actionLabel || "View in Dashboard",
+                    performedBy: data.userEmail || "System",
                 });
             }
             await (0, email_1.sendEmailViaZoho)({
@@ -534,14 +553,16 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
                 html: emailHtml
             });
         }
-        // 3. Create/Update In-App Notification document
-        // We map categories to notification types for the UI
+        // 3. Create In-App Notification document
+        // Map activity categories to notification types for the UI
         const categoryToType = {
             "inventory": "low_stock",
             "procurement": "inventory_request",
             "security": "security",
             "sales": "sale",
-            "system": "system"
+            "system": "system",
+            "staff": "security",
+            "finance": "sale",
         };
         await admin.firestore().collection("notifications").add({
             storeId: data.storeId,
@@ -554,7 +575,7 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
             metadata: data.metadata || {},
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(`Activity processed: ${data.category}/${data.type} (Email: ${shouldSendEmail})`);
+        console.log(`Activity processed: ${data.category}/${data.type} [${data.severity}] (Email: ${shouldSendEmail})`);
     }
     catch (error) {
         console.error("Failed to process activity log:", error);
