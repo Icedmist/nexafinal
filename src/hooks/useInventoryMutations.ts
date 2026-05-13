@@ -14,7 +14,7 @@ interface MutationResult<TData> {
 }
 
 function useFirestoreMutation<TData>(
-  mutationFn: (storeId: string, data: TData, userUid: string, claims: any) => Promise<void>
+  mutationFn: (storeId: string, data: TData, user: User, claims: any) => Promise<void>
 ): MutationResult<TData> {
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
@@ -30,7 +30,7 @@ function useFirestoreMutation<TData>(
       setIsLoading(true);
       setError(null);
       try {
-        await mutationFn(storeId, data, user.uid, claims);
+        await mutationFn(storeId, data, user, claims);
         opts?.onSuccess?.();
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
@@ -48,14 +48,14 @@ function useFirestoreMutation<TData>(
 
 export function useCreateItem() {
   const { user } = useAuth();
-  return useFirestoreMutation<Item>(async (storeId, data, uid, claims) => {
+  return useFirestoreMutation<Item>(async (storeId, data, user, claims) => {
     // Use setDoc with the pre-generated ID to ensure consistency between POS and Catalog
     const docRef = doc(db, "products", data.id);
     await setDoc(docRef, {
       ...data,
       storeId,
       branchId: data.branchId !== undefined ? data.branchId : (claims?.branchId || null),
-      ownerId: uid,
+      ownerId: user.uid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -64,8 +64,8 @@ export function useCreateItem() {
       "movement",
       "New Product Added",
       `${data.name} was added to the catalog.`,
-      uid,
-      user?.email || "unknown",
+      user.uid,
+      user.email || "unknown",
       storeId,
       claims?.branchId
     );
@@ -110,13 +110,13 @@ export function useDeleteItem() {
 
 export function useCreateMovement() {
   const { user } = useAuth();
-  return useFirestoreMutation<Omit<StockMovement, "id">>(async (storeId, data, uid, claims) => {
+  return useFirestoreMutation<Omit<StockMovement, "id">>(async (storeId, data, user, claims) => {
     await addDoc(collection(db, "movements"), { 
       ...data, 
       storeId, 
       branchId: claims?.branchId || null,
-      ownerId: uid, 
-      performedBy: uid, 
+      ownerId: user.uid, 
+      performedBy: user.uid, 
       createdAt: new Date().toISOString() 
     });
 
@@ -124,8 +124,8 @@ export function useCreateMovement() {
       "movement",
       "Stock Movement",
       `${data.type === MovementType.Received ? "Added" : "Removed"} ${data.quantity} units of product.`,
-      uid,
-      user?.email || "unknown",
+      user.uid,
+      user.email || "unknown",
       storeId,
       claims?.branchId
     );
@@ -133,7 +133,7 @@ export function useCreateMovement() {
 }
 
 export function useCreatePurchaseOrder() {
-  return useFirestoreMutation<Omit<PurchaseOrder, "id"> & { isInstant?: boolean }>(async (storeId, data, uid, claims) => {
+  return useFirestoreMutation<Omit<PurchaseOrder, "id"> & { isInstant?: boolean }>(async (storeId, data, user, claims) => {
     const { isInstant, ...poData } = data;
     
     if (isInstant) {
@@ -147,7 +147,7 @@ export function useCreatePurchaseOrder() {
         id: poId,
         storeId,
         branchId: claims?.branchId || null,
-        ownerId: uid,
+        ownerId: user.uid,
         status: "RECEIVED", // Instant is automatically received
         createdAt: new Date().toISOString()
       });
@@ -176,7 +176,7 @@ export function useCreatePurchaseOrder() {
           referenceId: poId,
           storeId,
           branchId: claims?.branchId || null,
-          ownerId: uid,
+          ownerId: user.uid,
           createdAt: new Date().toISOString()
         });
       }
@@ -207,8 +207,8 @@ export function useDeletePurchaseOrder() {
 }
 
 export function useCreateSupplier() {
-  return useFirestoreMutation<Omit<Supplier, "id">>(async (storeId, data, uid) => {
-    await addDoc(collection(db, "suppliers"), { ...data, storeId, ownerId: uid, createdAt: new Date().toISOString() });
+  return useFirestoreMutation<Omit<Supplier, "id">>(async (storeId, data, user) => {
+    await addDoc(collection(db, "suppliers"), { ...data, storeId, ownerId: user.uid, createdAt: new Date().toISOString() });
   });
 }
 
@@ -225,22 +225,22 @@ export function useDeleteSupplier() {
 }
 
 export function useCreateRequest() {
-  return useFirestoreMutation<Omit<InventoryRequest, "id">>(async (storeId, data, uid, claims) => {
+  return useFirestoreMutation<Omit<InventoryRequest, "id">>(async (storeId, data, user, claims) => {
     await addDoc(collection(db, "requests"), { 
       ...data, 
       storeId, 
       branchId: claims?.branchId || null,
-      ownerId: uid, 
-      requestedByUid: uid, 
+      ownerId: user.uid, 
+      requestedByUid: user.uid, 
       createdAt: new Date().toISOString() 
     });
 
     await notifyActivity(
-      "inventory_request" as any,
+      "inventory_request",
       "New Inventory Request",
       `${data.requestedBy} submitted a new request: ${data.title}`,
-      uid,
-      user?.email || "unknown",
+      user.uid,
+      user.email || "unknown",
       storeId,
       claims?.branchId
     );
@@ -254,12 +254,12 @@ export function useUpdateRequest() {
 }
 
 export function useCreateLocation() {
-  return useFirestoreMutation<Omit<Location, "id">>(async (storeId, data, uid, claims) => {
+  return useFirestoreMutation<Omit<Location, "id">>(async (storeId, data, user, claims) => {
     await addDoc(collection(db, "locations"), { 
       ...data, 
       storeId, 
       branchId: claims?.branchId || null,
-      ownerId: uid 
+      ownerId: user.uid 
     });
   });
 }
@@ -277,8 +277,8 @@ export function useDeleteLocation() {
 }
 
 export function useCreateCategory() {
-  return useFirestoreMutation<Omit<Category, "id">>(async (storeId, data, uid) => {
-    await addDoc(collection(db, "categories"), { ...data, storeId, ownerId: uid });
+  return useFirestoreMutation<Omit<Category, "id">>(async (storeId, data, user) => {
+    await addDoc(collection(db, "categories"), { ...data, storeId, ownerId: user.uid });
   });
 }
 

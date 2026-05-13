@@ -1,4 +1,4 @@
-export type UserRoleType = "admin" | "manager" | "staff" | "system_admin" | "owner";
+export type UserRoleType = "admin" | "manager" | "staff" | "system_admin" | "owner" | "suspended" | "loading";
 
 export interface RolePermissions {
   canManageItems: boolean;
@@ -75,12 +75,39 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canViewSales: true,
     canRecordSales: true,
   },
+
+  suspended: {
+    canManageItems: false,
+    canLogMovements: false,
+    canManagePOs: false,
+    canManageSuppliers: false,
+    canApproveRequests: false,
+    canViewAnalytics: false,
+    canAccessSettings: false,
+    canManageUsers: false,
+    canViewSales: false,
+    canRecordSales: false,
+  },
+
+  loading: {
+    canManageItems: false,
+    canLogMovements: false,
+    canManagePOs: false,
+    canManageSuppliers: false,
+    canApproveRequests: false,
+    canViewAnalytics: false,
+    canAccessSettings: false,
+    canManageUsers: false,
+    canViewSales: false,
+    canRecordSales: false,
+  },
 };
 
 export function getPermissionsForRole(role: UserRoleType): RolePermissions {
-  return ROLE_PERMISSIONS[role];
+  return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.suspended;
 }
 
 export function isAdminRole(role?: string | null): boolean {
   return role === "admin" || role === "system_admin" || role === "owner";
 }
+

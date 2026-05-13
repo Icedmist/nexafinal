@@ -23,7 +23,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const { user, claims, claimsReady } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
   const { storeId: businessStoreId, ownerId: businessOwnerId, loadingProfile } = useBusiness();
-  const [realRole, setRealRole] = useState<UserRoleType>("staff");
+  const [realRole, setRealRole] = useState<UserRoleType>("loading");
   const [loading, setLoading] = useState(true);
   const [isStoreMismatch, setIsStoreMismatch] = useState(false);
 
@@ -34,6 +34,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+
     // If no user, we're not loading anymore, but there's no role
     if (!user) {
       setLoading(false);
@@ -43,11 +44,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     const activeStoreId = store?.id || businessStoreId;
 
     // Check for store mismatch early
-    if (claims?.storeId && activeStoreId && claims.storeId !== activeStoreId && claims.role !== "system_admin") {
-      setIsStoreMismatch(true);
-    } else {
-      setIsStoreMismatch(false);
-    }
+    // We only check if the user HAS a storeId in their claims. 
+    // System admins are global and don't mismatch.
+    const hasMismatch = !!(claims?.storeId && activeStoreId && claims.storeId !== activeStoreId && claims.role !== "system_admin");
+    setIsStoreMismatch(hasMismatch);
 
     // 1. High Priority: Use Custom Claims (Zero DB Read)
     if (claims?.role) {
@@ -60,7 +60,14 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Security Check: Ensure the user's token storeId matches the current tenant context OR business context
+      // Security Check: If there's a mismatch, we don't grant the role from claims
+      if (hasMismatch) {
+        setRealRole("suspended");
+        setLoading(false);
+        return;
+      }
+
+      // Ensure the user's token storeId matches the current tenant context OR business context
       if (claims.storeId === activeStoreId && activeStoreId) {
         setRealRole(roleFromClaims);
         setLoading(false);
@@ -71,14 +78,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     // 2. Fallback: Check if user is the store owner (merchant root)
     const isOwner = (store && user.uid === store.ownerId) || (user.uid === businessOwnerId);
     
-    if (isOwner) {
+    if (isOwner && !hasMismatch) {
       setRealRole("owner");
       setLoading(false);
       return;
     }
 
-    // 3. Default to staff if no specific role found
-    setRealRole("staff");
+    // 3. Default to staff if no specific role found (and no mismatch)
+    if (!hasMismatch) {
+      setRealRole("staff");
+    } else {
+      setRealRole("suspended");
+    }
     setLoading(false);
   }, [user, store, loadingTenant, claims, claimsReady, businessStoreId, businessOwnerId, loadingProfile]);
 

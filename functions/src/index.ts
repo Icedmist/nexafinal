@@ -158,27 +158,9 @@ export const provisionstaff = onCall({
       await sendEmailViaZoho({
         to: normalizedEmail,
         subject: `Welcome to Nexa OS - Your Staff Account`,
-        text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
-        html: `
-          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
-            </div>
-            <div style="padding: 30px;">
-              <p>Hi <strong>${displayName || "there"}</strong>,</p>
-              <p>You have been invited as a <strong>${role}</strong> to join a store on the Nexa platform.</p>
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
-                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
-                <p style="margin-top: 0;">Password: <code>${password}</code></p>
-              </div>
-              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
-              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                Please change your password immediately after your first login for security purposes.
-              </p>
-            </div>
-          </div>
-        `
+        text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store on the Nexa platform.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+        actionUrl: "https://nexa-os.com/auth/login",
+        actionLabel: "Login to Dashboard"
       });
     } catch (emailError) {
       console.error("Failed to send provision email:", emailError);
@@ -269,27 +251,9 @@ export const provisionplatformuser = onCall({
       await sendEmailViaZoho({
         to: normalizedEmail,
         subject: `Welcome to Nexa OS - ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} Account`,
-        text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role} on Nexa OS.\n\nLogins:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nLogin here: https://nexa-os.com/auth/login\n\nPlease change your password after logging in.`,
-        html: `
-          <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-            <div style="background: #000; color: #fff; padding: 30px; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px;">Welcome to Nexa OS</h1>
-            </div>
-            <div style="padding: 30px;">
-              <p>Hi <strong>${displayName || "there"}</strong>,</p>
-              <p>You have been provisioned as a <strong>${role === 'system_admin' ? 'System Admin' : 'Store Owner'}</strong> on the Nexa platform.</p>
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin-top: 0;"><strong>Your Login Credentials:</strong></p>
-                <p style="margin-bottom: 5px;">Email: <code>${normalizedEmail}</code></p>
-                <p style="margin-top: 0;">Password: <code>${password}</code></p>
-              </div>
-              <a href="https://nexa-os.com/auth/login" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to your Dashboard</a>
-              <p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                Please change your password immediately after your first login for security purposes.
-              </p>
-            </div>
-          </div>
-        `
+        text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} on the Nexa platform.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+        actionUrl: "https://nexa-os.com/auth/login",
+        actionLabel: "Login to Dashboard"
       });
     } catch (emailError) {
       console.error("Failed to send platform provision email:", emailError);
@@ -594,9 +558,30 @@ export const onactivitycreated = onDocumentCreated({
       to: ownerEmail,
       subject: title,
       text: message,
+      actionUrl: `https://${storeData.slug}.nexastoreos.com/app/dashboard`,
+      actionLabel: "View Activity Log"
     });
     
-    console.log(`Alert email sent to owner ${ownerEmail} for event type ${data.type}`);
+    // 3. Create In-App Notification document
+    const notificationTypeMap: Record<string, string> = {
+      "inventory_alert": "low_stock",
+      "inventory_request": "request_update",
+      "staff_onboarding": "staff_onboarding",
+      "login": "login"
+    };
+
+    await admin.firestore().collection("notifications").add({
+      storeId: data.storeId,
+      title: data.title,
+      message: data.message,
+      type: notificationTypeMap[data.type] || "system",
+      isRead: false,
+      link: data.type === "inventory_request" ? "/app/requests" : (data.type === "inventory_alert" ? "/app/catalog" : "/app/dashboard"),
+      referenceId: data.itemId || data.requestId || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`Alert email sent and notification created for owner ${ownerEmail} (event: ${data.type})`);
   } catch (error) {
     console.error("Failed to send activity alert:", error);
   }

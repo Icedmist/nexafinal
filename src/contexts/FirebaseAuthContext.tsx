@@ -133,14 +133,41 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const logout = async () => {
     setClaimsReady(false);
     
-    // Clear all local session data
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Auth signOut failed:", err);
+    }
+    
+    // Hard clear all persistent data to prevent session ghosting
     localStorage.clear();
     sessionStorage.clear();
     
-    await signOut(auth);
-    
-    // Force a full page reload to reset all application state/contexts
-    window.location.href = "/";
+    // Reset any application-specific cookies if they exist
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    // Force a full page reload to the root domain to reset all application state/contexts
+    // This is safer than just navigate("/") as it clears all in-memory caches (React Query, Context, etc)
+    const host = window.location.hostname;
+    const protocol = window.location.protocol;
+    const port = window.location.port;
+
+    if (host.includes("localhost") || host.includes("127.0.0.1")) {
+      window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}/`;
+    } else {
+      const parts = host.split(".");
+      // If we are on a subdomain (e.g. store.nexastoreos.com), redirect to root (nexastoreos.com)
+      if (parts.length > 2) {
+        const domain = parts.slice(-2).join(".");
+        window.location.href = `${protocol}//${domain}/`;
+      } else {
+        window.location.href = `${protocol}//${host}/`;
+      }
+    }
   };
 
   const resetPassword = async (email: string) => {

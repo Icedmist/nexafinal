@@ -16,6 +16,8 @@ import { useTenant } from "@/contexts/TenantContext";
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NexaCoreLoader } from "@/components/shared/NexaCoreLoader";
+import { StoreAccessGuard } from "@/components/shared/StoreAccessGuard";
+
 
 export function AppLayout() {
   const auth = useAuth();
@@ -104,7 +106,7 @@ export function AppLayout() {
     // For system admins OR system routes, we check immediately.
     const shouldCheckPermissions = isSystemAdmin || isSystemRoute || !needsOnboarding;
 
-    if (user && claimsReady && !loadingProfile && !roleLoading && shouldCheckPermissions) {
+    if (user && claimsReady && !loadingProfile && !roleLoading && shouldCheckPermissions && role !== "loading") {
       const hasAccess = canAccessRoute(location.pathname, role);
       console.log("[AppLayout] Route Guard:", {
         path: location.pathname,
@@ -118,7 +120,7 @@ export function AppLayout() {
         navigate(isSystemAdmin ? "/system-admin/dashboard" : "/app/dashboard");
       }
     }
-  }, [location.pathname, role, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin]);
+  }, [location.pathname, role, roleLoading, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin]);
 
 
   // Auth guard — redirect to landing if not logged in
@@ -145,38 +147,40 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background nexa-gradient-mesh">
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Subtle background glow */}
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 blur-[120px] pointer-events-none rounded-full" />
-        
-        <aside className="hidden w-[280px] shrink-0 md:block">
-          <Sidebar />
-        </aside>
-        <div className="flex flex-1 flex-col overflow-hidden md:my-3 md:mr-3 md:rounded-[2rem] md:border md:border-border/50 md:bg-card/80 md:backdrop-blur-xl md:shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
-          {/* Admin Audit Banner */}
-          {isSystemAdmin && store && (
-            <div className="flex h-8 w-full items-center justify-center gap-2 bg-blue-600 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-              <ShieldCheck className="h-3 w-3" />
-              Platform Admin Mode — Full Operational Oversight Enabled
-            </div>
-          )}
-          <Header />
-          <main className={cn(
-            "flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8",
-            isSystemAdmin && store ? "md:rounded-none" : "md:rounded-b-[2rem]"
-          )}>
-            <AnimatePresence mode="wait">
-              <PageTransition key={location.pathname} routeKey={location.pathname}>
-                <Outlet />
-              </PageTransition>
-            </AnimatePresence>
-          </main>
+    <StoreAccessGuard>
+      <div className="flex h-screen flex-col overflow-hidden bg-background nexa-gradient-mesh">
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Subtle background glow */}
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 blur-[120px] pointer-events-none rounded-full" />
+          
+          <aside className="hidden w-[280px] shrink-0 md:block">
+            <Sidebar />
+          </aside>
+          <div className="flex flex-1 flex-col overflow-hidden md:my-3 md:mr-3 md:rounded-[2rem] md:border md:border-border/50 md:bg-card/80 md:backdrop-blur-xl md:shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+            {/* Admin Audit Banner */}
+            {isSystemAdmin && store && (
+              <div className="flex h-8 w-full items-center justify-center gap-2 bg-blue-600 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                <ShieldCheck className="h-3 w-3" />
+                Platform Admin Mode — Full Operational Oversight Enabled
+              </div>
+            )}
+            <Header />
+            <main className={cn(
+              "flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8",
+              isSystemAdmin && store ? "md:rounded-none" : "md:rounded-b-[2rem]"
+            )}>
+              <AnimatePresence mode="wait">
+                <PageTransition key={location.pathname} routeKey={location.pathname}>
+                  <Outlet />
+                </PageTransition>
+              </AnimatePresence>
+            </main>
+          </div>
         </div>
+        <BottomNav />
+        <ShortcutsHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </div>
-      <BottomNav />
-      <ShortcutsHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
-    </div>
+    </StoreAccessGuard>
   );
 }

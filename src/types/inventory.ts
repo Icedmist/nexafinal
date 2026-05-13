@@ -223,7 +223,9 @@ export type NotificationType =
   | "po_reminder"
   | "po_overdue"
   | "request_update"
-  | "system";
+  | "system"
+  | "login"
+  | "staff_onboarding";
 
 export interface Notification {
   id: string;

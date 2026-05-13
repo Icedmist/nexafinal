@@ -101,6 +101,12 @@
   --chart-3: oklch(0.60 0.17 155);
   --chart-4: oklch(0.60 0.22 25);
   --chart-5: oklch(0.55 0.02 160);
+ 
+  /* Nexa OS Brand Tints */
+  --nexa-blue: oklch(0.65 0.20 250);
+  --nexa-violet: oklch(0.60 0.25 300);
+  --nexa-cyan: oklch(0.75 0.20 200);
+  --nexa-emerald: oklch(0.65 0.20 150);
 
   /* Sidebar — dark desaturated teal-charcoal */
   --sidebar: oklch(0.20 0.02 162);
@@ -347,5 +353,62 @@
 /* High-end layout tweaks */
 .app-container-mask {
   mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
+}
+
+@layer utilities {
+  .nexa-gradient-mesh {
+    background-color: var(--background);
+    background-image: 
+      radial-gradient(at 0% 0%, color-mix(in oklch, var(--nexa-blue) 15%, transparent) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, color-mix(in oklch, var(--nexa-violet) 15%, transparent) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, color-mix(in oklch, var(--nexa-cyan) 10%, transparent) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, color-mix(in oklch, var(--nexa-emerald) 10%, transparent) 0px, transparent 50%);
+  }
+
+  .nexa-card {
+    @apply relative overflow-hidden rounded-[2rem] border border-white/20 bg-white/40 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-500;
+  }
+
+  .dark .nexa-card {
+    @apply border-white/5 bg-slate-900/40 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+  }
+
+  .nexa-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 transition-opacity duration-500 pointer-events-none;
+  }
+
+  .nexa-card:hover::before {
+    @apply opacity-100;
+  }
+
+  .nexa-card:hover {
+    @apply shadow-[0_20px_40px_0_rgba(31,38,135,0.12)] -translate-y-1;
+  }
+
+  .nexa-glass {
+    @apply bg-white/60 backdrop-blur-2xl border border-white/20 shadow-2xl;
+  }
+
+  .dark .nexa-glass {
+    @apply bg-slate-950/60 border-white/5;
+  }
+
+  .text-glow-primary {
+    text-shadow: 0 0 15px color-mix(in oklch, var(--primary) 40%, transparent);
+  }
+
+  .nexa-button-shine {
+    @apply relative overflow-hidden;
+  }
+
+  .nexa-button-shine::after {
+    content: '';
+    @apply absolute -inset-full top-0 block w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-25deg] transition-all duration-1000;
+  }
+
+  .nexa-button-shine:hover::after {
+    @apply left-full;
+  }
 }
 

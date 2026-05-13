@@ -12,6 +12,8 @@ export interface EmailOptions {
   text: string;
   html?: string;
   fromName?: string;
+  actionUrl?: string;
+  actionLabel?: string;
 }
 
 export const sendEmailViaZoho = async (options: EmailOptions) => {
@@ -35,7 +37,9 @@ export const sendEmailViaZoho = async (options: EmailOptions) => {
     text: options.text,
     html: options.html || getBaseEmailTemplate({ 
       title: options.subject, 
-      message: options.text 
+      message: options.text,
+      actionUrl: options.actionUrl,
+      actionLabel: options.actionLabel
     }),
   };
 
