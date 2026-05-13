@@ -16,7 +16,9 @@ export interface NotificationPrefs {
   zero_stock: boolean;
   po_reminder: boolean;
   po_overdue: boolean;
-  request_update: boolean;
+  inventory_request: boolean;
+  sale: boolean;
+  movement: boolean;
 }
 
 const PREF_LABELS: { key: keyof NotificationPrefs; label: string; description: string }[] = [
@@ -24,7 +26,9 @@ const PREF_LABELS: { key: keyof NotificationPrefs; label: string; description: s
   { key: "zero_stock", label: "Zero Stock Alerts", description: "When an item reaches zero stock" },
   { key: "po_reminder", label: "PO Reminders", description: "When a PO delivery date is within 3 days" },
   { key: "po_overdue", label: "PO Overdue", description: "When a PO passes its expected delivery date" },
-  { key: "request_update", label: "Request Updates", description: "When an inventory request status changes" },
+  { key: "inventory_request", label: "Request Updates", description: "When an inventory request status changes" },
+  { key: "sale", label: "Sales Alerts", description: "When a new sale is recorded" },
+  { key: "movement", label: "Inventory Movements", description: "When stock is transferred or adjusted" },
 ];
 
 interface NotificationPreferencesProps {
@@ -34,7 +38,13 @@ interface NotificationPreferencesProps {
 
 export function NotificationPreferences({ open, onOpenChange }: NotificationPreferencesProps) {
   const [prefs, setPrefs] = useState<NotificationPrefs>({
-    low_stock: true, zero_stock: true, po_reminder: true, po_overdue: true, request_update: true,
+    low_stock: true, 
+    zero_stock: true, 
+    po_reminder: true, 
+    po_overdue: true, 
+    inventory_request: true,
+    sale: true,
+    movement: true,
   });
 
   const handleToggle = (key: keyof NotificationPrefs) => {

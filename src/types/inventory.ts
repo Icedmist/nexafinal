@@ -225,7 +225,10 @@ export type NotificationType =
   | "request_update"
   | "system"
   | "login"
-  | "staff_onboarding";
+  | "staff_onboarding"
+  | "sale"
+  | "inventory_request"
+  | "movement";
 
 export interface Notification {
   id: string;

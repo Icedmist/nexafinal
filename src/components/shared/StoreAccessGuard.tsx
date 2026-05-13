@@ -28,6 +28,7 @@ export const StoreAccessGuard: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   }
 
+  if (isStoreMismatch) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#030711] p-6 relative overflow-hidden">
         {/* Cinematic Background Elements */}

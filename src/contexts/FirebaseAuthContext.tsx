@@ -139,19 +139,28 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.error("Auth signOut failed:", err);
     }
     
-    // Hard clear all persistent data to prevent session ghosting
+    // 1. Hard clear all persistent data
     localStorage.clear();
     sessionStorage.clear();
     
-    // Reset any application-specific cookies if they exist
+    // 2. Reset any application-specific cookies
     document.cookie.split(";").forEach((c) => {
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
 
-    // Force a full page reload to the root domain to reset all application state/contexts
-    // This is safer than just navigate("/") as it clears all in-memory caches (React Query, Context, etc)
+    // 3. Clear IndexedDB (used by Firebase and other libraries)
+    try {
+      const dbs = await window.indexedDB.databases();
+      dbs.forEach(db => {
+        if (db.name) window.indexedDB.deleteDatabase(db.name);
+      });
+    } catch (e) {
+      console.warn("Failed to clear IndexedDB:", e);
+    }
+
+    // 4. Force a full page reload to the root domain to reset all application state/contexts
     const host = window.location.hostname;
     const protocol = window.location.protocol;
     const port = window.location.port;
@@ -160,7 +169,6 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}/`;
     } else {
       const parts = host.split(".");
-      // If we are on a subdomain (e.g. store.nexastoreos.com), redirect to root (nexastoreos.com)
       if (parts.length > 2) {
         const domain = parts.slice(-2).join(".");
         window.location.href = `${protocol}//${domain}/`;

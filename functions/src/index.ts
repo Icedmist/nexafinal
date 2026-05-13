@@ -511,13 +511,15 @@ export const sendautoreceipt = onDocumentCreated({
     ? `\n\nIMPORTANT: This was a credit sale. You have an outstanding balance of ₦${totalNgn.toLocaleString()}. Kindly settle this at your earliest convenience.` 
     : "";
 
+  const title = "Your Receipt from Nexa Store";
   const message = `Hi ${customerName || "Customer"},\n\nThank you for shopping with us! Your order total was ₦${totalNgn.toLocaleString()}.${debtNote}\n\nItems:\n${itemsList}\n\nWe appreciate your business! 🙏`;
 
   try {
     await sendEmailViaZoho({
       to: customerEmail,
-      subject: "Your Receipt from Nexa Store",
+      subject: title,
       text: message,
+      // The sendEmailViaZoho utility will automatically wrap this in the beautified HTML template
     });
   } catch (error) {
     console.error("Auto-receipt failed:", error);
@@ -537,7 +539,7 @@ export const onactivitycreated = onDocumentCreated({
   if (!data || !data.storeId) return null;
 
   // We only send emails for critical alerts to avoid spam
-  const criticalTypes = ["login", "inventory_alert", "staff_onboarding", "inventory_request"];
+  const criticalTypes = ["login", "inventory_alert", "staff_onboarding", "inventory_request", "sale", "movement"];
   if (!criticalTypes.includes(data.type)) return null;
 
   try {
@@ -565,9 +567,11 @@ export const onactivitycreated = onDocumentCreated({
     // 3. Create In-App Notification document
     const notificationTypeMap: Record<string, string> = {
       "inventory_alert": "low_stock",
-      "inventory_request": "request_update",
+      "inventory_request": "inventory_request",
       "staff_onboarding": "staff_onboarding",
-      "login": "login"
+      "login": "login",
+      "sale": "sale",
+      "movement": "movement"
     };
 
     await admin.firestore().collection("notifications").add({
@@ -576,8 +580,8 @@ export const onactivitycreated = onDocumentCreated({
       message: data.message,
       type: notificationTypeMap[data.type] || "system",
       isRead: false,
-      link: data.type === "inventory_request" ? "/app/requests" : (data.type === "inventory_alert" ? "/app/catalog" : "/app/dashboard"),
-      referenceId: data.itemId || data.requestId || null,
+      link: data.type === "inventory_request" ? "/app/requests" : (data.type === "inventory_alert" ? "/app/catalog" : (data.type === "sale" ? "/app/sales" : "/app/dashboard")),
+      referenceId: data.itemId || data.requestId || data.saleId || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 

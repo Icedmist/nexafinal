@@ -1,7 +1,7 @@
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-export type NotificationType = "login" | "sale" | "movement" | "inventory_alert" | "staff_onboarding" | "inventory_request";
+import { NotificationType } from "@/types/inventory";
 
 export interface ActivityNotification {
   type: NotificationType;

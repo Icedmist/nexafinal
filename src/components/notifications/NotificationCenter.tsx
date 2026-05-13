@@ -17,14 +17,15 @@ import { getNotificationIcon } from "./notification-icons";
 import { cn } from "@/lib/utils";
 import type { Notification, NotificationType } from "@/types/inventory";
 
-type FilterTab = "all" | "unread" | "stock" | "po" | "requests";
+type FilterTab = "all" | "unread" | "stock" | "po" | "requests" | "sales";
 
 const TAB_FILTER: Record<FilterTab, (n: Notification) => boolean> = {
   all: () => true,
   unread: (n) => !n.isRead,
   stock: (n) => n.type === "low_stock" || n.type === "zero_stock",
   po: (n) => n.type === "po_reminder" || n.type === "po_overdue",
-  requests: (n) => n.type === "request_update",
+  requests: (n) => n.type === "request_update" || n.type === "inventory_request",
+  sales: (n) => n.type === "sale",
 };
 
 interface NotificationCenterProps {
@@ -95,6 +96,7 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
                 <TabsTrigger value="stock" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Stock</TabsTrigger>
                 <TabsTrigger value="po" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">PO</TabsTrigger>
                 <TabsTrigger value="requests" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Requests</TabsTrigger>
+                <TabsTrigger value="sales" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Sales</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>

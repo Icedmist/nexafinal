@@ -10,194 +10,212 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
   const { title, message, actionUrl, actionLabel, footerText } = options;
 
   return `
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
-  <style type="text/css">
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     
     body {
       margin: 0;
       padding: 0;
-      background-color: #f8fafc;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
+      background-color: #020617;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #f8fafc;
     }
     
-    .wrapper {
-      width: 100%;
-      table-layout: fixed;
-      background-color: #f8fafc;
-      padding: 40px 0;
-    }
-    
-    .main {
-      background-color: #ffffff;
-      margin: 0 auto;
-      width: 100%;
+    .container {
       max-width: 600px;
-      border-spacing: 0;
-      color: #1e293b;
+      margin: 40px auto;
+      background: linear-gradient(145deg, #0f172a 0%, #020617 100%);
       border-radius: 24px;
       overflow: hidden;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
     
     .header {
-      background-color: #0f172a;
-      padding: 40px 0;
-      text-align: center;
+      padding: 40px 40px 20px;
+      text-align: left;
     }
     
     .logo {
       font-size: 24px;
       font-weight: 800;
-      letter-spacing: 0.15em;
-      color: #3b82f6;
-      margin: 0;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #60a5fa, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    
+    .brand-sub {
+      font-size: 10px;
+      font-weight: 800;
       text-transform: uppercase;
+      letter-spacing: 0.3em;
+      color: #64748b;
     }
     
     .content {
-      padding: 48px 40px;
+      padding: 20px 40px 40px;
     }
     
-    .status-badge {
+    .badge {
       display: inline-block;
       padding: 6px 12px;
-      background-color: #eff6ff;
-      color: #3b82f6;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
       border-radius: 100px;
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 700;
+      color: #60a5fa;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.1em;
       margin-bottom: 24px;
     }
     
-    .title {
+    h1 {
       font-size: 28px;
       font-weight: 800;
-      color: #0f172a;
-      margin: 0 0 16px 0;
       line-height: 1.2;
-      letter-spacing: -0.02em;
+      margin: 0 0 20px;
+      color: #ffffff;
+      letter-spacing: -0.03em;
     }
     
-    .message {
-      font-size: 16px;
+    p {
+      font-size: 15px;
       line-height: 1.6;
-      color: #475569;
-      margin: 0;
+      color: #94a3b8;
+      margin: 0 0 24px;
     }
     
-    .action-container {
-      margin-top: 40px;
-      text-align: left;
+    .button-container {
+      margin-top: 32px;
     }
     
     .button {
-      background-color: #3b82f6;
+      display: inline-block;
+      padding: 16px 32px;
+      background: #3b82f6;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: #ffffff !important;
       text-decoration: none;
-      padding: 16px 32px;
       border-radius: 12px;
-      font-weight: 600;
       font-size: 15px;
-      display: inline-block;
+      font-weight: 700;
       text-align: center;
-      transition: all 0.2s ease;
+      transition: transform 0.2s;
+      box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
     }
     
     .divider {
       height: 1px;
-      background-color: #e2e8f0;
-      margin: 40px 0;
-    }
-    
-    .security-note {
-      background-color: #f1f5f9;
-      border-radius: 16px;
-      padding: 24px;
-      border-left: 4px solid #3b82f6;
-    }
-    
-    .security-note-title {
-      margin: 0;
-      color: #0f172a;
-      font-size: 14px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-    }
-    
-    .security-note-text {
-      margin: 8px 0 0 0;
-      color: #64748b;
-      font-size: 13px;
-      line-height: 1.5;
+      background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+      margin: 32px 0;
     }
     
     .footer {
-      padding: 40px;
+      padding: 0 40px 40px;
       text-align: center;
     }
     
     .footer-text {
-      color: #94a3b8;
-      font-size: 13px;
-      margin: 0;
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.5;
     }
     
-    .copyright {
-      color: #cbd5e1;
+    .social {
+      margin-top: 20px;
+    }
+    
+    .social a {
+      color: #64748b;
+      text-decoration: none;
+      margin: 0 10px;
       font-size: 12px;
-      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    .info-card {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .info-card-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .info-card-content {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+    }
+
+    @media only screen and (max-width: 480px) {
+      .container {
+        margin: 20px 10px;
+      }
+      .content {
+        padding: 20px;
+      }
+      h1 {
+        font-size: 24px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <table class="main">
-      <tr>
-        <td class="header">
-          <div class="logo">NEXA OS</div>
-        </td>
-      </tr>
-      <tr>
-        <td class="content">
-          <div class="status-badge">System Notification</div>
-          <h1 class="title">${title}</h1>
-          <div class="message">
-            ${message.replace(/\n/g, "<br>")}
-          </div>
-          
-          ${actionUrl && actionLabel ? `
-          <div class="action-container">
-            <a href="${actionUrl}" class="button">${actionLabel}</a>
-          </div>
-          ` : ''}
-          
-          <div class="divider"></div>
-          
-          <div class="security-note">
-            <p class="security-note-title">Security & Compliance</p>
-            <p class="security-note-text">
-              This is a secure, automated transmission from your Nexa Store OS instance. 
-              All platform activities are cryptographically logged for audit purposes.
-            </p>
-          </div>
-        </td>
-      </tr>
-    </table>
+  <div class="container">
+    <div class="header">
+      <div class="logo">NEXA OS</div>
+      <div class="brand-sub">Advanced Commerce Engine</div>
+    </div>
+    
+    <div class="content">
+      <div class="badge">Security Verified</div>
+      <h1>${title}</h1>
+      <p>${message.replace(/\n/g, "<br>")}</p>
+      
+      ${actionUrl && actionLabel ? `
+      <div class="button-container">
+        <a href="${actionUrl}" class="button">${actionLabel}</a>
+      </div>
+      ` : ''}
+      
+      <div class="divider"></div>
+      
+      <div class="info-card">
+        <div class="info-card-title">System Intelligence</div>
+        <p class="info-card-content">
+          This message was generated by the Nexa OS Automated Intelligence system. 
+          Your session and data are protected by industry-standard encryption protocols.
+        </p>
+      </div>
+    </div>
     
     <div class="footer">
-      <p class="footer-text">${footerText || 'Intelligent Commerce Infrastructure'}</p>
-      <p class="copyright">&copy; ${new Date().getFullYear()} Nexa OS Platform. All rights reserved.</p>
+      <p class="footer-text">${footerText || "Global Enterprise Operating System"}</p>
+      <div class="social">
+        <a href="#">Support</a>
+        <a href="#">Privacy</a>
+        <a href="#">Security</a>
+      </div>
+      <p class="footer-text" style="margin-top: 20px;">
+        &copy; ${new Date().getFullYear()} Nexa OS. Developed by Icedmist.
+      </p>
     </div>
   </div>
 </body>
