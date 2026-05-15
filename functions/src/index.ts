@@ -65,13 +65,30 @@ const getDefaultBranchId = async (storeId: string): Promise<string | null> => {
  */
 export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event) => {
   const data = event.data?.after.exists ? event.data.after.data() : null;
+  const staffId = event.params.staffId;
   
-  if (!data) return null;
+  if (!data) {
+    console.log(`Staff document ${staffId} deleted or empty. Skipping claim sync.`);
+    return null;
+  }
 
   const { email, storeId, role, isActive } = data;
+  const uid = data.uid || staffId; // Fallback to doc ID if uid field is missing
+
+  if (!email) {
+    console.warn(`Staff document ${staffId} is missing email. Cannot sync claims.`);
+    return null;
+  }
 
   try {
-    const userRecord = await admin.auth().getUserByEmail(email);
+    // Try getting user by UID first (more efficient)
+    let userRecord: admin.auth.UserRecord;
+    try {
+      userRecord = await admin.auth().getUser(uid);
+    } catch (uidError) {
+      // Fallback to email lookup
+      userRecord = await admin.auth().getUserByEmail(email);
+    }
     
     if (userRecord) {
       let actualBranchId = data.branchId || null;
@@ -79,11 +96,17 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
         actualBranchId = await getDefaultBranchId(storeId);
       }
       
+      const batch = admin.firestore().batch();
+      const staffRef = admin.firestore().collection("staff").doc(staffId);
+
       if (!data.branchId && actualBranchId) {
-        await admin.firestore().collection("staff").doc(event.params.staffId).update({ branchId: actualBranchId, updatedAt: new Date().toISOString() });
+        batch.update(staffRef, { branchId: actualBranchId, updatedAt: new Date().toISOString() });
         console.log(`Assigned default branch ${actualBranchId} for staff ${email}`);
       }
 
+      // If the doc ID is not the UID, we should consider migrating it
+      // but syncstaffclaims is triggered on write, so we just update claims for now.
+      
       // Update custom claims
       await admin.auth().setCustomUserClaims(userRecord.uid, {
         storeId: storeId,
@@ -91,7 +114,7 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
         branchId: actualBranchId,
       });
       
-      // NEW: Sync displayName to Auth profile if it has changed
+      // Sync displayName to Auth profile if it has changed
       if (data.displayName && data.displayName !== userRecord.displayName) {
         await admin.auth().updateUser(userRecord.uid, {
           displayName: data.displayName
@@ -99,13 +122,14 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
         console.log(`Updated Auth displayName for ${email}`);
       }
       
-      console.log(`Successfully synced claims for ${email} in store ${storeId}`);
+      await batch.commit();
+      console.log(`Successfully synced claims for ${email} (UID: ${userRecord.uid}) in store ${storeId}`);
     }
   } catch (error: any) {
     if (error.code === 'auth/user-not-found') {
-      console.log(`User ${email} not found yet. Claims will sync on signup.`);
+      console.log(`User ${email} not found in Auth yet. Claims will sync when they sign up.`);
     } else {
-      console.error("Error syncing claims:", error);
+      console.error(`Error syncing claims for ${email}:`, error);
     }
   }
   return null;

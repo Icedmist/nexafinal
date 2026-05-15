@@ -2,7 +2,7 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs, limit, getDoc, doc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, limit, getDoc, doc, setDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -165,7 +165,8 @@ function OnboardingPage() {
         }
       });
 
-      await addDoc(collection(db, "staff"), {
+      await setDoc(doc(db, "staff", user.uid), {
+        uid: user.uid,
         email: user.email,
         displayName: user.displayName || "Store Owner",
         role: "admin",

@@ -15,17 +15,24 @@ function fmtNgn(amount: number): string {
   return `${NAIRA}${amount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
 }
 
-function buildReceiptText(sale: SaleTransaction, storeName: string, address: string): string {
+function buildReceiptText(sale: SaleTransaction, storeName: string, address: string, branchName?: string): string {
   const lines: string[] = [];
   lines.push(`🧾 *${storeName}*`);
+  if (branchName) lines.push(`*Branch: ${branchName}*`);
   if (address) lines.push(`_${address}_`);
   lines.push(`Receipt #${sale.id.slice(-8).toUpperCase()}`);
   lines.push(`Date: ${format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}`);
   lines.push(`Payment: ${(sale as any).paymentMethod?.toUpperCase() || "CASH"}`);
   if (sale.recordedByName) lines.push(`Cashier: ${sale.recordedByName}`);
-  if (sale.customerName) lines.push(`Customer: ${sale.customerName}`);
+  
+  lines.push("");
+  lines.push("*CUSTOMER DETAILS*");
+  if (sale.customerName) lines.push(`Name: ${sale.customerName}`);
+  if (sale.customerPhone) lines.push(`Phone: ${sale.customerPhone}`);
+  
   lines.push("");
   lines.push("─────────────────");
+  lines.push("*ITEMS BOUGHT*");
   sale.items.forEach((li) => {
     lines.push(`*${li.itemName}*`);
     lines.push(`  ${li.quantity} × ${fmtNgn(li.unitPriceNgn)} = ${fmtNgn(li.unitPriceNgn * li.quantity)}`);
@@ -38,7 +45,12 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
   return lines.join("\n");
 }
 
-async function generateReceiptPDF(sale: SaleTransaction, storeName: string, address: string): Promise<Blob> {
+async function generateReceiptPDF(
+  sale: SaleTransaction, 
+  storeName: string, 
+  address: string, 
+  branchName?: string
+): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: [80, 260] }); // extended receipt length
 
@@ -48,10 +60,17 @@ async function generateReceiptPDF(sale: SaleTransaction, storeName: string, addr
   const rm = w - 6; 
 
   // Store name
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text(storeName.toUpperCase(), w / 2, y, { align: "center" });
   y += 5;
+
+  // Branch Name
+  if (branchName) {
+    doc.setFontSize(9);
+    doc.text(branchName, w / 2, y, { align: "center" });
+    y += 4.5;
+  }
   
   // Address
   if (address) {
@@ -62,46 +81,60 @@ async function generateReceiptPDF(sale: SaleTransaction, storeName: string, addr
     y += (addrLines.length * 3.5);
   }
 
+  y += 2;
   doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.text("Official Sales Receipt", w / 2, y, { align: "center" });
-  y += 6;
+  doc.setFont("helvetica", "bold");
+  doc.text("SALES RECEIPT", w / 2, y, { align: "center" });
+  y += 5;
 
   // Header Line
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.3);
   doc.setDrawColor(0);
   doc.line(lm, y, rm, y);
-  y += 6;
+  y += 5;
 
   // Receipt details
-  doc.setFontSize(8);
-  doc.text("Receipt #", lm, y);
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.text("Receipt #:", lm, y);
   doc.setFont("helvetica", "bold");
   doc.text(sale.id.slice(-8).toUpperCase(), rm, y, { align: "right" });
-  y += 4.5;
+  y += 4;
   
   doc.setFont("helvetica", "normal");
-  doc.text("Date", lm, y);
+  doc.text("Date:", lm, y);
   doc.text(format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm"), rm, y, { align: "right" });
-  y += 4.5;
+  y += 4;
 
-  doc.text("Payment Method", lm, y);
+  doc.text("Payment:", lm, y);
   doc.setFont("helvetica", "bold");
   doc.text(((sale as any).paymentMethod || "CASH").toUpperCase(), rm, y, { align: "right" });
-  y += 4.5;
+  y += 4;
 
   if (sale.recordedByName) {
     doc.setFont("helvetica", "normal");
-    doc.text("Cashier", lm, y);
+    doc.text("Cashier:", lm, y);
     doc.text(sale.recordedByName, rm, y, { align: "right" });
-    y += 4.5;
+    y += 4;
   }
 
+  // Customer Details Section
+  y += 2;
+  doc.setFont("helvetica", "bold");
+  doc.text("CUSTOMER:", lm, y);
+  y += 4;
+  doc.setFont("helvetica", "normal");
   if (sale.customerName) {
-    doc.setFont("helvetica", "normal");
-    doc.text("Customer", lm, y);
-    doc.text(sale.customerName, rm, y, { align: "right" });
-    y += 4.5;
+    doc.text(`Name: ${sale.customerName}`, lm + 2, y);
+    y += 4;
+  }
+  if (sale.customerPhone) {
+    doc.text(`Phone: ${sale.customerPhone}`, lm + 2, y);
+    y += 4;
+  }
+  if (!sale.customerName && !sale.customerPhone) {
+    doc.text("Walk-in Customer", lm + 2, y);
+    y += 4;
   }
 
   y += 2;
@@ -109,34 +142,38 @@ async function generateReceiptPDF(sale: SaleTransaction, storeName: string, addr
   doc.line(lm, y, rm, y);
   y += 5;
 
-  // Items header
+  // Items Table Header
   doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
   doc.text("ITEM", lm, y);
+  doc.text("QTY", lm + 35, y, { align: "center" });
+  doc.text("PRICE", lm + 50, y, { align: "center" });
   doc.text("TOTAL", rm, y, { align: "right" });
+  y += 2;
+  doc.line(lm, y, rm, y);
   y += 4;
 
   // Line items
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   sale.items.forEach((li) => {
     doc.setFont("helvetica", "bold");
-    const nameLines = doc.splitTextToSize(li.itemName, rm - lm - 10);
+    const nameLines = doc.splitTextToSize(li.itemName, 33);
     doc.text(nameLines, lm, y);
-    const textHeight = (nameLines.length * 3.5);
     
     doc.setFont("helvetica", "normal");
-    doc.text(fmtNgn(li.unitPriceNgn * li.quantity), rm, y, { align: "right" });
+    doc.text(li.quantity.toString(), lm + 35, y, { align: "center" });
+    doc.text(li.unitPriceNgn.toLocaleString(), lm + 50, y, { align: "center" });
+    doc.text((li.unitPriceNgn * li.quantity).toLocaleString(), rm, y, { align: "right" });
     
-    y += textHeight;
-    doc.text(`${li.quantity} x ${fmtNgn(li.unitPriceNgn)}`, lm + 2, y);
-    y += 4.5;
+    y += Math.max(nameLines.length * 3.5, 4);
   });
 
   // Total
   y += 2;
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.3);
   doc.line(lm, y, rm, y);
-  y += 6;
-  doc.setFontSize(12);
+  y += 5;
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("TOTAL DUE", lm, y);
   doc.text(fmtNgn(sale.totalNgn), rm, y, { align: "right" });
@@ -148,7 +185,11 @@ async function generateReceiptPDF(sale: SaleTransaction, storeName: string, addr
   doc.text("Thank you for your business!", w / 2, y, { align: "center" });
   y += 4;
   doc.setFont("helvetica", "bold");
-  doc.text(`NEXA STORE OS`, w / 2, y, { align: "center" });
+  doc.text(storeName.toUpperCase(), w / 2, y, { align: "center" });
+  y += 4;
+  doc.setFontSize(6);
+  doc.setFont("helvetica", "normal");
+  doc.text("POWERED BY NEXA OS", w / 2, y, { align: "center" });
 
   return doc.output("blob");
 }
@@ -173,7 +214,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
-      const blob = await generateReceiptPDF(sale, storeName, address);
+      const blob = await generateReceiptPDF(sale, storeName, address, branch?.name);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -190,7 +231,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   const handleWhatsAppText = () => {
-    const text = buildReceiptText(sale, storeName, address);
+    const text = buildReceiptText(sale, storeName, address, branch?.name);
     const phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
