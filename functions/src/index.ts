@@ -162,8 +162,8 @@ export const provisionstaff = onCall({
     try {
       await sendEmailViaZoho({
         to: normalizedEmail,
-        subject: `Welcome to Nexa OS - Your Staff Account`,
-        text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store on the Nexa platform.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+        subject: `Staff Account Created`,
+        text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
         actionUrl: "https://nexa-os.com/auth/login",
         actionLabel: "Login to Dashboard"
       });
@@ -255,8 +255,8 @@ export const provisionplatformuser = onCall({
     try {
       await sendEmailViaZoho({
         to: normalizedEmail,
-        subject: `Welcome to Nexa OS - ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} Account`,
-        text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role === 'system_admin' ? 'System Admin' : 'Store Owner'} on the Nexa platform.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+        subject: `${role === 'system_admin' ? 'System Admin' : 'Store Owner'} Account`,
+        text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role === 'system_admin' ? 'System Admin' : 'Store Owner'}.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
         actionUrl: "https://nexa-os.com/auth/login",
         actionLabel: "Login to Dashboard"
       });

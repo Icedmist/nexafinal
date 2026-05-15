@@ -5,6 +5,7 @@ import {
   TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X,
 } from "lucide-react";
 import { useSales, useDebtPayments, useSalesMutations } from "@/hooks/useSalesData";
+import { useTenant } from "@/hooks/useTenant";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,7 @@ function CustomersPage() {
   const { recordDebtPayment } = useSalesMutations();
   
   const [search, setSearch] = useState("");
+  const { store } = useTenant();
   const [tab, setTab] = useState<CustomerTab>("all");
   const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
   const [messageOpen, setMessageOpen] = useState(false);
@@ -189,9 +191,9 @@ function CustomersPage() {
       
       const result = await sendEmail({
         to: messageTarget.email,
-        subject: "Message from Nexa OS",
+        subject: `Message from ${store?.name || "the Store"}`,
         text: messageText,
-        fromName: "Nexa Store"
+        fromName: store?.name || "Nexa Store"
       });
 
       if ((result.data as any).success) {
