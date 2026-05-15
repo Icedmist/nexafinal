@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -127,7 +127,7 @@ export function useSalesMutations() {
 
     try {
       const batch = writeBatch(db);
-      
+
       // 1. Create Sale Document
       const saleRef = doc(collection(db, "sales"));
       const saleData = {
@@ -146,12 +146,28 @@ export function useSalesMutations() {
         throw new Error("Unable to determine store. Please refresh the page and try again.");
       }
 
+      // Validate that every product belongs to the same store (pre-flight check to avoid permission-denied)
+      for (const item of sale.items) {
+        const productRef = doc(db, "products", item.itemId);
+        const productSnap = await getDoc(productRef);
+        if (!productSnap.exists()) {
+          throw new Error(`Product not found: ${item.itemId}`);
+        }
+        const productData: any = productSnap.data();
+        if (!productData.storeId) {
+          throw new Error(`Product ${item.itemId} is missing storeId; cannot update inventory.`);
+        }
+        if (productData.storeId !== saleData.storeId) {
+          throw new Error(`Product ${item.itemId} belongs to a different store (${productData.storeId}).`);
+        }
+      }
+
       batch.set(saleRef, saleData);
 
       // 2. Update Product Inventory and Record Movements
       sale.items.forEach((item) => {
         const productRef = doc(db, "products", item.itemId);
-        
+
         // Calculate real decrement amount based on unit conversion
         const conversionFactor = (item as any).conversionFactor || 1;
         const decrementAmount = item.quantity * conversionFactor;
