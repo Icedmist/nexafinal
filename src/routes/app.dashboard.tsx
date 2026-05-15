@@ -8,6 +8,8 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { StockStatusDonut, CategoryDonut } from "@/components/dashboard/StockDonutChart";
 import { DashboardReorderSection } from "@/components/insights/DashboardReorderSection";
 import { DashboardAnomalySection } from "@/components/insights/DashboardAnomalySection";
+import { DashboardSearch } from "@/components/dashboard/DashboardSearch";
+import { DashboardShortcuts } from "@/components/dashboard/DashboardShortcuts";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { cn } from "@/lib/utils";
 
@@ -150,6 +152,15 @@ function DashboardPage() {
           </p>
         </div>
 
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <DashboardShortcuts />
+          </div>
+          <div className="w-full sm:w-80">
+            <DashboardSearch />
+          </div>
+        </div>
       </div>
 
 

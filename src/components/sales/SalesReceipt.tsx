@@ -14,19 +14,19 @@ function fmtNgn(amount: number): string {
 
 function buildReceiptText(sale: SaleTransaction, storeName: string): string {
   const lines: string[] = [];
-  lines.push(`🧾 *${storeName}*`);
-  lines.push(`Receipt #${sale.id.slice(-8).toUpperCase()}`);
-  lines.push(`Date: ${format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}`);
-  if (sale.recordedByName) lines.push(`Cashier: ${sale.recordedByName}`);
-  if (sale.customerName) lines.push(`Customer: ${sale.customerName}`);
+  lines.push(`🧾 *${storeName.toUpperCase()}*`);
+  lines.push(`Order: #${sale.id.slice(-8).toUpperCase()}`);
+  lines.push(`Date: ${format(new Date(sale.createdAt), "dd MMM, HH:mm")}`);
+  if (sale.recordedByName) lines.push(`Staff: ${sale.recordedByName}`);
   lines.push("");
-  lines.push("─────────────────");
+  
   sale.items.forEach((li) => {
     lines.push(`${li.itemName}`);
-    lines.push(`  ${li.quantity} × ${fmtNgn(li.unitPriceNgn)} = ${fmtNgn(li.unitPriceNgn * li.quantity)}`);
+    lines.push(`${li.quantity} x ${li.unitPriceNgn.toLocaleString()} = ${li.totalPriceNgn?.toLocaleString() || (li.unitPriceNgn * li.quantity).toLocaleString()}`);
   });
-  lines.push("─────────────────");
-  lines.push(`*TOTAL: ${fmtNgn(sale.totalNgn)}*`);
+  
+  lines.push("");
+  lines.push(`*TOTAL: ${NAIRA}${sale.totalNgn.toLocaleString()}*`);
   lines.push("");
   lines.push("Thank you for your purchase! 🙏");
   return lines.join("\n");
@@ -155,14 +155,17 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
 
   const handleWhatsAppText = () => {
     const text = buildReceiptText(sale, storeName);
-    const phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const cleaned = sale.customerPhone?.replace(/\D/g, "") ?? "";
+    const intlPhone = cleaned.startsWith("0") ? `234${cleaned.slice(1)}` : cleaned;
+    const url = `https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
 
   const handleWhatsAppPDF = async () => {
     const text = buildReceiptText(sale, storeName);
-    const phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
+    const cleaned = sale.customerPhone?.replace(/\D/g, "") ?? "";
+    const intlPhone = cleaned.startsWith("0") ? `234${cleaned.slice(1)}` : cleaned;
+    
     try {
       const blob = await generateReceiptPDF(sale, storeName);
       const url = URL.createObjectURL(blob);
@@ -172,7 +175,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
       a.click();
       URL.revokeObjectURL(url);
     } catch {}
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text + "\n\n📎 PDF receipt attached separately")}`;
+    
+    const waUrl = `https://wa.me/${intlPhone}?text=${encodeURIComponent(text + "\n\n📎 PDF receipt attached separately")}`;
     window.open(waUrl, "_blank");
   };
 
