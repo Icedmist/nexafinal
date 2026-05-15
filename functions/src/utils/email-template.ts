@@ -6,19 +6,20 @@ export interface EmailTemplateOptions {
   footerText?: string;
   type?: "security" | "info" | "alert" | "success" | "receipt" | "report";
   metadata?: Record<string, string>;
+  htmlContent?: string; // NEW: Allow passing raw HTML for custom sections like tables
 }
 
 const typeColors = {
-  security: "#3b82f6",
-  info: "#6366f1",
-  alert: "#f43f5e",
-  success: "#10b981",
-  receipt: "#f59e0b",
-  report: "#8b5cf6",
+  security: "#2563eb",
+  info: "#16a34a", // Native Green
+  alert: "#dc2626",
+  success: "#16a34a", // Native Green
+  receipt: "#16a34a", // Native Green
+  report: "#16a34a", // Native Green
 };
 
 export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
-  const { title, message, actionUrl, actionLabel, footerText, type = "info", metadata } = options;
+  const { title, message, actionUrl, actionLabel, footerText, type = "info", metadata, htmlContent } = options;
   const accentColor = typeColors[type] || typeColors.info;
 
   return `
@@ -29,117 +30,70 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     body {
       margin: 0;
       padding: 0;
-      background-color: #050505;
-      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #e2e8f0;
+      background-color: #f9fafb;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1f2937;
       -webkit-font-smoothing: antialiased;
     }
     
     .wrapper {
       width: 100%;
       table-layout: fixed;
-      background-color: #050505;
-      padding: 60px 0;
+      background-color: #f9fafb;
+      padding: 40px 0;
     }
 
     .container {
       max-width: 600px;
       margin: 0 auto;
-      background-color: #0a0a0a;
-      background-image: 
-        radial-gradient(circle at 0% 0%, ${accentColor}10 0%, transparent 40%),
-        radial-gradient(circle at 100% 100%, ${accentColor}05 0%, transparent 40%);
-      border-radius: 40px;
+      background-color: #ffffff;
+      border-radius: 16px;
       overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.8);
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
     
     .header {
-      padding: 64px 64px 40px;
+      padding: 32px;
       text-align: center;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    }
-    
-    .logo-container {
-      display: inline-block;
-      margin-bottom: 0;
-    }
-
-    .logo {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: 0.5em;
-      color: #ffffff;
-      text-transform: uppercase;
-      padding: 8px 16px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.02);
+      background-color: #ffffff;
+      border-bottom: 1px solid #f3f4f6;
     }
     
     .content {
-      padding: 48px 64px 64px;
-    }
-    
-    .type-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 32px;
-    }
-
-    .type-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: ${accentColor};
-      box-shadow: 0 0 12px ${accentColor};
-    }
-
-    .type-label {
-      font-size: 12px;
-      font-weight: 700;
-      color: ${accentColor};
-      text-transform: uppercase;
-      letter-spacing: 0.2em;
+      padding: 40px;
     }
     
     h1 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 42px;
+      font-size: 24px;
       font-weight: 700;
-      line-height: 1.1;
-      margin: 0 0 32px;
-      color: #ffffff;
-      letter-spacing: -0.05em;
+      line-height: 1.2;
+      margin: 0 0 16px;
+      color: #111827;
     }
     
     .message {
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.6;
-      color: #94a3b8;
-      margin: 0 0 48px;
-      font-weight: 400;
+      color: #4b5563;
+      margin: 0 0 32px;
     }
     
     .metadata-box {
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: 24px;
-      padding: 32px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      margin-bottom: 48px;
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid #f3f4f6;
+      margin-bottom: 32px;
     }
 
     .metadata-row {
-      display: block;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
     }
 
     .metadata-row:last-child {
@@ -147,78 +101,80 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
     }
 
     .metadata-key {
-      font-size: 11px;
-      font-weight: 800;
-      color: #475569;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
       text-transform: uppercase;
-      letter-spacing: 0.15em;
-      margin-bottom: 8px;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
       display: block;
     }
 
     .metadata-val {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 500;
-      color: #f8fafc;
+      color: #111827;
     }
     
     .button-container {
-      margin: 64px 0 0;
-      text-align: left;
+      margin: 32px 0 0;
+      text-align: center;
     }
     
     .button {
       display: inline-block;
-      padding: 24px 48px;
-      background: #ffffff;
-      color: #000000 !important;
+      padding: 14px 32px;
+      background-color: ${accentColor};
+      color: #ffffff !important;
       text-decoration: none !important;
-      border-radius: 100px;
+      border-radius: 8px;
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 600;
       text-align: center;
-      transition: transform 0.2s ease;
-    }
-    
-    .divider {
-      height: 1px;
-      background: rgba(255, 255, 255, 0.05);
-      margin: 64px 0;
     }
     
     .footer {
-      padding: 0 64px 64px;
+      padding: 32px;
+      background-color: #f9fafb;
+      border-top: 1px solid #f3f4f6;
+      text-align: center;
     }
     
-    .footer-brand {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      color: #334155;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      margin-bottom: 16px;
-    }
-
     .footer-text {
-      font-size: 13px;
-      color: #475569;
-      line-height: 1.6;
+      font-size: 14px;
+      color: #6b7280;
+      line-height: 1.5;
       margin: 0;
     }
     
-    .footer-links {
-      margin-top: 40px;
-      padding-top: 40px;
-      border-top: 1px solid rgba(255, 255, 255, 0.03);
+    /* Table styles */
+    .receipt-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
     }
-    
-    .footer-links a {
-      color: #64748b;
-      text-decoration: none;
-      margin-right: 24px;
+    .receipt-table th {
+      text-align: left;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      border-bottom: 2px solid #f3f4f6;
+      padding: 12px 8px;
+    }
+    .receipt-table td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+      color: #374151;
+    }
+    .receipt-table .total-row td {
+      border-top: 2px solid #f3f4f6;
+      border-bottom: none;
+      font-weight: 700;
+      font-size: 16px;
+      color: #111827;
+      padding-top: 20px;
     }
 
     @media only screen and (max-width: 640px) {
@@ -229,11 +185,8 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
         border-radius: 0;
         border: none;
       }
-      .header, .content, .footer {
-        padding: 48px 32px;
-      }
-      h1 {
-        font-size: 32px;
+      .content {
+        padding: 32px 24px;
       }
     }
   </style>
@@ -242,29 +195,29 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <div class="logo-container">
-          <div class="logo">NEXA CORE</div>
+        <div style="font-size: 20px; font-weight: 800; color: ${accentColor}; letter-spacing: -0.02em;">
+          ${options.metadata?.["Shop Name"] || "RECEIPT"}
         </div>
       </div>
       
       <div class="content">
-        <div class="type-indicator">
-          <div class="type-dot"></div>
-          <div class="type-label">${type.replace('_', ' ')} protocol</div>
-        </div>
-        
         <h1>${title}</h1>
         
         <div class="message">${message.replace(/\n/g, "<br>")}</div>
         
+        ${htmlContent || ""}
+
         ${metadata ? `
         <div class="metadata-box">
-          ${Object.entries(metadata).map(([key, value]) => `
+          ${Object.entries(metadata).map(([key, value]) => {
+            if (key === "Shop Name") return ""; // Already in header
+            return `
             <div class="metadata-row">
               <span class="metadata-key">${key}</span>
               <span class="metadata-val">${value}</span>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
         ` : ''}
 
@@ -276,14 +229,7 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
       </div>
       
       <div class="footer">
-        <div class="footer-brand">Autonomous Enterprise Network</div>
-        <p class="footer-text">${footerText || "This transmission is automated and part of the Nexa OS Core event pipeline. Security level: High."}</p>
-        
-        <div class="footer-links">
-          <a href="#">System Console</a>
-          <a href="#">Security Center</a>
-          <a href="#">Support</a>
-        </div>
+        <p class="footer-text">${footerText || "Thank you for your business! We hope to see you again soon."}</p>
       </div>
     </div>
   </div>
@@ -292,21 +238,52 @@ export const getBaseEmailTemplate = (options: EmailTemplateOptions) => {
   `;
 };
 
-export const getReceiptEmailTemplate = (order: any, store: any) => {
-  const total = order.total || 0;
+export const getReceiptEmailTemplate = (sale: any, store: any) => {
+  const items = sale.items || [];
+  const total = sale.totalNgn || 0;
   
+  const itemsHtml = `
+    <table class="receipt-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th style="text-align: center;">Qty</th>
+          <th style="text-align: right;">Price</th>
+          <th style="text-align: right;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map((item: any) => `
+          <tr>
+            <td>${item.itemName}</td>
+            <td style="text-align: center;">${item.quantity}</td>
+            <td style="text-align: right;">₦${item.unitPriceNgn.toLocaleString()}</td>
+            <td style="text-align: right;">₦${(item.quantity * item.unitPriceNgn).toLocaleString()}</td>
+          </tr>
+        `).join('')}
+        <tr class="total-row">
+          <td colspan="2"></td>
+          <td style="text-align: right;">TOTAL</td>
+          <td style="text-align: right;">₦${total.toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
   return getBaseEmailTemplate({
-    title: `Receipt from ${store.name}`,
-    message: `Thank you for your purchase at ${store.name}. Your order has been processed successfully.`,
+    title: "Sale Receipt",
+    message: `Hi ${sale.customerName || "Customer"},\nThank you for shopping at <strong>${store.name}</strong>. Here is the summary of your purchase.`,
     type: "receipt",
     metadata: {
-      "Order ID": order.id,
-      "Date": new Date(order.createdAt).toLocaleString(),
-      "Total Amount": `$${total.toFixed(2)}`,
-      "Payment Method": order.paymentMethod || "N/A"
+      "Shop Name": store.name,
+      "Customer": sale.customerName || "Walk-in",
+      "Customer Email": sale.customerEmail || "N/A",
+      "Date & Time": new Date(sale.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }),
+      "Cashier": sale.recordedByName || "Staff",
+      "Payment Status": sale.isCreditSale ? "Outstanding (Credit Sale)" : "Paid",
     },
-    actionUrl: `https://${store.slug}.nexa-os.com/orders/${order.id}`,
-    actionLabel: "View Full Receipt"
+    htmlContent: itemsHtml,
+    footerText: "We value your patronage. Have a wonderful day!"
   });
 };
 

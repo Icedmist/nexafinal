@@ -507,25 +507,32 @@ export const sendautoreceipt = onDocumentCreated({
   secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
 }, async (event) => {
   const data = event.data?.data();
-  if (!data || !data.customerEmail) return null;
-
-  const { customerName, customerEmail, totalNgn, items, isCreditSale } = data;
-  const itemsList = items.map((i: any) => `- ${i.itemName} (x${i.quantity}): ₦${i.unitPriceNgn.toLocaleString()}`).join("\n");
-
-  const debtNote = isCreditSale 
-    ? `\n\nIMPORTANT: This was a credit sale. You have an outstanding balance of ₦${totalNgn.toLocaleString()}. Kindly settle this at your earliest convenience.` 
-    : "";
-
-  const title = "Your Receipt from Nexa Store";
-  const message = `Hi ${customerName || "Customer"},\n\nThank you for shopping with us! Your order total was ₦${totalNgn.toLocaleString()}.${debtNote}\n\nItems:\n${itemsList}\n\nWe appreciate your business! 🙏`;
+  if (!data || !data.customerEmail || !data.storeId) return null;
 
   try {
+    // 1. Get store details for branding
+    const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
+    const storeData = storeDoc.data();
+    
+    if (!storeData) {
+      console.warn(`Store not found for receipt: ${data.storeId}`);
+      return null;
+    }
+
+    // 2. Generate HTML using the new receipt template
+    const emailHtml = getReceiptEmailTemplate(data, storeData);
+    const title = `Receipt from ${storeData.name}`;
+
+    // 3. Send the email
     await sendEmailViaZoho({
-      to: customerEmail,
+      to: data.customerEmail,
       subject: title,
-      text: message,
-      // The sendEmailViaZoho utility will automatically wrap this in the beautified HTML template
+      text: `Your receipt from ${storeData.name} for ₦${data.totalNgn?.toLocaleString()}`,
+      html: emailHtml,
+      fromName: storeData.name
     });
+    
+    console.log(`Auto-receipt sent to ${data.customerEmail} for store ${storeData.name}`);
   } catch (error) {
     console.error("Auto-receipt failed:", error);
   }
