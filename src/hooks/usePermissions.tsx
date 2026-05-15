@@ -10,20 +10,20 @@ type PermissionAction =
   | "view_sales" | "record_sales";
 
 const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
-  create_item: ["admin", "manager", "system_admin"],
-  edit_item: ["admin", "manager", "system_admin"],
-  delete_item: ["admin", "manager", "system_admin"],
-  log_movement: ["admin", "manager", "staff", "system_admin"],
-  create_po: ["admin", "manager", "system_admin"],
-  approve_request: ["admin", "manager", "system_admin"],
-  manage_users: ["admin", "system_admin"],
-  view_analytics: ["admin", "manager", "system_admin"],
-  export_data: ["admin", "manager", "system_admin"],
-  create_request: ["admin", "manager", "staff", "system_admin"],
-  access_settings: ["admin", "manager", "staff", "system_admin"],
-  manage_suppliers: ["admin", "manager", "system_admin"],
-  view_sales: ["admin", "manager", "staff", "system_admin"],
-  record_sales: ["admin", "manager", "staff", "system_admin"],
+  create_item: ["admin", "manager", "system_admin", "owner"],
+  edit_item: ["admin", "manager", "system_admin", "owner"],
+  delete_item: ["admin", "manager", "system_admin", "owner"],
+  log_movement: ["admin", "manager", "staff", "system_admin", "owner"],
+  create_po: ["admin", "manager", "system_admin", "owner"],
+  approve_request: ["admin", "manager", "system_admin", "owner"],
+  manage_users: ["admin", "system_admin", "owner"],
+  view_analytics: ["admin", "manager", "system_admin", "owner"],
+  export_data: ["admin", "manager", "system_admin", "owner"],
+  create_request: ["admin", "manager", "staff", "system_admin", "owner"],
+  access_settings: ["admin", "manager", "staff", "system_admin", "owner"],
+  manage_suppliers: ["admin", "manager", "system_admin", "owner"],
+  view_sales: ["admin", "manager", "staff", "system_admin", "owner"],
+  record_sales: ["admin", "manager", "staff", "system_admin", "owner"],
 };
 
 export function usePermissions() {
@@ -31,7 +31,6 @@ export function usePermissions() {
 
   const can = (action: PermissionAction): boolean => {
     if (loading) return false;
-    if (role === "owner") return true;
     return ACTION_ROLES[action]?.includes(role) ?? false;
   };
 

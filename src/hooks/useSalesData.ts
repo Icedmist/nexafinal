@@ -121,56 +121,63 @@ export function useSalesMutations() {
       throw new Error("Authentication required to record sales. Please sign in.");
     }
 
-    const batch = writeBatch(db);
-    
-    // 1. Create Sale Document
-    const saleRef = doc(collection(db, "sales"));
-    const saleData = {
-      ...sale,
-      itemIds: sale.items.map((i) => i.itemId),
-      storeId: storeId,
-      branchId: claims?.branchId || null,
-      ownerId: user.uid,
-      recordedBy: user.uid,
-      recordedByName: user.displayName || user.email?.split("@")[0] || "Unknown Staff",
-    };
-    batch.set(saleRef, saleData);
-
-    // 2. Update Product Inventory and Record Movements
-    sale.items.forEach((item) => {
-      const productRef = doc(db, "products", item.itemId);
+    try {
+      const batch = writeBatch(db);
       
-      // Calculate real decrement amount based on unit conversion
-      const conversionFactor = (item as any).conversionFactor || 1;
-      const decrementAmount = item.quantity * conversionFactor;
-
-      // Decrement stock
-      batch.update(productRef, {
-        currentStock: increment(-decrementAmount),
-        updatedAt: new Date().toISOString()
-      });
-
-      // Create movement record for history
-      const movementRef = doc(collection(db, "movements"));
-      batch.set(movementRef, {
-        itemId: item.itemId,
-        type: MovementType.Shipped,
-        quantity: decrementAmount, // Store base quantity in movements
-        unitUsed: (item as any).selectedUnit || null,
-        reference: `Sale: ${saleRef.id}`,
-        notes: `Customer: ${sale.customerName || "Walk-in"}`,
+      // 1. Create Sale Document
+      const saleRef = doc(collection(db, "sales"));
+      const saleData = {
+        ...sale,
+        itemIds: sale.items.map((i) => i.itemId),
         storeId: storeId,
         branchId: claims?.branchId || null,
         ownerId: user.uid,
-        performedBy: user.uid,
-        performedByName: user.displayName || user.email?.split("@")[0] || "Staff",
-        createdAt: new Date().toISOString()
+        recordedBy: user.uid,
+        recordedByName: user.displayName || user.email?.split("@")[0] || "Unknown Staff",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      batch.set(saleRef, saleData);
+
+      // 2. Update Product Inventory and Record Movements
+      sale.items.forEach((item) => {
+        const productRef = doc(db, "products", item.itemId);
+        
+        // Calculate real decrement amount based on unit conversion
+        const conversionFactor = (item as any).conversionFactor || 1;
+        const decrementAmount = item.quantity * conversionFactor;
+
+        // Decrement stock
+        batch.update(productRef, {
+          currentStock: increment(-decrementAmount),
+          updatedAt: new Date().toISOString()
+        });
+
+        // Create movement record for history
+        const movementRef = doc(collection(db, "movements"));
+        batch.set(movementRef, {
+          itemId: item.itemId,
+          type: MovementType.Shipped,
+          quantity: decrementAmount,
+          unitUsed: (item as any).selectedUnit || null,
+          reference: `Sale: ${saleRef.id}`,
+          notes: `Customer: ${sale.customerName || "Walk-in"}`,
+          storeId: storeId,
+          branchId: claims?.branchId || null,
+          ownerId: user.uid,
+          performedBy: user.uid,
+          performedByName: user.displayName || user.email?.split("@")[0] || "Staff",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
       });
-    });
 
-
-    await batch.commit();
-    return { id: saleRef.id };
+      await batch.commit();
+      return { id: saleRef.id };
+    } catch (error: any) {
+      console.error("Failed to record sale:", error);
+      throw new Error(error?.message || "Failed to record sale. Please check your inventory and try again.");
+    }
   };
 
   const recordDebtPayment = async (payment: { 

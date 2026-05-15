@@ -7,6 +7,27 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   build: {
     outDir: "dist",
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor chunks
+          "firebase": ["firebase/app", "firebase/auth", "firebase/firestore", "firebase/storage", "firebase/functions"],
+          "recharts": ["recharts"],
+          "pdf": ["jspdf", "html2canvas"],
+          "ui": ["@radix-ui/react-accordion", "@radix-ui/react-alert-dialog", "@radix-ui/react-checkbox", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-popover", "@radix-ui/react-select", "@radix-ui/react-tabs"],
+          "motion": ["framer-motion"],
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "three": ["three", "@react-three/fiber", "@react-three/drei"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     host: "::",
