@@ -2,7 +2,7 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs, limit, getDoc, doc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, limit, getDoc, doc, setDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,6 +103,7 @@ function OnboardingPage() {
     setLoading(true);
 
     try {
+      console.log("[Onboarding] Checking slug availability...");
       const q = query(collection(db, "stores"), where("slug", "==", slug.toLowerCase()), limit(1));
       const snap = await getDocs(q);
       if (!snap.empty) {
@@ -110,6 +111,8 @@ function OnboardingPage() {
         setLoading(false);
         return;
       }
+
+      console.log("[Onboarding] Creating store document...");
 
       const storeRef = await addDoc(collection(db, "stores"), {
         name: storeName,
@@ -126,7 +129,9 @@ function OnboardingPage() {
         }
       });
 
-      await addDoc(collection(db, "staff"), {
+      console.log("[Onboarding] Creating staff record...");
+
+      await setDoc(doc(db, "staff", user.uid), {
         email: user.email,
         displayName: user.displayName || "Store Owner",
         role: "admin",
@@ -149,7 +154,12 @@ function OnboardingPage() {
         window.location.href = `${protocol}//${slug.toLowerCase()}.${baseDomain}/app/dashboard?tour=true`;
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to create store");
+      console.error("[Onboarding] Error during store launch:", err);
+      if (err.message?.includes("index")) {
+        toast.error("Database indexes are still building. Please wait a minute and try again.");
+      } else {
+        toast.error(err.message || "Failed to create store");
+      }
       setLoading(false);
     }
   };

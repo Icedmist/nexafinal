@@ -92,6 +92,9 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         await updateProfile(cred.user, { displayName });
       }
       if (cred.user) {
+        // Small delay to ensure auth state is fully propagated for Firestore rules
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         await notifyActivity(
           "staff_onboarding",
           "New Account Created",

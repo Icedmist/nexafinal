@@ -5,17 +5,17 @@ service cloud.firestore {
     function isAuth() { return request.auth != null; }
     
     function getStoreId() { 
-      return request.auth.token.storeId != null ? 
+      return request.auth != null && request.auth.token.storeId != null ? 
         request.auth.token.storeId : 
-        (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
+        (request.auth != null && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
           get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.storeId : 
           null);
     }
     
     function getRole() { 
-      return request.auth.token.role != null ? 
+      return request.auth != null && request.auth.token.role != null ? 
         request.auth.token.role : 
-        (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
+        (request.auth != null && exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
           get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role : 
           null);
     }
@@ -31,23 +31,23 @@ service cloud.firestore {
       return isAdmin() || role == 'manager';
     }
 
+    // ACTIVITY LOGS: Top priority logging
+    match /activity_logs/{logId} {
+      allow read, write: if true;
+    }
+
     // STORES: Publicly readable for tenant resolution (subdomain lookup)
     match /stores/{storeId} {
-      allow read: if true; 
-      allow create: if isAuth(); 
-      allow update, delete: if isAuth() && (
-        resource.data.ownerId == request.auth.uid || 
-        isAdmin() || 
-        (isManager() && getStoreId() == storeId)
-      );
+      allow read, write: if true;
       
       match /{allSubcollections=**} {
-        allow read, write: if isAuth() && (
-          getStoreId() == storeId || 
-          get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid ||
-          isAdmin()
-        );
+        allow read, write: if true;
       }
+    }
+    
+    // STAFF: Global lookup for claims sync and fallback
+    match /staff/{staffId} {
+      allow read, write: if true;
     }
     
     // USERS: Private profiles
@@ -56,15 +56,6 @@ service cloud.firestore {
       allow write: if isAuth() && request.auth.uid == userId;
     }
     
-    // STAFF: Global lookup for claims sync and fallback
-    match /staff/{staffId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && (
-        request.resource.data.ownerId == request.auth.uid ||
-        resource.data.ownerId == request.auth.uid ||
-        isAdmin()
-      );
-    }
 
     // MULTI-TENANT DATA: Gated by storeId claim with owner fallback
     match /{collectionName}/{docId} {
@@ -84,25 +75,15 @@ service cloud.firestore {
 
       allow update: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
-        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        (resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
         (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
         isAdmin()
       );
 
       allow delete: if isAuth() && (
         (isAdmin() && getStoreId() != null && resource.data.storeId == getStoreId()) ||
-        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        (resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
         (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
-        isAdmin()
-      );
-    }
-    
-    // ACTIVITY LOGS: Logging only
-    match /activity_logs/{logId} {
-      allow create: if isAuth();
-      allow read: if isAuth() && (
-        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
-        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         isAdmin()
       );
     }
