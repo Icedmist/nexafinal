@@ -81,10 +81,10 @@ export function NeedsAttention() {
       {/* Pending + Overdue POs */}
       {(pendingPOs.length > 0 || overduePOs.length > 0) && (
         <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Purchase orders</p>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Restocking</p>
           <div className="flex gap-4 text-sm">
             {pendingPOs.length > 0 && (
-              <Link to="/app/purchase-orders" className="text-primary hover:underline">
+              <Link to="/app/restocking" className="text-primary hover:underline">
                 {pendingPOs.length} pending
               </Link>
             )}

@@ -7,10 +7,11 @@ import {
   Users, 
   Truck, 
   History,
-  Barcode
+  PackagePlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PermissionGate } from "@/hooks/usePermissions";
+import { motion } from "framer-motion";
 
 interface ShortcutProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -18,20 +19,29 @@ interface ShortcutProps {
   onClick: () => void;
   color: string;
   permission?: string;
+  index: number;
 }
 
-function Shortcut({ icon: Icon, label, onClick, color, permission }: ShortcutProps) {
+function Shortcut({ icon: Icon, label, onClick, color, permission, index }: ShortcutProps) {
   const content = (
-    <Button
-      variant="outline"
-      onClick={onClick}
-      className="flex h-24 flex-col items-center justify-center gap-2 rounded-2xl border-2 bg-card p-4 transition-all hover:border-primary/50 hover:bg-primary/5 hover:scale-[1.02] active:scale-95 shadow-sm"
+    <motion.div
+      variants={{
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1 }
+      }}
+      transition={{ delay: index * 0.05 }}
     >
-      <div className={`rounded-xl p-2 ${color} bg-opacity-10`}>
-        <Icon className={`h-6 w-6 ${color.replace('bg-', 'text-')}`} />
-      </div>
-      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{label}</span>
-    </Button>
+      <Button
+        variant="outline"
+        onClick={onClick}
+        className="flex w-full h-24 flex-col items-center justify-center gap-2 rounded-2xl border-2 bg-card p-4 transition-all hover:border-primary/50 hover:bg-primary/5 hover:scale-[1.02] active:scale-95 shadow-sm"
+      >
+        <div className={`rounded-xl p-2 ${color} bg-opacity-10`}>
+          <Icon className={`h-6 w-6 ${color.replace('bg-', 'text-')}`} />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
+      </Button>
+    </motion.div>
   );
 
   if (permission) {
@@ -54,10 +64,17 @@ export function DashboardShortcuts() {
     },
     {
       icon: PlusCircle,
-      label: "New Item",
+      label: "New Product",
       onClick: () => navigate("/app/catalog?newItem=true"),
       color: "bg-blue-500",
       permission: "create_item"
+    },
+    {
+      icon: PackagePlus,
+      label: "Restocking",
+      onClick: () => navigate("/app/restocking?action=new"),
+      color: "bg-indigo-500",
+      permission: "create_movement"
     },
     {
       icon: Receipt,
@@ -68,17 +85,10 @@ export function DashboardShortcuts() {
     },
     {
       icon: Users,
-      label: "Customer",
+      label: "Directory",
       onClick: () => navigate("/app/customers"),
       color: "bg-purple-500",
       permission: "read_customer"
-    },
-    {
-      icon: Truck,
-      label: "Supplier",
-      onClick: () => navigate("/app/suppliers"),
-      color: "bg-rose-500",
-      permission: "read_supplier"
     },
     {
       icon: History,
@@ -90,10 +100,23 @@ export function DashboardShortcuts() {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 py-2">
+    <motion.div 
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: { opacity: 0 },
+        visible: {
+          opacity: 1,
+          transition: {
+            staggerChildren: 0.1
+          }
+        }
+      }}
+      className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 py-2"
+    >
       {shortcuts.map((s, idx) => (
-        <Shortcut key={idx} {...s} />
+        <Shortcut key={idx} {...s} index={idx} />
       ))}
-    </div>
+    </motion.div>
   );
 }

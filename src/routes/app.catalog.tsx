@@ -44,17 +44,31 @@ interface CatalogSearch {
 export default CatalogPage;
 
 function CatalogPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { item: itemId, newItem } = Object.fromEntries(searchParams.entries()) as any;
   const navigate = useNavigate();
 
   // Auto-open create form when navigated with newItem param
   useEffect(() => {
-    if (newItem) {
+    if (newItem === "true") {
+      setEditItem(null);
       setSheetOpen(true);
-      navigate("/app/catalog", { replace: true });
     }
-  }, [newItem, navigate]);
+  }, [newItem]);
+
+  const handleSheetOpenChange = useCallback((open: boolean) => {
+    setSheetOpen(open);
+    if (!open) {
+      setEditItem(null);
+      if (searchParams.get("newItem") === "true") {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("newItem");
+          return next;
+        }, { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams]);
 
   const [filters, setFilters] = useState<ItemFilters>({});
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
@@ -279,7 +293,7 @@ function CatalogPage() {
 
       <ItemFormSheet
         open={sheetOpen}
-        onOpenChange={(v) => { setSheetOpen(v); if (!v) setEditItem(null); }}
+        onOpenChange={handleSheetOpenChange}
         item={editItem}
         categories={categories}
         suppliers={suppliers}

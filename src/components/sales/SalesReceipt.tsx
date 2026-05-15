@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Printer, X, Download, MessageCircle, FileText, UserCircle, Receipt } from "lucide-react";
+import { Printer, Download, MessageCircle, UserCircle, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { SaleTransaction } from "@/types/inventory";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 const NAIRA = "₦";
 
@@ -12,16 +15,17 @@ function fmtNgn(amount: number): string {
   return `${NAIRA}${amount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
 }
 
-function buildReceiptText(sale: SaleTransaction, storeName: string): string {
+function buildReceiptText(sale: SaleTransaction, storeName: string, address: string, branchName?: string): string {
   const lines: string[] = [];
   lines.push(`🧾 *${storeName.toUpperCase()}*`);
+  if (branchName) lines.push(`*Branch: ${branchName}*`);
   lines.push(`Order: #${sale.id.slice(-8).toUpperCase()}`);
   lines.push(`Date: ${format(new Date(sale.createdAt), "dd MMM, HH:mm")}`);
   if (sale.recordedByName) lines.push(`Staff: ${sale.recordedByName}`);
   lines.push("");
   
   sale.items.forEach((li) => {
-    lines.push(`${li.itemName}`);
+    lines.push(`*${li.itemName}*`);
     lines.push(`${li.quantity} x ${li.unitPriceNgn.toLocaleString()} = ${li.totalPriceNgn?.toLocaleString() || (li.unitPriceNgn * li.quantity).toLocaleString()}`);
   });
   
@@ -29,93 +33,155 @@ function buildReceiptText(sale: SaleTransaction, storeName: string): string {
   lines.push(`*TOTAL: ${NAIRA}${sale.totalNgn.toLocaleString()}*`);
   lines.push("");
   lines.push("Thank you for your purchase! 🙏");
+  lines.push("_Powered by NEXA OS_");
   return lines.join("\n");
 }
 
-async function generateReceiptPDF(sale: SaleTransaction, storeName: string): Promise<Blob> {
+async function generateReceiptPDF(
+  sale: SaleTransaction, 
+  storeName: string, 
+  address: string, 
+  branchName?: string
+): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "mm", format: [80, 220] }); // receipt width
+  const doc = new jsPDF({ unit: "mm", format: [80, 260] }); // extended receipt length
 
   const w = 80;
   let y = 10;
-  const lm = 6; // left margin
-  const rm = w - 6; // right margin
+  const lm = 6; 
+  const rm = w - 6; 
 
   // Store name
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text(storeName, w / 2, y, { align: "center" });
+  doc.text(storeName.toUpperCase(), w / 2, y, { align: "center" });
   y += 5;
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.text("Receipt of Purchase", w / 2, y, { align: "center" });
-  y += 6;
 
-  // Line
-  doc.setDrawColor(200);
+  // Branch Name
+  if (branchName) {
+    doc.setFontSize(9);
+    doc.text(branchName, w / 2, y, { align: "center" });
+    y += 4.5;
+  }
+  
+  // Address
+  if (address) {
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    const addrLines = doc.splitTextToSize(address, rm - lm);
+    doc.text(addrLines, w / 2, y, { align: "center" });
+    y += (addrLines.length * 3.5);
+  }
+
+  y += 2;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text("SALES RECEIPT", w / 2, y, { align: "center" });
+  y += 5;
+
+  // Header Line
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(0);
   doc.line(lm, y, rm, y);
   y += 5;
 
-  // Receipt info
-  doc.setFontSize(8);
-  doc.text("Receipt #", lm, y);
+  // Receipt details
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.text("Receipt #:", lm, y);
   doc.setFont("helvetica", "bold");
   doc.text(sale.id.slice(-8).toUpperCase(), rm, y, { align: "right" });
   y += 4;
+  
   doc.setFont("helvetica", "normal");
-  doc.text("Date", lm, y);
+  doc.text("Date:", lm, y);
   doc.text(format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm"), rm, y, { align: "right" });
   y += 4;
 
+  doc.text("Payment:", lm, y);
+  doc.setFont("helvetica", "bold");
+  doc.text(((sale as any).paymentMethod || "CASH").toUpperCase(), rm, y, { align: "right" });
+  y += 4;
+
   if (sale.recordedByName) {
-    doc.text("Cashier", lm, y);
+    doc.setFont("helvetica", "normal");
+    doc.text("Cashier:", lm, y);
     doc.text(sale.recordedByName, rm, y, { align: "right" });
     y += 4;
   }
 
+  // Customer Details Section
+  y += 2;
+  doc.setFont("helvetica", "bold");
+  doc.text("CUSTOMER:", lm, y);
+  y += 4;
+  doc.setFont("helvetica", "normal");
   if (sale.customerName) {
-    doc.text("Customer", lm, y);
-    doc.text(sale.customerName, rm, y, { align: "right" });
+    doc.text(`Name: ${sale.customerName}`, lm + 2, y);
     y += 4;
   }
   if (sale.customerPhone) {
-    doc.text("Phone", lm, y);
-    doc.text(sale.customerPhone, rm, y, { align: "right" });
+    doc.text(`Phone: ${sale.customerPhone}`, lm + 2, y);
+    y += 4;
+  }
+  if (!sale.customerName && !sale.customerPhone) {
+    doc.text("Walk-in Customer", lm + 2, y);
     y += 4;
   }
 
   y += 2;
+  doc.setLineWidth(0.1);
   doc.line(lm, y, rm, y);
   y += 5;
 
+  // Items Table Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text("ITEM", lm, y);
+  doc.text("QTY", lm + 35, y, { align: "center" });
+  doc.text("PRICE", lm + 50, y, { align: "center" });
+  doc.text("TOTAL", rm, y, { align: "right" });
+  y += 2;
+  doc.line(lm, y, rm, y);
+  y += 4;
+
   // Line items
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   sale.items.forEach((li) => {
     doc.setFont("helvetica", "bold");
-    const name = li.itemName.length > 28 ? li.itemName.slice(0, 26) + "…" : li.itemName;
-    doc.text(name, lm, y);
-    y += 3.5;
+    const nameLines = doc.splitTextToSize(li.itemName, 33);
+    doc.text(nameLines, lm, y);
+    
     doc.setFont("helvetica", "normal");
-    doc.text(`${li.quantity} x ${fmtNgn(li.unitPriceNgn)}`, lm + 2, y);
-    doc.text(fmtNgn(li.unitPriceNgn * li.quantity), rm, y, { align: "right" });
-    y += 5;
+    doc.text(li.quantity.toString(), lm + 35, y, { align: "center" });
+    doc.text(li.unitPriceNgn.toLocaleString(), lm + 50, y, { align: "center" });
+    doc.text((li.unitPriceNgn * li.quantity).toLocaleString(), rm, y, { align: "right" });
+    
+    y += Math.max(nameLines.length * 3.5, 4);
   });
 
   // Total
+  y += 2;
+  doc.setLineWidth(0.3);
   doc.line(lm, y, rm, y);
   y += 5;
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("TOTAL", lm, y);
+  doc.text("TOTAL DUE", lm, y);
   doc.text(fmtNgn(sale.totalNgn), rm, y, { align: "right" });
-  y += 8;
+  y += 10;
 
   // Footer
-  doc.setFontSize(7);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "italic");
+  doc.text("Thank you for your business!", w / 2, y, { align: "center" });
+  y += 4;
+  doc.setFont("helvetica", "bold");
+  doc.text(storeName.toUpperCase(), w / 2, y, { align: "center" });
+  y += 4;
+  doc.setFontSize(6);
   doc.setFont("helvetica", "normal");
-  doc.text("Thank you for your purchase!", w / 2, y, { align: "center" });
-  y += 3;
-  doc.text(`Powered by NEXA Store OS`, w / 2, y, { align: "center" });
+  doc.text("POWERED BY NEXA OS", w / 2, y, { align: "center" });
 
   return doc.output("blob");
 }
@@ -125,12 +191,14 @@ interface SalesReceiptProps {
   onClose: () => void;
 }
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useBusiness } from "@/contexts/BusinessContext";
-
 export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const { profile } = useBusiness();
+  const { store } = useTenant();
+
   const storeName = profile?.storeDetails?.name || "NEXA Store";
+  const branch = store?.branches?.find(b => b.id === sale.branchId);
+  const address = branch?.location || profile?.storeDetails?.address || "";
+
   const [downloading, setDownloading] = useState(false);
 
   const handlePrint = () => window.print();
@@ -138,7 +206,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
-      const blob = await generateReceiptPDF(sale, storeName);
+      const blob = await generateReceiptPDF(sale, storeName, address, branch?.name);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -146,7 +214,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Receipt downloaded!");
-    } catch {
+    } catch (err) {
+      console.error(err);
       toast.error("Failed to generate PDF");
     } finally {
       setDownloading(false);
@@ -154,7 +223,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   const handleWhatsAppText = () => {
-    const text = buildReceiptText(sale, storeName);
+    const text = buildReceiptText(sale, storeName, address, branch?.name);
     const cleaned = sale.customerPhone?.replace(/\D/g, "") ?? "";
     const intlPhone = cleaned.startsWith("0") ? `234${cleaned.slice(1)}` : cleaned;
     const url = `https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`;
@@ -162,12 +231,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   const handleWhatsAppPDF = async () => {
-    const text = buildReceiptText(sale, storeName);
+    const text = buildReceiptText(sale, storeName, address, branch?.name);
     const cleaned = sale.customerPhone?.replace(/\D/g, "") ?? "";
     const intlPhone = cleaned.startsWith("0") ? `234${cleaned.slice(1)}` : cleaned;
     
     try {
-      const blob = await generateReceiptPDF(sale, storeName);
+      const blob = await generateReceiptPDF(sale, storeName, address, branch?.name);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -179,220 +248,174 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
     const waUrl = `https://wa.me/${intlPhone}?text=${encodeURIComponent(text + "\n\n📎 PDF receipt attached separately")}`;
     window.open(waUrl, "_blank");
   };
-
   return (
     <>
       <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="p-0 overflow-visible border-none bg-transparent shadow-none max-w-[450px] w-full focus:outline-none no-print">
-        <div className="nexa-card nexa-glass p-8 sm:p-10 flex flex-col max-h-[95vh] overflow-y-auto items-center w-full shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)] relative animate-in fade-in zoom-in-95 duration-500 border border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5 pointer-events-none" />
-            
-            {/* Header actions */}
-            <div className="flex items-center justify-between mb-8 print:hidden w-full relative z-10">
-              <div className="flex flex-col">
-                <DialogTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/60">
-                  Transaction Receipt
-                </DialogTitle>
-                <div className="h-0.5 w-6 bg-primary/30 mt-1 rounded-full" />
-              </div>
-              <button 
-                type="button" 
-                onClick={onClose} 
-                className="rounded-full p-2 hover:bg-white/10 transition-all group"
-              >
-                <X className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-              </button>
-            </div>
-
-            {/* Receipt Content Area */}
-            <div className="receipt-print-area w-full flex flex-col items-center text-center space-y-8 relative z-10">
-              
-              {/* Store Logo/Name */}
-              <div className="space-y-2 flex flex-col items-center">
-                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-2 border border-primary/20">
-                  <Receipt className="h-8 w-8 text-primary" />
-                </div>
-                <h2 className="text-3xl font-black tracking-tight text-foreground">{storeName}</h2>
-                <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em]">Official Purchase Record</p>
-              </div>
-
-              {/* Status Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-widest">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Payment Successful
-              </div>
-
-              {/* Primary Info Table */}
-              <div className="w-full space-y-4 py-6 border-y border-white/5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-left space-y-1">
-                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Reference</p>
-                    <p className="font-mono text-xs font-black text-foreground">#{sale.id.slice(-8).toUpperCase()}</p>
+        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none">
+          {sale && (
+            <div className="nexa-card bg-card p-8 space-y-6 relative overflow-hidden">
+               {/* Decorative background element */}
+               <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
+               
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Receipt className="h-5 w-5" />
                   </div>
-                  <div className="text-right space-y-1">
-                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Date</p>
-                    <p className="text-xs font-black text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy")}</p>
-                  </div>
-                  <div className="text-left space-y-1">
-                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Cashier</p>
-                    <div className="flex items-center gap-1.5 justify-start">
-                      <UserCircle className="h-3 w-3 text-primary/60" />
-                      <p className="text-xs font-black text-foreground">{sale.recordedByName || "Store Assistant"}</p>
-                    </div>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Time</p>
-                    <p className="text-xs font-black text-foreground">{format(new Date(sale.createdAt), "HH:mm")}</p>
+                  <div>
+                    <DialogTitle className="text-2xl font-black tracking-tight text-foreground uppercase">Receipt</DialogTitle>
+                    {address && <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{address}</p>}
                   </div>
                 </div>
               </div>
 
-              {/* Customer Info (Optional) */}
-              {(sale.customerName || sale.customerPhone) && (
-                <div className="w-full bg-white/5 rounded-2xl p-4 space-y-3">
-                  <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest text-center">Customer Information</p>
-                  <div className="flex justify-between items-center px-1">
-                    <span className="text-xs font-bold text-muted-foreground">Name</span>
-                    <span className="text-xs font-black text-foreground">{sale.customerName || "Guest"}</span>
+              <div className="rounded-3xl border-2 border-border bg-muted/20 p-5 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 left-0 h-1 w-full bg-primary" />
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Transaction ID</span>
+                  <span className="font-mono font-black text-sm text-foreground bg-background px-2 py-1 rounded-lg border">#{sale.id.slice(-8).toUpperCase()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Timestamp</span>
+                  <span className="font-bold text-xs text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
+                  <Badge variant="outline" className="capitalize font-black text-[10px] tracking-wider bg-primary/5 border-primary/20 text-primary px-3">
+                    {(sale as any).paymentMethod || "cash"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
+                  <div className="flex items-center gap-1.5">
+                    <UserCircle className="h-3.5 w-3.5 text-primary" />
+                    <span className="font-black text-xs text-foreground uppercase tracking-tight">{sale.recordedByName || "System"}</span>
                   </div>
-                  {sale.customerPhone && (
-                    <div className="flex justify-between items-center px-1">
-                      <span className="text-xs font-bold text-muted-foreground">Contact</span>
-                      <span className="text-xs font-mono font-black text-primary">{sale.customerPhone}</span>
-                    </div>
-                  )}
+                </div>
+              </div>
+
+              {sale.customerName && (
+                <div className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-sm">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Customer</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-black">{sale.customerName}</span>
+                    {sale.customerPhone && (
+                      <span className="text-[10px] font-mono text-muted-foreground font-bold">{sale.customerPhone}</span>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Items List */}
-              <div className="w-full space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-px flex-1 bg-white/5" />
-                  <span className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Items</span>
-                  <div className="h-px flex-1 bg-white/5" />
-                </div>
-                <div className="space-y-4 text-left">
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Line Items</h4>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                   {sale.items.map((li, idx) => (
-                    <div key={idx} className="flex justify-between items-start gap-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-black text-foreground leading-none mb-1">{li.itemName}</p>
-                        <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-                          {li.quantity} × {fmtNgn(li.unitPriceNgn)}
-                        </p>
+                    <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-2xl border-2 border-border/40 bg-muted/5 hover:bg-muted/10 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black truncate text-foreground">{li.itemName}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{li.quantity} UNIT(S) @ {fmtNgn(li.unitPriceNgn)}</p>
                       </div>
-                      <span className="font-mono text-sm font-black text-foreground">
-                        {fmtNgn(li.unitPriceNgn * li.quantity)}
-                      </span>
+                      <span className="font-mono text-sm font-black text-foreground shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Total Section */}
-              <div className="w-full pt-4 space-y-6">
-                <Separator className="h-px border-dashed bg-transparent border-t-2 border-white/10" />
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.4em]">Total Amount</p>
-                  <div className="text-6xl font-black font-mono tracking-tighter text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]">
-                    {fmtNgn(sale.totalNgn)}
-                  </div>
+              <div className="rounded-3xl bg-primary text-primary-foreground p-6 flex justify-between items-center shadow-xl shadow-primary/20">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Amount Paid</p>
+                  <p className="text-xs font-bold opacity-60 italic">VAT inclusive (if applicable)</p>
                 </div>
-                <Separator className="h-px border-dashed bg-transparent border-t-2 border-white/10" />
+                <span className="text-3xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
               </div>
 
-              {/* Footer */}
-              <div className="pt-4 space-y-3">
-                <p className="text-xs font-bold text-muted-foreground">Thank you for your purchase! 🙏</p>
-                <div className="flex items-center justify-center gap-2">
-                   <div className="h-1 w-1 rounded-full bg-primary/30" />
-                   <p className="text-[9px] font-black text-muted-foreground/20 uppercase tracking-[0.5em]">NEXA Store OS</p>
-                   <div className="h-1 w-1 rounded-full bg-primary/30" />
-                </div>
-              </div>
-
-              {/* Print Actions */}
-              <div className="w-full grid grid-cols-2 gap-3 pt-6 print:hidden">
-                <Button variant="outline" size="lg" onClick={handlePrint} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:bg-primary hover:text-primary-foreground transition-all">
-                  <Printer className="h-4 w-4" /> Print
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Button 
+                  variant="outline"
+                  className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
+                  onClick={handlePrint}
+                >
+                  <Printer className="h-5 w-5" /> Print
                 </Button>
-                <Button variant="outline" size="lg" onClick={handleDownloadPDF} disabled={downloading} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:bg-primary hover:text-primary-foreground transition-all">
-                  <Download className="h-4 w-4" /> {downloading ? "..." : "Save PDF"}
+                <Button 
+                  variant="outline"
+                  className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
+                  onClick={handleDownloadPDF}
+                  disabled={downloading}
+                >
+                  <Download className="h-5 w-5" /> PDF
                 </Button>
                 {sale.customerPhone && (
-                  <>
-                    <Button variant="outline" size="lg" onClick={handleWhatsAppText} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:border-emerald-500 hover:text-emerald-500 transition-all col-span-1">
-                      <MessageCircle className="h-4 w-4" /> WhatsApp
-                    </Button>
-                    <Button variant="outline" size="lg" onClick={handleWhatsAppPDF} className="h-14 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest gap-2 hover:border-emerald-500 hover:text-emerald-500 transition-all col-span-1">
-                      <FileText className="h-4 w-4" /> Send PDF
-                    </Button>
-                  </>
+                  <Button 
+                    className="col-span-2 gap-3 rounded-2xl h-14 font-black uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+                    onClick={handleWhatsAppText}
+                  >
+                    <MessageCircle className="h-5 w-5" /> Send to WhatsApp
+                  </Button>
                 )}
               </div>
             </div>
-          </div>
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
 
-    {/* Hidden Print-Only View optimized for 80mm thermal printers */}
-    <div className="hidden print:block receipt-print-view font-sans text-black">
-      <div className="text-center space-y-2 mb-6">
-        <h1 className="text-xl font-bold uppercase">{storeName}</h1>
-        <p className="text-[10px] font-medium tracking-widest">OFFICIAL RECEIPT</p>
-      </div>
-
-      <div className="text-[10px] space-y-1 mb-4">
-        <div className="flex justify-between">
-          <span>Receipt #:</span>
-          <span className="font-bold">{sale.id.slice(-8).toUpperCase()}</span>
+      {/* Hidden Print-Only View optimized for 80mm thermal printers */}
+      <div className="hidden print:block receipt-print-view font-mono text-black p-4">
+        <div className="text-center space-y-1 mb-6">
+          <h1 className="text-xl font-bold uppercase">{storeName}</h1>
+          {address && <p className="text-[9px] uppercase">{address}</p>}
+          <p className="text-[10px]">SALES RECEIPT</p>
         </div>
-        <div className="flex justify-between">
-          <span>Date:</span>
-          <span>{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
-        </div>
-        {sale.recordedByName && (
-          <div className="flex justify-between">
-            <span>Cashier:</span>
-            <span>{sale.recordedByName}</span>
-          </div>
-        )}
-        {sale.customerName && (
-          <div className="flex justify-between">
-            <span>Customer:</span>
-            <span>{sale.customerName}</span>
-          </div>
-        )}
-      </div>
 
-      <div className="border-y border-black border-dashed py-3 my-4">
-        <div className="text-[10px] space-y-3">
-          {sale.items.map((li, idx) => (
-            <div key={idx} className="space-y-1">
-              <div className="flex justify-between font-bold">
-                <span className="flex-1">{li.itemName}</span>
-                <span>{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
-              </div>
-              <div className="text-[9px] text-gray-600 pl-2">
-                {li.quantity} × {fmtNgn(li.unitPriceNgn)}
-              </div>
+        <div className="text-[10px] space-y-1 mb-4">
+          <div className="flex justify-between">
+            <span>RECEIPT #:</span>
+            <span className="font-bold">{sale.id.slice(-8).toUpperCase()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>DATE:</span>
+            <span>{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>PAYMENT:</span>
+            <span className="font-bold">{((sale as any).paymentMethod || "CASH").toUpperCase()}</span>
+          </div>
+          {sale.recordedByName && (
+            <div className="flex justify-between">
+              <span>CASHIER:</span>
+              <span>{sale.recordedByName.toUpperCase()}</span>
             </div>
-          ))}
+          )}
+        </div>
+
+        <div className="border-y border-black border-dashed py-3 my-4">
+          <div className="text-[10px] space-y-3">
+            {sale.items.map((li, idx) => (
+              <div key={idx} className="space-y-0.5">
+                <div className="flex justify-between font-bold">
+                  <span className="flex-1">{li.itemName.toUpperCase()}</span>
+                  <span>{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
+                </div>
+                <div className="text-[9px] opacity-80 pl-2">
+                  {li.quantity} x {fmtNgn(li.unitPriceNgn)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-8">
+          <div className="flex justify-between items-center text-lg font-bold">
+            <span>TOTAL</span>
+            <span>{fmtNgn(sale.totalNgn)}</span>
+          </div>
+        </div>
+
+        <div className="text-center text-[10px] space-y-2 mt-10">
+          <p>THANK YOU FOR YOUR PATRONAGE! 🙏</p>
+          <p className="font-bold opacity-30">POWERED BY NEXA STORE OS</p>
         </div>
       </div>
-
-      <div className="space-y-2 mb-8">
-        <div className="flex justify-between items-center text-lg font-bold">
-          <span>TOTAL</span>
-          <span>{fmtNgn(sale.totalNgn)}</span>
-        </div>
-      </div>
-
-      <div className="text-center text-[9px] space-y-1 mt-10">
-        <p>Thank you for your purchase! 🙏</p>
-        <p className="font-bold tracking-widest opacity-50">NEXA STORE OS</p>
-      </div>
-    </div>
-  </>
+    </>
   );
 }
-

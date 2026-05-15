@@ -16,12 +16,12 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["g", "c"], label: "Go to Catalog", action: (n) => n("/app/catalog"), category: "navigate" },
   { keys: ["g", "m"], label: "Go to Movements", action: (n) => n("/app/movements"), category: "navigate" },
   { keys: ["g", "s"], label: "Go to Suppliers", action: (n) => n("/app/suppliers"), category: "navigate" },
-  { keys: ["g", "p"], label: "Go to Purchase Orders", action: (n) => n("/app/purchase-orders"), category: "navigate" },
+  { keys: ["g", "p"], label: "Go to Restocking", action: (n) => n("/app/restocking"), category: "navigate" },
   { keys: ["g", "r"], label: "Go to Requests", action: (n) => n("/app/requests"), category: "navigate" },
   // Create: N then …
   { keys: ["n", "i"], label: "New Item", action: (n) => n("/app/catalog"), permission: "create_item", category: "create" },
   { keys: ["n", "m"], label: "New Movement", action: (n) => n("/app/movements"), permission: "log_movement", category: "create" },
-  { keys: ["n", "p"], label: "New Purchase Order", action: (n) => n("/app/purchase-orders"), permission: "create_po", category: "create" },
+  { keys: ["n", "p"], label: "New Restock", action: (n) => n("/app/restocking"), permission: "create_po", category: "create" },
   { keys: ["n", "r"], label: "New Request", action: (n) => n("/app/requests"), permission: "create_request", category: "create" },
 ];
 

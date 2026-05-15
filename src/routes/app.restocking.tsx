@@ -1,14 +1,14 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-import { PurchaseOrdersTable } from "@/components/purchase-orders/PurchaseOrdersTable";
-import { POSummaryStats } from "@/components/purchase-orders/POSummaryStats";
-import { PurchaseOrdersFilters } from "@/components/purchase-orders/PurchaseOrdersFilters";
-import { PurchaseOrderFormSheet } from "@/components/purchase-orders/PurchaseOrderFormSheet";
-import { PurchaseOrderDetailSheet } from "@/components/purchase-orders/PurchaseOrderDetailSheet";
-import { ReceiveShipmentSheet } from "@/components/purchase-orders/ReceiveShipmentSheet";
+import { RestockingTable } from "@/components/restocking/RestockingTable";
+import { RestockSummaryStats } from "@/components/restocking/RestockSummaryStats";
+import { RestockingFilters } from "@/components/restocking/RestockingFilters";
+import { RestockingFormSheet } from "@/components/restocking/RestockingFormSheet";
+import { RestockingDetailSheet } from "@/components/restocking/RestockingDetailSheet";
+import { ReceiveShipmentSheet } from "@/components/restocking/ReceiveShipmentSheet";
 import { usePurchaseOrders, useSuppliers, useItems, useMovements } from "@/hooks/useInventoryData";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
@@ -24,19 +24,19 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { OrderStatus, MovementType } from "@/types/inventory";
 import type { PurchaseOrder } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
-import type { POFilters } from "@/components/purchase-orders/po-filter-types";
-import { EMPTY_PO_FILTERS } from "@/components/purchase-orders/po-filter-types";
+import type { RestockFilters } from "@/components/restocking/restock-filter-types";
+import { EMPTY_RESTOCK_FILTERS } from "@/components/restocking/restock-filter-types";
 
 interface POSearch {
   po?: string;
 }
 
-export default PurchaseOrdersPage;
+export default RestockingPage;
 
-function PurchaseOrdersPage() {
+function RestockingPage() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
-  const { po: poParam } = Object.fromEntries(searchParams.entries()) as any;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { po: poParam, action } = Object.fromEntries(searchParams.entries()) as any;
   const { data: purchaseOrders } = usePurchaseOrders();
   const { data: suppliers } = useSuppliers();
   const { data: catalogItems } = useItems();
@@ -49,7 +49,7 @@ function PurchaseOrdersPage() {
   const updateItem = useUpdateItem();
   const canManagePOs = can("create_po");
   const isAdmin = isAdminRole(role);
-  const [filters, setFilters] = useState<POFilters>(EMPTY_PO_FILTERS);
+  const [filters, setFilters] = useState<RestockFilters>(EMPTY_RESTOCK_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
   const [editPO, setEditPO] = useState<PurchaseOrder | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -67,6 +67,25 @@ function PurchaseOrdersPage() {
       }
     }
   }, [poParam, purchaseOrders]);
+
+  // Handle action=new from dashboard
+  useEffect(() => {
+    if (action === "new") {
+      setEditPO(null);
+      setFormOpen(true);
+    }
+  }, [action]);
+
+  const handleFormOpenChange = useCallback((open: boolean) => {
+    setFormOpen(open);
+    if (!open && action === "new") {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("action");
+        return next;
+      }, { replace: true });
+    }
+  }, [action, setSearchParams]);
 
   const filtered = useMemo(() => {
     return purchaseOrders.filter((po) => {
@@ -108,32 +127,32 @@ function PurchaseOrdersPage() {
     <div className="mx-auto max-w-[1400px] space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Purchase orders</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} orders</p>
+          <h1 className="text-2xl font-semibold text-foreground">Restocking</h1>
+          <p className="text-sm text-muted-foreground">{filtered.length} records</p>
         </div>
         {canManagePOs && (
           <Button size="sm" onClick={openCreate}>
             <Plus className="mr-1.5 h-4 w-4" />
-            New PO
+            New Restock
           </Button>
         )}
       </div>
 
-      <POSummaryStats purchaseOrders={filtered} />
+      <RestockSummaryStats purchaseOrders={filtered} />
 
-      <PurchaseOrdersFilters filters={filters} onChange={setFilters} suppliers={suppliers} />
+      <RestockingFilters filters={filters} onChange={setFilters} suppliers={suppliers} />
 
       <ErrorBoundary>
       {purchaseOrders.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title="No purchase orders created"
-          description="Create purchase orders to track inventory procurement from your suppliers."
-          actionLabel={canManagePOs ? "Create PO" : undefined}
+          title="No restocking records created"
+          description="Create restocking records to track inventory procurement from your suppliers."
+          actionLabel={canManagePOs ? "New Restock" : undefined}
           onAction={canManagePOs ? openCreate : undefined}
         />
       ) : (
-        <PurchaseOrdersTable
+        <RestockingTable
           purchaseOrders={filtered}
           suppliers={suppliers}
           onRowClick={handleRowClick}
@@ -141,7 +160,7 @@ function PurchaseOrdersPage() {
       )}
       </ErrorBoundary>
 
-      <PurchaseOrderDetailSheet
+      <RestockingDetailSheet
         open={detailOpen}
         onOpenChange={setDetailOpen}
         purchaseOrder={currentDetailPO}
@@ -156,7 +175,7 @@ function PurchaseOrdersPage() {
             onSuccess: () => {
               setDetailOpen(false);
               setDetailPO(null);
-              toast.success("Purchase order deleted");
+              toast.success("Restocking record deleted");
             },
           });
         }}
@@ -190,12 +209,18 @@ function PurchaseOrdersPage() {
                 createdAt: now,
               });
 
-              // 2. Update item currentStock
+              // 2. Update item currentStock and costPrice
               const item = catalogItems.find((i) => i.id === line.itemId);
               if (item) {
+                const poItem = po.items.find((pi) => pi.id === line.lineItemId);
                 updateItem.mutate({
                   id: item.id,
-                  updates: { currentStock: item.currentStock + line.qty, updatedAt: now },
+                  updates: { 
+                    currentStock: item.currentStock + line.qty, 
+                    costPrice: poItem?.unitCost ?? item.costPrice,
+                    sellingPrice: poItem?.sellingPrice ?? item.sellingPrice,
+                    updatedAt: now 
+                  },
                 });
               }
             }
@@ -229,9 +254,9 @@ function PurchaseOrdersPage() {
         />
       )}
 
-      <PurchaseOrderFormSheet
+      <RestockingFormSheet
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={handleFormOpenChange}
         purchaseOrder={editPO}
         suppliers={suppliers}
         items={catalogItems}

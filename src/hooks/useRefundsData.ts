@@ -28,11 +28,19 @@ export function useRefunds(): QueryResult<Refund[]> {
       return;
     }
 
-    const q = query(
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
+    let q = query(
       collection(db, "refunds"),
-      where("storeId", "==", storeId),
-      orderBy("createdAt", "desc")
+      where("storeId", "==", storeId)
     );
+
+    if (!isAdmin && userBranchId) {
+      q = query(q, where("branchId", "==", userBranchId));
+    }
+
+    q = query(q, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const refunds: Refund[] = [];
@@ -40,14 +48,7 @@ export function useRefunds(): QueryResult<Refund[]> {
         refunds.push({ id: doc.id, ...doc.data() } as Refund);
       });
 
-      // Filter by branch if user is restricted
       let filtered = refunds;
-      const isAdmin = isAdminRole(claims?.role);
-      const userBranchId = claims?.branchId;
-      
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(r => r.branchId === userBranchId);
-      }
 
       setData(filtered);
       setIsLoading(false);

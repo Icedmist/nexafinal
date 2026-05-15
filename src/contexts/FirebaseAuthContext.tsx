@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   claims: { storeId?: string; role?: string; branchId?: string | null } | null;
   loading: boolean;
+  isLoggingOut: boolean; // NEW: Indicates if the logout process is active
   claimsReady: boolean; // NEW: Indicates if claims have been synced for the current user
   login: (email: string, pass: string) => Promise<UserCredential>;
   signup: (email: string, pass: string, displayName?: string) => Promise<UserCredential>;
@@ -28,6 +29,7 @@ const AuthContext = React.createContext<AuthContextType>({
   user: null,
   claims: null,
   loading: true,
+  isLoggingOut: false,
   claimsReady: false,
   login: async () => ({} as UserCredential),
   signup: async () => ({} as UserCredential),
@@ -42,30 +44,50 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [user, setUser] = React.useState<User | null>(null);
   const [claims, setClaims] = React.useState<{ storeId?: string; role?: string; branchId?: string | null } | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [claimsReady, setClaimsReady] = React.useState(false);
+
+  const refreshClaims = async () => {
+    if (auth.currentUser) {
+      try {
+        const tokenResult = await auth.currentUser.getIdTokenResult(true);
+        setClaims({
+          storeId: tokenResult.claims.storeId as string,
+          role: tokenResult.claims.role as string,
+          branchId: tokenResult.claims.branchId as string | null,
+        });
+        setClaimsReady(true);
+      } catch (error) {
+        console.error("Error refreshing custom claims:", error);
+      }
+    }
+  };
 
   const login = async (email: string, pass: string) => {
     try {
       console.log(`[Auth] Attempting login for: ${email}`);
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       
-      // Reset claimsReady on new login to force a resync check
+      // Reset claimsReady on new login and refresh custom claims immediately
       setClaimsReady(false);
+      await refreshClaims();
       
       if (cred.user) {
         console.log(`[Auth] Login successful for UID: ${cred.user.uid}`);
         const tokenResult = await cred.user.getIdTokenResult();
         console.log(`[Auth] Custom claims found:`, tokenResult.claims);
         
-        await notifyActivity(
-          "login",
-          "Staff Login",
-          `${cred.user.email} logged into the store.`,
-          cred.user.uid,
-          cred.user.email || "",
-          tokenResult.claims.storeId as string,
-          tokenResult.claims.branchId as string | null
-        );
+        await notifyActivity({
+          type: "login",
+          category: "security",
+          severity: "low",
+          title: "Staff Login",
+          message: `${cred.user.email} logged into the store.`,
+          userId: cred.user.uid,
+          userEmail: cred.user.email || "",
+          storeId: tokenResult.claims.storeId as string | undefined,
+          branchId: tokenResult.claims.branchId as string | null
+        });
       }
       return cred;
     } catch (error: any) {
@@ -95,14 +117,17 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Small delay to ensure auth state is fully propagated for Firestore rules
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        await notifyActivity(
-          "staff_onboarding",
-          "New Account Created",
-          `${cred.user.email} created a new account.`,
-          cred.user.uid,
-          cred.user.email || "",
-          undefined // No storeId yet for new signups
-        );
+        await refreshClaims();
+        await notifyActivity({
+          type: "staff_onboarding",
+          category: "system",
+          severity: "medium",
+          title: "New Account Created",
+          message: `${cred.user.email} created a new account.`,
+          userId: cred.user.uid,
+          userEmail: cred.user.email || "",
+          storeId: "PLATFORM" // Using PLATFORM as placeholder for initial signup
+        });
       }
       return cred;
     } catch (error: any) {
@@ -116,28 +141,66 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const logout = async () => {
+    setIsLoggingOut(true);
     setClaimsReady(false);
-    await signOut(auth);
+    
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Auth signOut failed:", err);
+    }
+    
+    // 1. Hard clear all persistent data
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // 2. Reset any application-specific cookies
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    // 3. Clear IndexedDB (used by Firebase and other libraries)
+    try {
+      const dbs = await window.indexedDB.databases();
+      dbs.forEach(db => {
+        if (db.name) window.indexedDB.deleteDatabase(db.name);
+      });
+    } catch (e) {
+      console.warn("Failed to clear IndexedDB:", e);
+    }
+
+    // 4. Clear Cache Storage (Service Workers, etc.)
+    try {
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(key => caches.delete(key)));
+      }
+    } catch (e) {
+      console.warn("Failed to clear Cache Storage:", e);
+    }
+
+    // 4. Force a full page reload to the root domain to reset all application state/contexts
+    const host = window.location.hostname;
+    const protocol = window.location.protocol;
+    const port = window.location.port;
+
+    if (host.includes("localhost") || host.includes("127.0.0.1")) {
+      window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}/`;
+    } else {
+      const parts = host.split(".");
+      if (parts.length > 2) {
+        const domain = parts.slice(-2).join(".");
+        window.location.href = `${protocol}//${domain}/`;
+      } else {
+        window.location.href = `${protocol}//${host}/`;
+      }
+    }
   };
 
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
-  };
-
-  const refreshClaims = async () => {
-    if (auth.currentUser) {
-      try {
-        const tokenResult = await auth.currentUser.getIdTokenResult(true);
-        setClaims({
-          storeId: tokenResult.claims.storeId as string,
-          role: tokenResult.claims.role as string,
-          branchId: tokenResult.claims.branchId as string | null,
-        });
-        setClaimsReady(true);
-      } catch (error) {
-        console.error("Error refreshing custom claims:", error);
-      }
-    }
   };
 
   React.useEffect(() => {
@@ -148,16 +211,25 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
           // 1. Initial claim fetch
           let tokenResult = await currentUser.getIdTokenResult();
           
-          // 2. If claims are missing (e.g. fresh signup), try refreshing a few times
-          // This handles the delay in the background Cloud Function trigger
-          if (!tokenResult.claims.storeId || !tokenResult.claims.role) {
-            console.log("Claims missing, attempting to sync permissions...");
+          // 2. If claims are missing, try refreshing a few times
+          // Note: Dev users and System admins are prioritized for fast entry
+          const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
+          const isDev = devUids.includes(currentUser.uid);
+          const hasRole = !!tokenResult.claims.role;
+          const isSystemAdmin = tokenResult.claims.role === 'system_admin';
+          
+          // Only wait if it's NOT a dev user AND (role is missing OR (not system_admin and storeId missing))
+          const needsWait = !isDev && (!hasRole || (!isSystemAdmin && !tokenResult.claims.storeId));
+
+          if (needsWait) {
+            console.log("Claims incomplete, attempting to sync permissions...");
             let attempts = 0;
             const maxAttempts = 3;
             
-            while (attempts < maxAttempts && (!tokenResult.claims.storeId || !tokenResult.claims.role)) {
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s for trigger
-              tokenResult = await currentUser.getIdTokenResult(true); // Force refresh
+            while (attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              tokenResult = await currentUser.getIdTokenResult(true);
+              if (tokenResult.claims.role) break;
               attempts++;
             }
           }
@@ -168,8 +240,8 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
             branchId: tokenResult.claims.branchId as string | null,
           };
 
-          // Temporary: Force system_admin role for dev user
-          if (currentUser.uid === '1TgfYzMcu5NXhqswqLpdPSUrnOJ2') {
+          // Temporary: Force system_admin role for dev users if not already set in Auth
+          if (isDev && finalClaims.role !== 'system_admin') {
             finalClaims.role = 'system_admin';
           }
 
@@ -191,7 +263,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, claims, loading, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
+    <AuthContext.Provider value={{ user, claims, loading, isLoggingOut, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
       {!loading && children}
     </AuthContext.Provider>
   );

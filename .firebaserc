@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "nexa-storeos"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

@@ -12,61 +12,91 @@ export interface RoleContextValue {
   isAdmin: boolean;
   isManager: boolean;
   isStaff: boolean;
-  isRequestor: boolean;
   isSystemAdmin: boolean;
+  loading: boolean;
+  isStoreMismatch: boolean;
 }
 
 export const RoleContext = createContext<RoleContextValue | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const { user, claims } = useAuth();
+  const { user, claims, claimsReady } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
   const { storeId: businessStoreId, ownerId: businessOwnerId, loadingProfile } = useBusiness();
-  const [realRole, setRealRole] = useState<UserRoleType>("requestor");
+  const [realRole, setRealRole] = useState<UserRoleType>("loading");
+  const [loading, setLoading] = useState(true);
+  const [isStoreMismatch, setIsStoreMismatch] = useState(false);
 
   useEffect(() => {
-    if (!user || loadingTenant || loadingProfile) {
-      if (!loadingTenant && !loadingProfile && !user) setRealRole("requestor");
+    // If we're still loading core data, stay in loading state
+    if (loadingTenant || loadingProfile || !claimsReady) {
+      setLoading(true);
       return;
     }
+
+
+    // If no user, we're not loading anymore, but there's no role
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const activeStoreId = store?.id || businessStoreId;
+
+    // Check for store mismatch early
+    // We only check if the user HAS a storeId in their claims. 
+    // System admins are global and don't mismatch.
+    const hasMismatch = !!(claims?.storeId && activeStoreId && claims.storeId !== activeStoreId && claims.role !== "system_admin");
+    setIsStoreMismatch(hasMismatch);
 
     // 1. High Priority: Use Custom Claims (Zero DB Read)
     if (claims?.role) {
       const roleFromClaims = claims.role as UserRoleType;
 
-      // System admins are global and should bypass store-scoped claim validation.
+      // System admins are global
       if (roleFromClaims === "system_admin") {
         setRealRole(roleFromClaims);
+        setLoading(false);
         return;
       }
 
-      // Security Check: Ensure the user's token storeId matches the current tenant context OR business context
-      const activeStoreId = store?.id || businessStoreId;
+      // Security Check: If there's a mismatch, we don't grant the role from claims
+      if (hasMismatch) {
+        setRealRole("suspended");
+        setLoading(false);
+        return;
+      }
+
+      // Ensure the user's token storeId matches the current tenant context OR business context
       if (claims.storeId === activeStoreId && activeStoreId) {
         setRealRole(roleFromClaims);
+        setLoading(false);
         return;
       }
     }
 
     // 2. Fallback: Check if user is the store owner (merchant root)
-    // We check both the tenant store and the business context store
     const isOwner = (store && user.uid === store.ownerId) || (user.uid === businessOwnerId);
     
-    if (isOwner) {
+    if (isOwner && !hasMismatch) {
       setRealRole("owner");
+      setLoading(false);
       return;
     }
 
-    // 3. If no claims and not owner, default to requestor
-    setRealRole("requestor");
-  }, [user, store, loadingTenant, claims, businessStoreId, businessOwnerId, loadingProfile]);
-
-  const role: UserRoleType = realRole;
+    // 3. Default to staff if no specific role found (and no mismatch)
+    if (!hasMismatch) {
+      setRealRole("staff");
+    } else {
+      setRealRole("suspended");
+    }
+    setLoading(false);
+  }, [user, store, loadingTenant, claims, claimsReady, businessStoreId, businessOwnerId, loadingProfile]);
 
   const value = useMemo<RoleContextValue>(() => {
+    const role = realRole;
     const permissions = getPermissionsForRole(role);
     const isSysAdmin = role === "system_admin";
-    const isOwner = role === "owner";
     const isAdmin = isAdminRole(role);
     const isManager = role === "manager" || isAdmin;
 
@@ -76,10 +106,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       isAdmin,
       isManager,
       isStaff: role === "staff",
-      isRequestor: role === "requestor",
       isSystemAdmin: isSysAdmin,
+      loading,
+      isStoreMismatch,
     };
-  }, [role]);
+  }, [realRole, loading, isStoreMismatch]);
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
 }

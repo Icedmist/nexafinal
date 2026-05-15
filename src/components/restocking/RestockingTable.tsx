@@ -31,7 +31,7 @@ const STATUS_CLASS: Record<OrderStatus, string> = {
   [OrderStatus.Cancelled]: "bg-destructive/15 text-destructive border-destructive/20",
 };
 
-interface PurchaseOrdersTableProps {
+interface RestockingTableProps {
   purchaseOrders: PurchaseOrder[];
   suppliers: Supplier[];
   onRowClick: (po: PurchaseOrder) => void;
@@ -39,7 +39,7 @@ interface PurchaseOrdersTableProps {
 
 const PER_PAGE = 20;
 
-export function PurchaseOrdersTable({ purchaseOrders, suppliers, onRowClick }: PurchaseOrdersTableProps) {
+export function RestockingTable({ purchaseOrders, suppliers, onRowClick }: RestockingTableProps) {
   const [page, setPage] = useState(0);
   const isMobile = useIsMobile();
 
@@ -53,7 +53,7 @@ export function PurchaseOrdersTable({ purchaseOrders, suppliers, onRowClick }: P
   const end = Math.min((safePage + 1) * PER_PAGE, sorted.length);
 
   if (sorted.length === 0) {
-    return <p className="py-16 text-center text-sm text-muted-foreground">No purchase orders yet</p>;
+    return <p className="py-16 text-center text-sm text-muted-foreground">No restocking records yet</p>;
   }
 
   const pagination = sorted.length > PER_PAGE && (
@@ -101,7 +101,7 @@ export function PurchaseOrdersTable({ purchaseOrders, suppliers, onRowClick }: P
         <Table>
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>
-              <TableHead className="w-[130px]">PO Number</TableHead>
+              <TableHead className="w-[130px]">Order Number</TableHead>
               <TableHead>Supplier</TableHead>
               <TableHead className="w-[160px]">Status</TableHead>
               <TableHead className="w-[80px] text-center">Items</TableHead>

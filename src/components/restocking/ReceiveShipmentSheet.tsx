@@ -17,9 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { X, PackageCheck, FileText, ShoppingCart } from "lucide-react";
+import { PackageCheck, FileText, ShoppingCart, QrCode } from "lucide-react";
 import type { PurchaseOrder, Item } from "@/types/inventory";
 import { cn } from "@/lib/utils";
+import { QRScannerDialog } from "../shared/QRScannerDialog";
+import { toast } from "sonner";
 
 interface ReceiveShipmentSheetProps {
   open: boolean;
@@ -54,6 +56,7 @@ export function ReceiveShipmentSheet({
 
   const [qtys, setQtys] = useState<Record<string, number>>(initialQtys);
   const [notes, setNotes] = useState("");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Reset when sheet opens with new PO
   const [lastPOId, setLastPOId] = useState(purchaseOrder.id);
@@ -80,6 +83,26 @@ export function ReceiveShipmentSheet({
     onConfirm(lines, notes);
   }
 
+  function handleQRScan(code: string) {
+    const query = code.trim().toLowerCase();
+    const lineItem = purchaseOrder.items.find(li => {
+      const item = itemMap.get(li.itemId);
+      return item?.sku.toLowerCase() === query || item?.barcode?.toLowerCase() === query;
+    });
+
+    if (lineItem) {
+      const remaining = Math.max(0, lineItem.quantityOrdered - lineItem.quantityReceived);
+      if (remaining > 0) {
+        setQtys(prev => ({ ...prev, [lineItem.id]: (prev[lineItem.id] || 0) + 1 }));
+        toast.success(`Incremented ${itemMap.get(lineItem.itemId)?.name}`);
+      } else {
+        toast.error("Item already fully received");
+      }
+    } else {
+      toast.error(`Item not found in this order: ${code}`);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
@@ -97,9 +120,15 @@ export function ReceiveShipmentSheet({
                 </div>
               </div>
             </div>
-            <button onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
-              <X className="h-4 w-4" />
-            </button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-primary/20 hover:bg-primary/5 text-primary"
+              onClick={() => setIsScannerOpen(true)}
+            >
+              <QrCode className="h-4 w-4" />
+              Scan Item
+            </Button>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-6 pr-1">
@@ -170,6 +199,11 @@ export function ReceiveShipmentSheet({
           </div>
         </div>
       </DialogContent>
+      <QRScannerDialog
+        open={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+        onScan={handleQRScan}
+      />
     </Dialog>
   );
 }

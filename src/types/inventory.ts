@@ -7,7 +7,10 @@ export interface SaleLineItem {
   quantity: number;
   unitPriceNgn: number;
   imageUrl?: string;
+  selectedUnit?: string;
+  conversionFactor?: number;
 }
+
 
 export interface SaleTransaction {
   id: string;
@@ -59,7 +62,9 @@ export enum ItemStatus {
 export enum UserRoleType {
   Admin = "admin",
   Manager = "manager",
-  Requestor = "requestor",
+  Staff = "staff",
+  SystemAdmin = "system_admin",
+  Owner = "owner",
 }
 
 // ─── Interfaces ──────────────────────────────────────────
@@ -73,7 +78,14 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface UnitOfMeasure {
+  name: string;           // e.g., 'Sack', 'Carton'
+  conversionFactor: number; // e.g., 50 (meaning 1 Sack = 50 base units)
+  sellingPrice?: number;   // Optional: Wholesale price override
+}
+
 export interface CustomFieldDefinition {
+
   id: string;
   name: string;
   fieldType: "text" | "number" | "boolean" | "date" | "select";
@@ -90,8 +102,9 @@ export interface Item {
   description: string;
   categoryId: string | null;
   status: ItemStatus;
-  unit: string;
-  currentStock: number;
+  unit: string; // This is the BASE UNIT
+  units?: UnitOfMeasure[]; // Secondary units
+  currentStock: number; // Stored in BASE UNIT
   reorderPoint: number;
   reorderQuantity: number;
   costPrice: number;
@@ -104,6 +117,7 @@ export interface Item {
   createdAt: string;
   updatedAt: string;
 }
+
 
 export type LocationType = "warehouse" | "zone" | "aisle" | "shelf" | "bin";
 
@@ -157,6 +171,9 @@ export interface PurchaseOrderItem {
   quantityOrdered: number;
   quantityReceived: number;
   unitCost: number;
+  selectedUnit?: string;
+  conversionFactor?: number;
+  sellingPrice?: number;
 }
 
 export interface PurchaseOrder {
@@ -206,7 +223,12 @@ export type NotificationType =
   | "po_reminder"
   | "po_overdue"
   | "request_update"
-  | "system";
+  | "system"
+  | "login"
+  | "staff_onboarding"
+  | "sale"
+  | "inventory_request"
+  | "movement";
 
 export interface Notification {
   id: string;
@@ -238,4 +260,17 @@ export interface StockSummary {
   inStock: number;
   lowStock: number;
   outOfStock: number;
+}
+
+export interface DebtPayment {
+  id: string;
+  customerPhone: string;
+  customerName: string;
+  amountNgn: number;
+  recordedBy: string;
+  recordedByName: string;
+  storeId: string;
+  branchId: string | null;
+  createdAt: string;
+  notes?: string;
 }

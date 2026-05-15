@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label";
 import { OrderStatus } from "@/types/inventory";
 import type { Supplier } from "@/types/inventory";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { POFilters } from "./po-filter-types";
-import { EMPTY_PO_FILTERS, isFiltersActive, activeFilterCount } from "./po-filter-types";
+import type { RestockFilters } from "./restock-filter-types";
+import { EMPTY_RESTOCK_FILTERS, isFiltersActive, activeFilterCount } from "./restock-filter-types";
 
 const STATUS_OPTIONS = [
   { value: OrderStatus.Draft, label: "Draft" },
@@ -26,13 +26,13 @@ const STATUS_OPTIONS = [
   { value: OrderStatus.Cancelled, label: "Cancelled" },
 ];
 
-interface PurchaseOrdersFiltersProps {
-  filters: POFilters;
-  onChange: (f: POFilters) => void;
+interface RestockingFiltersProps {
+  filters: RestockFilters;
+  onChange: (f: RestockFilters) => void;
   suppliers: Supplier[];
 }
 
-function FilterControls({ filters, onChange, suppliers }: PurchaseOrdersFiltersProps) {
+function FilterControls({ filters, onChange, suppliers }: RestockingFiltersProps) {
   const toggleStatus = (s: OrderStatus) => {
     const next = filters.statuses.includes(s)
       ? filters.statuses.filter((v) => v !== s)
@@ -100,7 +100,7 @@ function FilterControls({ filters, onChange, suppliers }: PurchaseOrdersFiltersP
       </div>
 
       {isFiltersActive(filters) && (
-        <Button variant="ghost" size="sm" className="w-fit gap-1 text-xs" onClick={() => onChange(EMPTY_PO_FILTERS)}>
+        <Button variant="ghost" size="sm" className="w-fit gap-1 text-xs" onClick={() => onChange(EMPTY_RESTOCK_FILTERS)}>
           <X className="h-3 w-3" />Clear Filters
         </Button>
       )}
@@ -108,7 +108,7 @@ function FilterControls({ filters, onChange, suppliers }: PurchaseOrdersFiltersP
   );
 }
 
-export function PurchaseOrdersFilters(props: PurchaseOrdersFiltersProps) {
+export function RestockingFilters(props: RestockingFiltersProps) {
   const isMobile = useIsMobile();
   const count = activeFilterCount(props.filters);
 
@@ -199,7 +199,7 @@ export function PurchaseOrdersFilters(props: PurchaseOrdersFiltersProps) {
         {/* Clear */}
         <div className="flex items-end">
           {isFiltersActive(props.filters) && (
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => props.onChange(EMPTY_PO_FILTERS)}>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => props.onChange(EMPTY_RESTOCK_FILTERS)}>
               <X className="h-3 w-3" />Clear Filters
             </Button>
           )}

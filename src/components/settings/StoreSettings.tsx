@@ -11,7 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useStoreBranches, useStoreMutations, useStaff } from "@/hooks/useStaffData";
 import { useSales } from "@/hooks/useSalesData";
 import { useItems } from "@/hooks/useInventoryData";
-import { Plus, MapPin, TrendingUp, Users, ShoppingCart, Package } from "lucide-react";
+import { Plus, MapPin, TrendingUp, Users, ShoppingCart, Package, Edit2 } from "lucide-react";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { isAdminRole } from "@/lib/roles";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 const NAIRA = "₦";
 function fmtNgn(amount: number): string {
@@ -56,12 +59,19 @@ function StoreActivitySummary() {
 
 export function StoreSettings() {
   const { profile, updateProfile, loadingProfile } = useBusiness();
+  const { claims } = useAuth();
 
   const [storeName, setStoreName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [receiptFooter, setReceiptFooter] = useState("");
   const [taxRate, setTaxRate] = useState("0");
+
+  const isAdmin = isAdminRole(claims?.role);
+  const isManager = claims?.role === 'manager';
+  const branchId = claims?.branchId;
+  const isRestrictedManager = isManager && !!branchId;
+  const canEditGlobal = isAdmin || (isManager && !branchId);
 
   useEffect(() => {
     if (profile) {
@@ -175,38 +185,41 @@ export function StoreSettings() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="store-phone">Phone Number</Label>
-              <Input id="store-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08012345678" className="font-mono font-bold" />
+              <Input id="store-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08012345678" className="font-mono font-bold" disabled={!canEditGlobal} />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="store-address">Address</Label>
-            <Textarea id="store-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main Street, Lagos" rows={2} className="font-bold" />
+            <Textarea id="store-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main Street, Lagos" rows={2} className="font-bold" disabled={!canEditGlobal} />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="tax-rate">Tax Rate (%)</Label>
-              <Input id="tax-rate" type="number" min="0" max="100" step="0.5" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} className="font-bold" />
+              <Input id="tax-rate" type="number" min="0" max="100" step="0.5" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} className="font-bold" disabled={!canEditGlobal} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="receipt-footer">Receipt Footer Text</Label>
-              <Input id="receipt-footer" value={receiptFooter} onChange={(e) => setReceiptFooter(e.target.value)} placeholder="Thank you for your patronage!" className="font-bold" />
+              <Input id="receipt-footer" value={receiptFooter} onChange={(e) => setReceiptFooter(e.target.value)} placeholder="Thank you for your patronage!" className="font-bold" disabled={!canEditGlobal} />
             </div>
           </div>
-          <Button onClick={handleSave} className="gap-1.5 rounded-xl font-bold">
-            <Save className="h-4 w-4" /> Save Settings
-          </Button>
+          {canEditGlobal && (
+            <Button onClick={handleSave} className="gap-1.5 rounded-xl font-bold">
+              <Save className="h-4 w-4" /> Save Settings
+            </Button>
+          )}
         </CardContent>
       </Card>
-      <BranchManagement />
+      <BranchManagement isRestrictedManager={isRestrictedManager} />
     </div>
   );
 }
 
 
-function BranchManagement() {
+function BranchManagement({ isRestrictedManager }: { isRestrictedManager: boolean }) {
   const { data: branches, isLoading } = useStoreBranches();
-  const { addBranch } = useStoreMutations();
+  const { addBranch, updateBranch } = useStoreMutations();
   const [newBranch, setNewBranch] = useState({ name: "", location: "" });
+  const [editingBranch, setEditingBranch] = useState<any>(null);
 
   const handleAdd = async () => {
     if (!newBranch.name || !newBranch.location) return;
@@ -224,38 +237,56 @@ function BranchManagement() {
     }
   };
 
+  const handleUpdate = async () => {
+    if (!editingBranch || !editingBranch.name || !editingBranch.location) return;
+    try {
+      await updateBranch(editingBranch.id, {
+        name: editingBranch.name,
+        location: editingBranch.location,
+      });
+      setEditingBranch(null);
+      toast.success("Branch updated");
+    } catch (err) {
+      toast.error("Failed to update branch");
+    }
+  };
+
   if (isLoading) return null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Building2 className="h-4 w-4" />Branch Management</CardTitle>
-        <CardDescription>Define locations for your store staff and inventory.</CardDescription>
+        <CardDescription>
+          {isRestrictedManager ? "Manage your assigned branch details." : "Define locations for your store staff and inventory."}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-end">
-          <div className="space-y-2">
-            <Label>Branch Name</Label>
-            <Input 
-              placeholder="e.g. Lekki Phase 1" 
-              value={newBranch.name}
-              onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
-              className="font-bold"
-            />
+        {!isRestrictedManager && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-end">
+            <div className="space-y-2">
+              <Label>Branch Name</Label>
+              <Input 
+                placeholder="e.g. Lekki Phase 1" 
+                value={newBranch.name}
+                onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
+                className="font-bold"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Location / Address</Label>
+              <Input 
+                placeholder="e.g. Plot 12, Lagos" 
+                value={newBranch.location}
+                onChange={(e) => setNewBranch({ ...newBranch, location: e.target.value })}
+                className="font-bold"
+              />
+            </div>
+            <Button onClick={handleAdd} className="sm:col-span-2 gap-2 rounded-xl font-bold">
+              <Plus className="h-4 w-4" /> Add Branch
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label>Location / Address</Label>
-            <Input 
-              placeholder="e.g. Plot 12, Lagos" 
-              value={newBranch.location}
-              onChange={(e) => setNewBranch({ ...newBranch, location: e.target.value })}
-              className="font-bold"
-            />
-          </div>
-          <Button onClick={handleAdd} className="sm:col-span-2 gap-2 rounded-xl font-bold">
-            <Plus className="h-4 w-4" /> Add Branch
-          </Button>
-        </div>
+        )}
 
         <div className="space-y-3">
           {branches.map((b) => (
@@ -271,6 +302,41 @@ function BranchManagement() {
                   </p>
                 </div>
               </div>
+              
+              <Dialog open={editingBranch?.id === b.id} onOpenChange={(open) => !open && setEditingBranch(null)}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditingBranch(b)}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="rounded-3xl">
+                  <DialogHeader>
+                    <DialogTitle className="font-black uppercase tracking-widest text-primary">Edit Branch</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Branch Name</Label>
+                      <Input 
+                        value={editingBranch?.name || ""}
+                        onChange={(e) => setEditingBranch({ ...editingBranch, name: e.target.value })}
+                        className="font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Location / Address</Label>
+                      <Input 
+                        value={editingBranch?.location || ""}
+                        onChange={(e) => setEditingBranch({ ...editingBranch, location: e.target.value })}
+                        className="font-bold"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditingBranch(null)} className="rounded-xl font-bold">Cancel</Button>
+                    <Button onClick={handleUpdate} className="rounded-xl font-bold">Save Changes</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           ))}
           {branches.length === 0 && (

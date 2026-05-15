@@ -33,6 +33,7 @@ export function LowStockSuggestions({ items, supplierId, lineItems, onAdd }: Low
       itemId: item.id,
       quantity: Math.max(1, suggestedQty),
       unitCost: item.costPrice,
+      sellingPrice: item.sellingPrice,
     });
   }
 

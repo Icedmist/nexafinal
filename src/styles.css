@@ -101,6 +101,12 @@
   --chart-3: oklch(0.60 0.17 155);
   --chart-4: oklch(0.60 0.22 25);
   --chart-5: oklch(0.55 0.02 160);
+ 
+  /* Nexa OS Brand Tints */
+  --nexa-blue: oklch(0.65 0.20 250);
+  --nexa-violet: oklch(0.60 0.25 300);
+  --nexa-cyan: oklch(0.75 0.20 200);
+  --nexa-emerald: oklch(0.65 0.20 150);
 
   /* Sidebar — dark desaturated teal-charcoal */
   --sidebar: oklch(0.20 0.02 162);
@@ -246,7 +252,7 @@
   position: relative;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 1.5rem; /* 24px */
+  border-radius: 1.5rem;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 
@@ -259,14 +265,14 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 0% 0%, oklch(var(--primary) / 0.03) 0%, transparent 50%),
-              radial-gradient(circle at 100% 100%, oklch(var(--secondary) / 0.03) 0%, transparent 50%);
+  background: radial-gradient(circle at 0% 0%, color-mix(in oklch, var(--primary) 3%, transparent) 0%, transparent 50%),
+              radial-gradient(circle at 100% 100%, color-mix(in oklch, var(--secondary) 3%, transparent) 0%, transparent 50%);
   pointer-events: none;
 }
 
 .dark .nexa-card {
   background: linear-gradient(135deg, oklch(0.22 0.02 160), oklch(0.18 0.02 160));
-  border: 1px solid oklch(var(--border) / 0.5);
+  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
   box-shadow: 
     0 10px 15px -3px rgb(0 0 0 / 0.3),
     0 4px 6px -4px rgb(0 0 0 / 0.3),
@@ -275,21 +281,134 @@
 
 .nexa-card-hover:hover {
   transform: translateY(-4px);
-  border-color: oklch(var(--primary) / 0.3);
+  border-color: color-mix(in oklch, var(--primary) 30%, transparent);
   box-shadow: 
     0 20px 25px -5px rgb(0 0 0 / 0.1),
     0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 .nexa-glass {
-  background: rgba(255, 255, 255, 0.7) !important;
+  background: color-mix(in oklch, var(--card) 70%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
 }
 
-.dark .nexa-glass {
-  background: rgba(20, 30, 30, 0.6) !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+.nexa-gradient-mesh {
+  background-image: 
+    radial-gradient(at 0% 0%, color-mix(in oklch, var(--primary) 10%, transparent) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, color-mix(in oklch, var(--secondary) 10%, transparent) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, color-mix(in oklch, var(--primary) 10%, transparent) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, color-mix(in oklch, var(--secondary) 10%, transparent) 0px, transparent 50%);
+}
+
+.nexa-text-gradient {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nexa-glow {
+  box-shadow: 0 0 20px -5px color-mix(in oklch, var(--primary) 40%, transparent);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* 
+ * ANIMATIONS 
+ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, 
+    transparent 25%, 
+    color-mix(in oklch, var(--primary) 10%, transparent) 50%, 
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* High-end layout tweaks */
+.app-container-mask {
+  mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
+}
+
+@layer utilities {
+  .nexa-gradient-mesh {
+    background-color: var(--background);
+    background-image: 
+      radial-gradient(at 0% 0%, color-mix(in oklch, var(--nexa-blue) 15%, transparent) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, color-mix(in oklch, var(--nexa-violet) 15%, transparent) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, color-mix(in oklch, var(--nexa-cyan) 10%, transparent) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, color-mix(in oklch, var(--nexa-emerald) 10%, transparent) 0px, transparent 50%);
+  }
+
+  .nexa-card {
+    @apply relative overflow-hidden rounded-[2rem] border border-white/20 bg-white/40 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] transition-all duration-500;
+  }
+
+  .dark .nexa-card {
+    @apply border-white/5 bg-slate-900/40 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+  }
+
+  .nexa-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 transition-opacity duration-500 pointer-events-none;
+  }
+
+  .nexa-card:hover::before {
+    @apply opacity-100;
+  }
+
+  .nexa-card:hover {
+    @apply shadow-[0_20px_40px_0_rgba(31,38,135,0.12)] -translate-y-1;
+  }
+
+  .nexa-glass {
+    @apply bg-white/60 backdrop-blur-2xl border border-white/20 shadow-2xl;
+  }
+
+  .dark .nexa-glass {
+    @apply bg-slate-950/60 border-white/5;
+  }
+
+  .text-glow-primary {
+    text-shadow: 0 0 15px color-mix(in oklch, var(--primary) 40%, transparent);
+  }
+
+  .nexa-button-shine {
+    @apply relative overflow-hidden;
+  }
+
+  .nexa-button-shine::after {
+    content: '';
+    @apply absolute -inset-full top-0 block w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-25deg] transition-all duration-1000;
+  }
+
+  .nexa-button-shine:hover::after {
+    @apply left-full;
+  }
 }
 

@@ -21,6 +21,7 @@ const systemAdminLinks: NavItem[] = [
   { label: "Overview", href: "/system-admin/dashboard", icon: LayoutDashboard },
   { label: "Businesses", href: "/system-admin/businesses", icon: Building2 },
   { label: "Platform Users", href: "/system-admin/users", icon: Users },
+  { label: "Audit Logs", href: "/system-admin/audit", icon: ShieldCheck },
   { label: "System Health", href: "/system-admin/health", icon: Activity },
   { label: "Global Settings", href: "/system-admin/settings", icon: Settings },
 ];
@@ -65,15 +66,8 @@ export function SystemAdminSidebar() {
         ))}
 
         <div className="pt-8 px-2 mb-4">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Security & Support</span>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Support</span>
         </div>
-        <Link
-          to="/system-admin/audit"
-          className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all"
-        >
-          <ShieldCheck className="h-5 w-5 shrink-0 text-slate-500" />
-          <span className="font-medium">Audit Logs</span>
-        </Link>
         <Link
           to="/app/help"
           className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all"

@@ -29,5 +29,10 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true
+    }
   }
 }

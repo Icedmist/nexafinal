@@ -34,6 +34,7 @@ import { useStaff, useStaffMutations, useStoreBranches } from "@/hooks/useStaffD
 import { useRole } from "@/hooks/useRole";
 import { StaffPerformance } from "@/components/analytics/StaffPerformance";
 import { StaffActivityLog } from "@/components/staff/StaffActivityLog";
+import { PermissionGate } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Staff, Branch } from "@/types/tenant";
@@ -136,13 +137,15 @@ function StaffPage() {
           <h1 className="text-2xl font-black tracking-tight text-foreground">Staff Management</h1>
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{staff.length} team members authorized</p>
         </div>
-        <Button onClick={() => {
-          setEditingStaff(null);
-          setNewStaff({ displayName: "", email: "", role: "staff", branchId: "", password: "" });
-          setFormOpen(true);
-        }} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-11 px-6 shadow-xl shadow-primary/20 gap-2">
-          <UserPlus className="h-4 w-4" /> Add Staff Member
-        </Button>
+        <PermissionGate permission="manage_users">
+          <Button onClick={() => {
+            setEditingStaff(null);
+            setNewStaff({ displayName: "", email: "", role: "staff", branchId: "", password: "" });
+            setFormOpen(true);
+          }} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-11 px-6 shadow-xl shadow-primary/20 gap-2">
+            <UserPlus className="h-4 w-4" /> Add Staff Member
+          </Button>
+        </PermissionGate>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -228,28 +231,30 @@ function StaffPage() {
                     <StatusBadge status={member.isActive ? "active" : "inactive"} />
                   </TableCell>
                   <TableCell className="text-right pr-6">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="rounded-lg h-8 w-8 p-0 font-bold"
-                        onClick={() => handleEdit(member)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="rounded-lg h-8 px-2 font-bold text-xs"
-                        onClick={() => toggleStatus(member)}
-                      >
-                        {member.isActive ? (
-                          <><Ban className="h-3.5 w-3.5 mr-1.5 text-destructive" /> Deactivate</>
-                        ) : (
-                          <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-500" /> Activate</>
-                        )}
-                      </Button>
-                    </div>
+                    <PermissionGate permission="manage_users">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="rounded-lg h-8 w-8 p-0 font-bold"
+                          onClick={() => handleEdit(member)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="rounded-lg h-8 px-2 font-bold text-xs"
+                          onClick={() => toggleStatus(member)}
+                        >
+                          {member.isActive ? (
+                            <><Ban className="h-3.5 w-3.5 mr-1.5 text-destructive" /> Deactivate</>
+                          ) : (
+                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-500" /> Activate</>
+                          )}
+                        </Button>
+                      </div>
+                    </PermissionGate>
                   </TableCell>
                 </TableRow>
               ))

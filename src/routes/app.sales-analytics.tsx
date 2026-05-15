@@ -28,11 +28,11 @@ function SalesAnalyticsPage() {
 
   // Profit per item
   const profitByItem = useMemo(() => {
-    const map = new Map<string, { name: string; revenue: number; cost: number; qty: number }>();
+    const map = new Map<string, { id: string; name: string; revenue: number; cost: number; qty: number }>();
     for (const sale of sales) {
       for (const li of sale.items) {
         const item = items.find((i) => i.id === li.itemId);
-        const existing = map.get(li.itemId) ?? { name: li.itemName, revenue: 0, cost: 0, qty: 0 };
+        const existing = map.get(li.itemId) ?? { id: li.itemId, name: li.itemName, revenue: 0, cost: 0, qty: 0 };
         existing.revenue += li.unitPriceNgn * li.quantity;
         existing.cost += (item?.costPrice ?? 0) * li.quantity;
         existing.qty += li.quantity;
@@ -194,7 +194,7 @@ function SalesAnalyticsPage() {
                     const profit = p.revenue - p.cost;
                     const margin = p.revenue > 0 ? (profit / p.revenue) * 100 : 0;
                     return (
-                      <div key={p.name} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                      <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
                         <Package className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{p.name}</p>

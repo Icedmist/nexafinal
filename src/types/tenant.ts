@@ -11,6 +11,10 @@ export interface Store {
   slug: string;
   name: string;
   branches: Branch[];
+  unitPresets?: Array<{
+    name: string;
+    conversionFactor: number;
+  }>;
   branding?: {
     logo?: string;
     primaryColor?: string;

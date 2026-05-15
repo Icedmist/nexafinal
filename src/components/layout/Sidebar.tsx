@@ -18,6 +18,9 @@ import {
   Receipt,
   TrendingUp,
   Users,
+  ShieldCheck,
+  Building2,
+  Globe,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -65,7 +68,7 @@ const navGroups: NavGroup[] = [
     permKey: "canManagePOs",
     items: [
       { label: "Suppliers", href: "/app/suppliers", icon: Truck },
-      { label: "Purchase orders", href: "/app/purchase-orders", icon: ClipboardList },
+      { label: "Restocking", href: "/app/restocking", icon: ClipboardList },
     ],
   },
   {
@@ -82,6 +85,17 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Settings", href: "/app/settings", icon: Settings },
       { label: "Staff", href: "/app/staff", icon: Users, permKey: "canManageUsers" },
+    ],
+  },
+];
+
+const systemAdminGroups: NavGroup[] = [
+  {
+    label: "Platform Admin",
+    items: [
+      { label: "Command Center", href: "/system-admin/dashboard", icon: ShieldCheck },
+      { label: "Businesses", href: "/system-admin/businesses", icon: Building2 },
+      { label: "User Directory", href: "/system-admin/users", icon: Globe },
     ],
   },
 ];
@@ -108,34 +122,47 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   };
 
   const isActive = (href: string) => location.pathname === href;
+  const isSystemRoute = location.pathname.startsWith("/system-admin");
 
   // Filter groups and items based on permissions AND business complexity
-
   const visibleGroups = navGroups
-    .filter((g) => !g.permKey || permissions[g.permKey])
     .filter((g) => {
       if (isSystemAdmin) return true;
-      return isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true;
+      const hasPerm = !g.permKey || permissions[g.permKey];
+      const isAllowedByComplexity = isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true;
+      return hasPerm && isAllowedByComplexity;
     })
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => !i.permKey || permissions[i.permKey]),
+      items: g.items.filter((i) => isSystemAdmin || !i.permKey || permissions[i.permKey]),
     }))
     .filter((g) => g.items.length > 0);
 
+  // For System Admins: 
+  // If on a system route, show ONLY system groups.
+  // If on an app route, show both but prioritize app groups (or just show all).
+  const allVisibleGroups = isSystemAdmin 
+    ? (isSystemRoute ? systemAdminGroups : [...systemAdminGroups, ...visibleGroups])
+    : visibleGroups;
+
   return (
-    <nav data-tour="sidebar" className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center gap-2 px-5">
-        <div className="bg-primary/10 rounded-lg p-1">
-          <img src={nexaLogo} className="h-5 w-5 text-primary" alt="NEXA Logo" />
+    <nav data-tour="sidebar" className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border/30">
+      <div className="flex h-20 items-center gap-3 px-6">
+        <div className="bg-sidebar-primary/20 rounded-xl p-2.5 shadow-[0_0_15px_rgba(var(--sidebar-primary),0.2)]">
+          <img src={nexaLogo} className="h-6 w-6" alt="NEXA Logo" />
         </div>
-        <span className="text-lg font-black tracking-tight uppercase italic text-sidebar-primary-foreground truncate">
-          {profile?.storeDetails?.name || "NEXA Store OS"}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-xs font-black tracking-[0.2em] uppercase text-sidebar-primary-foreground/40 leading-none mb-1">
+            NEXA OS
+          </span>
+          <span className="text-sm font-bold tracking-tight text-sidebar-primary-foreground truncate max-w-[160px]">
+            {isSystemAdmin ? "Platform Admin" : (profile?.storeDetails?.name || "Store OS")}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        {visibleGroups.map((group, idx) => {
+        {allVisibleGroups.map((group, idx) => {
           const isCollapsed = collapsed[group.label] ?? false;
           return (
             <div key={group.label}>
@@ -158,13 +185,19 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       onClick={onNavigate}
                       data-tour={item.label.toLowerCase()}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+                        "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all duration-200",
                         isActive(item.href)
-                          ? "bg-sidebar-accent font-medium text-sidebar-primary-foreground"
-                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                          ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
                       )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      {isActive(item.href) && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full shadow-[0_0_10px_rgba(var(--sidebar-primary),0.5)]" />
+                      )}
+                      <item.icon className={cn(
+                        "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+                        isActive(item.href) ? "text-sidebar-primary" : "text-sidebar-foreground/40"
+                      )} />
                       {item.label}
                     </Link>
                   ))}
@@ -174,7 +207,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           );
         })}
 
-        <div className="mx-2 my-2 border-t border-sidebar-border" />
+        <div className="mx-2 my-2 border-t border-sidebar-border/20" />
         <div className="space-y-0.5">
           {standaloneLinks.map((item) => (
             <Link
@@ -182,16 +215,59 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               to={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+                "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all duration-200",
                 isActive(item.href)
-                  ? "bg-sidebar-accent font-medium text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
               )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              {isActive(item.href) && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full" />
+              )}
+              <item.icon className={cn(
+                "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+                isActive(item.href) ? "text-sidebar-primary" : "text-sidebar-foreground/40"
+              )} />
               {item.label}
             </Link>
           ))}
+          
+          {/* System Admin View Toggle */}
+          {isSystemAdmin && (
+            <Link
+              to={isSystemRoute ? "/app/dashboard" : "/system-admin/dashboard"}
+              className="mt-6 flex items-center gap-3 rounded-2xl bg-primary/20 px-4 py-3 text-xs font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/30 border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+            >
+              {isSystemRoute ? (
+                <>
+                  <LayoutDashboard className="h-4 w-4" />
+                  Enter Store View
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  Platform Command
+                </>
+              )}
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* User Section */}
+      <div className="p-4 border-t border-sidebar-border/20 bg-sidebar-accent/10">
+        <div className="flex items-center gap-3 px-2 py-1">
+          <div className="h-10 w-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary-foreground font-bold border border-sidebar-primary/10 shadow-inner">
+            {profile?.ownerId === "system" ? "S" : (profile?.storeDetails?.name?.charAt(0) || "N")}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-bold text-sidebar-primary-foreground truncate">
+              {isSystemAdmin ? "System Admin" : (profile?.ownerId?.slice(0, 8) || "User")}
+            </span>
+            <span className="text-[10px] text-sidebar-foreground/40 font-medium uppercase tracking-wider">
+              {isSystemAdmin ? "Superuser" : "Store Manager"}
+            </span>
+          </div>
         </div>
       </div>
     </nav>

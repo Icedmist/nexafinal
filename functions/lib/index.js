@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.getplatformstats = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const functionsV1 = require("firebase-functions/v1");
@@ -8,12 +8,17 @@ const v2_1 = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 const params_1 = require("firebase-functions/params");
 const email_1 = require("./utils/email");
+const email_template_1 = require("./utils/email-template");
 admin.initializeApp();
 // Secrets for Zoho email
 const ZOHO_EMAIL = (0, params_1.defineSecret)("ZOHO_EMAIL");
 const ZOHO_PASSWORD = (0, params_1.defineSecret)("ZOHO_PASSWORD");
-// Set global options to ensure all functions use the correct region
-(0, v2_1.setGlobalOptions)({ region: "us-central1" });
+// Set global options to ensure all functions use the correct region and minimize resource usage
+(0, v2_1.setGlobalOptions)({
+    region: "us-central1",
+    memory: "256MiB", // Lower default memory to save quota
+    maxInstances: 10 // Prevent runaway scaling and quota consumption
+});
 /**
  * Maps Firebase Auth error codes to descriptive HttpsErrors.
  */
@@ -38,6 +43,15 @@ const mapAuthError = (error) => {
             return new https_1.HttpsError("internal", message);
     }
 };
+const getDefaultBranchId = async (storeId) => {
+    const storeDoc = await admin.firestore().collection("stores").doc(storeId).get();
+    if (!storeDoc.exists)
+        return null;
+    const storeData = storeDoc.data();
+    const branches = Array.isArray(storeData?.branches) ? storeData.branches : [];
+    const defaultBranch = branches.find((b) => b?.isMain) || branches[0];
+    return defaultBranch?.id ?? null;
+};
 /**
  * AUTOMATIC ONBOARDING: Firestore Trigger (v2)
  * Synchronizes Custom Claims whenever a staff record changes.
@@ -50,11 +64,19 @@ exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", 
     try {
         const userRecord = await admin.auth().getUserByEmail(email);
         if (userRecord) {
+            let actualBranchId = data.branchId || null;
+            if (!actualBranchId && storeId) {
+                actualBranchId = await getDefaultBranchId(storeId);
+            }
+            if (!data.branchId && actualBranchId) {
+                await admin.firestore().collection("staff").doc(event.params.staffId).update({ branchId: actualBranchId, updatedAt: new Date().toISOString() });
+                console.log(`Assigned default branch ${actualBranchId} for staff ${email}`);
+            }
             // Update custom claims
             await admin.auth().setCustomUserClaims(userRecord.uid, {
                 storeId: storeId,
-                role: isActive ? role : "requestor",
-                branchId: data.branchId || null,
+                role: isActive ? role : "suspended",
+                branchId: actualBranchId,
             });
             // NEW: Sync displayName to Auth profile if it has changed
             if (data.displayName && data.displayName !== userRecord.displayName) {
@@ -80,11 +102,14 @@ exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", 
  * PROVISION STAFF: Callable Function (v2)
  * Allows an admin/owner to create a staff user with a password.
  */
-exports.provisionstaff = (0, https_1.onCall)(async (request) => {
+exports.provisionstaff = (0, https_1.onCall)({
+    cors: true,
+    secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
-    const { email, password, displayName, role, storeId, branchId } = request.data;
+    const { email, password, displayName, role, storeId, branchId } = request.data || {};
     if (!email || typeof email !== 'string' || !email.includes('@')) {
         throw new https_1.HttpsError('invalid-argument', 'A valid email address is required.');
     }
@@ -98,10 +123,11 @@ exports.provisionstaff = (0, https_1.onCall)(async (request) => {
             password,
             displayName,
         });
+        const assignedBranchId = branchId || await getDefaultBranchId(storeId);
         await admin.auth().setCustomUserClaims(userRecord.uid, {
             storeId,
             role,
-            branchId: branchId || null,
+            branchId: assignedBranchId,
         });
         await admin.firestore().collection("staff").doc(userRecord.uid).set({
             uid: userRecord.uid,
@@ -109,8 +135,21 @@ exports.provisionstaff = (0, https_1.onCall)(async (request) => {
             displayName,
             role,
             storeId,
-            branchId: branchId || null,
+            branchId: assignedBranchId,
         });
+        // Send invitation email
+        try {
+            await (0, email_1.sendEmailViaZoho)({
+                to: normalizedEmail,
+                subject: `Staff Account Created`,
+                text: `Hi ${displayName || "there"},\n\nYou have been invited as a ${role} to join a store.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+                actionUrl: "https://nexa-os.com/auth/login",
+                actionLabel: "Login to Dashboard"
+            });
+        }
+        catch (emailError) {
+            console.error("Failed to send provision email:", emailError);
+        }
         return { success: true, uid: userRecord.uid };
     }
     catch (error) {
@@ -118,11 +157,101 @@ exports.provisionstaff = (0, https_1.onCall)(async (request) => {
         throw mapAuthError(error);
     }
 });
-exports.updatestaffprofile = (0, https_1.onCall)(async (request) => {
+/**
+ * PROVISION PLATFORM USER: Callable Function (v2)
+ * Allows a system admin to create a Store Owner or another System Admin.
+ */
+exports.provisionplatformuser = (0, https_1.onCall)({
+    cors: true,
+    secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (request) => {
+    await checkSystemAdmin(request);
+    const { email, password, displayName, role, storeName, storeSlug } = request.data || {};
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+        throw new https_1.HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (!password || typeof password !== 'string' || password.length < 6) {
+        throw new https_1.HttpsError('invalid-argument', 'A valid password of at least 6 characters is required.');
+    }
+    if (!role || !['owner', 'system_admin'].includes(role)) {
+        throw new https_1.HttpsError('invalid-argument', 'Valid platform role (owner or system_admin) is required.');
+    }
+    try {
+        const normalizedEmail = email.toLowerCase();
+        // 1. Create Auth User
+        const userRecord = await admin.auth().createUser({
+            email: normalizedEmail,
+            password,
+            displayName,
+        });
+        // 2. Set Custom Claims
+        const claims = { role };
+        // If it's a store owner, we might want to provision a store too if name/slug provided
+        let storeId = null;
+        if (role === 'owner' && storeName && storeSlug) {
+            const storeRef = admin.firestore().collection("stores").doc();
+            storeId = storeRef.id;
+            await storeRef.set({
+                id: storeId,
+                name: storeName,
+                slug: storeSlug.toLowerCase(),
+                ownerId: userRecord.uid,
+                status: "active",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                subscription: "trial",
+                businessType: "retail",
+                settings: {
+                    currency: "NGN",
+                    taxRate: 0,
+                }
+            });
+            claims.storeId = storeId;
+        }
+        await admin.auth().setCustomUserClaims(userRecord.uid, claims);
+        // 3. Create User record in Firestore 'users' collection
+        await admin.firestore().collection("users").doc(userRecord.uid).set({
+            uid: userRecord.uid,
+            email: normalizedEmail,
+            displayName,
+            role,
+            storeId: storeId || null,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // Send invitation email
+        try {
+            await (0, email_1.sendEmailViaZoho)({
+                to: normalizedEmail,
+                subject: `${role === 'system_admin' ? 'System Admin' : 'Store Owner'} Account`,
+                text: `Hi ${displayName || "there"},\n\nYou have been provisioned as a ${role === 'system_admin' ? 'System Admin' : 'Store Owner'}.\n\nYour Login Credentials:\nEmail: ${normalizedEmail}\nPassword: ${password}\n\nPlease change your password immediately after your first login for security purposes.`,
+                actionUrl: "https://nexa-os.com/auth/login",
+                actionLabel: "Login to Dashboard"
+            });
+        }
+        catch (emailError) {
+            console.error("Failed to send platform provision email:", emailError);
+        }
+        // 4. Record Activity
+        await admin.firestore().collection("activity_logs").add({
+            type: "platform_user_provisioned",
+            title: "Platform User Created",
+            message: `${role === 'system_admin' ? 'System Admin' : 'Store Owner'} ${email} was provisioned by ${request.auth?.token.email}`,
+            userEmail: request.auth?.token.email,
+            userId: request.auth?.uid,
+            storeId: "system",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { success: true, uid: userRecord.uid, storeId };
+    }
+    catch (error) {
+        console.error("Platform provisioning error:", error);
+        throw mapAuthError(error);
+    }
+});
+exports.updatestaffprofile = (0, https_1.onCall)({ cors: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
-    const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data;
+    const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data || {};
     if (!uid) {
         throw new https_1.HttpsError('invalid-argument', 'User UID is required.');
     }
@@ -331,20 +460,28 @@ exports.sendautoreceipt = (0, firestore_1.onDocumentCreated)({
     secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
 }, async (event) => {
     const data = event.data?.data();
-    if (!data || !data.customerEmail)
+    if (!data || !data.customerEmail || !data.storeId)
         return null;
-    const { customerName, customerEmail, totalNgn, items, isCreditSale } = data;
-    const itemsList = items.map((i) => `- ${i.itemName} (x${i.quantity}): ₦${i.unitPriceNgn.toLocaleString()}`).join("\n");
-    const debtNote = isCreditSale
-        ? `\n\nIMPORTANT: This was a credit sale. You have an outstanding balance of ₦${totalNgn.toLocaleString()}. Kindly settle this at your earliest convenience.`
-        : "";
-    const message = `Hi ${customerName || "Customer"},\n\nThank you for shopping with us! Your order total was ₦${totalNgn.toLocaleString()}.${debtNote}\n\nItems:\n${itemsList}\n\nWe appreciate your business! 🙏`;
     try {
+        // 1. Get store details for branding
+        const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
+        const storeData = storeDoc.data();
+        if (!storeData) {
+            console.warn(`Store not found for receipt: ${data.storeId}`);
+            return null;
+        }
+        // 2. Generate HTML using the new receipt template
+        const emailHtml = (0, email_template_1.getReceiptEmailTemplate)(data, storeData);
+        const title = `Receipt from ${storeData.name}`;
+        // 3. Send the email
         await (0, email_1.sendEmailViaZoho)({
-            to: customerEmail,
-            subject: "Your Receipt from Nexa Store",
-            text: message,
+            to: data.customerEmail,
+            subject: title,
+            text: `Your receipt from ${storeData.name} for ₦${data.totalNgn?.toLocaleString()}`,
+            html: emailHtml,
+            fromName: storeData.name
         });
+        console.log(`Auto-receipt sent to ${data.customerEmail} for store ${storeData.name}`);
     }
     catch (error) {
         console.error("Auto-receipt failed:", error);
@@ -353,7 +490,8 @@ exports.sendautoreceipt = (0, firestore_1.onDocumentCreated)({
 });
 /**
  * ACTIVITY ALERTS: Firestore Trigger (v2)
- * Notifies the store owner about critical events like logins or inventory alerts.
+ * Notifies the store owner about critical events like logins, inventory alerts,
+ * and important operational changes (medium+ severity).
  */
 exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
     document: "activity_logs/{logId}",
@@ -362,12 +500,8 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
     const data = event.data?.data();
     if (!data || !data.storeId)
         return null;
-    // We only send emails for critical alerts to avoid spam
-    const criticalTypes = ["login", "inventory_alert", "staff_onboarding"];
-    if (!criticalTypes.includes(data.type))
-        return null;
     try {
-        // 1. Get store owner email
+        // 1. Get store details for branding and owner email
         const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
         const storeData = storeDoc.data();
         if (!storeData || !storeData.ownerId)
@@ -376,19 +510,278 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
         const ownerEmail = owner.email;
         if (!ownerEmail)
             return null;
-        // 2. Format and send alert
-        const title = `Nexa OS Alert: ${data.title}`;
-        const message = `A new activity has been recorded in your store (${storeData.name}):\n\nEvent: ${data.title}\nDetails: ${data.message}\nUser: ${data.userEmail}\nTime: ${new Date().toLocaleString()}\n\nLog in to your dashboard to view more details.`;
-        await (0, email_1.sendEmailViaZoho)({
-            to: ownerEmail,
-            subject: title,
-            text: message,
+        // 2. Determine if email should be sent
+        // Emails are triggered for: medium, high, critical severities, or security/procurement categories
+        const emailSeverities = ["medium", "high", "critical"];
+        const emailCategories = ["security", "procurement"];
+        const shouldSendEmail = emailSeverities.includes(data.severity) ||
+            emailCategories.includes(data.category);
+        if (shouldSendEmail) {
+            let emailHtml = "";
+            // Build a severity-aware subject line
+            const severityPrefix = {
+                critical: "🔴 CRITICAL",
+                high: "🟠 ALERT",
+                medium: "🟡 NOTICE",
+            };
+            const prefix = severityPrefix[data.severity] || "📋 INFO";
+            const emailSubject = `${prefix} — ${data.title}`;
+            // Build the dashboard deep-link for CTA buttons
+            const storeSlug = storeData.slug || data.storeId;
+            const dashboardUrl = data.actionUrl
+                ? `https://${storeSlug}.nexastoreos.com${data.actionUrl}`
+                : `https://${storeSlug}.nexastoreos.com/app/dashboard`;
+            // Choose template based on category
+            if (data.category === "sales" && data.type === "sale") {
+                emailHtml = (0, email_template_1.getReceiptEmailTemplate)(data.metadata?.order || {}, storeData);
+            }
+            else if (data.category === "system" && data.type === "report") {
+                emailHtml = (0, email_template_1.getReportEmailTemplate)({
+                    title: data.title,
+                    period: data.metadata?.period || "Daily",
+                    summary: data.message
+                });
+            }
+            else {
+                emailHtml = (0, email_template_1.getAlertEmailTemplate)({
+                    title: data.title,
+                    severity: data.severity || "info",
+                    details: data.message,
+                    actionUrl: dashboardUrl,
+                    actionLabel: data.actionLabel || "View in Dashboard",
+                    performedBy: data.userEmail || "System",
+                });
+            }
+            await (0, email_1.sendEmailViaZoho)({
+                to: ownerEmail,
+                subject: emailSubject,
+                text: data.message,
+                html: emailHtml
+            });
+        }
+        // 3. Create In-App Notification document
+        // Map activity categories to notification types for the UI
+        const categoryToType = {
+            "inventory": "low_stock",
+            "procurement": "inventory_request",
+            "security": "security",
+            "sales": "sale",
+            "system": "system",
+            "staff": "security",
+            "finance": "sale",
+        };
+        await admin.firestore().collection("notifications").add({
+            storeId: data.storeId,
+            title: data.title,
+            message: data.message,
+            type: categoryToType[data.category] || "system",
+            severity: data.severity || "low",
+            isRead: false,
+            link: data.actionUrl || "/app/dashboard",
+            metadata: data.metadata || {},
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(`Alert email sent to owner ${ownerEmail} for event type ${data.type}`);
+        console.log(`Activity processed: ${data.category}/${data.type} [${data.severity}] (Email: ${shouldSendEmail})`);
     }
     catch (error) {
-        console.error("Failed to send activity alert:", error);
+        console.error("Failed to process activity log:", error);
     }
     return null;
+});
+/**
+ * HELPER: Verify System Admin status
+ */
+const checkSystemAdmin = async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
+    }
+    // SELF-HEAL: Ensure primary dev users have the system_admin role
+    const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
+    const devEmails = ['hello@nexastoreos.com', 'talk2icedmist@gmail.com'];
+    const isDev = devUids.includes(request.auth.uid) || devEmails.includes(request.auth.token.email);
+    if (isDev && request.auth.token.role !== 'system_admin') {
+        console.log(`CRITICAL: Self-healing role for dev user ${request.auth.uid} (${request.auth.token.email})`);
+        try {
+            await admin.auth().setCustomUserClaims(request.auth.uid, {
+                role: 'system_admin',
+                isPlatformAdmin: true
+            });
+            // Also update their Firestore record to match
+            await admin.firestore().collection("users").doc(request.auth.uid).set({
+                role: 'system_admin',
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            throw new https_1.HttpsError("permission-denied", "SYSTEM ADMIN ROLE GRANTED. Please LOG OUT and LOG IN AGAIN to refresh your session.");
+        }
+        catch (e) {
+            console.error("Self-heal failed:", e);
+            if (e instanceof https_1.HttpsError)
+                throw e;
+        }
+    }
+    if (request.auth.token.role !== "system_admin") {
+        throw new https_1.HttpsError("permission-denied", "Only system admins can perform this action.");
+    }
+};
+/**
+ * PING: Connectivity Test
+ */
+exports.ping = (0, https_1.onCall)({ cors: true }, async () => {
+    return { message: "Pong!", timestamp: new Date().toISOString() };
+});
+/**
+ * LIST ALL USERS: Callable Function (v2)
+ * Returns a list of all users from Firebase Auth.
+ */
+exports.listallusers = (0, https_1.onCall)({ cors: true }, async (request) => {
+    await checkSystemAdmin(request);
+    const { maxResults = 1000, pageToken } = request.data || {};
+    try {
+        console.log(`System Admin ${request.auth?.uid} is listing users...`);
+        const listUsersResult = await admin.auth().listUsers(maxResults, pageToken);
+        // Fetch associated staff/user records from Firestore to enrich the data
+        const users = listUsersResult.users.map((user) => ({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            disabled: user.disabled,
+            lastSignInTime: user.metadata.lastSignInTime,
+            creationTime: user.metadata.creationTime,
+            customClaims: user.customClaims || {},
+        }));
+        console.log(`Successfully retrieved ${users.length} users.`);
+        return {
+            users,
+            pageToken: listUsersResult.pageToken,
+        };
+    }
+    catch (error) {
+        console.error("CRITICAL: Error listing users from Auth:", {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+        });
+        // Return error info as data to avoid SDK stripping
+        return {
+            error: true,
+            errorMessage: error.message || "Unknown error",
+            errorCode: error.code || 'no-code',
+            errorStack: error.stack
+        };
+    }
+});
+/**
+ * WIPE USER: Callable Function (v2)
+ * Completely deletes a user from Auth and all related Firestore collections.
+ */
+exports.wipeuser = (0, https_1.onCall)({ cors: true }, async (request) => {
+    await checkSystemAdmin(request);
+    const { uid } = request.data || {};
+    if (!uid) {
+        throw new https_1.HttpsError("invalid-argument", "User UID is required.");
+    }
+    try {
+        // 1. Delete from Firebase Auth
+        await admin.auth().deleteUser(uid);
+        // 2. Delete from Firestore 'users' and 'staff'
+        const batch = admin.firestore().batch();
+        batch.delete(admin.firestore().collection("users").doc(uid));
+        batch.delete(admin.firestore().collection("staff").doc(uid));
+        // Also check for any 'staff' documents where 'uid' field matches (if docId was email/other)
+        const staffQuery = await admin.firestore().collection("staff").where("uid", "==", uid).get();
+        staffQuery.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        console.log(`Successfully wiped user ${uid} from platform.`);
+        return { success: true };
+    }
+    catch (error) {
+        console.error("Error wiping user:", error);
+        if (error.code === 'auth/user-not-found') {
+            // If user not in Auth, still try to clean Firestore
+            await admin.firestore().collection("staff").doc(uid).delete();
+            return { success: true, message: "User not found in Auth, but Firestore record cleaned." };
+        }
+        throw new https_1.HttpsError("internal", "Failed to wipe user data.");
+    }
+});
+/**
+ * UPDATE USER EMAIL: Callable Function (v2)
+ * Allows a system admin to change any user's email address.
+ * Syncs changes across Auth, 'users' collection, and 'staff' collection.
+ */
+exports.updateuseremail = (0, https_1.onCall)({ cors: true }, async (request) => {
+    await checkSystemAdmin(request);
+    const { uid, newEmail } = request.data || {};
+    if (!uid || !newEmail || !newEmail.includes('@')) {
+        throw new https_1.HttpsError("invalid-argument", "Valid UID and new email address are required.");
+    }
+    try {
+        const normalizedEmail = newEmail.toLowerCase();
+        console.log(`System Admin ${request.auth?.uid} is updating email for user ${uid} to ${normalizedEmail}`);
+        // 1. Update Firebase Auth
+        await admin.auth().updateUser(uid, { email: normalizedEmail });
+        // 2. Update Firestore 'users' collection
+        const userRef = admin.firestore().collection("users").doc(uid);
+        await userRef.set({ email: normalizedEmail, updatedAt: new Date().toISOString() }, { merge: true });
+        // 3. Update Firestore 'staff' collection (if exists)
+        const staffRef = admin.firestore().collection("staff").doc(uid);
+        await staffRef.set({ email: normalizedEmail, updatedAt: new Date().toISOString() }, { merge: true });
+        // 4. Also check for any 'staff' documents where 'uid' field matches (if docId was email/other)
+        const staffQuery = await admin.firestore().collection("staff").where("uid", "==", uid).get();
+        const batch = admin.firestore().batch();
+        staffQuery.forEach((doc) => {
+            batch.update(doc.ref, { email: normalizedEmail, updatedAt: new Date().toISOString() });
+        });
+        await batch.commit();
+        return { success: true, message: `Email updated to ${normalizedEmail} successfully.` };
+    }
+    catch (error) {
+        console.error("Error updating user email:", error);
+        throw mapAuthError(error);
+    }
+});
+/**
+ * GET PLATFORM STATS: Callable Function (v2)
+ * Aggregates high-level metrics across the entire platform.
+ */
+exports.getplatformstats = (0, https_1.onCall)({ cors: true }, async (request) => {
+    await checkSystemAdmin(request);
+    try {
+        const storesSnap = await admin.firestore().collection("stores").get();
+        const usersSnap = await admin.firestore().collection("users").get();
+        const staffSnap = await admin.firestore().collection("staff").get();
+        // Calculate monthly growth (last 6 months)
+        const now = new Date();
+        const monthlyGrowth = {};
+        // Initialize last 6 months
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthYear = d.toLocaleString('default', { month: 'short' });
+            monthlyGrowth[monthYear] = 0;
+        }
+        storesSnap.docs.forEach(doc => {
+            const createdAt = doc.data().createdAt;
+            if (createdAt) {
+                const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+                const monthYear = date.toLocaleString('default', { month: 'short' });
+                if (monthlyGrowth[monthYear] !== undefined) {
+                    monthlyGrowth[monthYear]++;
+                }
+            }
+        });
+        const growthData = Object.entries(monthlyGrowth).map(([name, stores]) => ({ name, stores }));
+        return {
+            totalStores: storesSnap.size,
+            totalUsers: usersSnap.size,
+            totalStaff: staffSnap.size,
+            growthData,
+            timestamp: new Date().toISOString()
+        };
+    }
+    catch (error) {
+        console.error("Error getting platform stats:", error);
+        throw new https_1.HttpsError("internal", "Failed to retrieve platform statistics.");
+    }
 });
 //# sourceMappingURL=index.js.map

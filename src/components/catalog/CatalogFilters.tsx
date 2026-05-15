@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Filter, X } from "lucide-react";
+import { Filter, X, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,6 +11,7 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { Category, Supplier, Location } from "@/types/inventory";
 import type { ItemFilters } from "@/types/inventory";
+import { QRScannerDialog } from "../shared/QRScannerDialog";
 
 interface CatalogFiltersProps {
   filters: ItemFilters;
@@ -29,6 +30,7 @@ const STATUS_OPTIONS = [
 
 export function CatalogFilters({ filters, onChange, categories, suppliers, locations }: CatalogFiltersProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const activeCount = [filters.categoryId, filters.supplierId, filters.status, filters.locationId, filters.search].filter(Boolean).length;
 
@@ -37,13 +39,27 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
 
   const filterControls = (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-      <input
-        type="text"
-        placeholder="Search name or SKU…"
-        value={filters.search ?? ""}
-        onChange={(e) => update({ search: e.target.value || undefined })}
-        className="h-9 w-full rounded-md border border-input bg-white px-3 text-sm outline-none transition-colors focus:border-primary sm:w-48"
-      />
+      <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="relative flex-1 sm:w-48">
+          <input
+            type="text"
+            placeholder="Search name or SKU…"
+            value={filters.search ?? ""}
+            onChange={(e) => update({ search: e.target.value || undefined })}
+            className="h-9 w-full rounded-md border border-input bg-white px-3 text-sm outline-none transition-colors focus:border-primary"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0 border-primary/20 hover:bg-primary/5 text-primary"
+          onClick={() => setIsScannerOpen(true)}
+          title="Scan QR Code"
+        >
+          <QrCode className="h-4 w-4" />
+        </Button>
+      </div>
 
       <Select value={filters.categoryId ?? "all"} onValueChange={(v) => update({ categoryId: v === "all" ? undefined : v })}>
         <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue placeholder="Category" /></SelectTrigger>
@@ -111,6 +127,11 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
           </SheetContent>
         </Sheet>
       </div>
+      <QRScannerDialog
+        open={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+        onScan={(code) => update({ search: code })}
+      />
     </>
   );
 }

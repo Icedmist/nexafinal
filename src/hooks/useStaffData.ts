@@ -31,11 +31,18 @@ export function useStaff(): QueryResult<Staff[]> {
       return;
     }
 
+    const isAdmin = isAdminRole(claims?.role);
+    const userBranchId = claims?.branchId;
+
     // STRICT TENANT FILTER: Use storeId
-    const q = query(
+    let q = query(
       collection(db, "staff"),
       where("storeId", "==", targetStoreId)
     );
+
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const staff: Staff[] = [];
@@ -43,15 +50,7 @@ export function useStaff(): QueryResult<Staff[]> {
         staff.push({ ...doc.data(), uid: doc.id } as any);
       });
 
-      const isAdmin = isAdminRole(claims?.role);
-      const userBranchId = claims?.branchId;
-
-      let filtered = staff;
-      if (!isAdmin && userBranchId) {
-        filtered = filtered.filter(s => s.branchId === userBranchId);
-      }
-
-      setData(filtered);
+      setData(staff);
       setIsLoading(false);
     }, (err) => {
       console.error("Staff fetch error:", err);
@@ -88,8 +87,8 @@ export function useStoreBranches(): QueryResult<Branch[]> {
         const allBranches = storeData.branches || [];
         
         let filtered = allBranches;
-        if (!isAdmin && userBranchId) {
-          filtered = allBranches.filter(b => b.id === userBranchId);
+        if (!isAdmin) {
+          filtered = allBranches.filter(b => b.id === (userBranchId || "none"));
         }
         setData(filtered);
       }
@@ -146,7 +145,7 @@ export function useUpdateSelf() {
   const { updateStaff } = useStaffMutations();
   const [isLoading, setIsLoading] = useState(false);
 
-  const updateProfile = async (updates: { displayName?: string; photoURL?: string; password?: string }) => {
+  const updateProfile = async (updates: { displayName?: string; photoURL?: string; password?: string; email?: string }) => {
     if (!user) throw new Error("Not authenticated");
     setIsLoading(true);
 
@@ -218,5 +217,32 @@ export function useStoreMutations() {
     });
   };
 
-  return { updateStore, addBranch };
+  const updateBranch = async (branchId: string, updates: Partial<Branch>) => {
+    const targetStoreId = claims?.storeId || store?.id;
+    if (!ownerId || !targetStoreId) return;
+
+    const q = query(collection(db, "stores"), where("ownerId", "==", ownerId), limit(1));
+    const snap = await getDocs(q);
+    
+    if (!snap.empty) {
+      const storeRef = snap.docs[0].ref;
+      const storeData = snap.docs[0].data() as Store;
+      const updatedBranches = (storeData.branches || []).map(b => 
+        b.id === branchId ? { ...b, ...updates } : b
+      );
+      await updateDoc(storeRef, { branches: updatedBranches });
+    }
+
+    // Sync with locations collection
+    const locationRef = doc(db, "locations", branchId);
+    const locationUpdates: any = {
+      updatedAt: new Date().toISOString(),
+    };
+    if (updates.name) locationUpdates.name = updates.name;
+    if (updates.location) locationUpdates.address = updates.location;
+    
+    await updateDoc(locationRef, locationUpdates);
+  };
+
+  return { updateStore, addBranch, updateBranch };
 }
