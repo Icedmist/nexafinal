@@ -24,42 +24,96 @@ function OnboardingPage() {
   const [loading, setLoading] = React.useState(false);
 
   const businessTypes = [
-    { id: "retail", label: "Retail", icon: "🛍️" },
+    { id: "provisions", label: "Provisions", icon: "🛒" },
+    { id: "grains", label: "Grains & Food", icon: "🌾" },
+    { id: "textiles", label: "Textiles", icon: "🧵" },
+    { id: "retail", label: "Retail (General)", icon: "🛍️" },
     { id: "wholesale", label: "Wholesale", icon: "📦" },
-    { id: "services", label: "Services", icon: "🛠️" },
     { id: "restaurant", label: "Restaurant", icon: "🍳" },
     { id: "other", label: "Other", icon: "✨" },
   ];
 
   const unitPresets = [
     { 
-      id: "bulk", 
-      label: "Bulk Food", 
-      desc: "Sacks (50kg), Paint Buckets", 
-      units: [
-        { name: "Sack", conversionFactor: 50 },
-        { name: "Half-Sack", conversionFactor: 25 },
-        { name: "Paint-Bucket", conversionFactor: 4 }
-      ]
-    },
-    { 
-      id: "fmcg", 
-      label: "Drinks/FMCG", 
-      desc: "Cartons, Packs, Trays", 
+      id: "provisions_units", 
+      label: "Provisions & FMCG", 
+      desc: "Packs, Cartons, Boxes, Packets", 
+      businessType: "provisions",
       units: [
         { name: "Carton", conversionFactor: 24 },
         { name: "Pack", conversionFactor: 12 },
-        { name: "Crate", conversionFactor: 30 }
+        { name: "Box", conversionFactor: 10 },
+        { name: "Packet", conversionFactor: 1 }
       ]
     },
     { 
-      id: "construction", 
-      label: "Construction", 
-      desc: "Bundles, Bags, Pallets", 
+      id: "grain_units", 
+      label: "Grains & Bulk Food", 
+      desc: "Mudu, Paint Bucket, Sacks", 
+      businessType: "grains",
+      units: [
+        { name: "Sack (50kg)", conversionFactor: 50 },
+        { name: "Paint Bucket", conversionFactor: 4 },
+        { name: "Mudu", conversionFactor: 1 },
+        { name: "Half-Sack", conversionFactor: 25 }
+      ]
+    },
+    { 
+      id: "textile_units", 
+      label: "Textiles & Fabrics", 
+      desc: "Yards, Bundles, Rolls", 
+      businessType: "textiles",
       units: [
         { name: "Bundle", conversionFactor: 20 },
-        { name: "Bag", conversionFactor: 1 },
-        { name: "Pallet", conversionFactor: 100 }
+        { name: "Roll", conversionFactor: 50 },
+        { name: "Yard", conversionFactor: 1 }
+      ]
+    },
+    { 
+      id: "general_units", 
+      label: "General Retail", 
+      desc: "Pieces, Pairs, Sets", 
+      businessType: "retail",
+      units: [
+        { name: "Piece", conversionFactor: 1 },
+        { name: "Pair", conversionFactor: 2 },
+        { name: "Set", conversionFactor: 1 }
+      ]
+    },
+    { 
+      id: "bulk_units", 
+      label: "Heavy Wholesale", 
+      desc: "Pallets, Crates, Large Sacks", 
+      businessType: "wholesale",
+      units: [
+        { name: "Pallet", conversionFactor: 100 },
+        { name: "Crate", conversionFactor: 30 },
+        { name: "Large Sack (100kg)", conversionFactor: 100 }
+      ]
+    },
+    { 
+      id: "restaurant_units", 
+      label: "Restaurant & Cafe", 
+      desc: "Plate, Portion, Tray, Cup", 
+      businessType: "restaurant",
+      units: [
+        { name: "Plate", conversionFactor: 1 },
+        { name: "Portion", conversionFactor: 1 },
+        { name: "Tray", conversionFactor: 10 },
+        { name: "Cup", conversionFactor: 1 },
+        { name: "Bowl", conversionFactor: 1 }
+      ]
+    },
+    { 
+      id: "generic_units", 
+      label: "General/Other", 
+      desc: "Unit, Piece, Pack, Box", 
+      businessType: "other",
+      units: [
+        { name: "Unit", conversionFactor: 1 },
+        { name: "Piece", conversionFactor: 1 },
+        { name: "Pack", conversionFactor: 12 },
+        { name: "Box", conversionFactor: 1 }
       ]
     },
   ];
@@ -195,8 +249,18 @@ function OnboardingPage() {
   };
 
   const nextStep = () => {
-    if (step === 2 && complexity === "basic") {
-      handleCreateStore();
+    if (step === 2) {
+      // Auto-select units based on business type
+      const relevantPreset = unitPresets.find(p => (p as any).businessType === businessType);
+      if (relevantPreset && selectedUnits.length === 0) {
+        setSelectedUnits([relevantPreset.id]);
+      }
+      
+      if (complexity === "basic") {
+        handleCreateStore();
+      } else {
+        setStep(step + 1);
+      }
     } else {
       setStep(step + 1);
     }

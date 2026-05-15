@@ -26,6 +26,7 @@ import type { Item, Category, Supplier, Location } from "@/types/inventory";
 import { ItemStatus } from "@/types/inventory";
 import type { Branch } from "@/types/tenant";
 import { useRole } from "@/hooks/useRole";
+import { useTenant } from "@/contexts/TenantContext";
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
@@ -72,6 +73,7 @@ export function ItemFormSheet({
   loading,
 }: ItemFormSheetProps) {
   const { isAdmin } = useRole();
+  const { store } = useTenant();
   const isEdit = !!item;
   const [isUploading, setIsUploading] = React.useState(false);
 
@@ -315,7 +317,27 @@ export function ItemFormSheet({
                 </div>
                 <div>
                   <label className={labelCls}>Unit of Measure</label>
-                  <input {...register("unit")} className={`${inputCls} mt-1.5`} placeholder="each, kg, box…" />
+                  <input 
+                    {...register("unit")} 
+                    list="unit-suggestions"
+                    className={`${inputCls} mt-1.5`} 
+                    placeholder="each, kg, box…" 
+                  />
+                  <datalist id="unit-suggestions">
+                    {store?.unitPresets?.map((p, idx) => (
+                      <option key={idx} value={p.name} />
+                    ))}
+                    <option value="Piece" />
+                    <option value="Dozen" />
+                    <option value="Carton" />
+                    <option value="Pack" />
+                    <option value="Kilogram" />
+                    <option value="Gram" />
+                    <option value="Litre" />
+                    <option value="Mudu" />
+                    <option value="Yard" />
+                    <option value="Sack" />
+                  </datalist>
                   {errors.unit && <p className={errCls}>{errors.unit.message}</p>}
                 </div>
                 <div className="sm:col-span-2">
