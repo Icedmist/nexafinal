@@ -93,8 +93,17 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   };
 
   const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+
   const handleCheckout = async () => {
     if (isProcessing) return;
+    
+    // Validate required data
+    if (!storeId || !claims?.storeId) {
+      toast.error("Store context not loaded. Please refresh and try again.");
+      return;
+    }
+
     setIsProcessing(true);
 
     const saleData: any = {
@@ -147,9 +156,9 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       });
 
       toast.success(`Sale recorded — ${NAIRA}${grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Checkout Error:", err);
-      toast.error("Failed to record sale");
+      toast.error(err?.message || "Failed to record sale. Check your permissions and try again.");
     } finally {
       setIsProcessing(false);
     }

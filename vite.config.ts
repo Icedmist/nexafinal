@@ -7,11 +7,11 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   build: {
     outDir: "dist",
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-      },
+    // Use esbuild for minification to avoid requiring terser as an extra dependency
+    minify: "esbuild",
+    // esbuild minifier supports drop via minifyOptions
+    minifyOptions: {
+      drop: ["console"]
     },
     rollupOptions: {
       output: {

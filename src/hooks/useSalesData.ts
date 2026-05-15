@@ -121,6 +121,10 @@ export function useSalesMutations() {
       throw new Error("Authentication required to record sales. Please sign in.");
     }
 
+    if (!claims?.storeId && !storeId) {
+      throw new Error("Store context not loaded. Please refresh and try again.");
+    }
+
     try {
       const batch = writeBatch(db);
       
@@ -129,7 +133,7 @@ export function useSalesMutations() {
       const saleData = {
         ...sale,
         itemIds: sale.items.map((i) => i.itemId),
-        storeId: storeId,
+        storeId: storeId || claims?.storeId, // CRITICAL: Must include storeId for Firestore rules
         branchId: claims?.branchId || null,
         ownerId: user.uid,
         recordedBy: user.uid,
@@ -137,6 +141,11 @@ export function useSalesMutations() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+
+      if (!saleData.storeId) {
+        throw new Error("Unable to determine store. Please refresh the page and try again.");
+      }
+
       batch.set(saleRef, saleData);
 
       // 2. Update Product Inventory and Record Movements
@@ -162,7 +171,7 @@ export function useSalesMutations() {
           unitUsed: (item as any).selectedUnit || null,
           reference: `Sale: ${saleRef.id}`,
           notes: `Customer: ${sale.customerName || "Walk-in"}`,
-          storeId: storeId,
+          storeId: saleData.storeId,
           branchId: claims?.branchId || null,
           ownerId: user.uid,
           performedBy: user.uid,
@@ -176,6 +185,9 @@ export function useSalesMutations() {
       return { id: saleRef.id };
     } catch (error: any) {
       console.error("Failed to record sale:", error);
+      if (error?.code === "permission-denied") {
+        throw new Error("You don't have permission to record sales. Contact your administrator.");
+      }
       throw new Error(error?.message || "Failed to record sale. Please check your inventory and try again.");
     }
   };
