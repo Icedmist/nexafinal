@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 interface SiteMapItem {
   title: string;
   href: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   description: string;
 }
 
