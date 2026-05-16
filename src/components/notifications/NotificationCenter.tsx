@@ -61,9 +61,8 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] p-4 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
-
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] w-[96vw] sm:w-full mx-auto shadow-2xl relative">
+      <DialogContent className="sm:max-w-[540px] p-0 border-none bg-transparent shadow-none flex items-center justify-center">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[85vh] w-[94vw] sm:w-full mx-auto shadow-2xl relative overflow-hidden">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-4">
@@ -97,7 +96,7 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
           {/* Filter Tabs */}
           <div className="mb-6">
             <Tabs value={tab} onValueChange={(v) => setTab(v as FilterTab)}>
-              <TabsList className="h-11 w-full rounded-xl bg-muted/30 p-1 border-2 border-border/50">
+              <TabsList className="h-11 w-full rounded-xl bg-muted/30 p-1 border-2 border-border/50 overflow-x-auto justify-start sm:justify-center no-scrollbar">
                 <TabsTrigger value="all" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">All</TabsTrigger>
                 <TabsTrigger value="unread" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Unread</TabsTrigger>
                 <TabsTrigger value="stock" className="flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Stock</TabsTrigger>
@@ -129,7 +128,7 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
             </div>
           )}
 
-          <ScrollArea className="flex-1 -mx-2 px-2">
+          <ScrollArea className="flex-1 -mx-2 px-2 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center gap-4 animate-in fade-in zoom-in-95 duration-500">
                 <div className="h-20 w-20 rounded-full bg-muted/50 flex items-center justify-center">

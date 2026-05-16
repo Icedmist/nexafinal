@@ -104,6 +104,7 @@ const systemAdminGroups: NavGroup[] = [
 
 const standaloneLinks: NavItem[] = [
   { label: "Requests", href: "/app/requests", icon: Inbox },
+  { label: "Site Map", href: "/sitemap", icon: Globe },
   { label: "Help", href: "/app/help", icon: HelpCircle },
 ];
 

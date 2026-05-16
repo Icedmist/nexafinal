@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface NotificationPrefs {
   low_stock: boolean;
@@ -70,56 +71,60 @@ export function NotificationPreferences({ open, onOpenChange }: NotificationPref
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md flex items-center justify-center p-0 border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 w-[94vw] sm:w-full">
-        <DialogHeader>
+        <div className="nexa-card bg-card p-6 w-[94vw] sm:w-full flex flex-col max-h-[85vh]">
+        <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Settings2 className="h-4 w-4" />
             Notification Preferences
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="mb-4 rounded-xl bg-primary/5 p-4 border border-primary/10">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex gap-3">
-                <div className="mt-1 rounded-full bg-primary/10 p-2 h-fit">
-                  <Monitor className="h-4 w-4 text-primary" />
+        <ScrollArea className="flex-1 -mx-2 px-2">
+          <div className="space-y-3 pb-2">
+            <div className="mb-4 rounded-xl bg-primary/5 p-4 border border-primary/10">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex gap-3">
+                  <div className="mt-1 rounded-full bg-primary/10 p-2 h-fit">
+                    <Monitor className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <Label className="text-sm font-bold">Device Notifications</Label>
+                    <p className="text-xs text-muted-foreground">Receive real-time alerts on your desktop or mobile device</p>
+                  </div>
                 </div>
+                <Switch
+                  id="device-notifications"
+                  checked={permission === "granted"}
+                  onCheckedChange={handleDeviceToggle}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-1 mb-2">
+              <Bell className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">App Alerts</span>
+            </div>
+
+            {PREF_LABELS.map(({ key, label, description }) => (
+              <div key={key} className="flex items-center justify-between gap-4 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors">
                 <div className="min-w-0">
-                  <Label className="text-sm font-bold">Device Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Receive real-time alerts on your desktop or mobile device</p>
+                  <Label htmlFor={`pref-${key}`} className="text-sm font-medium">{label}</Label>
+                  <p className="text-xs text-muted-foreground">{description}</p>
                 </div>
+                <Switch
+                  id={`pref-${key}`}
+                  checked={prefs[key]}
+                  onCheckedChange={() => handleToggle(key)}
+                  disabled={loading}
+                />
               </div>
-              <Switch
-                id="device-notifications"
-                checked={permission === "granted"}
-                onCheckedChange={handleDeviceToggle}
-              />
-            </div>
+            ))}
           </div>
+        </ScrollArea>
 
-          <div className="flex items-center gap-2 px-1 mb-2">
-            <Bell className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">App Alerts</span>
-          </div>
-
-          {PREF_LABELS.map(({ key, label, description }) => (
-            <div key={key} className="flex items-center justify-between gap-4 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors">
-              <div className="min-w-0">
-                <Label htmlFor={`pref-${key}`} className="text-sm font-medium">{label}</Label>
-                <p className="text-xs text-muted-foreground">{description}</p>
-              </div>
-              <Switch
-                id={`pref-${key}`}
-                checked={prefs[key]}
-                onCheckedChange={() => handleToggle(key)}
-                disabled={loading}
-              />
-            </div>
-          ))}
-        </div>
-
-        <Button onClick={handleSave} className="w-full mt-2">Save Preferences</Button>
+        <Button onClick={handleSave} className="w-full mt-6 h-12 rounded-xl font-black uppercase text-xs tracking-widest">
+          Save Preferences
+        </Button>
         </div>
       </DialogContent>
       <NotificationPermissionPrompt open={showPermissionPrompt} onOpenChange={setShowPermissionPrompt} />

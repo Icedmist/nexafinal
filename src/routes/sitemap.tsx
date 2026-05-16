@@ -141,7 +141,7 @@ export default function SiteMapPage() {
               </div>
               
               <div className="grid gap-3">
-                {section.items.map((link) => (
+                {section.items.map((link: SiteMapItem) => (
                   <Link 
                     key={link.title} 
                     to={link.href}

@@ -125,20 +125,20 @@ async function generateReceiptPDF(
   
   // Totals
   estimatedHeight += 10; // Subtotal/Tax line
-  if (sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn)) estimatedHeight += 15;
-  estimatedHeight += 10; // Grand total
-  if (sale.amountPaidNgn) estimatedHeight += 10;
+  if (sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn)) estimatedHeight += 20;
+  estimatedHeight += 12; // Grand total
+  if (sale.amountPaidNgn) estimatedHeight += 15;
   
   // Footer
-  estimatedHeight += 20;
+  estimatedHeight += 15;
   if (receiptFooter) {
     const footerLines = tempDoc.splitTextToSize(receiptFooter, rm - lm);
-    estimatedHeight += (footerLines.length * 4);
+    estimatedHeight += (footerLines.length * 5);
   }
   estimatedHeight += 15; // Powered by
   
   // 2. Create the actual document with calculated height
-  const finalHeight = estimatedHeight + 30; // Add a generous buffer
+  const finalHeight = estimatedHeight + 40; // Add a generous buffer
   const doc = new jsPDF({ unit: "mm", format: [w, finalHeight] });
 
   let y = 10;
@@ -447,7 +447,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                       <div className="flex items-center gap-1.5">
                         <UserCircle className="h-3.5 w-3.5 text-primary" />
                         <span className="font-black text-xs text-foreground uppercase tracking-tight">
-                          {sale.recordedByName || user?.displayName || user?.email?.split('@')[0] || "System"}
+                          {sale.recordedByName || user?.displayName || user?.email?.split('@')[0] || "Cashier"}
                         </span>
                       </div>
                     </div>
