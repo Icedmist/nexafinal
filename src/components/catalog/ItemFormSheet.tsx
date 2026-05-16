@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, PackagePlus, Tag, Boxes, Banknote, MapPin, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Plus, PackagePlus, Tag, Boxes, Banknote, MapPin, Upload, Image as ImageIcon } from "lucide-react";
 import { uploadImage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +43,11 @@ const schema = z.object({
   sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative"),
   status: z.nativeEnum(ItemStatus),
   imageUrl: z.string().nullable().optional(),
+  units: z.array(z.object({
+    name: z.string().min(1, "Unit name is required"),
+    conversionFactor: z.coerce.number().min(0.00001, "Conversion must be greater than 0"),
+    sellingPrice: z.coerce.number().optional(),
+  })).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -139,6 +144,7 @@ export function ItemFormSheet({
           sellingPrice: item.sellingPrice,
           status: item.status,
           imageUrl: item.imageUrl || null,
+          units: item.units || [],
         });
       } else {
         reset({
@@ -157,6 +163,7 @@ export function ItemFormSheet({
           sellingPrice: 0,
           status: ItemStatus.Active,
           imageUrl: null,
+          units: [],
         });
       }
     }
@@ -182,8 +189,18 @@ export function ItemFormSheet({
       locationId: (data.locationId === "none" || !data.locationId) ? null : data.locationId,
       branchId: (data.branchId === "all" || !data.branchId) ? null : data.branchId,
     };
-
-    onSave(cleanedData);
+    
+    // Ensure numeric fields are numbers
+    const finalData = {
+      ...cleanedData,
+      units: cleanedData.units?.map(u => ({
+        ...u,
+        conversionFactor: Number(u.conversionFactor),
+        sellingPrice: u.sellingPrice ? Number(u.sellingPrice) : undefined
+      }))
+    };
+ 
+    onSave(finalData as any);
   };
 
   const onInvalid = (errors: any) => {
@@ -315,35 +332,120 @@ export function ItemFormSheet({
                   <input {...register("sku")} className={`${inputCls} mt-1.5 font-mono uppercase`} placeholder="STK-XXXX" />
                   {errors.sku && <p className={errCls}>{errors.sku.message}</p>}
                 </div>
-                <div>
-                  <label className={labelCls}>Unit of Measure</label>
-                  <input 
-                    {...register("unit")} 
-                    list="unit-suggestions"
-                    className={`${inputCls} mt-1.5`} 
-                    placeholder="each, kg, box…" 
-                  />
-                  <datalist id="unit-suggestions">
-                    {store?.unitPresets?.map((p, idx) => (
-                      <option key={idx} value={p.name} />
-                    ))}
-                    <option value="Piece" />
-                    <option value="Dozen" />
-                    <option value="Carton" />
-                    <option value="Pack" />
-                    <option value="Kilogram" />
-                    <option value="Gram" />
-                    <option value="Litre" />
-                    <option value="Mudu" />
-                    <option value="Yard" />
-                    <option value="Sack" />
-                  </datalist>
-                  {errors.unit && <p className={errCls}>{errors.unit.message}</p>}
-                </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Description (Optional)</label>
                   <textarea {...register("description")} rows={2} className={`${inputCls} h-auto py-2.5 mt-1.5 resize-none`} placeholder="Brief description of the product..." />
                   {errors.description && <p className={errCls}>{errors.description.message}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Units & Measurements */}
+            <div className={cardGroupCls}>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-primary">
+                  <Boxes className="h-4 w-4" />
+                  <h3 className="font-semibold text-foreground">Units & Measurements</h3>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-[10px] font-black uppercase tracking-widest px-2"
+                  onClick={() => {
+                    const currentUnits = watch("units") || [];
+                    setValue("units", [...currentUnits, { name: "", conversionFactor: 1 }]);
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add Unit
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className={labelCls}>Base Unit (Smallest Unit)</label>
+                    <input 
+                      {...register("unit")} 
+                      list="unit-suggestions"
+                      className={`${inputCls} mt-1.5`} 
+                      placeholder="e.g. Piece, Yard, kg" 
+                    />
+                    <datalist id="unit-suggestions">
+                      {store?.unitPresets?.map((p, idx) => (
+                        <option key={idx} value={p.name} />
+                      ))}
+                      <option value="Piece" />
+                      <option value="Yard" />
+                      <option value="Mudu" />
+                      <option value="kg" />
+                      <option value="Litre" />
+                    </datalist>
+                    {errors.unit && <p className={errCls}>{errors.unit.message}</p>}
+                  </div>
+                </div>
+
+                {/* Secondary Units */}
+                <div className="space-y-3">
+                  {(watch("units") || []).map((u, index) => (
+                    <div key={index} className="relative rounded-xl border border-border bg-muted/20 p-4 pt-8">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2 h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          const currentUnits = watch("units") || [];
+                          setValue("units", currentUnits.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Unit Name</label>
+                          <input 
+                            {...register(`units.${index}.name` as const)} 
+                            className={`${inputCls} mt-1 h-9`} 
+                            placeholder="e.g. Carton, Bundle" 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            {watch(`units.${index}.name`) || "Bulk Unit"} contains...
+                          </label>
+                          <div className="relative mt-1">
+                            <input 
+                              type="number" 
+                              step="any"
+                              {...register(`units.${index}.conversionFactor` as const)} 
+                              className={`${inputCls} h-9 pr-12`} 
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">
+                              {watch("unit") || "Units"}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Selling Price (Optional)</label>
+                          <div className="relative mt-1">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">₦</span>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              {...register(`units.${index}.sellingPrice` as const)} 
+                              className={`${inputCls} h-9 pl-5`} 
+                              placeholder="Bulk Price"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-[9px] font-medium text-primary/70 italic uppercase tracking-wider">
+                        1 {watch(`units.${index}.name`) || "Bulk Unit"} = {watch(`units.${index}.conversionFactor`) || "?"} {watch("unit") || "Base Units"}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

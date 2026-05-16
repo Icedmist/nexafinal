@@ -137,7 +137,7 @@ export function useSalesMutations() {
         branchId: claims?.branchId || null,
         ownerId: user.uid,
         recordedBy: user.uid,
-        recordedByName: user.displayName || user.email?.split("@")[0] || "Unknown Staff",
+        recordedByName: user.displayName || user.email || "Staff",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -191,7 +191,7 @@ export function useSalesMutations() {
           branchId: claims?.branchId || null,
           ownerId: user.uid,
           performedBy: user.uid,
-          performedByName: user.displayName || user.email?.split("@")[0] || "Staff",
+          performedByName: user.displayName || user.email || "Staff",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });

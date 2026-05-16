@@ -306,7 +306,10 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                   </div>
 
                   <div className="flex flex-1 flex-col gap-1 p-3.5">
-                    <p className="text-[14px] font-bold leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">{item.name}</p>
+                    <p className="text-[14px] font-bold leading-tight line-clamp-1 text-foreground group-hover:text-primary transition-colors">{item.name}</p>
+                    {item.description && (
+                      <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed mt-0.5">{item.description}</p>
+                    )}
                     <div className="mt-auto flex items-end justify-between pt-1">
                       <p className="text-base font-black text-primary">{formatNaira(item.sellingPrice)}</p>
                       <span className="text-[10px] text-muted-foreground font-bold opacity-40 uppercase tracking-tighter">{item.sku}</span>

@@ -143,7 +143,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
         category: "sales",
         severity: "low",
         title: "Sale Recorded",
-        message: `A sale of ${NAIRA}${grandTotal.toLocaleString()} was recorded by ${user?.email || "Staff"}.`,
+        message: `A sale of ${NAIRA}${grandTotal.toLocaleString()} was recorded by ${user?.displayName || user?.email || "Staff"}.`,
         userId: user?.uid || "unknown",
         userEmail: user?.email || "unknown",
         storeId: claims?.storeId as string,
@@ -350,10 +350,10 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value={ci.item.unit} className="text-[10px]">{ci.item.unit} (Base)</SelectItem>
+                              <SelectItem value={ci.item.unit} className="text-[10px]">{ci.item.unit} (Base Unit)</SelectItem>
                               {ci.item.units?.map(u => (
                                 <SelectItem key={u.name} value={u.name} className="text-[10px]">
-                                  {u.name} (x{u.conversionFactor})
+                                  {u.name} ({u.conversionFactor} {ci.item.unit} per {u.name})
                                 </SelectItem>
                               ))}
                             </SelectContent>

@@ -34,8 +34,10 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
   lines.push("─────────────────");
   lines.push("*ITEMS BOUGHT*");
   sale.items.forEach((li) => {
-    lines.push(`*${li.itemName}*`);
-    lines.push(`  ${li.quantity} × ${fmtNgn(li.unitPriceNgn)} = ${fmtNgn(li.unitPriceNgn * li.quantity)}`);
+    const unitInfo = li.selectedUnit && li.selectedUnit !== "each" && li.selectedUnit !== "piece" ? ` (${li.selectedUnit})` : "";
+    lines.push(`*${li.itemName}${unitInfo}*`);
+    lines.push(`SKU: ${li.sku}`);
+    lines.push(`${li.quantity} x ${li.unitPriceNgn.toLocaleString()} = ${li.totalPriceNgn?.toLocaleString() || (li.unitPriceNgn * li.quantity).toLocaleString()}`);
   });
   lines.push("─────────────────");
   lines.push(`*TOTAL: ${fmtNgn(sale.totalNgn)}*`);
@@ -157,7 +159,8 @@ async function generateReceiptPDF(
   doc.setFontSize(7);
   sale.items.forEach((li) => {
     doc.setFont("helvetica", "bold");
-    const nameLines = doc.splitTextToSize(li.itemName, 33);
+    const itemNameWithUnit = `${li.itemName}${li.selectedUnit && li.selectedUnit !== "each" ? ` (${li.selectedUnit})` : ""}`;
+    const nameLines = doc.splitTextToSize(itemNameWithUnit, 33);
     doc.text(nameLines, lm, y);
     
     doc.setFont("helvetica", "normal");
@@ -165,7 +168,14 @@ async function generateReceiptPDF(
     doc.text(li.unitPriceNgn.toLocaleString(), lm + 50, y, { align: "center" });
     doc.text((li.unitPriceNgn * li.quantity).toLocaleString(), rm, y, { align: "right" });
     
-    y += Math.max(nameLines.length * 3.5, 4);
+    y += (nameLines.length * 3.5);
+    
+    // Add SKU on a new line
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "italic");
+    doc.text(`SKU: ${li.sku}`, lm, y);
+    doc.setFontSize(7);
+    y += 4;
   });
 
   // Total
@@ -380,13 +390,14 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
         <div className="border-y border-black border-dashed py-3 my-4">
           <div className="text-[10px] space-y-3">
             {sale.items.map((li, idx) => (
-              <div key={idx} className="space-y-0.5">
-                <div className="flex justify-between font-bold">
+              <div key={idx} className="space-y-0.5 border-b border-dashed border-border/40 pb-1 last:border-0">
+                <div className="flex justify-between font-bold text-[11px]">
                   <span className="flex-1">{li.itemName.toUpperCase()}</span>
                   <span>{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
                 </div>
-                <div className="text-[9px] opacity-80 pl-2">
-                  {li.quantity} x {fmtNgn(li.unitPriceNgn)}
+                <div className="flex justify-between text-[9px] opacity-80 px-1">
+                  <span>{li.quantity} {li.selectedUnit || "unit"} × {fmtNgn(li.unitPriceNgn)}</span>
+                  <span className="font-mono">{li.sku}</span>
                 </div>
               </div>
             ))}
