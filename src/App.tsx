@@ -29,6 +29,7 @@ const StaffPage = lazy(() => import('./routes/app.staff'));
 const SuppliersPage = lazy(() => import('./routes/app.suppliers'));
 const OnboardingPage = lazy(() => import('./routes/onboarding'));
 const ScanPage = lazy(() => import('./routes/scan.$id'));
+const SiteMapPage = lazy(() => import('./routes/sitemap'));
 
 // System Admin Pages
 const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout').then(m => ({ default: m.SystemAdminLayout })));
@@ -115,6 +116,7 @@ function App() {
             {/* Other Routes */}
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/scan/:id" element={<ScanPage />} />
+            <Route path="/sitemap" element={<SiteMapPage />} />
 
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />

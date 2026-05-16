@@ -61,8 +61,9 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden border-none bg-transparent shadow-none flex items-center justify-center">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] w-[94vw] sm:w-full">
+      <DialogContent className="sm:max-w-[540px] p-4 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
+
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] w-[96vw] sm:w-full mx-auto shadow-2xl relative">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-4">
@@ -200,8 +201,16 @@ function NotificationItem({
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-black leading-tight text-foreground">{n.title}</p>
           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap mt-0.5">
-            {formatDistanceToNow(ensureDate(n.createdAt), { addSuffix: true })}
+            {(() => {
+              const d = ensureDate(n.createdAt);
+              try {
+                return formatDistanceToNow(d, { addSuffix: true });
+              } catch {
+                return "just now";
+              }
+            })()}
           </span>
+
         </div>
         <p className="mt-1 line-clamp-2 text-xs font-medium text-muted-foreground leading-relaxed">{n.message}</p>
       </div>

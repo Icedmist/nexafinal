@@ -10,6 +10,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { ensureDate } from "@/lib/date-utils";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+
 
 const NAIRA = "₦";
 
@@ -74,24 +76,84 @@ async function generateReceiptPDF(
   receiptFooter?: string
 ): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "mm", format: [80, 297] }); // A4 width for thermal but longer for long lists
-
+  
+  // 1. Calculate height dynamically
   const w = 80;
+  const lm = 6;
+  const rm = w - 6;
+  
+  // Create a temporary doc to measure text wrapping
+  const tempDoc = new jsPDF({ unit: "mm", format: [80, 500] });
+  let estimatedHeight = 20; // Start with top padding
+  
+  // Header section
+  estimatedHeight += 15; // Store name
+  if (branchName) estimatedHeight += 5;
+  if (address) {
+    const addrLines = tempDoc.splitTextToSize(address, rm - lm);
+    estimatedHeight += (addrLines.length * 4);
+  }
+  if (storePhone) estimatedHeight += 5;
+  estimatedHeight += 10; // Title & Header Line
+  
+  // Receipt details
+  estimatedHeight += 15; // ID, Date, Payment
+  if (sale.recordedByName) estimatedHeight += 5;
+  
+  // Customer
+  estimatedHeight += 5; // Label
+  if (sale.customerName) {
+    const nameLines = tempDoc.splitTextToSize(`Name: ${sale.customerName}`, rm - (lm + 2));
+    estimatedHeight += (nameLines.length * 4);
+  }
+  if (sale.customerPhone) estimatedHeight += 4;
+  if (sale.customerEmail) {
+    const emailLines = tempDoc.splitTextToSize(`Email: ${sale.customerEmail}`, rm - (lm + 2));
+    estimatedHeight += (emailLines.length * 4);
+  }
+  if (!sale.customerName && !sale.customerPhone && !sale.customerEmail) estimatedHeight += 4;
+  estimatedHeight += 10; // Line & Table Header
+  
+  // Items
+  sale.items.forEach((li) => {
+    const itemNameWithUnit = `${li.itemName}${li.selectedUnit && li.selectedUnit !== "each" ? ` (${li.selectedUnit})` : ""}`;
+    const nameLines = tempDoc.splitTextToSize(itemNameWithUnit, 40);
+    estimatedHeight += (nameLines.length * 5); // Item name lines
+    estimatedHeight += 5; // SKU and Price line
+  });
+
+  
+  // Totals
+  estimatedHeight += 10; // Subtotal/Tax line
+  if (sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn)) estimatedHeight += 15;
+  estimatedHeight += 10; // Grand total
+  if (sale.amountPaidNgn) estimatedHeight += 10;
+  
+  // Footer
+  estimatedHeight += 20;
+  if (receiptFooter) {
+    const footerLines = tempDoc.splitTextToSize(receiptFooter, rm - lm);
+    estimatedHeight += (footerLines.length * 4);
+  }
+  estimatedHeight += 15; // Powered by
+  
+  // 2. Create the actual document with calculated height
+  const finalHeight = estimatedHeight + 30; // Add a generous buffer
+  const doc = new jsPDF({ unit: "mm", format: [w, finalHeight] });
+
   let y = 10;
-  const lm = 6; 
-  const rm = w - 6; 
 
   // Store name
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text(storeName.toUpperCase(), w / 2, y, { align: "center" });
-  y += 5;
+  y += 6;
 
   // Branch Name
   if (branchName) {
     doc.setFontSize(9);
     doc.text(branchName, w / 2, y, { align: "center" });
-    y += 4.5;
+    y += 5;
   }
   
   // Address
@@ -109,7 +171,7 @@ async function generateReceiptPDF(
     y += 4;
   }
 
-  y += 2;
+  y += 3;
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.text("SALES RECEIPT", w / 2, y, { align: "center" });
@@ -142,12 +204,13 @@ async function generateReceiptPDF(
   if (sale.recordedByName) {
     doc.setFont("helvetica", "normal");
     doc.text("Cashier:", lm, y);
-    doc.text(sale.recordedByName, rm, y, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.text(sale.recordedByName.toUpperCase(), rm, y, { align: "right" });
     y += 4;
   }
 
   // Customer Details Section
-  y += 2;
+  y += 3;
   doc.setFont("helvetica", "bold");
   doc.text("CUSTOMER:", lm, y);
   y += 4;
@@ -188,27 +251,30 @@ async function generateReceiptPDF(
   y += 4;
 
   // Line items
-  doc.setFontSize(7);
+  doc.setFontSize(7.5);
   sale.items.forEach((li) => {
     doc.setFont("helvetica", "bold");
     const itemNameWithUnit = `${li.itemName}${li.selectedUnit && li.selectedUnit !== "each" ? ` (${li.selectedUnit})` : ""}`;
-    const nameLines = doc.splitTextToSize(itemNameWithUnit, 35);
+    const nameLines = doc.splitTextToSize(itemNameWithUnit, 38);
     doc.text(nameLines, lm, y);
+    
+    const nameHeight = nameLines.length * 4;
     
     doc.setFont("helvetica", "normal");
     doc.text(li.quantity.toString(), lm + 38, y, { align: "center" });
     doc.text(li.unitPriceNgn.toLocaleString(), lm + 52, y, { align: "center" });
     doc.text((li.unitPriceNgn * li.quantity).toLocaleString(), rm, y, { align: "right" });
     
-    y += (nameLines.length * 3.5);
+    y += nameHeight;
     
     // Add SKU on a new line
-    doc.setFontSize(6);
+    doc.setFontSize(6.5);
     doc.setFont("helvetica", "italic");
-    doc.text(`SKU: ${li.sku}`, lm, y);
-    doc.setFontSize(7);
-    y += 4;
+    doc.text(`SKU: ${li.sku || 'N/A'}`, lm, y);
+    doc.setFontSize(7.5);
+    y += 5;
   });
+
 
   // Financial Summary
   y += 2;
@@ -273,7 +339,7 @@ async function generateReceiptPDF(
     y += (footerLines.length * 4);
   }
 
-  y += 2;
+  y += 3;
   doc.setFont("helvetica", "bold");
   doc.text(storeName.toUpperCase(), w / 2, y, { align: "center" });
   y += 4;
@@ -292,6 +358,8 @@ interface SalesReceiptProps {
 export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const { profile } = useBusiness();
   const { store } = useTenant();
+  const { user } = useAuth();
+
 
   const storeName = profile?.storeDetails?.name || "NEXA Store";
   const branch = store?.branches?.find(b => b.id === sale.branchId);
@@ -337,11 +405,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   return (
     <>
       <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
+        <DialogContent className="max-w-md p-4 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
+
           {sale && (
-            <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-[94vw] sm:w-full">
-               <ScrollArea className="flex-1 w-full">
-                <div className="p-5 sm:p-8 space-y-6">
+            <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-[96vw] sm:w-full mx-auto shadow-2xl">
+               <ScrollArea className="flex-1 w-full overflow-y-auto">
+                <div className="p-4 sm:p-8 space-y-6">
                    {/* Decorative background element */}
                    <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/5 blur-3xl -z-10" />
                    
@@ -377,9 +446,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                       <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
                       <div className="flex items-center gap-1.5">
                         <UserCircle className="h-3.5 w-3.5 text-primary" />
-                        <span className="font-black text-xs text-foreground uppercase tracking-tight">{sale.recordedByName || "System"}</span>
+                        <span className="font-black text-xs text-foreground uppercase tracking-tight">
+                          {sale.recordedByName || user?.displayName || user?.email?.split('@')[0] || "System"}
+                        </span>
                       </div>
                     </div>
+
                   </div>
 
                   {sale.customerName && (

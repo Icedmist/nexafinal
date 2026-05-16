@@ -30,6 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ensureDate } from "@/lib/date-utils";
 import { OrderStatus } from "@/types/inventory";
 import type { PurchaseOrder, Supplier, Item, StockMovement } from "@/types/inventory";
 import { RestockStatusActions } from "./RestockStatusActions";
@@ -197,14 +198,14 @@ export function RestockingDetailSheet({
 
               <DetailField label="Created On" icon={<Calendar className="h-3 w-3" />}>
                 <span className="font-mono font-bold text-foreground">
-                  {format(new Date(purchaseOrder.createdAt), "MMM d, yyyy")}
+                  {format(ensureDate(purchaseOrder.createdAt), "MMM d, yyyy")}
                 </span>
               </DetailField>
 
               <DetailField label="Exp. Delivery" icon={<Clock className="h-3 w-3" />}>
                 <span className="font-mono font-bold text-foreground">
                   {purchaseOrder.expectedDelivery
-                    ? format(new Date(purchaseOrder.expectedDelivery), "MMM d, yyyy")
+                    ? format(ensureDate(purchaseOrder.expectedDelivery), "MMM d, yyyy")
                     : <span className="text-muted-foreground/30">—</span>}
                 </span>
               </DetailField>
@@ -334,7 +335,7 @@ export function RestockingDetailSheet({
                             <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                               <span>{m.performedBy}</span>
                               <span>•</span>
-                              <span>{formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}</span>
+                              <span>{formatDistanceToNow(ensureDate(m.createdAt), { addSuffix: true })}</span>
                             </div>
                             {m.notes && (
                               <p className="mt-2 text-xs font-medium text-muted-foreground bg-muted p-2 rounded-lg border border-border/50">{m.notes}</p>

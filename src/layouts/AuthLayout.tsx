@@ -34,8 +34,21 @@ export function AuthLayout() {
         </div>
       </main>
 
-      <footer className="px-6 py-8 text-center text-xs font-bold text-muted-foreground uppercase tracking-widest opacity-50">
-        © {new Date().getFullYear()} NEXA Core Technology
+      <footer className="px-6 py-8 flex flex-col items-center gap-4 text-center text-xs font-bold text-muted-foreground uppercase tracking-widest opacity-50">
+        <div className="flex items-center gap-4">
+          <Link to="/sitemap" className="hover:text-primary transition-colors">Site Map</Link>
+          <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+          <a href={(() => {
+            const host = window.location.host;
+            const parts = host.split(".");
+            if (host.includes('localhost')) {
+              return `${window.location.protocol}//${parts[parts.length - 1]}`;
+            }
+            const baseDomain = parts.length >= 3 ? parts.slice(1).join(".") : host;
+            return `${window.location.protocol}//${baseDomain}`;
+          })()} className="hover:text-primary transition-colors">NEXA Core Technology</a>
+        </div>
+        <p>© {new Date().getFullYear()} NEXA OS</p>
       </footer>
     </div>
   );

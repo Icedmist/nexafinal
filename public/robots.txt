@@ -1,2 +1,9 @@
 User-agent: *
 Allow: /
+
+# Block protected application areas
+Disallow: /app/
+Disallow: /system-admin/
+Disallow: /scan/
+
+Sitemap: https://nexastore.com/sitemap.xml

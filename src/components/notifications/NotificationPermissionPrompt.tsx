@@ -41,49 +41,52 @@ export function NotificationPermissionPrompt({
           
           <div className="flex flex-col items-center text-center gap-6">
             <div className="relative">
-              <div className="h-20 w-20 rounded-3xl bg-primary/10 flex items-center justify-center animate-pulse">
-                <Bell className="h-10 w-10 text-primary" />
+              <div className="h-24 w-24 rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center animate-pulse">
+                <Bell className="h-12 w-12 text-primary" />
               </div>
-              <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-background border-4 border-card flex items-center justify-center shadow-lg">
-                <Monitor className="h-4 w-4 text-primary" />
+              <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-background border-4 border-card flex items-center justify-center shadow-xl">
+                <Monitor className="h-5 w-5 text-primary" />
               </div>
+              
+              {/* Animated rings */}
+              <div className="absolute inset-0 rounded-[2rem] border-2 border-primary/20 animate-ping [animation-duration:3s]" />
             </div>
 
-            <div className="space-y-2">
-              <DialogTitle className="text-2xl font-black tracking-tight uppercase">
-                Stay in the Loop
+            <div className="space-y-3">
+              <DialogTitle className="text-3xl font-black tracking-tighter uppercase italic bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent">
+                Never Miss a Beat
               </DialogTitle>
-              <DialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed px-4">
-                Get real-time alerts for low stock, new sales, and urgent requests directly on your device, even when you're not looking at the app.
+              <DialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed px-6 uppercase tracking-tight">
+                Get real-time updates for low stock, sales, and urgent store alerts directly on your device.
               </DialogDescription>
             </div>
 
-            <div className="grid grid-cols-1 w-full gap-3 mt-2">
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50 text-left">
-                <div className="h-8 w-8 rounded-xl bg-background flex items-center justify-center shrink-0">
-                  <ShieldCheck className="h-4 w-4 text-green-500" />
+            <div className="grid grid-cols-1 w-full gap-4 mt-2 px-4">
+              <div className="flex items-center gap-4 p-4 rounded-3xl bg-primary/[0.03] border-2 border-primary/10 text-left transition-colors hover:bg-primary/[0.06]">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Secure & Private</p>
-                  <p className="text-[10px] font-medium text-muted-foreground">We only send essential store alerts.</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Secure Architecture</p>
+                  <p className="text-[10px] font-bold text-muted-foreground leading-tight mt-0.5">End-to-end encrypted system alerts only.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 px-4 pb-4">
             <Button 
               onClick={handleEnable} 
-              className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-primary/20 nexa-button-shine"
+              className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-[0.3em] shadow-xl shadow-primary/30 nexa-button-shine"
             >
-              Enable Notifications
+              Authorize Notifications
             </Button>
             <Button 
               variant="ghost" 
               onClick={() => onOpenChange(false)} 
-              className="w-full h-11 rounded-2xl font-bold text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              className="w-full h-12 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-all"
             >
-              Maybe Later
+              Dismiss for now
             </Button>
           </div>
 
