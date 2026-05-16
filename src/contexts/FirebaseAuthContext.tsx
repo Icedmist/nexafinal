@@ -178,22 +178,9 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.warn("Failed to clear Cache Storage:", e);
     }
 
-    // 4. Force a full page reload to the root domain to reset all application state/contexts
-    const host = window.location.hostname;
-    const protocol = window.location.protocol;
-    const port = window.location.port;
-
-    if (host.includes("localhost") || host.includes("127.0.0.1")) {
-      window.location.href = `${protocol}//localhost${port ? `:${port}` : ""}/`;
-    } else {
-      const parts = host.split(".");
-      if (parts.length > 2) {
-        const domain = parts.slice(-2).join(".");
-        window.location.href = `${protocol}//${domain}/`;
-      } else {
-        window.location.href = `${protocol}//${host}/`;
-      }
-    }
+    // 4. Force a full page reload to the current host to reset all application state/contexts
+    // This ensures the user stays in their store's URL context after logging out.
+    window.location.href = `${window.location.protocol}//${window.location.host}/`;
   };
 
   const resetPassword = async (email: string) => {

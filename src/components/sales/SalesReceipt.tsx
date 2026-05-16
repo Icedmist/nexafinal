@@ -15,20 +15,22 @@ function fmtNgn(amount: number): string {
   return `${NAIRA}${amount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
 }
 
-function buildReceiptText(sale: SaleTransaction, storeName: string, address: string, branchName?: string): string {
+function buildReceiptText(sale: SaleTransaction, storeName: string, address: string, branchName?: string, storePhone?: string): string {
   const lines: string[] = [];
   lines.push(`🧾 *${storeName}*`);
   if (branchName) lines.push(`*Branch: ${branchName}*`);
   if (address) lines.push(`_${address}_`);
+  if (storePhone) lines.push(`Tel: ${storePhone}`);
   lines.push(`Receipt #${sale.id.slice(-8).toUpperCase()}`);
   lines.push(`Date: ${format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}`);
-  lines.push(`Payment: ${(sale as any).paymentMethod?.toUpperCase() || "CASH"}`);
+  lines.push(`Payment: ${(sale.paymentMethod || "CASH").toUpperCase()}`);
   if (sale.recordedByName) lines.push(`Cashier: ${sale.recordedByName}`);
   
   lines.push("");
   lines.push("*CUSTOMER DETAILS*");
   if (sale.customerName) lines.push(`Name: ${sale.customerName}`);
   if (sale.customerPhone) lines.push(`Phone: ${sale.customerPhone}`);
+  if (sale.customerEmail) lines.push(`Email: ${sale.customerEmail}`);
   
   lines.push("");
   lines.push("─────────────────");
@@ -37,10 +39,24 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
     const unitInfo = li.selectedUnit && li.selectedUnit !== "each" && li.selectedUnit !== "piece" ? ` (${li.selectedUnit})` : "";
     lines.push(`*${li.itemName}${unitInfo}*`);
     lines.push(`SKU: ${li.sku}`);
-    lines.push(`${li.quantity} x ${li.unitPriceNgn.toLocaleString()} = ${li.totalPriceNgn?.toLocaleString() || (li.unitPriceNgn * li.quantity).toLocaleString()}`);
+    lines.push(`${li.quantity} x ${li.unitPriceNgn.toLocaleString()} = ${(li.unitPriceNgn * li.quantity).toLocaleString()}`);
   });
   lines.push("─────────────────");
+  
+  if (sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn)) {
+    lines.push(`Subtotal: ${fmtNgn(sale.subtotalNgn)}`);
+    if (sale.discountAmountNgn) lines.push(`Discount: -${fmtNgn(sale.discountAmountNgn)}`);
+    if (sale.taxAmountNgn) lines.push(`Tax (${sale.taxRate}%): +${fmtNgn(sale.taxAmountNgn)}`);
+    lines.push("─────────────────");
+  }
+  
   lines.push(`*TOTAL: ${fmtNgn(sale.totalNgn)}*`);
+  
+  if (sale.amountPaidNgn) {
+    lines.push(`Amount Paid: ${fmtNgn(sale.amountPaidNgn)}`);
+    lines.push(`Change: ${fmtNgn(sale.changeGivenNgn || 0)}`);
+  }
+  
   lines.push("");
   lines.push("Thank you for your purchase! 🙏");
   lines.push("_Powered by NEXA OS_");
@@ -51,10 +67,12 @@ async function generateReceiptPDF(
   sale: SaleTransaction, 
   storeName: string, 
   address: string, 
-  branchName?: string
+  branchName?: string,
+  storePhone?: string,
+  receiptFooter?: string
 ): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "mm", format: [80, 260] }); // extended receipt length
+  const doc = new jsPDF({ unit: "mm", format: [80, 297] }); // A4 width for thermal but longer for long lists
 
   const w = 80;
   let y = 10;
@@ -75,12 +93,18 @@ async function generateReceiptPDF(
   }
   
   // Address
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
   if (address) {
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
     const addrLines = doc.splitTextToSize(address, rm - lm);
     doc.text(addrLines, w / 2, y, { align: "center" });
     y += (addrLines.length * 3.5);
+  }
+
+  // Store Phone
+  if (storePhone) {
+    doc.text(`TEL: ${storePhone}`, w / 2, y, { align: "center" });
+    y += 4;
   }
 
   y += 2;
@@ -110,7 +134,7 @@ async function generateReceiptPDF(
 
   doc.text("Payment:", lm, y);
   doc.setFont("helvetica", "bold");
-  doc.text(((sale as any).paymentMethod || "CASH").toUpperCase(), rm, y, { align: "right" });
+  doc.text(((sale.paymentMethod || "CASH")).toUpperCase(), rm, y, { align: "right" });
   y += 4;
 
   if (sale.recordedByName) {
@@ -134,7 +158,11 @@ async function generateReceiptPDF(
     doc.text(`Phone: ${sale.customerPhone}`, lm + 2, y);
     y += 4;
   }
-  if (!sale.customerName && !sale.customerPhone) {
+  if (sale.customerEmail) {
+    doc.text(`Email: ${sale.customerEmail}`, lm + 2, y);
+    y += 4;
+  }
+  if (!sale.customerName && !sale.customerPhone && !sale.customerEmail) {
     doc.text("Walk-in Customer", lm + 2, y);
     y += 4;
   }
@@ -178,22 +206,70 @@ async function generateReceiptPDF(
     y += 4;
   });
 
-  // Total
+  // Financial Summary
   y += 2;
   doc.setLineWidth(0.3);
   doc.line(lm, y, rm, y);
   y += 5;
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+
+  if (sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn)) {
+    doc.text("Subtotal:", lm, y);
+    doc.text(sale.subtotalNgn.toLocaleString(), rm, y, { align: "right" });
+    y += 4;
+
+    if (sale.discountAmountNgn) {
+      doc.text("Discount:", lm, y);
+      doc.text(`-${sale.discountAmountNgn.toLocaleString()}`, rm, y, { align: "right" });
+      y += 4;
+    }
+
+    if (sale.taxAmountNgn) {
+      doc.text(`Tax (${sale.taxRate}%):`, lm, y);
+      doc.text(`+${sale.taxAmountNgn.toLocaleString()}`, rm, y, { align: "right" });
+      y += 4;
+    }
+    
+    doc.setLineWidth(0.1);
+    doc.line(lm, y - 1, rm, y - 1);
+    y += 2;
+  }
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("TOTAL DUE", lm, y);
   doc.text(fmtNgn(sale.totalNgn), rm, y, { align: "right" });
-  y += 10;
+  y += 6;
+
+  if (sale.amountPaidNgn) {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Amount Paid:", lm, y);
+    doc.text(fmtNgn(sale.amountPaidNgn), rm, y, { align: "right" });
+    y += 4;
+    doc.text("Change Given:", lm, y);
+    doc.text(fmtNgn(sale.changeGivenNgn || 0), rm, y, { align: "right" });
+    y += 6;
+  }
+
+  y += 5;
 
   // Footer
   doc.setFontSize(8);
   doc.setFont("helvetica", "italic");
   doc.text("Thank you for your business!", w / 2, y, { align: "center" });
-  y += 4;
+  y += 5;
+
+  if (receiptFooter) {
+    doc.setFontSize(7);
+    const footerLines = doc.splitTextToSize(receiptFooter, rm - lm);
+    doc.text(footerLines, w / 2, y, { align: "center" });
+    y += (footerLines.length * 4);
+  }
+
+  y += 2;
   doc.setFont("helvetica", "bold");
   doc.text(storeName.toUpperCase(), w / 2, y, { align: "center" });
   y += 4;
@@ -224,7 +300,14 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
-      const blob = await generateReceiptPDF(sale, storeName, address, branch?.name);
+      const blob = await generateReceiptPDF(
+        sale, 
+        storeName, 
+        address, 
+        branch?.name,
+        profile?.storeDetails?.phone,
+        profile?.storeDetails?.receiptFooter
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -241,7 +324,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   const handleWhatsAppText = () => {
-    const text = buildReceiptText(sale, storeName, address, branch?.name);
+    const text = buildReceiptText(sale, storeName, address, branch?.name, profile?.storeDetails?.phone);
     const phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
@@ -298,9 +381,14 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                   <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Customer</p>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-black">{sale.customerName}</span>
-                    {sale.customerPhone && (
-                      <span className="text-[10px] font-mono text-muted-foreground font-bold">{sale.customerPhone}</span>
-                    )}
+                    <div className="flex flex-col items-end">
+                      {sale.customerPhone && (
+                        <span className="text-[10px] font-mono text-muted-foreground font-bold">{sale.customerPhone}</span>
+                      )}
+                      {sale.customerEmail && (
+                        <span className="text-[9px] text-muted-foreground">{sale.customerEmail}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -320,13 +408,57 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                 </div>
               </div>
 
-              <div className="rounded-3xl bg-primary text-primary-foreground p-6 flex justify-between items-center shadow-xl shadow-primary/20">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Amount Paid</p>
-                  <p className="text-xs font-bold opacity-60 italic">VAT inclusive (if applicable)</p>
+              <div className="space-y-3 px-1">
+                {sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn) && (
+                  <div className="rounded-2xl border border-border/50 bg-muted/5 p-4 space-y-2">
+                    <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      <span>Subtotal</span>
+                      <span className="font-mono text-foreground">{fmtNgn(sale.subtotalNgn)}</span>
+                    </div>
+                    {sale.discountAmountNgn && (
+                      <div className="flex justify-between text-xs font-bold text-primary uppercase tracking-widest">
+                        <span>Discount</span>
+                        <span className="font-mono">-{fmtNgn(sale.discountAmountNgn)}</span>
+                      </div>
+                    )}
+                    {sale.taxAmountNgn && (
+                      <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                        <span>Tax ({sale.taxRate}%)</span>
+                        <span className="font-mono">+{fmtNgn(sale.taxAmountNgn)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-3xl bg-primary text-primary-foreground p-6 shadow-xl shadow-primary/20 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Amount Due</p>
+                      <p className="text-[8px] font-bold opacity-60 italic uppercase tracking-tighter">VAT inclusive (if applicable)</p>
+                    </div>
+                    <span className="text-3xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
+                  </div>
+
+                  {sale.amountPaidNgn && (
+                    <div className="pt-3 border-t border-primary-foreground/20 space-y-2">
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
+                        <span>Amount Paid</span>
+                        <span className="font-mono">{fmtNgn(sale.amountPaidNgn)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
+                        <span>Change Given</span>
+                        <span className="font-mono">{fmtNgn(sale.changeGivenNgn || 0)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <span className="text-3xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
               </div>
+
+              {profile?.storeDetails?.receiptFooter && (
+                <p className="text-[10px] text-center font-bold text-muted-foreground italic px-4">
+                  "{profile.storeDetails.receiptFooter}"
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <Button 
@@ -404,15 +536,50 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
           </div>
         </div>
 
-        <div className="space-y-2 mb-8">
-          <div className="flex justify-between items-center text-lg font-bold">
+        <div className="space-y-1 mb-8">
+          {sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn) && (
+            <div className="text-[10px] border-t border-black border-dotted pt-2 space-y-1">
+              <div className="flex justify-between">
+                <span>SUBTOTAL:</span>
+                <span>{fmtNgn(sale.subtotalNgn)}</span>
+              </div>
+              {sale.discountAmountNgn && (
+                <div className="flex justify-between">
+                  <span>DISCOUNT:</span>
+                  <span>-{fmtNgn(sale.discountAmountNgn)}</span>
+                </div>
+              )}
+              {sale.taxAmountNgn && (
+                <div className="flex justify-between">
+                  <span>TAX ({sale.taxRate}%):</span>
+                  <span>+{fmtNgn(sale.taxAmountNgn)}</span>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-between items-center text-lg font-bold border-t border-black pt-2">
             <span>TOTAL</span>
             <span>{fmtNgn(sale.totalNgn)}</span>
           </div>
+          {sale.amountPaidNgn && (
+            <div className="text-[10px] space-y-1 pt-2 border-t border-black border-dotted">
+              <div className="flex justify-between">
+                <span>CASH PAID:</span>
+                <span>{fmtNgn(sale.amountPaidNgn)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>CHANGE:</span>
+                <span>{fmtNgn(sale.changeGivenNgn || 0)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="text-center text-[10px] space-y-2 mt-10">
           <p>THANK YOU FOR YOUR PATRONAGE! 🙏</p>
+          {profile?.storeDetails?.receiptFooter && (
+             <p className="italic font-bold">"{profile.storeDetails.receiptFooter.toUpperCase()}"</p>
+          )}
           <p className="font-bold opacity-30">POWERED BY NEXA STORE OS</p>
         </div>
       </div>

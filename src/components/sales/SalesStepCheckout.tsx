@@ -41,6 +41,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const [discount, setDiscount] = useState<Discount | null>(null);
   const [payOnCredit, setPayOnCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
+  const [amountPaid, setAmountPaid] = useState<string>("");
   const [unitOverrides, setUnitOverrides] = useState<Record<string, string>>({});
 
   // Get current price for an item based on its selected unit
@@ -79,6 +80,11 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const taxRate = profile?.storeDetails?.taxRate ?? 0;
   const taxAmount = total * (taxRate / 100);
   const grandTotal = total + taxAmount;
+
+  const changeGiven = useMemo(() => {
+    const paid = parseFloat(amountPaid) || 0;
+    return Math.max(0, paid - grandTotal);
+  }, [amountPaid, grandTotal]);
 
 
   const knownCustomers = new Map<string, string>();
@@ -128,6 +134,12 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       }),
 
       totalNgn: grandTotal,
+      subtotalNgn: subtotal,
+      discountAmountNgn: discountAmount,
+      taxAmountNgn: taxAmount,
+      taxRate: taxRate,
+      amountPaidNgn: parseFloat(amountPaid) || grandTotal,
+      changeGivenNgn: changeGiven,
       paymentMethod,
       isCreditSale: payOnCredit,
       createdAt: new Date().toISOString(),
@@ -319,6 +331,34 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
               {m.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <Separator className="my-4" />
+
+      {/* Amount Paid (for Cash) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Payment Details</h3>
+          {parseFloat(amountPaid) > grandTotal && (
+            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse">
+              Change: {NAIRA}{changeGiven.toLocaleString()}
+            </span>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="amount-paid" className="text-xs">Amount Received</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{NAIRA}</span>
+            <Input 
+              id="amount-paid" 
+              type="number" 
+              value={amountPaid} 
+              onChange={(e) => setAmountPaid(e.target.value)} 
+              placeholder={grandTotal.toString()} 
+              className="pl-8 h-11 font-mono text-lg font-black" 
+            />
+          </div>
         </div>
       </div>
 

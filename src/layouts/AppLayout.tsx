@@ -17,6 +17,7 @@ import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NexaCoreLoader } from "@/components/shared/NexaCoreLoader";
 import { StoreAccessGuard } from "@/components/shared/StoreAccessGuard";
+import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
 
 
 export function AppLayout() {
@@ -31,6 +32,9 @@ export function AppLayout() {
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({ onHelpOpen: () => setHelpOpen(true) });
+
+  // Browser/Device Notifications
+  useDeviceNotifications();
 
   // Cross-Tenant Security Check: Ensure user belongs to the current subdomain store
   useEffect(() => {

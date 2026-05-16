@@ -19,6 +19,12 @@ export interface SaleTransaction {
   customerEmail?: string;
   items: SaleLineItem[];
   totalNgn: number;
+  subtotalNgn?: number;
+  discountAmountNgn?: number;
+  taxAmountNgn?: number;
+  taxRate?: number;
+  amountPaidNgn?: number;
+  changeGivenNgn?: number;
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
   branchId?: string | null;

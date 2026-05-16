@@ -6,6 +6,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import type { SaleTransaction, DebtPayment } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
+import { notifyActivity, notifyInventoryAlert } from "@/lib/notification-service";
 
 interface QueryResult<T> {
   data: T;
@@ -198,6 +199,44 @@ export function useSalesMutations() {
       });
 
       await batch.commit();
+
+      // 3. Trigger Notifications
+      await notifyActivity({
+        type: "sale",
+        category: "sales",
+        severity: "low",
+        title: "New Sale Recorded",
+        message: `${saleData.recordedByName} recorded a sale of ${saleData.totalNgn.toLocaleString()} NGN for ${saleData.customerName || "Walk-in Customer"}.`,
+        userId: user.uid,
+        userEmail: user.email || "",
+        storeId: saleData.storeId,
+        branchId: saleData.branchId,
+        metadata: { saleId: saleRef.id, total: saleData.totalNgn }
+      });
+
+      // 4. Check for low stock on all items in this sale
+      for (const item of sale.items) {
+        const productRef = doc(db, "products", item.itemId);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          const product = productSnap.data() as any;
+          const currentStock = product.currentStock || 0;
+          const reorderPoint = product.reorderPoint || 5; // Fallback to 5 if not set
+
+          if (currentStock <= reorderPoint) {
+             await notifyInventoryAlert({
+               title: "Low Stock Alert",
+               message: `${product.name} is running low (${currentStock} ${product.unit || "units"} remaining). Reorder point is ${reorderPoint}.`,
+               userId: user.uid,
+               userEmail: user.email || "",
+               storeId: saleData.storeId,
+               branchId: saleData.branchId || undefined,
+               metadata: { itemId: item.itemId, currentStock, reorderPoint }
+             });
+          }
+        }
+      }
+
       return { id: saleRef.id };
     } catch (error: any) {
       console.error("Failed to record sale:", error);

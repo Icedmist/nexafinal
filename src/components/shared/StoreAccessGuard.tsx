@@ -87,7 +87,7 @@ export const StoreAccessGuard: React.FC<{ children: React.ReactNode }> = ({ chil
                 onClick={() => logout()}
               >
                 <LogOut className="mr-3 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-                Terminate Session
+                Logout
               </Button>
               <Button 
                 variant="ghost" 

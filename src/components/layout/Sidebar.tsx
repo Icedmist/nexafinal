@@ -21,11 +21,13 @@ import {
   ShieldCheck,
   Building2,
   Globe,
+  LogOut,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 import nexaLogo from "@/assets/nexa-logo.svg";
 import type { RolePermissions } from "@/lib/roles";
 
@@ -114,6 +116,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const { permissions, isSystemAdmin } = useRole();
   const { profile } = useBusiness();
+  const { logout } = useAuth();
 
   const isBasicPOS = profile?.complexityLevel === "basic";
 
@@ -269,6 +272,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             </span>
           </div>
         </div>
+        
+        <button
+          onClick={() => logout()}
+          className="mt-4 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-400/10 hover:text-red-300 transition-all duration-200 group"
+        >
+          <LogOut className="h-4 w-4 shrink-0 transition-transform group-hover:-translate-x-1" />
+          Logout
+        </button>
       </div>
     </nav>
   );

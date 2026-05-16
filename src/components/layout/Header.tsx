@@ -205,7 +205,7 @@ export function Header() {
           </DropdownMenuItem>
           <DropdownMenuItem className="rounded-xl h-11 px-3 cursor-pointer focus:bg-destructive/5 focus:text-destructive group transition-all" onClick={handleLogout}>
             <LogOut className="mr-3 h-4 w-4 text-muted-foreground group-hover:text-destructive" />
-            <span className="font-bold text-xs uppercase tracking-widest">Terminate Session</span>
+            <span className="font-bold text-xs uppercase tracking-widest">Logout</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

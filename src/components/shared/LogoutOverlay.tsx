@@ -36,20 +36,20 @@ export function LogoutOverlay() {
           <div className="relative z-10 flex flex-col items-center gap-8">
             <NexaCoreLoader />
             
-            <div className="flex flex-col items-center gap-2 text-center">
+            <div className="flex flex-col items-center gap-4 text-center px-6">
               <motion.h2
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="text-2xl font-bold tracking-tight text-foreground"
+                className="text-xl md:text-2xl font-black tracking-tight text-foreground uppercase"
               >
-                Terminating Session
+                Logging Out
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-sm text-muted-foreground max-w-[280px]"
+                className="text-xs md:text-sm text-muted-foreground max-w-[280px] font-medium leading-relaxed"
               >
                 Securely clearing your encrypted local data and finalizing vault security...
               </motion.p>
