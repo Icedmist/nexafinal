@@ -142,6 +142,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       changeGivenNgn: changeGiven,
       paymentMethod,
       isCreditSale: payOnCredit,
+      recordedByName: user?.displayName || user?.email || "Staff",
       createdAt: new Date().toISOString(),
     };
 

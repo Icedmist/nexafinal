@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { SaleTransaction } from "@/types/inventory";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -151,16 +152,18 @@ async function generateReceiptPDF(
   y += 4;
   doc.setFont("helvetica", "normal");
   if (sale.customerName) {
-    doc.text(`Name: ${sale.customerName}`, lm + 2, y);
-    y += 4;
+    const nameLines = doc.splitTextToSize(`Name: ${sale.customerName}`, rm - (lm + 2));
+    doc.text(nameLines, lm + 2, y);
+    y += (nameLines.length * 4);
   }
   if (sale.customerPhone) {
     doc.text(`Phone: ${sale.customerPhone}`, lm + 2, y);
     y += 4;
   }
   if (sale.customerEmail) {
-    doc.text(`Email: ${sale.customerEmail}`, lm + 2, y);
-    y += 4;
+    const emailLines = doc.splitTextToSize(`Email: ${sale.customerEmail}`, rm - (lm + 2));
+    doc.text(emailLines, lm + 2, y);
+    y += (emailLines.length * 4);
   }
   if (!sale.customerName && !sale.customerPhone && !sale.customerEmail) {
     doc.text("Walk-in Customer", lm + 2, y);
@@ -176,8 +179,8 @@ async function generateReceiptPDF(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   doc.text("ITEM", lm, y);
-  doc.text("QTY", lm + 35, y, { align: "center" });
-  doc.text("PRICE", lm + 50, y, { align: "center" });
+  doc.text("QTY", lm + 38, y, { align: "center" });
+  doc.text("PRICE", lm + 52, y, { align: "center" });
   doc.text("TOTAL", rm, y, { align: "right" });
   y += 2;
   doc.line(lm, y, rm, y);
@@ -188,12 +191,12 @@ async function generateReceiptPDF(
   sale.items.forEach((li) => {
     doc.setFont("helvetica", "bold");
     const itemNameWithUnit = `${li.itemName}${li.selectedUnit && li.selectedUnit !== "each" ? ` (${li.selectedUnit})` : ""}`;
-    const nameLines = doc.splitTextToSize(itemNameWithUnit, 33);
+    const nameLines = doc.splitTextToSize(itemNameWithUnit, 35);
     doc.text(nameLines, lm, y);
     
     doc.setFont("helvetica", "normal");
-    doc.text(li.quantity.toString(), lm + 35, y, { align: "center" });
-    doc.text(li.unitPriceNgn.toLocaleString(), lm + 50, y, { align: "center" });
+    doc.text(li.quantity.toString(), lm + 38, y, { align: "center" });
+    doc.text(li.unitPriceNgn.toLocaleString(), lm + 52, y, { align: "center" });
     doc.text((li.unitPriceNgn * li.quantity).toLocaleString(), rm, y, { align: "right" });
     
     y += (nameLines.length * 3.5);
@@ -333,158 +336,162 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   return (
     <>
       <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none">
+        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none overflow-hidden">
           {sale && (
-            <div className="nexa-card bg-card p-8 space-y-6 relative overflow-hidden">
-               {/* Decorative background element */}
-               <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
-               
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Receipt className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <DialogTitle className="text-2xl font-black tracking-tight text-foreground uppercase">Receipt</DialogTitle>
-                    {address && <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{address}</p>}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border-2 border-border bg-muted/20 p-5 space-y-3 relative overflow-hidden">
-                <div className="absolute top-0 left-0 h-1 w-full bg-primary" />
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Transaction ID</span>
-                  <span className="font-mono font-black text-sm text-foreground bg-background px-2 py-1 rounded-lg border">#{sale.id.slice(-8).toUpperCase()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Timestamp</span>
-                  <span className="font-bold text-xs text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-border/50">
-                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
-                  <Badge variant="outline" className="capitalize font-black text-[10px] tracking-wider bg-primary/5 border-primary/20 text-primary px-3">
-                    {(sale as any).paymentMethod || "cash"}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-border/50">
-                  <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
-                  <div className="flex items-center gap-1.5">
-                    <UserCircle className="h-3.5 w-3.5 text-primary" />
-                    <span className="font-black text-xs text-foreground uppercase tracking-tight">{sale.recordedByName || "System"}</span>
-                  </div>
-                </div>
-              </div>
-
-              {sale.customerName && (
-                <div className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-sm">
-                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Customer</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-black">{sale.customerName}</span>
-                    <div className="flex flex-col items-end">
-                      {sale.customerPhone && (
-                        <span className="text-[10px] font-mono text-muted-foreground font-bold">{sale.customerPhone}</span>
-                      )}
-                      {sale.customerEmail && (
-                        <span className="text-[9px] text-muted-foreground">{sale.customerEmail}</span>
-                      )}
+            <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-[94vw] sm:w-full mx-auto">
+               <ScrollArea className="flex-1 w-full">
+                <div className="p-5 sm:p-8 space-y-6">
+                   {/* Decorative background element */}
+                   <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/5 blur-3xl -z-10" />
+                   
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <Receipt className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <DialogTitle className="text-2xl font-black tracking-tight text-foreground uppercase">Receipt</DialogTitle>
+                        {address && <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{address}</p>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
 
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Line Items</h4>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                  {sale.items.map((li, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-2xl border-2 border-border/40 bg-muted/5 hover:bg-muted/10 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black truncate text-foreground">{li.itemName}</p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{li.quantity} UNIT(S) @ {fmtNgn(li.unitPriceNgn)}</p>
-                      </div>
-                      <span className="font-mono text-sm font-black text-foreground shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
+                  <div className="rounded-3xl border-2 border-border bg-muted/20 p-5 space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 h-1 w-full bg-primary" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Transaction ID</span>
+                      <span className="font-mono font-black text-sm text-foreground bg-background px-2 py-1 rounded-lg border">#{sale.id.slice(-8).toUpperCase()}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3 px-1">
-                {sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn) && (
-                  <div className="rounded-2xl border border-border/50 bg-muted/5 p-4 space-y-2">
-                    <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                      <span>Subtotal</span>
-                      <span className="font-mono text-foreground">{fmtNgn(sale.subtotalNgn)}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Timestamp</span>
+                      <span className="font-bold text-xs text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                     </div>
-                    {sale.discountAmountNgn && (
-                      <div className="flex justify-between text-xs font-bold text-primary uppercase tracking-widest">
-                        <span>Discount</span>
-                        <span className="font-mono">-{fmtNgn(sale.discountAmountNgn)}</span>
-                      </div>
-                    )}
-                    {sale.taxAmountNgn && (
-                      <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                        <span>Tax ({sale.taxRate}%)</span>
-                        <span className="font-mono">+{fmtNgn(sale.taxAmountNgn)}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="rounded-3xl bg-primary text-primary-foreground p-6 shadow-xl shadow-primary/20 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Amount Due</p>
-                      <p className="text-[8px] font-bold opacity-60 italic uppercase tracking-tighter">VAT inclusive (if applicable)</p>
+                    <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
+                      <Badge variant="outline" className="capitalize font-black text-[10px] tracking-wider bg-primary/5 border-primary/20 text-primary px-3">
+                        {(sale as any).paymentMethod || "cash"}
+                      </Badge>
                     </div>
-                    <span className="text-3xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
+                    <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
+                      <div className="flex items-center gap-1.5">
+                        <UserCircle className="h-3.5 w-3.5 text-primary" />
+                        <span className="font-black text-xs text-foreground uppercase tracking-tight">{sale.recordedByName || "System"}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {sale.amountPaidNgn && (
-                    <div className="pt-3 border-t border-primary-foreground/20 space-y-2">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
-                        <span>Amount Paid</span>
-                        <span className="font-mono">{fmtNgn(sale.amountPaidNgn)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
-                        <span>Change Given</span>
-                        <span className="font-mono">{fmtNgn(sale.changeGivenNgn || 0)}</span>
+                  {sale.customerName && (
+                    <div className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-sm">
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Customer</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-black">{sale.customerName}</span>
+                        <div className="flex flex-col items-end">
+                          {sale.customerPhone && (
+                            <span className="text-[10px] font-mono text-muted-foreground font-bold">{sale.customerPhone}</span>
+                          )}
+                          {sale.customerEmail && (
+                            <span className="text-[9px] text-muted-foreground">{sale.customerEmail}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
+
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Line Items</h4>
+                    <div className="space-y-2">
+                      {sale.items.map((li, idx) => (
+                        <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-2xl border-2 border-border/40 bg-muted/5 hover:bg-muted/10 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black truncate text-foreground">{li.itemName}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{li.quantity} UNIT(S) @ {fmtNgn(li.unitPriceNgn)}</p>
+                          </div>
+                          <span className="font-mono text-sm font-black text-foreground shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 px-1">
+                    {sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn) && (
+                      <div className="rounded-2xl border border-border/50 bg-muted/5 p-4 space-y-2">
+                        <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                          <span>Subtotal</span>
+                          <span className="font-mono text-foreground">{fmtNgn(sale.subtotalNgn)}</span>
+                        </div>
+                        {sale.discountAmountNgn && (
+                          <div className="flex justify-between text-xs font-bold text-primary uppercase tracking-widest">
+                            <span>Discount</span>
+                            <span className="font-mono">-{fmtNgn(sale.discountAmountNgn)}</span>
+                          </div>
+                        )}
+                        {sale.taxAmountNgn && (
+                          <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                            <span>Tax ({sale.taxRate}%)</span>
+                            <span className="font-mono">+{fmtNgn(sale.taxAmountNgn)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="rounded-3xl bg-primary text-primary-foreground p-6 shadow-xl shadow-primary/20 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Amount Due</p>
+                          <p className="text-[8px] font-bold opacity-60 italic uppercase tracking-tighter">VAT inclusive (if applicable)</p>
+                        </div>
+                        <span className="text-3xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
+                      </div>
+
+                      {sale.amountPaidNgn && (
+                        <div className="pt-3 border-t border-primary-foreground/20 space-y-2">
+                          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
+                            <span>Amount Paid</span>
+                            <span className="font-mono">{fmtNgn(sale.amountPaidNgn)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
+                            <span>Change Given</span>
+                            <span className="font-mono">{fmtNgn(sale.changeGivenNgn || 0)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {profile?.storeDetails?.receiptFooter && (
+                    <p className="text-[10px] text-center font-bold text-muted-foreground italic px-4">
+                      "{profile.storeDetails.receiptFooter}"
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 pb-4">
+                    <Button 
+                      variant="outline"
+                      className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
+                      onClick={handlePrint}
+                    >
+                      <Printer className="h-5 w-5" /> Print
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
+                      onClick={handleDownloadPDF}
+                      disabled={downloading}
+                    >
+                      <Download className="h-5 w-5" /> PDF
+                    </Button>
+                    {sale.customerPhone && (
+                      <Button 
+                        className="col-span-2 gap-3 rounded-2xl h-14 font-black uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+                        onClick={handleWhatsAppText}
+                      >
+                        <MessageCircle className="h-5 w-5" /> Send to WhatsApp
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              {profile?.storeDetails?.receiptFooter && (
-                <p className="text-[10px] text-center font-bold text-muted-foreground italic px-4">
-                  "{profile.storeDetails.receiptFooter}"
-                </p>
-              )}
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <Button 
-                  variant="outline"
-                  className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
-                  onClick={handlePrint}
-                >
-                  <Printer className="h-5 w-5" /> Print
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
-                  onClick={handleDownloadPDF}
-                  disabled={downloading}
-                >
-                  <Download className="h-5 w-5" /> PDF
-                </Button>
-                {sale.customerPhone && (
-                  <Button 
-                    className="col-span-2 gap-3 rounded-2xl h-14 font-black uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
-                    onClick={handleWhatsAppText}
-                  >
-                    <MessageCircle className="h-5 w-5" /> Send to WhatsApp
-                  </Button>
-                )}
-              </div>
+              </ScrollArea>
             </div>
           )}
         </DialogContent>
