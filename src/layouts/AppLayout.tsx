@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { NexaCoreLoader } from "@/components/shared/NexaCoreLoader";
 import { StoreAccessGuard } from "@/components/shared/StoreAccessGuard";
 import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
+import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
 
 
 export function AppLayout() {
@@ -29,6 +30,8 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  const { permission } = useDeviceNotifications();
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({ onHelpOpen: () => setHelpOpen(true) });
@@ -141,6 +144,21 @@ export function AppLayout() {
       navigate("/onboarding", { replace: true });
     }
   }, [user, needsOnboarding, claimsReady, loadingProfile, navigate, isSystemAdmin, location.pathname]);
+  
+  // Auto-trigger notification prompt for new sessions if permission is default
+  useEffect(() => {
+    if (user && !loading && claimsReady && permission === "default") {
+      const hasShownPrompt = sessionStorage.getItem("nexa_notif_prompt_shown");
+      if (!hasShownPrompt) {
+        // Delay slightly for better UX
+        const timer = setTimeout(() => {
+          setShowNotifPrompt(true);
+          sessionStorage.setItem("nexa_notif_prompt_shown", "true");
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, loading, claimsReady, permission]);
 
   if (loading || !user || !claimsReady) {
     return (
@@ -184,6 +202,7 @@ export function AppLayout() {
         </div>
         <BottomNav />
         <ShortcutsHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+        <NotificationPermissionPrompt open={showNotifPrompt} onOpenChange={setShowNotifPrompt} />
       </div>
     </StoreAccessGuard>
   );

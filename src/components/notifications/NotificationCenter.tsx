@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { X, CheckCheck, Bell, Settings2, History, Filter } from "lucide-react";
+import { X, CheckCheck, Bell, Settings2, History, Filter, Monitor } from "lucide-react";
 import { NotificationPreferences } from "./NotificationPreferences";
 import {
   Dialog,
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useDismissNotification } from "@/hooks/useNotifications";
+import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
+import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { getNotificationIcon } from "./notification-icons";
 import { cn } from "@/lib/utils";
 import type { Notification, NotificationType } from "@/types/inventory";
@@ -40,6 +42,8 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
   const dismiss = useDismissNotification();
+  const { permission } = useDeviceNotifications();
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const navigate = useNavigate();
 
   const filtered = notifications.filter(TAB_FILTER[tab]);
@@ -101,6 +105,27 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
             </Tabs>
           </div>
 
+          {/* Device Permission Banner */}
+          {permission !== "granted" && (
+            <div className="mb-6 animate-in slide-in-from-top duration-500">
+              <button 
+                onClick={() => setShowPermissionPrompt(true)}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border-2 border-primary/20 hover:bg-primary/10 hover:border-primary/30 transition-all text-left group"
+              >
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <Monitor className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-black uppercase tracking-tight text-foreground">Enable Device Notifications</p>
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight mt-0.5">Stay updated even when the app is closed.</p>
+                </div>
+                <div className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-[9px] font-black uppercase tracking-widest flex items-center justify-center shadow-sm">
+                  Enable
+                </div>
+              </button>
+            </div>
+          )}
+
           <ScrollArea className="flex-1 -mx-2 px-2">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center gap-4 animate-in fade-in zoom-in-95 duration-500">
@@ -135,6 +160,7 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
           )}
         </div>
       </DialogContent>
+      <NotificationPermissionPrompt open={showPermissionPrompt} onOpenChange={setShowPermissionPrompt} />
     </Dialog>
   );
 }

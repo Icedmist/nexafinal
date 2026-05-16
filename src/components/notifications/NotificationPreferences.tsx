@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
+import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 
 export interface NotificationPrefs {
   low_stock: boolean;
@@ -49,6 +50,8 @@ export function NotificationPreferences({ open, onOpenChange }: NotificationPref
     movement: true,
   });
 
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+
   const handleToggle = (key: keyof NotificationPrefs) => {
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
   };
@@ -63,17 +66,13 @@ export function NotificationPreferences({ open, onOpenChange }: NotificationPref
     if (permission === "granted") {
       toast.info("Browser notifications are already enabled. To disable them, please use your browser settings.");
     } else {
-      const result = await requestPermission();
-      if (result === "granted") {
-        toast.success("Device notifications enabled!");
-      } else if (result === "denied") {
-        toast.error("Permission denied. Please enable notifications in your browser settings.");
-      }
+      setShowPermissionPrompt(true);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -124,6 +123,8 @@ export function NotificationPreferences({ open, onOpenChange }: NotificationPref
 
         <Button onClick={handleSave} className="w-full mt-2">Save Preferences</Button>
       </DialogContent>
+      <NotificationPermissionPrompt open={showPermissionPrompt} onOpenChange={setShowPermissionPrompt} />
     </Dialog>
+    </>
   );
 }
