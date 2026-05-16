@@ -101,6 +101,8 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
 
+  const recordedBy = user?.displayName || user?.email?.split('@')[0] || "Staff";
+  
   const handleCheckout = async () => {
     if (isProcessing) return;
     
@@ -142,7 +144,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       changeGivenNgn: changeGiven,
       paymentMethod,
       isCreditSale: payOnCredit,
-      recordedByName: user?.displayName || user?.email || "Staff",
+      recordedByName: recordedBy,
       createdAt: new Date().toISOString(),
     };
 

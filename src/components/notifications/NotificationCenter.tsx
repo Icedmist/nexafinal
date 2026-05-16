@@ -19,6 +19,8 @@ import { getNotificationIcon } from "./notification-icons";
 import { cn } from "@/lib/utils";
 import type { Notification, NotificationType } from "@/types/inventory";
 
+import { ensureDate } from "@/lib/date-utils";
+
 type FilterTab = "all" | "unread" | "stock" | "po" | "requests" | "sales";
 
 const TAB_FILTER: Record<FilterTab, (n: Notification) => boolean> = {
@@ -59,8 +61,8 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] w-[94vw] sm:w-full mx-auto">
+      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden border-none bg-transparent shadow-none flex items-center justify-center">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh] w-[94vw] sm:w-full">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-4">
@@ -198,7 +200,7 @@ function NotificationItem({
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-black leading-tight text-foreground">{n.title}</p>
           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap mt-0.5">
-            {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+            {formatDistanceToNow(ensureDate(n.createdAt), { addSuffix: true })}
           </span>
         </div>
         <p className="mt-1 line-clamp-2 text-xs font-medium text-muted-foreground leading-relaxed">{n.message}</p>

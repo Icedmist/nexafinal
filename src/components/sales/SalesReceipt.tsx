@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { ensureDate } from "@/lib/date-utils";
 
 const NAIRA = "₦";
 
@@ -23,7 +24,7 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
   if (address) lines.push(`_${address}_`);
   if (storePhone) lines.push(`Tel: ${storePhone}`);
   lines.push(`Receipt #${sale.id.slice(-8).toUpperCase()}`);
-  lines.push(`Date: ${format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}`);
+  lines.push(`Date: ${format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm")}`);
   lines.push(`Payment: ${(sale.paymentMethod || "CASH").toUpperCase()}`);
   if (sale.recordedByName) lines.push(`Cashier: ${sale.recordedByName}`);
   
@@ -130,7 +131,7 @@ async function generateReceiptPDF(
   
   doc.setFont("helvetica", "normal");
   doc.text("Date:", lm, y);
-  doc.text(format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm"), rm, y, { align: "right" });
+  doc.text(format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm"), rm, y, { align: "right" });
   y += 4;
 
   doc.text("Payment:", lm, y);
@@ -336,9 +337,9 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   return (
     <>
       <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none overflow-hidden">
+        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
           {sale && (
-            <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-[94vw] sm:w-full mx-auto">
+            <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-[94vw] sm:w-full">
                <ScrollArea className="flex-1 w-full">
                 <div className="p-5 sm:p-8 space-y-6">
                    {/* Decorative background element */}
@@ -364,7 +365,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Timestamp</span>
-                      <span className="font-bold text-xs text-foreground">{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                      <span className="font-bold text-xs text-foreground">{format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-border/50">
                       <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
@@ -512,7 +513,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
           </div>
           <div className="flex justify-between">
             <span>DATE:</span>
-            <span>{format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+            <span>{format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
           </div>
           <div className="flex justify-between">
             <span>PAYMENT:</span>

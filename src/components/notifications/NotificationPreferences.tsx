@@ -38,27 +38,23 @@ interface NotificationPreferencesProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function NotificationPreferences({ open, onOpenChange }: NotificationPreferencesProps) {
-  const { permission, requestPermission } = useDeviceNotifications();
-  const [prefs, setPrefs] = useState<NotificationPrefs>({
-    low_stock: true, 
-    zero_stock: true, 
-    po_reminder: true, 
-    po_overdue: true, 
-    inventory_request: true,
-    sale: true,
-    movement: true,
-  });
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 
+export function NotificationPreferences({ open, onOpenChange }: NotificationPreferencesProps) {
+  const { permission } = useDeviceNotifications();
+  const { prefs, updateNotificationPrefs, loading } = useUserPreferences();
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
 
-  const handleToggle = (key: keyof NotificationPrefs) => {
-    setPrefs((p) => ({ ...p, [key]: !p[key] }));
+  const handleToggle = async (key: keyof NotificationPrefs) => {
+    try {
+      await updateNotificationPrefs({ [key]: !prefs[key] });
+    } catch (err) {
+      toast.error("Failed to update preference");
+    }
   };
 
   const handleSave = () => {
-    // TODO: Save to API
-    toast.success("Notification preferences saved.");
+    toast.success("Notification preferences updated.");
     onOpenChange(false);
   };
 
@@ -73,7 +69,8 @@ export function NotificationPreferences({ open, onOpenChange }: NotificationPref
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md flex items-center justify-center p-0 border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-6 w-[94vw] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Settings2 className="h-4 w-4" />
@@ -116,12 +113,14 @@ export function NotificationPreferences({ open, onOpenChange }: NotificationPref
                 id={`pref-${key}`}
                 checked={prefs[key]}
                 onCheckedChange={() => handleToggle(key)}
+                disabled={loading}
               />
             </div>
           ))}
         </div>
 
         <Button onClick={handleSave} className="w-full mt-2">Save Preferences</Button>
+        </div>
       </DialogContent>
       <NotificationPermissionPrompt open={showPermissionPrompt} onOpenChange={setShowPermissionPrompt} />
     </Dialog>
