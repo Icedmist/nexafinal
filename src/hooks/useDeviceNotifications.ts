@@ -33,9 +33,10 @@ export function useDeviceNotifications() {
           const data = change.doc.data() as InAppNotification;
           
           // Firestore Timestamps need conversion to Millis for comparison
-          const createdAtMillis = data.createdAt instanceof Timestamp 
-            ? data.createdAt.toMillis() 
-            : (typeof data.createdAt === 'number' ? data.createdAt : 0);
+          const rawCreatedAt = data.createdAt as any;
+          const createdAtMillis = rawCreatedAt instanceof Timestamp 
+            ? rawCreatedAt.toMillis() 
+            : (typeof rawCreatedAt === 'string' ? new Date(rawCreatedAt).getTime() : (typeof rawCreatedAt === 'number' ? rawCreatedAt : 0));
 
           // Only notify if:
           // 1. Notification was created after this hook instance started

@@ -551,9 +551,24 @@ function StoreLoginPage({ store }: { store: Store }) {
         </form>
 
         <div className="text-center pt-4">
-          <Link to="/" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2">
+          <a 
+            href={(() => {
+              const host = window.location.host;
+              if (host.includes('localhost') || host.includes('127.0.0.1')) {
+                const portPart = host.split(':')[1];
+                const port = portPart ? `:${portPart}` : '';
+                return `${window.location.protocol}//localhost${port}`;
+              }
+              const parts = host.split('.');
+              if (parts.length >= 3) {
+                return `${window.location.protocol}//${parts.slice(-2).join('.')}`;
+              }
+              return `${window.location.protocol}//nexastoreos.com`;
+            })()} 
+            className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2"
+          >
             <Package className="h-3 w-3" /> NEXA OS CORE
-          </Link>
+          </a>
         </div>
       </div>
     </div>

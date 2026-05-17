@@ -40,15 +40,17 @@ export function AuthLayout() {
           <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
           <a href={(() => {
             const host = window.location.host;
-            if (host.includes('localhost')) {
-              return 'http://localhost:5173'; // Assuming landing page is also local for dev
+            if (host.includes('localhost') || host.includes('127.0.0.1')) {
+              const portPart = host.split(':')[1];
+              const port = portPart ? `:${portPart}` : '';
+              return `${window.location.protocol}//localhost${port}`;
             }
-            // If it's a subdomain (e.g., store.ns5.ng), get the root (ns5.ng)
+            // If it's a subdomain (e.g., store.nexastoreos.com), get the root (nexastoreos.com)
             const parts = host.split('.');
             if (parts.length >= 3) {
               return `${window.location.protocol}//${parts.slice(-2).join('.')}`;
             }
-            return `${window.location.protocol}//${host}`;
+            return `${window.location.protocol}//nexastoreos.com`;
           })()} className="hover:text-primary transition-colors">NEXA Core Technology</a>
         </div>
         <p>© {new Date().getFullYear()} NEXA OS</p>
