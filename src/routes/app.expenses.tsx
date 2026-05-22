@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import type { Expense, ExpenseCategory } from "@/types/finance";
 import { EXPENSE_CATEGORIES } from "@/types/finance";
 
@@ -111,9 +112,24 @@ function ExpensesPage() {
               </div>
               <div className="space-y-1.5">
                 {exps.map((e) => (
-                  <div key={e.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-xs font-semibold">
-                      {EXPENSE_CATEGORIES.find((c) => c.value === e.category)?.label.charAt(0) ?? "?"}
+                  <div 
+                    key={e.id} 
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl border bg-card p-3 transition-all",
+                      e.category === "expensive" 
+                        ? "border-rose-500/30 border-l-4 border-l-rose-500 shadow-sm bg-rose-500/[0.02]" 
+                        : "border-border"
+                    )}
+                  >
+                    <div 
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-lg text-xs font-semibold shrink-0",
+                        e.category === "expensive"
+                          ? "bg-rose-500/10 text-rose-600 border border-rose-500/20 shadow-inner"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {e.category === "expensive" ? "⚠️" : (EXPENSE_CATEGORIES.find((c) => c.value === e.category)?.label.charAt(0) ?? "?")}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium capitalize">{e.category.replace("_", " ")}</p>

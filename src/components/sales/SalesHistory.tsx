@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -40,17 +40,26 @@ export function SalesHistoryPage() {
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
 
   const filtered = useMemo(() => {
-    if (!from && !to) return sales;
-    return sales.filter((s) => {
-      const d = new Date(s.createdAt);
-      if (from && to) return isWithinInterval(d, { start: startOfDay(from), end: endOfDay(to) });
-      if (from) return d >= startOfDay(from);
-      if (to) return d <= endOfDay(to);
-      return true;
-    });
-  }, [sales, from, to]);
+    let list = sales;
+    if (from || to) {
+      list = list.filter((s) => {
+        const d = new Date(s.createdAt);
+        if (from && to) return isWithinInterval(d, { start: startOfDay(from), end: endOfDay(to) });
+        if (from) return d >= startOfDay(from);
+        if (to) return d <= endOfDay(to);
+        return true;
+      });
+    }
+    if (paymentFilter === "debit") {
+      return list.filter((s) => s.isCreditSale === true);
+    } else if (paymentFilter !== "all") {
+      return list.filter((s) => (s as any).paymentMethod === paymentFilter);
+    }
+    return list;
+  }, [sales, from, to, paymentFilter]);
 
   if (isLoading) {
     return (
@@ -144,6 +153,32 @@ export function SalesHistoryPage() {
         </div>
       )}
 
+      {/* Segmented Payment Tabs */}
+      {sales.length > 0 && (
+        <div className="flex flex-wrap gap-2 border-b border-border/40 pb-4">
+          {([
+            { id: "all" as const, label: "All Sales" },
+            { id: "cash" as const, label: "Cash" },
+            { id: "card" as const, label: "Card" },
+            { id: "transfer" as const, label: "Transfer" },
+            { id: "debit" as const, label: "Debit / Credit" },
+          ]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setPaymentFilter(tab.id)}
+              className={cn(
+                "h-9 px-4 rounded-full text-xs font-black uppercase tracking-wider transition-all select-none active:scale-95 border-2",
+                paymentFilter === tab.id
+                  ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/10"
+                  : "bg-background border-border/60 text-muted-foreground hover:border-primary/30"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Date filters */}
       {filtered.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 bg-muted/20 p-2 rounded-2xl border border-border/50 w-fit">
@@ -215,8 +250,10 @@ export function SalesHistoryPage() {
 
                 <div className="flex items-center justify-between pt-3 border-t border-border/50">
                    <div className="flex items-center gap-2">
-                     <PaymentIcon method={(sale as SaleWithPayment).paymentMethod} />
-                     <span className="text-[10px] font-bold text-muted-foreground uppercase">{(sale as SaleWithPayment).paymentMethod || "Cash"}</span>
+                     <PaymentIcon method={(sale as SaleWithPayment).paymentMethod} isCreditSale={sale.isCreditSale} />
+                     {!sale.isCreditSale && (
+                       <span className="text-[10px] font-bold text-muted-foreground uppercase">{(sale as SaleWithPayment).paymentMethod || "Cash"}</span>
+                     )}
                    </div>
                    <div className="flex items-center gap-1 text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                      View Details <TrendingUp className="h-3 w-3" />
@@ -253,13 +290,15 @@ export function SalesHistoryPage() {
                   <span className="text-muted-foreground font-bold uppercase tracking-wider">Date & Time</span>
                   <span className="font-bold text-foreground">{format(new Date(selectedSale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
-                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Payment Method</span>
-                  <div className="flex items-center gap-1.5">
-                    <PaymentIcon method={(selectedSale as SaleWithPayment).paymentMethod} />
-                    <span className="capitalize font-black text-primary">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
-                  </div>
-                </div>
+                 <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
+                   <span className="text-muted-foreground font-bold uppercase tracking-wider">Payment Method</span>
+                   <div className="flex items-center gap-1.5">
+                     <PaymentIcon method={(selectedSale as SaleWithPayment).paymentMethod} isCreditSale={selectedSale.isCreditSale} />
+                     {!selectedSale.isCreditSale && (
+                       <span className="capitalize font-black text-primary">{(selectedSale as SaleWithPayment).paymentMethod || "cash"}</span>
+                     )}
+                   </div>
+                 </div>
                 <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
                   <span className="text-muted-foreground font-bold uppercase tracking-wider">Cashier</span>
                   <div className="flex items-center gap-1.5">
@@ -341,7 +380,10 @@ interface SaleWithPayment extends SaleTransaction {
   paymentMethod?: "cash" | "transfer" | "card";
 }
 
-function PaymentIcon({ method }: { method?: string }) {
+function PaymentIcon({ method, isCreditSale }: { method?: string; isCreditSale?: boolean }) {
+  if (isCreditSale) {
+    return <span className="flex items-center gap-1 text-xs text-destructive font-black uppercase"><Wallet className="h-3.5 w-3.5 text-destructive" /> Debit</span>;
+  }
   switch (method) {
     case "transfer":
       return <span className="flex items-center gap-1 text-xs text-muted-foreground"><Smartphone className="h-3.5 w-3.5" /> Transfer</span>;

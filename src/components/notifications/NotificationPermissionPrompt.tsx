@@ -34,7 +34,7 @@ export function NotificationPermissionPrompt({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden border-none bg-transparent shadow-none">
+      <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
         <div className="nexa-card bg-card p-8 flex flex-col gap-6 relative overflow-hidden">
           {/* Decorative background element */}
           <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/5 blur-3xl pointer-events-none" />

@@ -22,6 +22,7 @@ import {
   Building2,
   Globe,
   LogOut,
+  Activity,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Returns", href: "/app/returns", icon: RotateCcw },
       { label: "Expenses", href: "/app/expenses", icon: Receipt },
+      { label: "Moniepoint Live", href: "/app/moniepoint", icon: Activity, permKey: "canViewAnalytics" },
     ],
   },
   {
@@ -138,7 +140,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     })
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => isSystemAdmin || !i.permKey || permissions[i.permKey]),
+      items: g.items.filter((i) => {
+        if (i.href === "/app/moniepoint" && !profile?.settings?.moniepointEnabled) {
+          return false;
+        }
+        return isSystemAdmin || !i.permKey || permissions[i.permKey];
+      }),
     }))
     .filter((g) => g.items.length > 0);
 
@@ -275,7 +282,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </div>
         
         <button
-          onClick={() => logout()}
+          onClick={async () => {
+            onNavigate?.();
+            try {
+              await logout();
+            } catch (err) {
+              console.error("Logout failed:", err);
+            }
+          }}
           className="mt-4 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-400/10 hover:text-red-300 transition-all duration-200 group"
         >
           <LogOut className="h-4 w-4 shrink-0 transition-transform group-hover:-translate-x-1" />

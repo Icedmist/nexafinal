@@ -19,6 +19,7 @@ export type ExpenseCategory =
   | "utilities"
   | "salaries"
   | "maintenance"
+  | "expensive"
   | "other";
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
@@ -28,6 +29,7 @@ export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
   { value: "utilities", label: "Utilities" },
   { value: "salaries", label: "Salaries" },
   { value: "maintenance", label: "Maintenance" },
+  { value: "expensive", label: "Expensive" },
   { value: "other", label: "Other" },
 ];
 

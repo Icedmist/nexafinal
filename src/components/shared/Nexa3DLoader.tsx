@@ -61,8 +61,6 @@ function Scene() {
             array={new Float32Array(300).map(() => (Math.random() - 0.5) * 10)}
             itemSize={3}
           />
-            itemSize={3}
-          />
         </bufferGeometry>
         <pointsMaterial size={0.05} color="#ffffff" transparent opacity={0.5} />
       </points>

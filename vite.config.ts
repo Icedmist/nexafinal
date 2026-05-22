@@ -5,14 +5,13 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  esbuild: {
+    drop: ["console"]
+  },
   build: {
     outDir: "dist",
     // Use esbuild for minification to avoid requiring terser as an extra dependency
     minify: "esbuild",
-    // esbuild minifier supports drop via minifyOptions
-    minifyOptions: {
-      drop: ["console"]
-    },
     rollupOptions: {
       output: {
         manualChunks: {

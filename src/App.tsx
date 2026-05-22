@@ -30,6 +30,7 @@ const SuppliersPage = lazy(() => import('./routes/app.suppliers'));
 const OnboardingPage = lazy(() => import('./routes/onboarding'));
 const ScanPage = lazy(() => import('./routes/scan.$id'));
 const SiteMapPage = lazy(() => import('./routes/sitemap'));
+const MoniepointPage = lazy(() => import('./routes/app.moniepoint'));
 
 // System Admin Pages
 const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout').then(m => ({ default: m.SystemAdminLayout })));
@@ -99,6 +100,7 @@ function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="staff" element={<StaffPage />} />
               <Route path="suppliers" element={<SuppliersPage />} />
+              <Route path="moniepoint" element={<MoniepointPage />} />
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>
 

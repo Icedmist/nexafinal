@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { CategoryManager } from "@/components/settings/CategoryManager";
@@ -17,12 +18,14 @@ import { StoreBranding } from "@/components/settings/StoreBranding";
 import { SmartFeatures } from "@/components/settings/SmartFeatures";
 import { UserProfile } from "@/components/settings/UserProfile";
 import { TourLauncher } from "@/components/settings/TourLauncher";
+import { MoniepointLink } from "@/components/settings/MoniepointLink";
 
 export default SettingsPage;
 
 function SettingsPage() {
   const { can } = usePermissions();
   const { isAdmin, isManager, isStaff } = useRole();
+  const { profile } = useBusiness();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,6 +40,7 @@ function SettingsPage() {
   const tabs = [
     { value: "profile", label: "Profile", visible: true, component: <UserProfile /> },
     { value: "store", label: "Store", visible: isAdmin || isManager, component: <StoreSettings /> },
+    { value: "moniepoint", label: "Moniepoint", visible: (isAdmin || isManager) && !!profile?.settings?.moniepointEnabled, component: <MoniepointLink /> },
     { value: "branding", label: "Branding", visible: isAdmin || isManager, component: <StoreBranding /> },
     { value: "customers", label: "Customers", visible: isAdmin || isManager, component: <CustomerDirectory /> },
     { value: "categories", label: "Categories", visible: isAdmin || isManager, component: <CategoryManager /> },

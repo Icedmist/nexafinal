@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { Item, SaleTransaction } from "@/types/inventory";
 import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
-import { useSalesMutations } from "@/hooks/useSalesData";
+import { useSalesMutations, useSales } from "@/hooks/useSalesData";
 import { notifyActivity } from "@/lib/notification-service";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -87,11 +87,67 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   }, [amountPaid, grandTotal]);
 
 
-  const knownCustomers = new Map<string, string>();
-  const customerSuggestions: any[] = [];
+  const { data: sales = [] } = useSales();
+  
+  const customersList = useMemo(() => {
+    const map = new Map<string, { name: string; phone: string; email?: string; createdAt?: string }>();
+    for (const sale of sales) {
+      const phone = sale.customerPhone?.trim();
+      if (!phone) continue;
+      
+      const name = sale.customerName?.trim() || "Customer";
+      const email = sale.customerEmail?.trim();
+      
+      const existing = map.get(phone);
+      if (!existing || (sale.createdAt && (!existing.createdAt || sale.createdAt > existing.createdAt))) {
+        map.set(phone, {
+          name,
+          phone,
+          email,
+          createdAt: sale.createdAt
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [sales]);
+
+  const knownCustomers = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of customersList) {
+      map.set(c.phone, c.name);
+    }
+    return map;
+  }, [customersList]);
+
+  const customerSuggestions = useMemo(() => {
+    const qPhone = customerPhone.trim().toLowerCase();
+    const qName = customerName.trim().toLowerCase();
+    
+    if (!qPhone && !qName) return [];
+
+    return customersList.filter(c => {
+      const matchPhone = qPhone && c.phone.toLowerCase().includes(qPhone);
+      const matchName = qName && c.name.toLowerCase().includes(qName);
+      
+      const exactMatch = c.phone === customerPhone && c.name === customerName;
+      if (exactMatch) return false;
+      
+      return matchPhone || matchName;
+    });
+  }, [customersList, customerPhone, customerName]);
 
   const handlePhoneChange = (value: string) => {
     setCustomerPhone(value);
+    if (value.length >= 8) {
+      const name = knownCustomers.get(value);
+      if (name) {
+        setCustomerName(name);
+        const match = customersList.find(c => c.phone === value);
+        if (match?.email) {
+          setCustomerEmail(match.email);
+        }
+      }
+    }
   };
 
   const handleApplyPromo = () => {
@@ -222,14 +278,18 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
             </div>
           </div>
           {/* Auto-suggest dropdown */}
-          {customerSuggestions.length > 0 && (customerName.length >= 2 || customerPhone.length >= 3) && (
+          {customerSuggestions.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-1 space-y-0.5">
               <p className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">Suggestions</p>
               {customerSuggestions.map((s) => (
                 <button
                   key={s.phone}
                   type="button"
-                  onClick={() => { setCustomerName(s.name); setCustomerPhone(s.phone); }}
+                  onClick={() => { 
+                    setCustomerName(s.name); 
+                    setCustomerPhone(s.phone); 
+                    if (s.email) setCustomerEmail(s.email);
+                  }}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
                 >
                   <User className="h-3 w-3 text-muted-foreground" />
