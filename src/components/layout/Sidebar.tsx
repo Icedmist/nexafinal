@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -31,6 +31,18 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import nexaLogo from "@/assets/nexa-logo.svg";
 import type { RolePermissions } from "@/lib/roles";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  owner: "Owner",
+  manager: "Manager",
+  staff: "Staff",
+  system_admin: "System Admin",
+  suspended: "Suspended",
+  loading: "Loading...",
+};
 
 interface NavItem {
   label: string;
@@ -117,9 +129,25 @@ interface SidebarProps {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const { permissions, isSystemAdmin } = useRole();
+  const { permissions, isSystemAdmin, role } = useRole();
   const { profile } = useBusiness();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const [staffName, setStaffName] = useState("");
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsubscribe = onSnapshot(doc(db, "staff", user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setStaffName(docSnap.data().displayName || "");
+      }
+    }, (err) => {
+      console.error("Error subscribing to staff name in sidebar:", err);
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  const displayName = isSystemAdmin ? "System Admin" : (staffName || user?.displayName || user?.email?.split("@")[0] || "User");
+  const userInitials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
 
   const isBasicPOS = profile?.complexityLevel === "basic";
 
@@ -269,14 +297,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <div className="p-4 border-t border-sidebar-border/20 bg-sidebar-accent/10">
         <div className="flex items-center gap-3 px-2 py-1">
           <div className="h-10 w-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary-foreground font-bold border border-sidebar-primary/10 shadow-inner">
-            {profile?.ownerId === "system" ? "S" : (profile?.storeDetails?.name?.charAt(0) || "N")}
+            {userInitials}
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-bold text-sidebar-primary-foreground truncate">
-              {isSystemAdmin ? "System Admin" : (profile?.ownerId?.slice(0, 8) || "User")}
+              {displayName}
             </span>
             <span className="text-[10px] text-sidebar-foreground/40 font-medium uppercase tracking-wider">
-              {isSystemAdmin ? "Superuser" : "Store Manager"}
+              {isSystemAdmin ? "Superuser" : (ROLE_LABELS[role || ""] || role || "Store Staff")}
             </span>
           </div>
         </div>
