@@ -17,6 +17,7 @@ interface QueryResult<T> {
 export function useStaff(): QueryResult<Staff[]> {
   const { user, claims } = useAuth();
   const { store } = useTenant();
+  const { ownerId } = useBusiness();
   const [data, setData] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -31,7 +32,7 @@ export function useStaff(): QueryResult<Staff[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (store && user.uid === store.ownerId) || (ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     // STRICT TENANT FILTER: Use storeId
@@ -65,8 +66,9 @@ export function useStaff(): QueryResult<Staff[]> {
 }
 
 export function useStoreBranches(): QueryResult<Branch[]> {
-  const { claims } = useAuth();
+  const { user, claims } = useAuth();
   const { store } = useTenant();
+  const { ownerId } = useBusiness();
   const [data, setData] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -78,7 +80,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     }
 
     const storeRef = doc(db, "stores", targetStoreId);
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (store && user?.uid === store.ownerId) || (ownerId && user?.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(storeRef, (snapshot) => {

@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { doc, onSnapshot, getFirestore } from "firebase/firestore";
 
 export function MoniepointLink() {
+  const { profile, updateProfile } = useBusiness();
   const { claims } = useAuth();
   const { store } = useTenant();
   const db = getFirestore();
@@ -148,6 +150,56 @@ export function MoniepointLink() {
 
   return (
     <div className="space-y-6 max-w-[800px] mx-auto">
+      {/* Integration Status Toggle Card */}
+      <Card className="border-border bg-card shadow-md rounded-3xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" /> Integration Status
+          </CardTitle>
+          <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+            Enable or disable Moniepoint B2B transactions sync integration.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 rounded-2xl border bg-muted/15">
+            <div className="space-y-1">
+              <Label className="text-xs font-black uppercase tracking-wider text-foreground">Moniepoint POS Mirroring</Label>
+              <p className="text-[10px] text-muted-foreground font-bold leading-normal max-w-md uppercase tracking-tight">
+                Toggle automatic card swipes & transfer sync, ledger matching, and active webhook mirroring.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const isEnabled = !profile?.settings?.moniepointEnabled;
+                try {
+                  await updateProfile({
+                    settings: {
+                      ...profile?.settings,
+                      moniepointEnabled: isEnabled,
+                    }
+                  });
+                  toast.success(isEnabled ? "Moniepoint integration activated! Complete your token setup below." : "Moniepoint integration deactivated.");
+                } catch (err) {
+                  toast.error("Failed to update settings");
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                profile?.settings?.moniepointEnabled ? "bg-primary" : "bg-muted"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  profile?.settings?.moniepointEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {profile?.settings?.moniepointEnabled ? (
+        <>
       {/* Premium Diagnostic header */}
       <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-primary/5 p-6 shadow-2xl">
         <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-primary/5 blur-[50px] pointer-events-none rounded-full" />
@@ -325,6 +377,65 @@ export function MoniepointLink() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+      )}
+        </>
+      ) : (
+        <Card className="border-border bg-card shadow-lg rounded-3xl overflow-hidden relative">
+          <div className="absolute top-[-10%] left-[-10%] w-[30%] h-[30%] bg-primary/5 blur-[50px] pointer-events-none rounded-full" />
+          <CardContent className="p-8 flex flex-col items-center text-center gap-6">
+            <div className="relative">
+              <div className="h-20 w-20 rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center animate-pulse">
+                <Link2 className="h-10 w-10 text-primary" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-xl bg-background border-2 border-card flex items-center justify-center shadow-lg">
+                <Activity className="h-4 w-4 text-primary animate-pulse" />
+              </div>
+            </div>
+
+            <div className="space-y-2 max-w-md">
+              <h3 className="text-xl font-black uppercase tracking-tight text-foreground">
+                Automated POS & Ledger Sync
+              </h3>
+              <p className="text-xs font-bold text-muted-foreground leading-relaxed uppercase tracking-tight animate-pulse">
+                Unlock frictionless payments by mirroring physical Moniepoint terminal swipes and direct bank transfers into your cloud POS dashboard in real time.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md text-left mt-2">
+              <div className="p-4 rounded-2xl bg-muted/30 border border-border/50">
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Real-time Webhooks</span>
+                <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-tight leading-normal">
+                  Swipe cards or make transfers on any linked terminal and watch your ledger update in under 2 seconds.
+                </p>
+              </div>
+              <div className="p-4 rounded-2xl bg-muted/30 border border-border/50">
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Automatic Matching</span>
+                <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-tight leading-normal">
+                  Matches payouts to specific sales orders automatically, completely removing end-of-day reconciliation labor.
+                </p>
+              </div>
+            </div>
+
+            <Button 
+              onClick={async () => {
+                try {
+                  await updateProfile({
+                    settings: {
+                      ...profile?.settings,
+                      moniepointEnabled: true,
+                    }
+                  });
+                  toast.success("Moniepoint mirroring activated! Complete your token setup below.");
+                } catch (err) {
+                  toast.error("Failed to enable Moniepoint");
+                }
+              }}
+              className="mt-2 rounded-xl font-black uppercase tracking-widest text-xs px-8 h-12 shadow-xl shadow-primary/20 nexa-button-shine"
+            >
+              Activate Moniepoint Integration
+            </Button>
           </CardContent>
         </Card>
       )}

@@ -30,12 +30,17 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { cn } from "@/lib/utils";
 
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 const ROLE_BADGE_STYLES: Record<string, string> = {
   admin: "bg-primary/15 text-primary border-primary/20",
   owner: "bg-amber-500/15 text-amber-600 border-amber-500/20",
   manager: "bg-secondary/15 text-secondary-foreground border-secondary/20",
   staff: "bg-blue-500/15 text-blue-600 border-blue-500/20",
   system_admin: "bg-purple-500/15 text-purple-600 border-purple-500/20",
+  suspended: "bg-destructive/15 text-destructive border-destructive/20",
+  loading: "bg-muted text-muted-foreground border-transparent",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -44,6 +49,8 @@ const ROLE_LABELS: Record<string, string> = {
   manager: "Manager",
   staff: "Staff",
   system_admin: "System Admin",
+  suspended: "Suspended",
+  loading: "Loading...",
 };
 
 
@@ -61,9 +68,23 @@ export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [staffName, setStaffName] = useState("");
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsubscribe = onSnapshot(doc(db, "staff", user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setStaffName(docSnap.data().displayName || "");
+      }
+    }, (err) => {
+      console.error("Error subscribing to staff name:", err);
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
+
   const isSystemRoute = location.pathname.startsWith("/system-admin");
   const storeName = isSystemAdmin && isSystemRoute ? "PLATFORM COMMAND" : (profile?.storeDetails?.name || "NEXA");
-  const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
+  const displayName = staffName || user?.displayName || user?.email?.split("@")[0] || "User";
   const userInitials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
   const photoURL = user?.photoURL;
 

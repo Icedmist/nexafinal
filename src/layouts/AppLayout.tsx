@@ -160,12 +160,22 @@ export function AppLayout() {
     }
   }, [user, loading, claimsReady, permission]);
 
+  // Dynamic page title sync based on subdomain and branch context
+  useEffect(() => {
+    if (store?.name) {
+      const currentBranch = store.branches?.find(b => b.id === claims?.branchId);
+      if (currentBranch?.name) {
+        document.title = `${store.name} (${currentBranch.name})`;
+      } else {
+        document.title = store.name;
+      }
+    } else {
+      document.title = "Nexa Store OS";
+    }
+  }, [store, claims]);
+
   if (loading || !user || !claimsReady) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background p-6">
-        <NexaCoreLoader />
-      </div>
-    );
+    return null;
   }
 
   return (

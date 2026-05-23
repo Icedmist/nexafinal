@@ -45,11 +45,7 @@ const SystemAuditPage = lazy(() => import('./routes/system-admin.audit'));
 import { NexaCoreLoader } from './components/shared/NexaCoreLoader';
 import { LogoutOverlay } from './components/shared/LogoutOverlay';
 
-const Loading = () => (
-  <div className="flex h-screen items-center justify-center bg-background p-6">
-    <NexaCoreLoader />
-  </div>
-);
+const Loading = () => null;
 
 // Create single QueryClient instance for the entire app
 const queryClient = new QueryClient({

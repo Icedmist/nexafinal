@@ -61,7 +61,7 @@ export function NotificationCenter({ open, onOpenChange, onOpenPrefs }: Notifica
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] p-0 border-none bg-transparent shadow-none flex items-center justify-center">
+      <DialogContent className="sm:max-w-[540px] p-0 border-none bg-transparent shadow-none flex items-center justify-center [&>button]:hidden">
         <div className="nexa-card bg-card p-6 flex flex-col max-h-[85vh] w-[94vw] sm:w-full mx-auto shadow-2xl relative overflow-hidden">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">

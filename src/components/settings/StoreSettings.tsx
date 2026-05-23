@@ -210,52 +210,7 @@ export function StoreSettings() {
         </CardContent>
       </Card>
 
-      {(isAdmin || isManager) && (
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> Integrations & Add-ons
-            </CardTitle>
-            <CardDescription>Toggle optional external integrations and system features.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-black uppercase tracking-tight text-foreground">Moniepoint POS Mirroring</Label>
-                <p className="text-xs text-muted-foreground font-medium leading-normal max-w-md">
-                  Enable bank transfer sync webhook listener interfaces, transaction logging, and settle panels.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  const isEnabled = !profile?.settings?.moniepointEnabled;
-                  try {
-                    await updateProfile({
-                      settings: {
-                        ...profile?.settings,
-                        moniepointEnabled: isEnabled,
-                      }
-                    });
-                    toast.success(isEnabled ? "Moniepoint integration enabled! View Moniepoint Live in the sidebar." : "Moniepoint integration disabled.");
-                  } catch (err) {
-                    toast.error("Failed to update integration setting");
-                  }
-                }}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  profile?.settings?.moniepointEnabled ? "bg-primary" : "bg-muted"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    profile?.settings?.moniepointEnabled ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       <BranchManagement isRestrictedManager={isRestrictedManager} />
     </div>

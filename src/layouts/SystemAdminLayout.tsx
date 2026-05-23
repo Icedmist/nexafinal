@@ -41,11 +41,7 @@ export function SystemAdminLayout() {
   }, [user, loading, navigate]);
 
   if (loading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 p-6">
-        <NexaCoreLoader />
-      </div>
-    );
+    return null;
   }
 
   return (

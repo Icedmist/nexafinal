@@ -40,7 +40,7 @@ function SettingsPage() {
   const tabs = [
     { value: "profile", label: "Profile", visible: true, component: <UserProfile /> },
     { value: "store", label: "Store", visible: isAdmin || isManager, component: <StoreSettings /> },
-    { value: "moniepoint", label: "Moniepoint", visible: (isAdmin || isManager) && !!profile?.settings?.moniepointEnabled, component: <MoniepointLink /> },
+    { value: "moniepoint", label: "Moniepoint", visible: isAdmin || isManager, component: <MoniepointLink /> },
     { value: "branding", label: "Branding", visible: isAdmin || isManager, component: <StoreBranding /> },
     { value: "customers", label: "Customers", visible: isAdmin || isManager, component: <CustomerDirectory /> },
     { value: "categories", label: "Categories", visible: isAdmin || isManager, component: <CategoryManager /> },

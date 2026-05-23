@@ -76,14 +76,7 @@ const SECTIONS: SiteMapSection[] = [
       { title: "Help & Docs", href: "/app/help", icon: HelpCircle, description: "Guides and support resources" },
     ]
   },
-  {
-    title: "Platform Administration",
-    items: [
-      { title: "System Dashboard", href: "/system-admin/dashboard", icon: ShieldCheck, description: "Master oversight of all businesses" },
-      { title: "Business Directory", href: "/system-admin/businesses", icon: Store, description: "Manage tenant businesses" },
-      { title: "User Registry", href: "/system-admin/users", icon: Users, description: "Global user management" },
-    ]
-  }
+
 ];
 
 const container = {
