@@ -14,8 +14,8 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { doc, onSnapshot, getFirestore } from "firebase/firestore";
 
 export function MoniepointLink() {
-  const { profile, updateProfile } = useBusiness();
-  const { claims } = useAuth();
+  const { profile, updateProfile, ownerId } = useBusiness();
+  const { claims, user } = useAuth();
   const { store } = useTenant();
   const db = getFirestore();
 
@@ -33,7 +33,10 @@ export function MoniepointLink() {
   const [diagnosticLogs, setDiagnosticLogs] = useState<string[]>([]);
 
   // Roles verification
-  const isOwner = claims?.role === "owner" || claims?.role === "system_admin";
+  const isOwner = claims?.role === "owner" || 
+                  claims?.role === "system_admin" || 
+                  (store && user?.uid === store.ownerId) || 
+                  (ownerId && user?.uid === ownerId);
   const isManager = claims?.role === "manager";
   
   // Real-time synchronization of Moniepoint link state from Firestore

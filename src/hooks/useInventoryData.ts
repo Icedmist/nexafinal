@@ -25,7 +25,7 @@ interface QueryResult<T> {
 
 export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
   const { user, claimsReady, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -40,7 +40,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     let prodQuery = query(
@@ -96,7 +96,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
 
 export function useItemById(id: string): QueryResult<Item | undefined> {
   const { user, claimsReady, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<Item | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -115,7 +115,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
       const doc = snapshot.docs.find(d => d.id === id);
       if (doc) {
         const item = { ...doc.data(), id: doc.id } as Item;
-        const isAdmin = isAdminRole(claims?.role);
+        const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
         const userBranchId = claims?.branchId;
         
         // Final security check for single item fetch
@@ -168,7 +168,7 @@ export function useCategories(): QueryResult<Category[]> {
 
 export function useLocations(): QueryResult<Location[]> {
   const { user, claimsReady, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -178,7 +178,7 @@ export function useLocations(): QueryResult<Location[]> {
       return;
     }
     const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     let q = locQuery;
@@ -263,7 +263,7 @@ export function useSuppliers(): QueryResult<Supplier[]> {
 
 export function useMovements(count = 20): QueryResult<StockMovement[]> {
   const { user, claimsReady, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<StockMovement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -272,7 +272,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     let q = query(
@@ -321,7 +321,7 @@ export function useStockSummary(): QueryResult<StockSummary> {
 
 export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
   const { user, claimsReady, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -330,7 +330,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     let q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
@@ -359,7 +359,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
 
 export function useRequests(): QueryResult<InventoryRequest[]> {
   const { user, claimsReady, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<InventoryRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -368,7 +368,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     let q = query(collection(db, "requests"), where("storeId", "==", storeId));
