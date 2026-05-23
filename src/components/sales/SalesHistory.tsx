@@ -37,10 +37,13 @@ export function SalesHistoryPage() {
   const { profile } = useBusiness();
   const { data: branches } = useStoreBranches();
 
+  const isGlobalViewer = isAdmin || role === "owner";
+
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
 
   const filtered = useMemo(() => {
     let list = sales;
@@ -54,12 +57,15 @@ export function SalesHistoryPage() {
       });
     }
     if (paymentFilter === "debit") {
-      return list.filter((s) => s.isCreditSale === true);
+      list = list.filter((s) => s.isCreditSale === true);
     } else if (paymentFilter !== "all") {
-      return list.filter((s) => (s as any).paymentMethod === paymentFilter);
+      list = list.filter((s) => (s as any).paymentMethod === paymentFilter);
+    }
+    if (selectedBranchId !== "all") {
+      list = list.filter((s) => s.branchId === selectedBranchId);
     }
     return list;
-  }, [sales, from, to, paymentFilter]);
+  }, [sales, from, to, paymentFilter, selectedBranchId]);
 
   if (isLoading) {
     return (
@@ -179,19 +185,40 @@ export function SalesHistoryPage() {
         </div>
       )}
 
-      {/* Date filters */}
-      {filtered.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 bg-muted/20 p-2 rounded-2xl border border-border/50 w-fit">
-          <DatePicker label="From" date={from} onSelect={setFrom} />
-          <DatePicker label="To" date={to} onSelect={setTo} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setFrom(undefined); setTo(undefined); }}
-            className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground"
-          >
-            Reset
-          </Button>
+      {/* Date & Branch filters */}
+      {sales.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-muted/10 p-3 rounded-2xl border border-border/40">
+          <div className="flex flex-wrap items-center gap-3">
+            <DatePicker label="From" date={from} onSelect={setFrom} />
+            <DatePicker label="To" date={to} onSelect={setTo} />
+            {(from || to) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setFrom(undefined); setTo(undefined); }}
+                className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              >
+                Reset
+              </Button>
+            )}
+          </div>
+
+          {/* Global branch filtration for Owner / Admin */}
+          {isGlobalViewer && Array.isArray(branches) && branches.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Filter Branch:</span>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="h-9 px-3 rounded-xl text-xs font-black uppercase tracking-wider bg-background border border-border/60 text-foreground hover:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all select-none"
+              >
+                <option value="all">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -239,7 +266,7 @@ export function SalesHistoryPage() {
                       <p className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-widest flex items-center justify-end gap-1">
                         <User className="h-2 w-2" /> {sale.recordedByName || "Staff"}
                       </p>
-                      {isAdmin && sale.branchId && (
+                      {isGlobalViewer && sale.branchId && Array.isArray(branches) && (
                         <p className="text-[9px] font-black text-primary/40 uppercase tracking-widest">
                           {branches.find(b => b.id === sale.branchId)?.name || "Branch"}
                         </p>
@@ -309,7 +336,7 @@ export function SalesHistoryPage() {
                 {selectedSale.branchId && (
                   <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
                     <span className="text-muted-foreground font-bold uppercase tracking-wider">Branch</span>
-                    <span className="font-black text-foreground uppercase">{branches.find(b => b.id === selectedSale.branchId)?.name || "Main Branch"}</span>
+                    <span className="font-black text-foreground uppercase">{Array.isArray(branches) ? (branches.find(b => b.id === selectedSale.branchId)?.name || "Main Branch") : "Main Branch"}</span>
                   </div>
                 )}
               </div>

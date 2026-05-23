@@ -16,7 +16,7 @@ interface QueryResult<T> {
 
 export function useSales(): QueryResult<SaleTransaction[]> {
   const { user, claims, claimsReady } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -31,7 +31,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     let q = query(
@@ -66,7 +66,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 
 export function useDebtPayments(): QueryResult<DebtPayment[]> {
   const { user, claimsReady, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<DebtPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -80,7 +80,7 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role);
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
     const userBranchId = claims?.branchId;
 
     let q = query(
