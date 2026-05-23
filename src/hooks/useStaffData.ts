@@ -101,7 +101,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     });
 
     return () => unsubscribe();
-  }, [store?.id, claims?.storeId]);
+  }, [store?.id, claims?.storeId, user?.uid, claims?.role, claims?.branchId, ownerId, store?.ownerId]);
 
   return { data, isLoading, error: null };
 }
