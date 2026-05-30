@@ -1,4 +1,4 @@
-import { MoreVertical, Eye, Pencil, ArrowRightLeft, Trash2, Archive } from "lucide-react";
+import { MoreVertical, Eye, Pencil, ArrowRightLeft, Trash2, Archive, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +10,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
 import type { Item } from "@/types/inventory";
+import { downloadItemQRCode } from "@/lib/bulk-qr";
 
 interface RowActionsMenuProps {
   item: Item;
@@ -48,6 +49,10 @@ export function RowActionsMenu({
             <Pencil className="mr-2 h-4 w-4" />Edit
           </DropdownMenuItem>
         )}
+
+        <DropdownMenuItem onClick={() => downloadItemQRCode(item)}>
+          <QrCode className="mr-2 h-4 w-4" />Download QR
+        </DropdownMenuItem>
 
         {canLog && (
           <DropdownMenuItem onClick={() => onLogMovement(item)}>

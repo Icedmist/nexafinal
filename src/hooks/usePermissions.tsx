@@ -16,7 +16,7 @@ const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
   log_movement: ["admin", "manager", "staff", "system_admin", "owner"],
   create_po: ["admin", "manager", "system_admin", "owner"],
   approve_request: ["admin", "manager", "system_admin", "owner"],
-  manage_users: ["admin", "system_admin", "owner"],
+  manage_users: ["admin", "system_admin", "owner", "manager"],
   view_analytics: ["admin", "manager", "system_admin", "owner"],
   export_data: ["admin", "manager", "system_admin", "owner"],
   create_request: ["admin", "manager", "staff", "system_admin", "owner"],

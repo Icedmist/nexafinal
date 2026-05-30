@@ -1,7 +1,7 @@
 import { createContext, useMemo, useState, type ReactNode, useEffect } from "react";
 import { getPermissionsForRole, isAdminRole, type RolePermissions, type UserRoleType } from "@/lib/roles";
 import { useAuth } from "./FirebaseAuthContext";
-import { doc, onSnapshot, query, collection, where, limit, getDocs } from "firebase/firestore";
+import { doc, onSnapshot, query, collection, where, limit, getDocs, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useTenant } from "./TenantContext";
 import { useBusiness } from "./BusinessContext";
@@ -84,13 +84,32 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 3. Default to staff if no specific role found (and no mismatch)
-    if (!hasMismatch) {
-      setRealRole("staff");
-    } else {
-      setRealRole("suspended");
-    }
-    setLoading(false);
+    // 3. Default to database fallback, then default to staff if no specific role found (and no mismatch)
+    const resolveFallback = async () => {
+      try {
+        const staffDocRef = doc(db, "staff", user.uid);
+        const staffSnap = await getDoc(staffDocRef);
+        if (staffSnap.exists()) {
+          const staffData = staffSnap.data();
+          if (staffData?.role && !hasMismatch) {
+            setRealRole(staffData.role as UserRoleType);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch staff fallback role:", err);
+      }
+
+      if (!hasMismatch) {
+        setRealRole("staff");
+      } else {
+        setRealRole("suspended");
+      }
+      setLoading(false);
+    };
+
+    resolveFallback();
   }, [user, store, loadingTenant, claims, claimsReady, businessStoreId, businessOwnerId, loadingProfile]);
 
   const value = useMemo<RoleContextValue>(() => {

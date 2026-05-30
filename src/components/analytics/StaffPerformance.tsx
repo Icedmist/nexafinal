@@ -15,6 +15,9 @@ import { useStaff, useStoreBranches } from "@/hooks/useStaffData";
 import type { SaleTransaction } from "@/types/inventory";
 import type { Staff, Branch } from "@/types/tenant";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { exportStaffPerformancePDF } from "@/lib/pdf-export";
 
 interface StaffMetrics {
   uid: string;
@@ -31,6 +34,8 @@ export function StaffPerformance() {
   const { data: sales, isLoading: salesLoading } = useSales();
   const { data: staff, isLoading: staffLoading } = useStaff();
   const { data: branches } = useStoreBranches();
+  const { profile } = useBusiness();
+  const storeName = profile?.storeDetails?.name || "Nexa Store OS";
 
   const metrics = useMemo(() => {
     if (!sales.length || !staff.length) return [];
@@ -112,11 +117,21 @@ export function StaffPerformance() {
 
       {/* Leaderboard */}
       <Card className="border-2 rounded-2xl overflow-hidden">
-        <div className="p-6 border-b bg-muted/30">
+        <div className="p-6 border-b bg-muted/30 flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Staff Sales Leaderboard
           </h3>
+          {metrics.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest hover:bg-muted/50"
+              onClick={() => exportStaffPerformancePDF(metrics, storeName)}
+            >
+              Export Leaderboard
+            </Button>
+          )}
         </div>
         <div className="divide-y-2">
           {metrics.map((m, idx) => (

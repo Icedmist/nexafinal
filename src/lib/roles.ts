@@ -46,7 +46,7 @@ const ROLE_PERMISSIONS: Record<UserRoleType, RolePermissions> = {
     canApproveRequests: true,
     canViewAnalytics: true,
     canAccessSettings: true,
-    canManageUsers: false,
+    canManageUsers: true,
     canViewSales: true,
     canRecordSales: true,
   },

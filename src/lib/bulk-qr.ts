@@ -87,3 +87,26 @@ async function fetchQRCodeAsDataUrl(url: string): Promise<string> {
     throw error;
   }
 }
+
+export async function downloadItemQRCode(item: Item) {
+  const qrText = getQRCodeText(item.id);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrText)}`;
+  const toastId = toast.loading(`Preparing QR code for ${item.name}...`);
+  try {
+    const response = await fetch(qrUrl);
+    if (!response.ok) throw new Error("Failed to fetch QR code");
+    const blob = await response.blob();
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `qr-${item.sku || "product"}.png`;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    toast.success("QR code downloaded successfully!", { id: toastId });
+  } catch (error) {
+    console.error("QR Download Error:", error);
+    toast.error("Failed to download QR code", { id: toastId });
+  }
+}

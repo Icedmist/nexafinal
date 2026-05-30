@@ -4,6 +4,9 @@ import { useSales } from "@/hooks/useSalesData";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { exportCustomersPDF } from "@/lib/pdf-export";
 
 const NAIRA = "₦";
 
@@ -17,7 +20,10 @@ interface CustomerRecord {
 
 export function CustomerDirectory() {
   const { data: sales, isLoading } = useSales();
+  const { profile } = useBusiness();
   const [search, setSearch] = useState("");
+
+  const storeName = profile?.storeDetails?.name || "Nexa Store OS";
 
   const customers = useMemo(() => {
     const map = new Map<string, CustomerRecord>();
@@ -64,9 +70,21 @@ export function CustomerDirectory() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><User className="h-4 w-4" />Customer Directory</CardTitle>
-          <CardDescription>Customers are automatically saved from sales with phone numbers.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle className="flex items-center gap-2"><User className="h-4 w-4" />Customer Directory</CardTitle>
+            <CardDescription>Customers are automatically saved from sales with phone numbers.</CardDescription>
+          </div>
+          {filtered.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest hover:bg-muted/50"
+              onClick={() => exportCustomersPDF(filtered, storeName)}
+            >
+              Export PDF
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative">

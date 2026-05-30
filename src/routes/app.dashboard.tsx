@@ -176,6 +176,38 @@ function DashboardPage() {
       .sort((a, b) => b.balance - a.balance);
   }, [sales, payments]);
 
+  const topSellingProducts = useMemo(() => {
+    const productQuantities: Record<string, { name: string; quantity: number; revenue: number }> = {};
+    for (const sale of sales) {
+      for (const item of sale.items) {
+        if (!productQuantities[item.itemId]) {
+          productQuantities[item.itemId] = { name: item.itemName, quantity: 0, revenue: 0 };
+        }
+        productQuantities[item.itemId].quantity += item.quantity;
+        productQuantities[item.itemId].revenue += item.unitPriceNgn * item.quantity;
+      }
+    }
+    return Object.values(productQuantities)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+  }, [sales]);
+
+  const topCustomers = useMemo(() => {
+    const customerSpends: Record<string, { name: string; phone: string; totalSpent: number; count: number }> = {};
+    for (const sale of sales) {
+      const phone = sale.customerPhone?.trim();
+      if (!phone) continue;
+      if (!customerSpends[phone]) {
+        customerSpends[phone] = { name: sale.customerName || "Customer", phone, totalSpent: 0, count: 0 };
+      }
+      customerSpends[phone].totalSpent += sale.totalNgn;
+      customerSpends[phone].count += 1;
+    }
+    return Object.values(customerSpends)
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 5);
+  }, [sales]);
+
   const handleClearDebt = async () => {
     if (!paymentTarget || !paymentAmount) return;
     const amount = parseFloat(paymentAmount);
@@ -345,6 +377,73 @@ function DashboardPage() {
             </div>
           </AccordionSection>
 
+          <AccordionSection id="top-performers" title="Top Sellers & Top Customers" openSection={openSection} onToggle={toggleSection}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              {/* Top Selling Products */}
+              <div className="rounded-2xl border border-border bg-muted/10 p-5 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                  <Package className="h-4 w-4" /> Top Selling Products
+                </h3>
+                {topSellingProducts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">No product sales recorded yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {topSellingProducts.map((p, idx) => (
+                      <div key={p.name} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors shadow-2xs">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black font-mono",
+                            idx === 0 ? "bg-amber-accent text-white" : "bg-muted text-muted-foreground"
+                          )}>
+                            #{idx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-foreground truncate max-w-[160px]">{p.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-black font-mono text-foreground">{p.quantity} units</p>
+                          <p className="text-[9px] font-black text-muted-foreground uppercase">{NAIRA}{p.revenue.toLocaleString("en-NG")}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Top Spending Customers */}
+              <div className="rounded-2xl border border-border bg-muted/10 p-5 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-secondary flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Top Customers
+                </h3>
+                {topCustomers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">No customer records with spend yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {topCustomers.map((c, idx) => (
+                      <div key={c.phone} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors shadow-2xs">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black font-mono",
+                            idx === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                          )}>
+                            #{idx + 1}
+                          </span>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-foreground leading-none">{c.name}</p>
+                            <p className="text-[9px] font-mono text-muted-foreground mt-0.5">{c.phone}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-black font-mono text-primary">{NAIRA}{c.totalSpent.toLocaleString("en-NG")}</p>
+                          <p className="text-[9px] font-black text-muted-foreground uppercase">{c.count} orders</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </AccordionSection>
+
           <AccordionSection id="debts" title="Debt Management & Collections" openSection={openSection} onToggle={toggleSection}>
             {debtors.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -442,6 +541,73 @@ function DashboardPage() {
               <button type="button" onClick={() => navigate("/app/sales-history" )} className="text-left"><MetricCard label="Today's Orders" value={todaySales.length} accentColor="neutral" icon={ShoppingCart} /></button>
               <button type="button" onClick={() => navigate("/app/expenses" )} className="text-left"><MetricCard label="Today's Expenses" value={`${NAIRA}${todayExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
               <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Net Today" value={`${NAIRA}${(todayRevenue - todayExpenses).toLocaleString("en-NG")}`} accentColor={todayRevenue - todayExpenses >= 0 ? "healthy" : "danger"} icon={todayRevenue - todayExpenses >= 0 ? TrendingUp : TrendingDown} /></button>
+            </div>
+          </AccordionSection>
+
+          <AccordionSection id="top-performers" title="Top Sellers & Top Customers" openSection={openSection} onToggle={toggleSection}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              {/* Top Selling Products */}
+              <div className="rounded-2xl border border-border bg-muted/10 p-5 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                  <Package className="h-4 w-4" /> Top Selling Products
+                </h3>
+                {topSellingProducts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">No product sales recorded yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {topSellingProducts.map((p, idx) => (
+                      <div key={p.name} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors shadow-2xs">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black font-mono",
+                            idx === 0 ? "bg-amber-accent text-white" : "bg-muted text-muted-foreground"
+                          )}>
+                            #{idx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-foreground truncate max-w-[160px]">{p.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-black font-mono text-foreground">{p.quantity} units</p>
+                          <p className="text-[9px] font-black text-muted-foreground uppercase">{NAIRA}{p.revenue.toLocaleString("en-NG")}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Top Spending Customers */}
+              <div className="rounded-2xl border border-border bg-muted/10 p-5 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-secondary flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Top Customers
+                </h3>
+                {topCustomers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">No customer records with spend yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {topCustomers.map((c, idx) => (
+                      <div key={c.phone} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors shadow-2xs">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black font-mono",
+                            idx === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                          )}>
+                            #{idx + 1}
+                          </span>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-foreground leading-none">{c.name}</p>
+                            <p className="text-[9px] font-mono text-muted-foreground mt-0.5">{c.phone}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-black font-mono text-primary">{NAIRA}{c.totalSpent.toLocaleString("en-NG")}</p>
+                          <p className="text-[9px] font-black text-muted-foreground uppercase">{c.count} orders</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </AccordionSection>
 

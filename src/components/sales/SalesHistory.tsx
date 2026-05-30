@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
+import { exportSalesHistoryPDF } from "@/lib/pdf-export";
 import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -108,19 +109,43 @@ export function SalesHistoryPage() {
     <div className={cn("mx-auto max-w-[1200px] space-y-6 flex flex-col", filtered.length === 0 && "min-h-[60vh] justify-center")}>
       {/* Header with date and user */}
       {filtered.length > 0 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-foreground">Sales History</h1>
             <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest italic">Store Revenue & Performance</p>
           </div>
-          <div className="text-right">
-            <div className="flex items-center gap-1.5 text-sm text-foreground justify-end font-bold">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-black uppercase tracking-tight">{userName} Session</span>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-9 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest hover:bg-muted/50"
+                onClick={() => {
+                  const filterDesc = `Filtered Sales (${from ? format(from, "dd MMM") : "Start"} to ${to ? format(to, "dd MMM yyyy") : "Present"})`;
+                  exportSalesHistoryPDF(filtered, storeName, filterDesc);
+                }}
+              >
+                Export Filtered
+              </Button>
+              <Button 
+                size="sm" 
+                className="h-9 rounded-xl font-black uppercase text-[10px] tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/10"
+                onClick={() => {
+                  exportSalesHistoryPDF(sales, storeName, "All Transactions");
+                }}
+              >
+                Export All
+              </Button>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-end font-black uppercase tracking-widest">
-              <Clock className="h-3 w-3" />
-              {format(new Date(), "dd MMM yyyy, HH:mm")}
+            <div className="text-right hidden sm:block">
+              <div className="flex items-center gap-1.5 text-sm text-foreground justify-end font-bold">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-black uppercase tracking-tight">{userName} Session</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-end font-black uppercase tracking-widest">
+                <Clock className="h-3 w-3" />
+                {format(new Date(), "dd MMM yyyy, HH:mm")}
+              </div>
             </div>
           </div>
         </div>

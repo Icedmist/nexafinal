@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocFromCache } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -150,7 +150,12 @@ export function useSalesMutations() {
       // Validate that every product belongs to the same store (pre-flight check to avoid permission-denied)
       for (const item of sale.items) {
         const productRef = doc(db, "products", item.itemId);
-        const productSnap = await getDoc(productRef);
+        let productSnap;
+        try {
+          productSnap = await getDocFromCache(productRef);
+        } catch {
+          productSnap = await getDoc(productRef);
+        }
         if (!productSnap.exists()) {
           throw new Error(`Product not found: ${item.itemId}`);
         }
@@ -217,7 +222,12 @@ export function useSalesMutations() {
       // 4. Check for low stock on all items in this sale
       for (const item of sale.items) {
         const productRef = doc(db, "products", item.itemId);
-        const productSnap = await getDoc(productRef);
+        let productSnap;
+        try {
+          productSnap = await getDocFromCache(productRef);
+        } catch {
+          productSnap = await getDoc(productRef);
+        }
         if (productSnap.exists()) {
           const product = productSnap.data() as any;
           const currentStock = product.currentStock || 0;
