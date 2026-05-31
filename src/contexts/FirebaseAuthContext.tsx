@@ -254,12 +254,12 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => unsubscribe();
   }, []);
 
-  // Premium 15-Minute User Inactivity Auto-Logout Timeout
+  // Premium 1-Hour User Inactivity Auto-Logout Timeout
   React.useEffect(() => {
     if (!user) return;
 
-    const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 mins
-    const WARNING_TIMEOUT = INACTIVITY_TIMEOUT - 30 * 1000; // Warning at 14.5 mins
+    const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 hour
+    const WARNING_TIMEOUT = INACTIVITY_TIMEOUT - 30 * 1000; // Warning at 59.5 mins
 
     let logoutTimer: NodeJS.Timeout;
     let warningTimer: NodeJS.Timeout;
@@ -269,7 +269,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (warningToastId) {
         toast.dismiss(warningToastId);
       }
-      toast.error("Session Expired: You have been logged out due to 15 minutes of inactivity.", {
+      toast.error("Session Expired: You have been logged out due to 1 hour of inactivity.", {
         duration: 5000,
       });
       await logout();
