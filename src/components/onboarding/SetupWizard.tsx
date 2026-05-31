@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Building2, Sparkles, Layers, ArrowRight, ArrowLeft, 
@@ -138,6 +138,12 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
       setCustomCategories(CATEGORY_PRESETS[selectedSector.id] || []);
     }
   };
+
+  useEffect(() => {
+    if (step === 4) {
+      ensureCategoriesInitialized();
+    }
+  }, [step, selectedSector.id]);
 
   const toggleCategory = (cat: string) => {
     if (customCategories.includes(cat)) {
@@ -451,7 +457,7 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
 
             {/* STEP 4: CUSTOM CATALOG CATEGORIES */}
             {step === 4 && (
-              <div className="space-y-5 py-2 flex-1 flex flex-col" onMount={ensureCategoriesInitialized()}>
+              <div className="space-y-5 py-2 flex-1 flex flex-col">
                 <div className="space-y-1">
                   <h3 className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
                     <Tag className="h-5 w-5" style={{ color: primaryColor.hex }} /> Custom Catalog Categories
