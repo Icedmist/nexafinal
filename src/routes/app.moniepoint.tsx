@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRole } from "@/hooks/useRole";
@@ -257,11 +258,74 @@ export default function MoniepointPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center space-y-3">
-          <RefreshCw className="h-10 w-10 animate-spin text-primary mx-auto" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Streaming Live POS Feeds...</p>
+      <div className="mx-auto max-w-[1400px] space-y-6 animate-in fade-in duration-300">
+        {/* Header Widget Skeleton */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64 rounded-xl" />
+            <Skeleton className="h-4 w-96 rounded-lg" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-10 w-48 rounded-xl" />
+            <Skeleton className="h-10 w-24 rounded-xl" />
+          </div>
         </div>
+
+        {/* Metric Cards Skeleton */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="border-border bg-card/60 backdrop-blur-md rounded-2xl p-4 space-y-3">
+              <Skeleton className="h-4 w-28 rounded-md" />
+              <Skeleton className="h-8 w-32 rounded-lg" />
+            </Card>
+          ))}
+        </div>
+
+        {/* Search, Filter Scope Layout Skeleton */}
+        <Card className="border-border bg-card rounded-2xl p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between">
+            <Skeleton className="h-10 w-full sm:w-96 rounded-xl" />
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-8 w-24 rounded-xl" />
+              <Skeleton className="h-8 w-24 rounded-xl" />
+              <Skeleton className="h-8 w-28 rounded-xl" />
+            </div>
+          </div>
+        </Card>
+
+        {/* Live Ledger Table Skeleton */}
+        <Card className="border-border bg-card rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border/30 bg-muted/10">
+                  <th className="p-4"><Skeleton className="h-3 w-16" /></th>
+                  <th className="p-4"><Skeleton className="h-3 w-24" /></th>
+                  <th className="p-4"><Skeleton className="h-3 w-20" /></th>
+                  <th className="p-4"><Skeleton className="h-3 w-16" /></th>
+                  <th className="p-4"><Skeleton className="h-3 w-16" /></th>
+                  <th className="p-4 text-right"><Skeleton className="h-3 w-16 ml-auto" /></th>
+                  <th className="p-4 text-center"><Skeleton className="h-3 w-20 mx-auto" /></th>
+                  <th className="p-4 text-center"><Skeleton className="h-3 w-12 mx-auto" /></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i} className="hover:bg-muted/5">
+                    <td className="p-4"><Skeleton className="h-4 w-12 rounded" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-28 rounded" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-20 rounded" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-16 rounded" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-20 rounded-full" /></td>
+                    <td className="p-4 text-right"><Skeleton className="h-4 w-16 rounded ml-auto" /></td>
+                    <td className="p-4 text-center"><Skeleton className="h-4 w-16 rounded-full mx-auto" /></td>
+                    <td className="p-4 text-center"><Skeleton className="h-8 w-8 rounded-lg mx-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
     );
   }

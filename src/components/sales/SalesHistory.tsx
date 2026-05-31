@@ -23,6 +23,7 @@ import { useRole } from "@/hooks/useRole";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
 
@@ -71,8 +72,70 @@ export function SalesHistoryPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-[1200px] space-y-6 flex flex-col animate-in fade-in duration-300">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48 rounded-xl" />
+            <Skeleton className="h-4 w-32 rounded-lg" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-28 rounded-xl" />
+              <Skeleton className="h-9 w-24 rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        {/* Metrics Grid Skeleton */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="border-border/50 bg-card/60 rounded-2xl p-6 space-y-4">
+              <Skeleton className="h-4 w-24 rounded-md" />
+              <Skeleton className="h-8 w-36 rounded-lg" />
+              <Skeleton className="h-3 w-48 rounded-sm" />
+            </Card>
+          ))}
+        </div>
+
+        {/* Filters Panel Skeleton */}
+        <Card className="border-border bg-card rounded-2xl p-4">
+          <div className="flex flex-wrap items-center gap-3 justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <Skeleton className="h-10 w-44 rounded-xl" />
+              <Skeleton className="h-10 w-44 rounded-xl" />
+              <Skeleton className="h-10 w-32 rounded-xl" />
+              {isGlobalViewer && <Skeleton className="h-10 w-40 rounded-xl" />}
+            </div>
+            <Skeleton className="h-10 w-24 rounded-xl" />
+          </div>
+        </Card>
+
+        {/* Sales Cards Grid Skeleton */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i} className="border-border bg-card rounded-2xl p-4 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-border/20">
+                <Skeleton className="h-5 w-16 rounded-md" />
+                <Skeleton className="h-4 w-12 rounded-sm" />
+              </div>
+              <div className="flex justify-between items-start pt-2">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-32 rounded-md" />
+                  <Skeleton className="h-4 w-24 rounded-sm" />
+                </div>
+                <div className="space-y-2 text-right flex flex-col items-end">
+                  <Skeleton className="h-6 w-20 rounded-md" />
+                  <Skeleton className="h-3.5 w-12 rounded-sm" />
+                </div>
+              </div>
+              <div className="flex justify-between items-center pt-2">
+                <Skeleton className="h-4 w-28 rounded-sm" />
+                <Skeleton className="h-4 w-20 rounded-sm" />
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
