@@ -39,8 +39,7 @@ try {
   firestoreDb = initializeFirestore(app, {
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
-    }),
-    experimentalForceLongPolling: true
+    })
   });
 } catch (e) {
   // If already initialized, just get the existing instance
