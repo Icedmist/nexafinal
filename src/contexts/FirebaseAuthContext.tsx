@@ -7,6 +7,8 @@ import {
   updateProfile,
   signOut,
   sendPasswordResetEmail,
+  setPersistence,
+  browserSessionPersistence,
   type UserCredential
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -188,6 +190,11 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   React.useEffect(() => {
+    // Force session-only persistence so closing the tab/window clears local credentials
+    setPersistence(auth, browserSessionPersistence).catch((err) => {
+      console.error("Failed to configure session-only persistence:", err);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {

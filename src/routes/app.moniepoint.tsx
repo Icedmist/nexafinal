@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRole } from "@/hooks/useRole";
+import { useSales } from "@/hooks/useSalesData";
 import { getApp } from "firebase/app";
 import { 
   collection, query, where, orderBy, limit, onSnapshot, getFirestore, doc, getDoc
@@ -32,9 +33,27 @@ export default function MoniepointPage() {
   const isOwner = role === "owner" || role === "system_admin" || role === "admin";
   const db = getFirestore();
 
+  const { data: sales = [] } = useSales();
+
   const [loading, setLoading] = useState(true);
   const [accountLinked, setAccountLinked] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+
+  const findMatchingSale = (tx: any) => {
+    if (!sales || sales.length === 0) return null;
+    const txAmount = (tx.amountInKobo || 0) / 100;
+    const txTime = new Date(tx.settledAt).getTime();
+
+    return sales.find((sale: any) => {
+      const saleAmount = sale.totalNgn;
+      const saleTime = new Date(sale.createdAt).getTime();
+      
+      const isAmountMatch = Math.abs(saleAmount - txAmount) < 0.1;
+      const isTimeMatch = Math.abs(saleTime - txTime) <= 10 * 60 * 1000; // 10 minute drift window
+
+      return isAmountMatch && isTimeMatch;
+    });
+  };
   
   // Scopes & Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -386,6 +405,7 @@ export default function MoniepointPage() {
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Method</th>
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Amount</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Auto-Reconcile</th>
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Audit</th>
                   </tr>
                 </thead>
@@ -430,6 +450,20 @@ export default function MoniepointPage() {
                         {fmtNgn((tx.amountInKobo || 0) / 100)}
                       </td>
                       <td className="p-4 text-center">
+                        {(() => {
+                          const isMatched = !!findMatchingSale(tx);
+                          return (
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[8px] font-black uppercase tracking-widest ${
+                              isMatched 
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            }`}>
+                              {isMatched ? "🟢 Matched" : "🟡 Unreconciled"}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-4 text-center">
                         <Button 
                           onClick={() => setSelectedTx(tx)}
                           variant="ghost" 
@@ -443,7 +477,7 @@ export default function MoniepointPage() {
                   ))}
                   {filteredTransactions.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-xs font-bold text-muted-foreground uppercase tracking-widest italic border-t border-dashed">
+                      <td colSpan={8} className="text-center py-12 text-xs font-bold text-muted-foreground uppercase tracking-widest italic border-t border-dashed">
                         No mirrored physical POS payments matched your filter bounds.
                       </td>
                     </tr>
@@ -589,6 +623,59 @@ export default function MoniepointPage() {
                   <span className="text-xl font-black font-mono text-foreground">{fmtNgn((selectedTx.amountInKobo || 0) / 100)}</span>
                 </div>
               </div>
+
+              {/* Reconciliation Status Card */}
+              {(() => {
+                const match = findMatchingSale(selectedTx);
+                if (match) {
+                  const timeDriftMs = new Date(match.createdAt).getTime() - new Date(selectedTx.settledAt).getTime();
+                  const timeDriftSecs = Math.abs(Math.round(timeDriftMs / 1000));
+                  const driftText = timeDriftSecs < 60 
+                    ? `${timeDriftSecs}s drift` 
+                    : `${Math.round(timeDriftSecs / 60)}m drift`;
+
+                  return (
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2.5 animate-in fade-in duration-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1.5 font-mono">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Reconciliation Matched
+                        </span>
+                        <Badge variant="outline" className="h-5 text-[8px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 uppercase font-black tracking-widest">
+                          100% Synced
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold leading-normal">
+                        Matched automatically to store sale order <span className="font-mono text-white">#{match.id.slice(-8).toUpperCase()}</span>.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-emerald-500/10 pt-2 text-muted-foreground font-bold">
+                        <div>
+                          CUSTOMER: <span className="text-foreground">{match.customerName || "Walk-in"}</span>
+                        </div>
+                        <div>
+                          TIME DRIFT: <span className="text-foreground font-mono">{driftText}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2 animate-in fade-in duration-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
+                          ⚠️ Unreconciled Sale
+                        </span>
+                        <Badge variant="outline" className="h-5 text-[8px] bg-amber-500/10 text-amber-500 border-amber-500/20 uppercase font-black tracking-widest">
+                          Manual Audit
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold leading-relaxed">
+                        No store sales matched this transaction's amount (₦{((selectedTx.amountInKobo || 0)/100).toLocaleString()}) and timestamp within 10 minutes.
+                      </p>
+                    </div>
+                  );
+                }
+              })()}
 
               {/* Raw JSON Payload (Strictly OWNER access check) */}
               {isOwner && selectedTx.rawPayload && (

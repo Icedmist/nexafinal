@@ -45,6 +45,7 @@ export function SalesHistoryPage() {
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const [selectedSaleIds, setSelectedSaleIds] = useState<string[]>([]);
 
   const filtered = useMemo(() => {
     let list = sales;
@@ -115,7 +116,19 @@ export function SalesHistoryPage() {
             <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest italic">Store Revenue & Performance</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {selectedSaleIds.length > 0 && (
+                <Button 
+                  size="sm" 
+                  className="h-9 rounded-xl font-black uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10 animate-in zoom-in-95 duration-200"
+                  onClick={() => {
+                    const selectedSales = sales.filter(s => selectedSaleIds.includes(s.id));
+                    exportSalesHistoryPDF(selectedSales, storeName, `Manually Selected (${selectedSales.length} Sales)`);
+                  }}
+                >
+                  Export Selected ({selectedSaleIds.length})
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -262,13 +275,38 @@ export function SalesHistoryPage() {
           {filtered.map((sale) => (
             <Card
               key={sale.id}
-              className="group cursor-pointer nexa-card-hover"
+              className={cn(
+                "group cursor-pointer nexa-card-hover border-2 transition-all",
+                selectedSaleIds.includes(sale.id) ? "border-primary bg-primary/[0.02]" : "border-border"
+              )}
               onClick={() => setSelectedSale(sale)}
             >
               <CardHeader className="pb-3 pt-4 px-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Receipt className="h-4 w-4" />
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className={cn(
+                        "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
+                        selectedSaleIds.includes(sale.id) 
+                          ? "bg-primary border-primary text-primary-foreground scale-105" 
+                          : "border-muted-foreground/30 hover:border-primary/50 bg-background"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSaleIds(prev => 
+                          prev.includes(sale.id) 
+                            ? prev.filter(id => id !== sale.id) 
+                            : [...prev, sale.id]
+                        );
+                      }}
+                    >
+                      {selectedSaleIds.includes(sale.id) && (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="h-3.5 w-3.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select</span>
                   </div>
                   <span className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
                     #{sale.id.slice(-6)}
