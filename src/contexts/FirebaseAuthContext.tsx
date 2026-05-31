@@ -13,6 +13,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { notifyActivity } from '@/lib/notification-service';
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
@@ -252,6 +253,68 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     return () => unsubscribe();
   }, []);
+
+  // Premium 15-Minute User Inactivity Auto-Logout Timeout
+  React.useEffect(() => {
+    if (!user) return;
+
+    const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 mins
+    const WARNING_TIMEOUT = INACTIVITY_TIMEOUT - 30 * 1000; // Warning at 14.5 mins
+
+    let logoutTimer: NodeJS.Timeout;
+    let warningTimer: NodeJS.Timeout;
+    let warningToastId: string | number | null = null;
+
+    const performAutoLogout = async () => {
+      if (warningToastId) {
+        toast.dismiss(warningToastId);
+      }
+      toast.error("Session Expired: You have been logged out due to 15 minutes of inactivity.", {
+        duration: 5000,
+      });
+      await logout();
+    };
+
+    const showWarning = () => {
+      warningToastId = toast.warning("Idle Warning: You will be logged out in 30 seconds due to inactivity. Interacting with the screen will extend your session.", {
+        duration: 30000,
+      });
+    };
+
+    const resetTimers = () => {
+      // Clear active timers
+      if (logoutTimer) clearTimeout(logoutTimer);
+      if (warningTimer) clearTimeout(warningTimer);
+      if (warningToastId) {
+        toast.dismiss(warningToastId);
+        warningToastId = null;
+      }
+
+      // Schedule timers
+      warningTimer = setTimeout(showWarning, WARNING_TIMEOUT);
+      logoutTimer = setTimeout(performAutoLogout, INACTIVITY_TIMEOUT);
+    };
+
+    // Listen to user activities
+    const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    const activityHandler = () => resetTimers();
+
+    events.forEach((event) => {
+      window.addEventListener(event, activityHandler);
+    });
+
+    // Initial trigger
+    resetTimers();
+
+    return () => {
+      if (logoutTimer) clearTimeout(logoutTimer);
+      if (warningTimer) clearTimeout(warningTimer);
+      if (warningToastId) toast.dismiss(warningToastId);
+      events.forEach((event) => {
+        window.removeEventListener(event, activityHandler);
+      });
+    };
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, claims, loading, isLoggingOut, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
