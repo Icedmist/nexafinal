@@ -4,7 +4,7 @@ import {
   initializeFirestore, 
   getFirestore,
   persistentLocalCache, 
-  persistentMultipleTabManager,
+  clearIndexedDbPersistence,
   doc, 
   setDoc, 
   getDoc 
@@ -33,17 +33,30 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
 // Use initializeFirestore for more control over cache and persistence
-// We wrap it in a try-catch or check to prevent "Firestore already initialized" errors during hot reloads
+// We wrap it in a try-catch to prevent "Firestore already initialized" errors during hot reloads
 let firestoreDb;
 try {
   firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
+    localCache: persistentLocalCache({}) // Standard single-tab local cache: extremely stable, no ca9 assertion crashes
   });
 } catch (e) {
   // If already initialized, just get the existing instance
   firestoreDb = getFirestore(app);
+}
+
+// Self-healing check: clear previously corrupted legacy multi-tab IndexedDB cache
+if (typeof window !== "undefined") {
+  const CLEANUP_KEY = "nexa_cache_cleaned_v2";
+  if (!localStorage.getItem(CLEANUP_KEY)) {
+    clearIndexedDbPersistence(firestoreDb)
+      .then(() => {
+        localStorage.setItem(CLEANUP_KEY, "true");
+        console.log("Firestore IndexedDB cache successfully cleared of corrupted multi-tab state.");
+      })
+      .catch((err) => {
+        console.error("Self-healing failed to clear IndexedDB cache:", err);
+      });
+  }
 }
 
 export const db = firestoreDb;
