@@ -1,8 +1,9 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { 
+  initializeFirestore, 
   getFirestore,
-  enableIndexedDbPersistence,
+  memoryLocalCache,
   doc, 
   setDoc, 
   getDoc 
@@ -30,49 +31,21 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 
-// Natively purge legacy corrupted IndexedDB cache databases at browser level before Firestore initializes
-if (typeof window !== "undefined" && typeof window.indexedDB !== "undefined") {
-  const PURGE_KEY = "nexa_indexeddb_purged_v5";
-  if (!localStorage.getItem(PURGE_KEY)) {
-    try {
-      if (typeof window.indexedDB.databases === "function") {
-        window.indexedDB.databases().then((dbs) => {
-          dbs.forEach((dbInfo) => {
-            if (dbInfo.name && dbInfo.name.startsWith("firestore")) {
-              console.log(`Native self-healing: deleting corrupted database ${dbInfo.name}`);
-              window.indexedDB.deleteDatabase(dbInfo.name);
-            }
-          });
-          localStorage.setItem(PURGE_KEY, "true");
-        }).catch((err) => {
-          console.error("Native database enumeration failed:", err);
-        });
-      } else {
-        const projectId = firebaseConfig.projectId || "";
-        if (projectId) {
-          const defaultDbName = `firestore/[DEFAULT]/${projectId}/main`;
-          window.indexedDB.deleteDatabase(defaultDbName);
-        }
-        localStorage.setItem(PURGE_KEY, "true");
-      }
-    } catch (e) {
-      console.error("Native IndexedDB purge error:", e);
-    }
-  }
-}
-
-// Initialize Firestore using standard default config
-const firestoreDb = getFirestore(app);
-
-// Enable offline persistence using the highly stable, battle-tested legacy compat layer
-if (typeof window !== "undefined") {
-  enableIndexedDbPersistence(firestoreDb)
-    .then(() => {
-      console.log("Firestore offline persistence enabled successfully via legacy stable layer.");
-    })
-    .catch((err) => {
-      console.warn("Firestore offline persistence fell back to in-memory caching gracefully:", err.code);
-    });
+// Initialize Firestore with memory-only cache to avoid the known SDK bug
+// (firebase-js-sdk #9172): persistentLocalCache triggers "Unexpected state
+// (ID: ca9) CONTEXT: {ve: -1}" assertion failures when the WebChannel
+// transport receives duplicate target-ack messages during network
+// transitions.  memoryLocalCache does not use IndexedDB and is immune to
+// this class of bugs.  Offline reads still work from the in-memory cache
+// for the duration of the session; only cross-session persistence is lost.
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+  });
+} catch (_e) {
+  // Already initialized (hot-reload / duplicate import) — reuse instance
+  firestoreDb = getFirestore(app);
 }
 
 export const db = firestoreDb;

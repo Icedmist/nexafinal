@@ -30,7 +30,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { cn } from "@/lib/utils";
 
-import { doc, onSnapshot, disableNetwork, enableNetwork } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
@@ -42,6 +42,7 @@ const ROLE_BADGE_STYLES: Record<string, string> = {
   suspended: "bg-destructive/15 text-destructive border-destructive/20",
   loading: "bg-muted text-muted-foreground border-transparent",
 };
+
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -70,30 +71,18 @@ export function Header() {
 
   const [staffName, setStaffName] = useState("");
 
-  // Offline Mode Engine
+  // Safe connectivity indicator — reads browser online/offline state only.
+  // IMPORTANT: We do NOT call Firestore disableNetwork()/enableNetwork() here
+  // because those APIs trigger the known firebase-js-sdk #9172 WebChannel
+  // race condition that causes "Unexpected state (ID: ca9)" assertion failures.
   const [isOfflineMode, setIsOfflineMode] = useState(() => {
-    return localStorage.getItem("nexa_offline_mode") === "true";
+    return typeof navigator !== "undefined" ? !navigator.onLine : false;
   });
 
   useEffect(() => {
-    if (isOfflineMode) {
-      disableNetwork(db)
-        .then(() => console.log("[Nexa OS] Firestore network communication suspended."))
-        .catch((err) => console.error("Failed to suspend network:", err));
-    } else {
-      enableNetwork(db)
-        .then(() => console.log("[Nexa OS] Firestore network communication restored."))
-        .catch((err) => console.error("Failed to restore network:", err));
-    }
-  }, [isOfflineMode]);
-
-  useEffect(() => {
     const handleOnline = () => {
-      const forcedOffline = localStorage.getItem("nexa_offline_mode") === "true";
-      if (!forcedOffline) {
-        setIsOfflineMode(false);
-        toast.success("Internet connection restored! Synced with database.");
-      }
+      setIsOfflineMode(false);
+      toast.success("Internet connection restored! Synced with database.");
     };
     
     const handleOffline = () => {
@@ -108,28 +97,6 @@ export function Header() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
-
-  const toggleOfflineMode = async () => {
-    const nextState = !isOfflineMode;
-    setIsOfflineMode(nextState);
-    localStorage.setItem("nexa_offline_mode", String(nextState));
-    
-    if (nextState) {
-      try {
-        await disableNetwork(db);
-        toast.warning("Nexa Offline Mode active. Operations isolated to local cache!");
-      } catch (err: any) {
-        toast.error("Failed to suspend network connection.");
-      }
-    } else {
-      try {
-        await enableNetwork(db);
-        toast.success("Online Mode active! Syncing changes with cloud database...");
-      } catch (err: any) {
-        toast.error("Failed to restore network connection.");
-      }
-    }
-  };
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -222,21 +189,19 @@ export function Header() {
 
       {!isSystemRoute && (
         <div className="flex items-center gap-2">
-          {/* Nexa Offline Toggler */}
-          <Button 
-            onClick={toggleOfflineMode}
-            variant="outline"
+          {/* Nexa Connectivity Indicator (read-only — no Firestore network manipulation) */}
+          <div 
             className={cn(
-              "h-10 px-3 gap-2 rounded-xl transition-all duration-300 active:scale-95 text-xs font-black uppercase tracking-widest",
+              "h-10 px-3 gap-2 rounded-xl flex items-center transition-all duration-300 text-xs font-black uppercase tracking-widest border cursor-default",
               isOfflineMode 
-                ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
-                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
             )}
           >
             {isOfflineMode ? (
               <>
                 <WifiOff className="h-4 w-4 text-amber-400 animate-pulse" />
-                <span className="hidden sm:inline">Offline Mode</span>
+                <span className="hidden sm:inline">Offline</span>
               </>
             ) : (
               <>
@@ -244,7 +209,7 @@ export function Header() {
                 <span className="hidden sm:inline">Online</span>
               </>
             )}
-          </Button>
+          </div>
 
           <div className="mx-1 h-6 w-[1px] bg-border/40" />
 
