@@ -11,13 +11,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { doc, onSnapshot, getFirestore } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export function MoniepointLink() {
   const { profile, updateProfile, ownerId } = useBusiness();
   const { claims, user } = useAuth();
   const { store } = useTenant();
-  const db = getFirestore();
 
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);

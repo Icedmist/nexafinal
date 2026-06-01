@@ -1,10 +1,8 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { 
-  initializeFirestore, 
   getFirestore,
-  persistentLocalCache, 
-  clearIndexedDbPersistence,
+  enableIndexedDbPersistence,
   doc, 
   setDoc, 
   getDoc 
@@ -32,31 +30,49 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 
-// Use initializeFirestore for more control over cache and persistence
-// We wrap it in a try-catch to prevent "Firestore already initialized" errors during hot reloads
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({}) // Standard single-tab local cache: extremely stable, no ca9 assertion crashes
-  });
-} catch (e) {
-  // If already initialized, just get the existing instance
-  firestoreDb = getFirestore(app);
+// Natively purge legacy corrupted IndexedDB cache databases at browser level before Firestore initializes
+if (typeof window !== "undefined" && typeof window.indexedDB !== "undefined") {
+  const PURGE_KEY = "nexa_indexeddb_purged_v5";
+  if (!localStorage.getItem(PURGE_KEY)) {
+    try {
+      if (typeof window.indexedDB.databases === "function") {
+        window.indexedDB.databases().then((dbs) => {
+          dbs.forEach((dbInfo) => {
+            if (dbInfo.name && dbInfo.name.startsWith("firestore")) {
+              console.log(`Native self-healing: deleting corrupted database ${dbInfo.name}`);
+              window.indexedDB.deleteDatabase(dbInfo.name);
+            }
+          });
+          localStorage.setItem(PURGE_KEY, "true");
+        }).catch((err) => {
+          console.error("Native database enumeration failed:", err);
+        });
+      } else {
+        const projectId = firebaseConfig.projectId || "";
+        if (projectId) {
+          const defaultDbName = `firestore/[DEFAULT]/${projectId}/main`;
+          window.indexedDB.deleteDatabase(defaultDbName);
+        }
+        localStorage.setItem(PURGE_KEY, "true");
+      }
+    } catch (e) {
+      console.error("Native IndexedDB purge error:", e);
+    }
+  }
 }
 
-// Self-healing check: clear previously corrupted legacy multi-tab IndexedDB cache
+// Initialize Firestore using standard default config
+const firestoreDb = getFirestore(app);
+
+// Enable offline persistence using the highly stable, battle-tested legacy compat layer
 if (typeof window !== "undefined") {
-  const CLEANUP_KEY = "nexa_cache_cleaned_v2";
-  if (!localStorage.getItem(CLEANUP_KEY)) {
-    clearIndexedDbPersistence(firestoreDb)
-      .then(() => {
-        localStorage.setItem(CLEANUP_KEY, "true");
-        console.log("Firestore IndexedDB cache successfully cleared of corrupted multi-tab state.");
-      })
-      .catch((err) => {
-        console.error("Self-healing failed to clear IndexedDB cache:", err);
-      });
-  }
+  enableIndexedDbPersistence(firestoreDb)
+    .then(() => {
+      console.log("Firestore offline persistence enabled successfully via legacy stable layer.");
+    })
+    .catch((err) => {
+      console.warn("Firestore offline persistence fell back to in-memory caching gracefully:", err.code);
+    });
 }
 
 export const db = firestoreDb;

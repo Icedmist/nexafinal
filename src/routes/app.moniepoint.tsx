@@ -18,8 +18,9 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useRole } from "@/hooks/useRole";
 import { useSales } from "@/hooks/useSalesData";
 import { getApp } from "firebase/app";
+import { db } from "@/lib/firebase";
 import { 
-  collection, query, where, orderBy, limit, onSnapshot, getFirestore, doc, getDoc
+  collection, query, where, orderBy, limit, onSnapshot, doc, getDoc
 } from "firebase/firestore";
 
 const NAIRA = "₦";
@@ -32,7 +33,6 @@ export default function MoniepointPage() {
   const { store } = useTenant();
   const { role, isManager } = useRole();
   const isOwner = role === "owner" || role === "system_admin" || role === "admin";
-  const db = getFirestore();
 
   const { data: sales = [] } = useSales();
 
