@@ -1,5 +1,6 @@
 import { onDocumentWritten, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError, onRequest } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as functionsV1 from "firebase-functions/v1";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
@@ -10,6 +11,7 @@ import {
   getReceiptEmailTemplate, 
   getReportEmailTemplate,
 } from "./utils/email-template";
+import { getDailySummaryEmailTemplate, type DailySummaryData } from "./utils/daily-summary-template";
 import { encrypt } from "./utils/crypto";
 import { MoniepointIntegrationService } from "./utils/moniepoint-service";
 
@@ -25,6 +27,9 @@ setGlobalOptions({
   memory: "256MiB", // Lower default memory to save quota
   maxInstances: 10 // Prevent runaway scaling and quota consumption
 });
+
+// Naira currency formatter
+const fmt = (n: number) => `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 
 /**
  * Maps Firebase Auth error codes to descriptive HttpsErrors.
@@ -1188,5 +1193,252 @@ export const moniepointwebhook = onRequest({ cors: true }, async (req, res) => {
   } catch (error) {
     console.error("[WebhookIngest] Fatal crash handling payload:", error);
     res.status(500).send("Internal processing crash.");
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// DAILY ACTIVITY SUMMARY EMAIL — Runs at 9 PM WAT (8 PM UTC) every day
+// Sends a comprehensive daily report to all store owners and managers
+// ═══════════════════════════════════════════════════════════════════════
+
+export const dailyActivitySummary = onSchedule({
+  schedule: "0 20 * * *", // 8:00 PM UTC = 9:00 PM WAT (West Africa Time)
+  timeZone: "Africa/Lagos",
+  memory: "512MiB",
+  timeoutSeconds: 300,
+  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
+}, async (_event) => {
+  console.log("[DailySummary] Starting daily activity summary email dispatch...");
+  const firestore = admin.firestore();
+
+  try {
+    // Get all active stores
+    const storesSnap = await firestore.collection("stores").get();
+
+    if (storesSnap.empty) {
+      console.log("[DailySummary] No stores found. Exiting.");
+      return;
+    }
+
+    // Calculate today's date boundaries (WAT = UTC+1)
+    const now = new Date();
+    const watOffset = 1 * 60 * 60 * 1000; // +1 hour in ms
+    const watNow = new Date(now.getTime() + watOffset);
+    const todayStart = new Date(watNow);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(watNow);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Convert back to UTC for Firestore queries
+    const queryStart = new Date(todayStart.getTime() - watOffset);
+    const queryEnd = new Date(todayEnd.getTime() - watOffset);
+
+    const dateLabel = watNow.toLocaleDateString("en-NG", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    for (const storeDoc of storesSnap.docs) {
+      const storeData = storeDoc.data();
+      const storeId = storeDoc.id;
+      const storeName = storeData.name || storeData.storeDetails?.name || "Your Store";
+
+      try {
+        // ──── Collect Recipients (owners + managers) ────
+        const recipients: string[] = [];
+
+        // Add store owner email
+        if (storeData.ownerId) {
+          try {
+            const ownerRecord = await admin.auth().getUser(storeData.ownerId);
+            if (ownerRecord.email) recipients.push(ownerRecord.email);
+          } catch (e) {
+            console.warn(`[DailySummary] Could not fetch owner for store ${storeId}:`, e);
+          }
+        }
+
+        // Add manager emails
+        const staffSnap = await firestore.collection("staff")
+          .where("storeId", "==", storeId)
+          .where("role", "in", ["manager", "owner", "admin"])
+          .get();
+
+        for (const staffDoc of staffSnap.docs) {
+          const email = staffDoc.data().email;
+          if (email && !recipients.includes(email)) {
+            recipients.push(email);
+          }
+        }
+
+        if (recipients.length === 0) {
+          console.log(`[DailySummary] No recipients found for store ${storeId}. Skipping.`);
+          continue;
+        }
+
+        // ──── Query Today's Sales ────
+        const salesSnap = await firestore.collection("sales")
+          .where("storeId", "==", storeId)
+          .where("createdAt", ">=", queryStart.toISOString())
+          .where("createdAt", "<=", queryEnd.toISOString())
+          .get();
+
+        let totalRevenue = 0;
+        const itemSalesMap: Record<string, { name: string; qty: number; revenue: number }> = {};
+        const paymentMethodMap: Record<string, { count: number; total: number }> = {};
+        const staffSalesMap: Record<string, { name: string; sales: number; revenue: number }> = {};
+        const customerSet = new Set<string>();
+
+        for (const saleDoc of salesSnap.docs) {
+          const sale = saleDoc.data();
+          const saleTotal = sale.totalNgn || sale.total || 0;
+          totalRevenue += saleTotal;
+
+          // Payment method tracking
+          const method = (sale.paymentMethod || "cash").toLowerCase();
+          if (!paymentMethodMap[method]) paymentMethodMap[method] = { count: 0, total: 0 };
+          paymentMethodMap[method].count++;
+          paymentMethodMap[method].total += saleTotal;
+
+          // Staff tracking
+          const staffName = sale.recordedByName || "Staff";
+          const staffId = sale.recordedBy || "unknown";
+          if (!staffSalesMap[staffId]) staffSalesMap[staffId] = { name: staffName, sales: 0, revenue: 0 };
+          staffSalesMap[staffId].sales++;
+          staffSalesMap[staffId].revenue += saleTotal;
+
+          // Customer tracking
+          if (sale.customerEmail && sale.customerEmail !== "walk-in") {
+            customerSet.add(sale.customerEmail);
+          }
+
+          // Item tracking
+          const items = sale.items || [];
+          for (const item of items) {
+            const key = item.itemId || item.itemName;
+            if (!itemSalesMap[key]) itemSalesMap[key] = { name: item.itemName, qty: 0, revenue: 0 };
+            itemSalesMap[key].qty += item.quantity || 1;
+            itemSalesMap[key].revenue += (item.quantity || 1) * (item.unitPriceNgn || 0);
+          }
+        }
+
+        // ──── Query Today's Expenses ────
+        let totalExpenses = 0;
+        try {
+          const expensesSnap = await firestore.collection("expenses")
+            .where("storeId", "==", storeId)
+            .where("createdAt", ">=", queryStart.toISOString())
+            .where("createdAt", "<=", queryEnd.toISOString())
+            .get();
+
+          for (const expDoc of expensesSnap.docs) {
+            totalExpenses += expDoc.data().amount || 0;
+          }
+        } catch (e) {
+          console.warn(`[DailySummary] Could not fetch expenses for store ${storeId}:`, e);
+        }
+
+        // ──── Query Today's Refunds ────
+        let totalRefunds = 0;
+        let refundAmount = 0;
+        try {
+          const refundsSnap = await firestore.collection("refunds")
+            .where("storeId", "==", storeId)
+            .where("createdAt", ">=", queryStart.toISOString())
+            .where("createdAt", "<=", queryEnd.toISOString())
+            .get();
+
+          totalRefunds = refundsSnap.size;
+          for (const refDoc of refundsSnap.docs) {
+            refundAmount += refDoc.data().amount || refDoc.data().totalNgn || 0;
+          }
+        } catch (e) {
+          console.warn(`[DailySummary] Could not fetch refunds for store ${storeId}:`, e);
+        }
+
+        // ──── Query Low Stock Items ────
+        const lowStockItems: { name: string; qty: number }[] = [];
+        try {
+          const productsSnap = await firestore.collection("products")
+            .where("storeId", "==", storeId)
+            .where("quantity", "<=", 5)
+            .get();
+
+          for (const prodDoc of productsSnap.docs) {
+            const prod = prodDoc.data();
+            lowStockItems.push({ name: prod.name, qty: prod.quantity || 0 });
+          }
+        } catch (e) {
+          console.warn(`[DailySummary] Could not fetch low stock for store ${storeId}:`, e);
+        }
+
+        // ──── Compute Top Items & Staff Leader ────
+        const topSellingItems = Object.values(itemSalesMap)
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 5);
+
+        const staffEntries = Object.values(staffSalesMap);
+        const staffSalesLeader = staffEntries.length > 0
+          ? staffEntries.sort((a, b) => b.revenue - a.revenue)[0]
+          : null;
+
+        // ──── Build & Send Email ────
+        const summaryData: DailySummaryData = {
+          storeName: storeName,
+          date: dateLabel,
+          totalSales: salesSnap.size,
+          totalRevenue,
+          totalExpenses,
+          netProfit: totalRevenue - totalExpenses,
+          topSellingItems,
+          salesByPaymentMethod: paymentMethodMap,
+          totalRefunds,
+          refundAmount,
+          newCustomers: customerSet.size,
+          staffSalesLeader,
+          lowStockItems,
+          activityHighlights: [],
+        };
+
+        const emailHtml = getDailySummaryEmailTemplate(summaryData);
+        const subject = `📊 ${storeName} — Daily Summary for ${dateLabel}`;
+
+        for (const recipientEmail of recipients) {
+          try {
+            await sendEmailViaZoho({
+              to: recipientEmail,
+              subject,
+              text: `Daily activity summary for ${storeName}: ${salesSnap.size} sales, ${fmt(totalRevenue)} revenue, ${fmt(totalExpenses)} expenses.`,
+              html: emailHtml,
+              fromName: `${storeName} via Nexa OS`,
+            });
+            console.log(`[DailySummary] Email sent to ${recipientEmail} for store ${storeName}`);
+          } catch (emailErr) {
+            console.error(`[DailySummary] Failed to send email to ${recipientEmail}:`, emailErr);
+          }
+        }
+
+        // Log the summary dispatch as an activity
+        await firestore.collection("activity_logs").add({
+          storeId,
+          type: "daily_summary",
+          category: "system",
+          severity: "info",
+          title: "Daily Summary Email Sent",
+          message: `Daily activity summary dispatched to ${recipients.length} recipient(s): ${recipients.join(", ")}`,
+          userEmail: "system@nexastoreos.com",
+          userId: "system",
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+      } catch (storeErr) {
+        console.error(`[DailySummary] Error processing store ${storeId}:`, storeErr);
+      }
+    }
+
+    console.log("[DailySummary] Daily activity summary dispatch completed.");
+  } catch (error) {
+    console.error("[DailySummary] Fatal error in daily summary job:", error);
   }
 });
