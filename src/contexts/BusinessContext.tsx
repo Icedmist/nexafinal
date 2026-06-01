@@ -36,6 +36,20 @@ const BusinessContext = createContext<BusinessContextType>({
 
 export const useBusiness = () => useContext(BusinessContext);
 
+// Cache key for offline resilience
+const BUSINESS_CACHE_KEY = "nexa_business_profile";
+
+const cacheBusinessState = (p: BusinessProfile, oId: string | null, sId: string | null) => {
+  try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ profile: p, ownerId: oId, storeId: sId })); } catch (_) {}
+};
+
+const loadCachedBusinessState = (): { profile: BusinessProfile; ownerId: string | null; storeId: string | null } | null => {
+  try {
+    const c = localStorage.getItem(BUSINESS_CACHE_KEY);
+    return c ? JSON.parse(c) : null;
+  } catch (_) { return null; }
+};
+
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, claims, claimsReady } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
@@ -44,6 +58,16 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [storeId, setStoreId] = useState<string | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
+  // Load cached business profile immediately for offline resilience
+  useEffect(() => {
+    const cached = loadCachedBusinessState();
+    if (cached && cached.profile && !profile) {
+      setProfile(cached.profile);
+      setOwnerId(cached.ownerId);
+      setStoreId(cached.storeId);
+    }
+  }, []);
 
   useEffect(() => {
     // Wait for auth state, tenant info AND claims to be ready before proceeding
@@ -79,25 +103,40 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (!store) {
           // FALLBACK: Find store by ownerId OR by staff storeId claim on main domain
-          const ownerQuery = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
-          const ownerSnap = await getDocs(ownerQuery);
-          
-          if (!ownerSnap.empty) {
-            activeStoreId = ownerSnap.docs[0].id;
-            activeOwnerId = ownerSnap.docs[0].data().ownerId;
-          } else if (claims?.storeId) {
-            // Try finding by storeId claim directly via document ID
-            const storeRef = doc(db, "stores", claims.storeId);
-            const storeSnap = await getDoc(storeRef);
+          try {
+            const ownerQuery = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
+            const ownerSnap = await getDocs(ownerQuery);
             
-            if (storeSnap.exists()) {
-              activeStoreId = storeSnap.id;
-              activeOwnerId = storeSnap.data().ownerId;
+            if (!ownerSnap.empty) {
+              activeStoreId = ownerSnap.docs[0].id;
+              activeOwnerId = ownerSnap.docs[0].data().ownerId;
+            } else if (claims?.storeId) {
+              const storeRef = doc(db, "stores", claims.storeId);
+              const storeSnap = await getDoc(storeRef);
+              if (storeSnap.exists()) {
+                activeStoreId = storeSnap.id;
+                activeOwnerId = storeSnap.data().ownerId;
+              }
+            }
+          } catch (lookupErr) {
+            console.warn("Store lookup failed (may be offline), using cache:", lookupErr);
+            const cached = loadCachedBusinessState();
+            if (cached && cached.storeId) {
+              activeStoreId = cached.storeId;
+              activeOwnerId = cached.ownerId;
             }
           }
 
           if (!activeStoreId) {
             if (mounted) {
+              const cached = loadCachedBusinessState();
+              if (cached && cached.profile) {
+                setProfile(cached.profile);
+                setOwnerId(cached.ownerId);
+                setStoreId(cached.storeId);
+                setLoadingProfile(false);
+                return;
+              }
               setProfile(null);
               setOwnerId(null);
               setStoreId(null);
@@ -120,7 +159,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               const isComplete = data.setupComplete || !!data.slug;
               setNeedsOnboarding(!isComplete);
               
-              setProfile({
+              const newProfile: BusinessProfile = {
                 id: snapshot.id,
                 storeDetails: {
                   name: data.name || "",
@@ -136,7 +175,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 branding: data.branding || {},
                 settings: data.settings || {},
                 ownerId: data.ownerId,
-              });
+              };
+              setProfile(newProfile);
+              cacheBusinessState(newProfile, activeOwnerId || null, activeStoreId || null);
             } else {
               setProfile(null);
               setNeedsOnboarding(true);

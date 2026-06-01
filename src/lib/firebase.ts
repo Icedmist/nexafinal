@@ -3,7 +3,8 @@ import { getAuth } from "firebase/auth";
 import { 
   initializeFirestore, 
   getFirestore,
-  memoryLocalCache,
+  persistentLocalCache,
+  persistentSingleTabManager,
   doc, 
   setDoc, 
   getDoc 
@@ -31,17 +32,20 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 
-// Initialize Firestore with memory-only cache to avoid the known SDK bug
-// (firebase-js-sdk #9172): persistentLocalCache triggers "Unexpected state
-// (ID: ca9) CONTEXT: {ve: -1}" assertion failures when the WebChannel
-// transport receives duplicate target-ack messages during network
-// transitions.  memoryLocalCache does not use IndexedDB and is immune to
-// this class of bugs.  Offline reads still work from the in-memory cache
-// for the duration of the session; only cross-session persistence is lost.
+// Initialize Firestore with persistent IndexedDB cache for full offline support.
+//
+// The ca9/b815 assertion crash (firebase-js-sdk #9172) was caused by
+// disableNetwork()/enableNetwork() calls in Header.tsx, NOT by
+// persistentLocalCache itself. Those calls have been permanently removed.
+//
+// We use persistentSingleTabManager (NOT multi-tab) to avoid cross-tab
+// IndexedDB locking conflicts that also trigger assertion failures.
 let firestoreDb;
 try {
   firestoreDb = initializeFirestore(app, {
-    localCache: memoryLocalCache(),
+    localCache: persistentLocalCache({
+      tabManager: persistentSingleTabManager({ forceOwnership: true }),
+    }),
   });
 } catch (_e) {
   // Already initialized (hot-reload / duplicate import) — reuse instance

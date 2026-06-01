@@ -56,66 +56,67 @@ export function useTenant() {
     }
 
     const fetchStore = async () => {
-      // 1. Try Cache First
-      const cacheKey = `nexa_tenant_${slug}`;
       const isBrowser = typeof window !== "undefined";
-      const cached = isBrowser ? sessionStorage.getItem(cacheKey) : null;
-      
-      if (cached) {
-        try {
-          const data = JSON.parse(cached);
-          setStore(data);
-          setLoading(false);
-          return;
-        } catch (e) {
-          if (isBrowser) sessionStorage.removeItem(cacheKey);
+      const sessionKey = `nexa_tenant_${slug}`;
+      const persistKey = `nexa_tenant_persist_${slug}`;
+      let loadedFromCache = false;
+
+      // 1. Try sessionStorage cache first (fast, same-session)
+      if (isBrowser) {
+        const sessionCached = sessionStorage.getItem(sessionKey);
+        if (sessionCached) {
+          try {
+            const data = JSON.parse(sessionCached);
+            setStore(data);
+            setLoading(false);
+            return; // Session cache is fresh enough — done
+          } catch (e) {
+            sessionStorage.removeItem(sessionKey);
+          }
         }
       }
 
-      try {
-        const q = query(collection(db, "stores"), where("slug", "==", slug), limit(1));
-        let snapshot;
-        let attempt = 0;
-        const maxAttempts = 2;
-
-        while (attempt < maxAttempts) {
+      // 2. Try localStorage cache (offline resilience, survives tab closes)
+      if (isBrowser) {
+        const persistCached = localStorage.getItem(persistKey);
+        if (persistCached) {
           try {
-            snapshot = await getDocs(q);
-            break;
-          } catch (innerError: any) {
-            const message = innerError?.message || "";
-            const isInternalAssert = message.includes("INTERNAL ASSERTION FAILED");
-
-            if (isInternalAssert && attempt + 1 < maxAttempts) {
-              console.warn("Firestore internal assertion on store lookup, retrying...", { slug, attempt, error: innerError });
-              await new Promise((resolve) => setTimeout(resolve, 500));
-              attempt += 1;
-              continue;
-            }
-
-            throw innerError;
+            const data = JSON.parse(persistCached);
+            setStore(data);
+            setLoading(false);
+            loadedFromCache = true;
+            // Don't return — still try to refresh from Firestore below
+          } catch (e) {
+            localStorage.removeItem(persistKey);
           }
         }
+      }
 
-        if (!snapshot) {
-          throw new Error("Failed to fetch store metadata from Firestore.");
-        }
+      // 3. Fetch from Firestore (serves from IndexedDB cache when offline)
+      try {
+        const q = query(collection(db, "stores"), where("slug", "==", slug), limit(1));
+        const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          setError("Store not found");
-          setStore(null);
+          if (!loadedFromCache) {
+            setError("Store not found");
+            setStore(null);
+          }
         } else {
           const storeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Store;
           setStore(storeData);
-          // 2. Save to Cache
+          // Save to both caches for offline resilience
           if (isBrowser) {
-            sessionStorage.setItem(cacheKey, JSON.stringify(storeData));
+            sessionStorage.setItem(sessionKey, JSON.stringify(storeData));
+            localStorage.setItem(persistKey, JSON.stringify(storeData));
           }
         }
       } catch (err: any) {
-        // Only log once, not on every re-render
-        console.warn("Tenant lookup failed for slug:", slug, err?.code || err?.message, err);
-        setError("Failed to load store details");
+        console.warn("Tenant lookup from Firestore failed (may be offline):", slug, err?.code || err?.message);
+        // If we already loaded from cache above, the app still works
+        if (!loadedFromCache) {
+          setError("Failed to load store details");
+        }
       } finally {
         setLoading(false);
       }
