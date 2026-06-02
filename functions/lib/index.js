@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dailyActivitySummary = exports.moniepointwebhook = exports.unlinkmoniepointaccount = exports.linkmoniepointaccount = exports.getplatformstats = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.dailyActivitySummary = exports.moniepointwebhook = exports.unlinkmoniepointaccount = exports.linkmoniepointaccount = exports.getplatformstats = exports.resetuserpassword = exports.updateplatformuser = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -778,6 +778,85 @@ exports.updateuseremail = (0, https_1.onCall)({ cors: true }, async (request) =>
     catch (error) {
         console.error("Error updating user email:", error);
         throw mapAuthError(error);
+    }
+});
+/**
+ * UPDATE PLATFORM USER: Callable Function (v2)
+ * Allows a system admin to update any user's role, custom claims, and disabled state.
+ */
+exports.updateplatformuser = (0, https_1.onCall)({ cors: true }, async (request) => {
+    await checkSystemAdmin(request);
+    const { uid, role, storeId, disabled } = request.data || {};
+    if (!uid) {
+        throw new https_1.HttpsError("invalid-argument", "User UID is required.");
+    }
+    try {
+        console.log(`System Admin ${request.auth?.uid} is updating platform user ${uid}: role=${role}, storeId=${storeId}, disabled=${disabled}`);
+        const updateParams = {};
+        if (disabled !== undefined) {
+            updateParams.disabled = disabled;
+        }
+        // 1. Update Auth User properties
+        if (Object.keys(updateParams).length > 0) {
+            await admin.auth().updateUser(uid, updateParams);
+        }
+        // 2. Fetch current user to update custom claims
+        const userRecord = await admin.auth().getUser(uid);
+        const currentClaims = userRecord.customClaims || {};
+        const newClaims = {
+            ...currentClaims,
+            role: role !== undefined ? role : currentClaims.role,
+            storeId: storeId !== undefined ? (storeId === "" ? null : storeId) : currentClaims.storeId,
+        };
+        // Clean up undefined/null values in claims
+        if (newClaims.storeId === null) {
+            delete newClaims.storeId;
+        }
+        await admin.auth().setCustomUserClaims(uid, newClaims);
+        // 3. Update Firestore 'users' record
+        const userRef = admin.firestore().collection("users").doc(uid);
+        const userUpdates = { updatedAt: new Date().toISOString() };
+        if (role !== undefined)
+            userUpdates.role = role;
+        if (storeId !== undefined)
+            userUpdates.storeId = storeId === "" ? null : storeId;
+        await userRef.set(userUpdates, { merge: true });
+        // 4. Update Firestore 'staff' record (if exists)
+        const staffRef = admin.firestore().collection("staff").doc(uid);
+        const staffSnap = await staffRef.get();
+        if (staffSnap.exists) {
+            const staffUpdates = { updatedAt: new Date().toISOString() };
+            if (role !== undefined)
+                staffUpdates.role = role;
+            if (storeId !== undefined)
+                staffUpdates.storeId = storeId === "" ? null : storeId;
+            await staffRef.set(staffUpdates, { merge: true });
+        }
+        return { success: true, message: "User updated successfully." };
+    }
+    catch (error) {
+        console.error("Error updating platform user:", error);
+        throw new https_1.HttpsError("internal", error.message || "Failed to update platform user.");
+    }
+});
+/**
+ * RESET USER PASSWORD: Callable Function (v2)
+ * Generates a password reset link for the given user's email.
+ */
+exports.resetuserpassword = (0, https_1.onCall)({ cors: true }, async (request) => {
+    await checkSystemAdmin(request);
+    const { email } = request.data || {};
+    if (!email) {
+        throw new https_1.HttpsError("invalid-argument", "Email is required.");
+    }
+    try {
+        const link = await admin.auth().generatePasswordResetLink(email);
+        console.log(`Generated password reset link for ${email}`);
+        return { success: true, link };
+    }
+    catch (error) {
+        console.error("Error generating reset link:", error);
+        throw new https_1.HttpsError("internal", error.message || "Failed to generate password reset link.");
     }
 });
 /**

@@ -25,6 +25,8 @@ import {
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface Business {
   id: string;
@@ -42,6 +44,8 @@ export default function SystemBusinesses() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     fetchBusinesses();
@@ -175,7 +179,14 @@ export default function SystemBusinesses() {
               </thead>
               <tbody className="divide-y divide-slate-900">
                 {filteredBusinesses.map((biz) => (
-                  <tr key={biz.id} className="group hover:bg-blue-600/[0.02] transition-colors">
+                  <tr 
+                    key={biz.id} 
+                    onClick={() => {
+                      setSelectedBusiness(biz);
+                      setDetailsOpen(true);
+                    }}
+                    className="group hover:bg-blue-600/[0.02] transition-colors cursor-pointer"
+                  >
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center group-hover:border-blue-500/50 transition-colors">
@@ -212,14 +223,18 @@ export default function SystemBusinesses() {
                     <td className="px-8 py-6">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
-                          onClick={() => toggleStatus(biz)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleStatus(biz);
+                          }}
                           title={biz.status === "active" ? "Suspend Business" : "Activate Business"}
                           className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-rose-500 hover:border-rose-500/50 transition-all"
                         >
                           {biz.status === "active" ? <Ban className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
                         </button>
                         <button 
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             const host = window.location.hostname;
                             const protocol = window.location.protocol;
                             const port = window.location.port;
@@ -241,6 +256,11 @@ export default function SystemBusinesses() {
                           <ExternalLink className="h-4 w-4" />
                         </button>
                         <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBusiness(biz);
+                            setDetailsOpen(true);
+                          }}
                           className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-slate-100 transition-all"
                           title="Entity Settings"
                         >
@@ -269,6 +289,98 @@ export default function SystemBusinesses() {
           </div>
         </div>
       </div>
+
+      {/* Business Details Dialog Modal */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl bg-slate-950/95 border-slate-800 text-white rounded-[2.5rem] p-8 nexa-glass shadow-2xl animate-in fade-in duration-300">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black italic uppercase tracking-tight text-white flex items-center gap-3">
+              <Building2 className="h-6 w-6 text-blue-500" />
+              Store Operations Details
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Detailed system profile and infrastructure metrics for {selectedBusiness?.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBusiness && (
+            <div className="space-y-6 mt-4">
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Store Name</span>
+                  <span className="text-base font-bold text-white mt-1 block">{selectedBusiness.name || "Unnamed"}</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Slug / Domain Prefix</span>
+                  <span className="text-base font-bold text-blue-400 mt-1 block">{selectedBusiness.slug || "None"}.nexa.os</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Owner UID</span>
+                  <span className="text-xs font-mono text-slate-300 mt-1 block truncate" title={selectedBusiness.ownerId}>{selectedBusiness.ownerId}</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Created Date</span>
+                  <span className="text-base font-bold text-slate-300 mt-1 block">
+                    {selectedBusiness.createdAt?.seconds ? new Date(selectedBusiness.createdAt.seconds * 1000).toLocaleString() : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Infrastructure Details */}
+              <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Infrastructure Details</span>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                    <span className="text-lg font-bold text-white block">{selectedBusiness.branchCount || 1}</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Branches</span>
+                  </div>
+                  <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                    <span className="text-lg font-bold text-white block capitalize">{selectedBusiness.businessType || "Retail"}</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Type</span>
+                  </div>
+                  <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                    <span className="text-lg font-bold text-emerald-500 block capitalize">{selectedBusiness.status || "active"}</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Controls */}
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-900">
+                <Button 
+                  variant="outline" 
+                  className="rounded-xl border-slate-800 text-slate-400 hover:text-white"
+                  onClick={() => setDetailsOpen(false)}
+                >
+                  Close Profile
+                </Button>
+                <Button 
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 font-bold uppercase tracking-widest text-xs h-10 px-5 text-white"
+                  onClick={() => {
+                    const host = window.location.hostname;
+                    const protocol = window.location.protocol;
+                    const port = window.location.port;
+                    const slug = selectedBusiness.slug;
+                    
+                    let targetUrl = "";
+                    if (host.includes("localhost") || host.includes("127.0.0.1")) {
+                      targetUrl = `${protocol}//${slug}.localhost${port ? `:${port}` : ""}/app/dashboard`;
+                    } else {
+                      const parts = host.split(".");
+                      const domain = parts.slice(-2).join(".");
+                      targetUrl = `${protocol}//${slug}.${domain}/app/dashboard`;
+                    }
+                    window.open(targetUrl, "_blank");
+                  }}
+                >
+                  Jump Into Operations
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

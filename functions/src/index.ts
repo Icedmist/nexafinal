@@ -865,6 +865,94 @@ export const updateuseremail = onCall({ cors: true }, async (request) => {
 });
 
 /**
+ * UPDATE PLATFORM USER: Callable Function (v2)
+ * Allows a system admin to update any user's role, custom claims, and disabled state.
+ */
+export const updateplatformuser = onCall({ cors: true }, async (request) => {
+  await checkSystemAdmin(request);
+
+  const { uid, role, storeId, disabled } = request.data || {};
+
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "User UID is required.");
+  }
+
+  try {
+    console.log(`System Admin ${request.auth?.uid} is updating platform user ${uid}: role=${role}, storeId=${storeId}, disabled=${disabled}`);
+
+    const updateParams: any = {};
+    if (disabled !== undefined) {
+      updateParams.disabled = disabled;
+    }
+
+    // 1. Update Auth User properties
+    if (Object.keys(updateParams).length > 0) {
+      await admin.auth().updateUser(uid, updateParams);
+    }
+
+    // 2. Fetch current user to update custom claims
+    const userRecord = await admin.auth().getUser(uid);
+    const currentClaims = userRecord.customClaims || {};
+    const newClaims = {
+      ...currentClaims,
+      role: role !== undefined ? role : currentClaims.role,
+      storeId: storeId !== undefined ? (storeId === "" ? null : storeId) : currentClaims.storeId,
+    };
+
+    // Clean up undefined/null values in claims
+    if (newClaims.storeId === null) {
+      delete newClaims.storeId;
+    }
+
+    await admin.auth().setCustomUserClaims(uid, newClaims);
+
+    // 3. Update Firestore 'users' record
+    const userRef = admin.firestore().collection("users").doc(uid);
+    const userUpdates: any = { updatedAt: new Date().toISOString() };
+    if (role !== undefined) userUpdates.role = role;
+    if (storeId !== undefined) userUpdates.storeId = storeId === "" ? null : storeId;
+    await userRef.set(userUpdates, { merge: true });
+
+    // 4. Update Firestore 'staff' record (if exists)
+    const staffRef = admin.firestore().collection("staff").doc(uid);
+    const staffSnap = await staffRef.get();
+    if (staffSnap.exists) {
+      const staffUpdates: any = { updatedAt: new Date().toISOString() };
+      if (role !== undefined) staffUpdates.role = role;
+      if (storeId !== undefined) staffUpdates.storeId = storeId === "" ? null : storeId;
+      await staffRef.set(staffUpdates, { merge: true });
+    }
+
+    return { success: true, message: "User updated successfully." };
+  } catch (error: any) {
+    console.error("Error updating platform user:", error);
+    throw new HttpsError("internal", error.message || "Failed to update platform user.");
+  }
+});
+
+/**
+ * RESET USER PASSWORD: Callable Function (v2)
+ * Generates a password reset link for the given user's email.
+ */
+export const resetuserpassword = onCall({ cors: true }, async (request) => {
+  await checkSystemAdmin(request);
+
+  const { email } = request.data || {};
+  if (!email) {
+    throw new HttpsError("invalid-argument", "Email is required.");
+  }
+
+  try {
+    const link = await admin.auth().generatePasswordResetLink(email);
+    console.log(`Generated password reset link for ${email}`);
+    return { success: true, link };
+  } catch (error: any) {
+    console.error("Error generating reset link:", error);
+    throw new HttpsError("internal", error.message || "Failed to generate password reset link.");
+  }
+});
+
+/**
  * GET PLATFORM STATS: Callable Function (v2)
  * Aggregates high-level metrics across the entire platform.
  */

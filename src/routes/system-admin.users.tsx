@@ -9,7 +9,10 @@ import {
   Mail,
   Building,
   MoreHorizontal,
-  ArrowUpDown
+  ArrowUpDown,
+  Lock,
+  UserCheck,
+  Ban
 } from "lucide-react";
 import { collection, query, getDocs, orderBy, limit } from "firebase/firestore";
 import { db, functions } from "@/lib/firebase";
@@ -18,6 +21,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InvitePlatformUserDialog } from "@/components/system-admin/InvitePlatformUserDialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 
 interface UserProfile {
@@ -35,6 +40,41 @@ export default function SystemUsers() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const handleForcePasswordReset = async (email: string) => {
+    const toastId = toast.loading(`Generating password reset link for ${email}...`);
+    try {
+      const reset = httpsCallable(functions, 'resetuserpassword');
+      const res = await reset({ email });
+      const data = res.data as any;
+      if (data.link) {
+        await navigator.clipboard.writeText(data.link);
+        toast.success("Password reset link generated and copied to clipboard!", { id: toastId });
+        alert(`Password Reset Link:\n${data.link}\n\nThis link has been copied to your clipboard.`);
+      } else {
+        toast.success("Password reset link sent to user's email.", { id: toastId });
+      }
+    } catch (err: any) {
+      console.error("Password reset error:", err);
+      toast.error(err.message || "Failed to generate password reset link.", { id: toastId });
+    }
+  };
+
+  const handleUpdatePlatformUser = async (uid: string, updates: { role?: string; storeId?: string; disabled?: boolean }) => {
+    const toastId = toast.loading("Updating user properties...");
+    try {
+      const update = httpsCallable(functions, 'updateplatformuser');
+      await update({ uid, ...updates });
+      toast.success("User properties successfully updated.", { id: toastId });
+      fetchUsers(); // Refresh list
+      setDetailsOpen(false);
+    } catch (err: any) {
+      console.error("Update platform user error:", err);
+      toast.error(err.message || "Failed to update user.", { id: toastId });
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -199,7 +239,14 @@ export default function SystemUsers() {
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                  <tr key={user.id} className="group hover:bg-slate-900/30 transition-colors">
+                  <tr 
+                    key={user.id} 
+                    onClick={() => {
+                      setSelectedUser(user);
+                      setDetailsOpen(true);
+                    }}
+                    className="group hover:bg-slate-900/30 transition-colors cursor-pointer"
+                  >
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-xs font-bold text-blue-500">
@@ -231,28 +278,50 @@ export default function SystemUsers() {
                     <td className="px-8 py-5 text-right">
                        <DropdownMenu>
                          <DropdownMenuTrigger asChild>
-                           <button className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-white hover:bg-slate-800 transition-all">
+                           <button 
+                             onClick={(e) => e.stopPropagation()} 
+                             className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-white hover:bg-slate-800 transition-all"
+                           >
                              <MoreHorizontal className="h-5 w-5" />
                            </button>
                          </DropdownMenuTrigger>
                          <DropdownMenuContent align="end" className="w-48 bg-slate-950 border-slate-800">
                            <DropdownMenuLabel className="text-slate-500">Actions</DropdownMenuLabel>
-                           <DropdownMenuItem className="text-white hover:bg-slate-900 cursor-pointer">
+                           <DropdownMenuItem 
+                             className="text-white hover:bg-slate-900 cursor-pointer"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               setSelectedUser(user);
+                               setDetailsOpen(true);
+                             }}
+                           >
                              View Profile
                            </DropdownMenuItem>
-                             <DropdownMenuItem 
-                               className="text-white hover:bg-slate-900 cursor-pointer"
-                               onClick={() => handleUpdateEmail(user.id, user.email)}
-                             >
-                               Change Email
-                             </DropdownMenuItem>
-                             <DropdownMenuItem className="text-white hover:bg-slate-900 cursor-pointer">
-                               Force Password Reset
-                             </DropdownMenuItem>
-                             <DropdownMenuSeparator className="bg-slate-800" />
+                           <DropdownMenuItem 
+                             className="text-white hover:bg-slate-900 cursor-pointer"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleUpdateEmail(user.id, user.email);
+                             }}
+                           >
+                             Change Email
+                           </DropdownMenuItem>
+                           <DropdownMenuItem 
+                             className="text-white hover:bg-slate-900 cursor-pointer"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleForcePasswordReset(user.email);
+                             }}
+                           >
+                             Force Password Reset
+                           </DropdownMenuItem>
+                           <DropdownMenuSeparator className="bg-slate-800" />
                            <DropdownMenuItem 
                              className="text-rose-500 hover:bg-rose-500/10 cursor-pointer font-bold"
-                             onClick={() => handleWipeUser(user.id)}
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleWipeUser(user.id);
+                             }}
                            >
                              Wipe Data & Delete
                            </DropdownMenuItem>
@@ -271,6 +340,120 @@ export default function SystemUsers() {
         onOpenChange={setInviteOpen} 
         onSuccess={fetchUsers}
       />
+
+      {/* User Details & Action Dialog Modal */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl bg-slate-950/95 border-slate-800 text-white rounded-[2.5rem] p-8 nexa-glass shadow-2xl animate-in fade-in duration-300">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black italic uppercase tracking-tight text-white flex items-center gap-3">
+              <Users className="h-6 w-6 text-blue-500" />
+              User Profile Operations
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Change permissions, linked stores, credentials, and manage system status for {selectedUser?.displayName || selectedUser?.email}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedUser && (
+            <div className="space-y-6 mt-4">
+              {/* Identity details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Display Name</span>
+                  <span className="text-sm font-bold text-white mt-1 block">{selectedUser.displayName || "Not set"}</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Email Address</span>
+                  <span className="text-sm font-bold text-white mt-1 block">{selectedUser.email}</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">User UID</span>
+                  <span className="text-xs font-mono text-slate-300 mt-1 block truncate" title={selectedUser.id}>{selectedUser.id}</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Access Role</span>
+                  <span className="text-sm font-bold mt-1 block text-blue-400 uppercase tracking-wider">{selectedUser.role}</span>
+                </div>
+              </div>
+
+              {/* Edit Controls */}
+              <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Access Configuration</span>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Change Account Role</label>
+                    <select 
+                      value={selectedUser.role}
+                      onChange={(e) => handleUpdatePlatformUser(selectedUser.id, { role: e.target.value })}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs font-bold text-white outline-none focus:border-blue-500 transition-all cursor-pointer"
+                    >
+                      <option value="system_admin">System Admin</option>
+                      <option value="owner">Store Owner</option>
+                      <option value="manager">Manager</option>
+                      <option value="staff">Staff</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Linked Store ID</label>
+                    <input 
+                      type="text"
+                      defaultValue={selectedUser.storeId || ""}
+                      placeholder="e.g. store_uid (or leave blank)"
+                      onBlur={(e) => handleUpdatePlatformUser(selectedUser.id, { storeId: e.target.value })}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs font-bold text-white outline-none focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Administrative Actions */}
+              <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Credentials & Lifecycle Security</span>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="rounded-xl border-slate-800 text-xs font-bold gap-2 hover:bg-slate-800 hover:text-white"
+                    onClick={() => handleForcePasswordReset(selectedUser.email)}
+                  >
+                    <Lock className="h-3.5 w-3.5 text-blue-400" />
+                    Force Password Reset Link
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="rounded-xl border-slate-800 text-xs font-bold gap-2 hover:bg-slate-800 hover:text-white"
+                    onClick={() => handleUpdateEmail(selectedUser.id, selectedUser.email)}
+                  >
+                    <Mail className="h-3.5 w-3.5 text-amber-400" />
+                    Change Email Address
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="rounded-xl border-rose-950 bg-rose-950/10 text-rose-400 text-xs font-bold gap-2 hover:bg-rose-900/30 hover:text-rose-200"
+                    onClick={() => handleWipeUser(selectedUser.id)}
+                  >
+                    <Ban className="h-3.5 w-3.5 text-rose-400" />
+                    Wipe Platform Data & Delete
+                  </Button>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end pt-4 border-t border-slate-900">
+                <Button 
+                  variant="outline" 
+                  className="rounded-xl border-slate-800 text-slate-400 hover:text-white"
+                  onClick={() => setDetailsOpen(false)}
+                >
+                  Close Operations
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
