@@ -37,6 +37,8 @@ import { RestockStatusActions } from "./RestockStatusActions";
 import { cn } from "@/lib/utils";
 import { RestockPrintView } from "./RestockPrintView";
 
+const NAIRA = "₦";
+
 const STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.Draft]: "Draft",
   [OrderStatus.Submitted]: "Submitted",
@@ -282,7 +284,7 @@ export function RestockingDetailSheet({
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm font-black text-foreground">
-                            ${(li.quantityOrdered * li.unitCost).toFixed(2)}
+                            {NAIRA}{(li.quantityOrdered * li.unitCost).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
                           </TableCell>
                         </TableRow>
                       );
@@ -296,9 +298,9 @@ export function RestockingDetailSheet({
             <div className="flex flex-col items-end gap-2 px-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Grand Total Amount</p>
               <p className="text-4xl font-black tracking-tighter text-foreground font-mono">
-                ${purchaseOrder.totalCost.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                {NAIRA}{purchaseOrder.totalCost.toLocaleString("en-NG", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
                 })}
               </p>
             </div>

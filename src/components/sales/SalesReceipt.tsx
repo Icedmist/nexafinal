@@ -397,7 +397,19 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
 
   const handleWhatsAppText = () => {
     const text = buildReceiptText(sale, storeName, address, branch?.name, profile?.storeDetails?.phone);
-    const phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
+    let phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
+    
+    if (!phone) {
+      const inputPhone = window.prompt("Enter customer WhatsApp/Phone number (with country code, e.g. 2348012345678):");
+      if (inputPhone === null) return; // User cancelled
+      phone = inputPhone.replace(/\D/g, "");
+    }
+
+    if (!phone) {
+      toast.error("A WhatsApp number is required to send the receipt.");
+      return;
+    }
+
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
@@ -554,14 +566,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     >
                       <Download className="h-5 w-5" /> PDF
                     </Button>
-                    {sale.customerPhone && (
-                      <Button 
-                        className="col-span-2 gap-3 rounded-2xl h-14 font-black uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
-                        onClick={handleWhatsAppText}
-                      >
-                        <MessageCircle className="h-5 w-5" /> Send to WhatsApp
-                      </Button>
-                    )}
+                    <Button 
+                      className="col-span-2 gap-3 rounded-2xl h-14 font-black uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+                      onClick={handleWhatsAppText}
+                    >
+                      <MessageCircle className="h-5 w-5" /> Send to WhatsApp
+                    </Button>
                   </div>
                 </div>
               </ScrollArea>

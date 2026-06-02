@@ -26,6 +26,11 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
+import { useRefundsMutations } from "@/hooks/useRefundsData";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const NAIRA = "₦";
 
@@ -47,6 +52,46 @@ export function SalesHistoryPage() {
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
   const [selectedSaleIds, setSelectedSaleIds] = useState<string[]>([]);
+
+  const { addRefund } = useRefundsMutations();
+  const [refundSale, setRefundSale] = useState<SaleTransaction | null>(null);
+  const [refundItemId, setRefundItemId] = useState<string>("");
+  const [refundQty, setRefundQty] = useState<number>(1);
+  const [refundReason, setRefundReason] = useState<string>("customer_return");
+  const [refundNotes, setRefundNotes] = useState<string>("");
+  const [isProcessingRefund, setIsProcessingRefund] = useState<boolean>(false);
+
+  const handleRefundSubmit = async () => {
+    if (!refundSale || !refundItemId) return;
+    const selectedItem = refundSale.items.find((i) => i.itemId === refundItemId);
+    if (!selectedItem) return;
+
+    if (refundQty < 1 || refundQty > selectedItem.quantity) {
+      toast.error(`Invalid quantity. Must be between 1 and ${selectedItem.quantity}`);
+      return;
+    }
+
+    setIsProcessingRefund(true);
+    try {
+      await addRefund({
+        saleId: refundSale.id,
+        itemId: selectedItem.itemId,
+        itemName: selectedItem.itemName,
+        quantity: refundQty,
+        amountNgn: selectedItem.unitPriceNgn * refundQty,
+        reason: refundReason as any,
+        notes: refundNotes,
+        createdAt: new Date().toISOString(),
+      });
+      toast.success(`Refund processed successfully: ${fmtNgn(selectedItem.unitPriceNgn * refundQty)}`);
+      setRefundSale(null);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to process refund");
+    } finally {
+      setIsProcessingRefund(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     let list = sales;
@@ -514,10 +559,139 @@ export function SalesHistoryPage() {
                   variant="outline"
                   className="flex-1 gap-2 rounded-xl h-12 font-black uppercase text-xs tracking-widest border-2"
                   onClick={() => {
-                    toast.info("Return functionality coming soon");
+                    setRefundSale(selectedSale);
+                    if (selectedSale.items && selectedSale.items.length > 0) {
+                      setRefundItemId(selectedSale.items[0].itemId);
+                      setRefundQty(1);
+                    }
+                    setRefundNotes("");
+                    setRefundReason("customer_return");
+                    setSelectedSale(null);
                   }}
                 >
                   <RotateCcw className="h-4 w-4" /> Return
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Process Refund Dialog */}
+      <Dialog open={!!refundSale} onOpenChange={(o) => !o && setRefundSale(null)}>
+        <DialogContent className="rounded-3xl border-none p-6 nexa-card bg-card sm:max-w-md">
+          {refundSale && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                  <RotateCcw className="h-5 w-5 text-destructive" />
+                  Process Refund
+                </DialogTitle>
+                <button 
+                  onClick={() => setRefundSale(null)}
+                  className="rounded-full p-2 hover:bg-muted transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-muted-foreground uppercase">Select Item to Return</Label>
+                  <Select 
+                    value={refundItemId} 
+                    onValueChange={(v) => {
+                      setRefundItemId(v);
+                      const item = refundSale.items.find(i => i.itemId === v);
+                      if (item) setRefundQty(1);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl border-2 h-11">
+                      <SelectValue placeholder="Choose an item..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {refundSale.items.map((i) => (
+                        <SelectItem key={i.itemId} value={i.itemId}>
+                          {i.itemName} (Sold: {i.quantity})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {refundItemId && (
+                  <>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <Label className="text-xs font-bold text-muted-foreground uppercase">Quantity to Return</Label>
+                        <span className="text-[10px] font-black text-muted-foreground">
+                          Max available: {refundSale.items.find(i => i.itemId === refundItemId)?.quantity || 1}
+                        </span>
+                      </div>
+                      <Input 
+                        type="number" 
+                        min={1} 
+                        max={refundSale.items.find(i => i.itemId === refundItemId)?.quantity || 1} 
+                        value={refundQty} 
+                        onChange={(e) => setRefundQty(Number(e.target.value))} 
+                        className="rounded-xl border-2 h-11 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-muted-foreground uppercase">Reason for Return</Label>
+                      <Select value={refundReason} onValueChange={setRefundReason}>
+                        <SelectTrigger className="rounded-xl border-2 h-11">
+                          <SelectValue placeholder="Select reason..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="customer_return">Customer Return 🔄</SelectItem>
+                          <SelectItem value="damaged">Damaged / Defective ⚠️</SelectItem>
+                          <SelectItem value="wrong_item">Wrong Item Sent 📦</SelectItem>
+                          <SelectItem value="pricing_error">Pricing/Billing Error 💰</SelectItem>
+                          <SelectItem value="other">Other / Out of Stock 📝</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-muted-foreground uppercase">Notes (Optional)</Label>
+                      <Textarea 
+                        value={refundNotes} 
+                        onChange={(e) => setRefundNotes(e.target.value)} 
+                        placeholder="Provide details about the return..." 
+                        className="rounded-xl border-2" 
+                        rows={3} 
+                      />
+                    </div>
+
+                    {(() => {
+                      const selectedItem = refundSale.items.find(i => i.itemId === refundItemId);
+                      if (!selectedItem) return null;
+                      return (
+                        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4 flex justify-between items-center shadow-inner mt-4">
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Refund Amount</span>
+                          <span className="text-2xl font-black font-mono tracking-tighter text-destructive">
+                            {fmtNgn(selectedItem.unitPriceNgn * refundQty)}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
+                <Button 
+                  onClick={handleRefundSubmit} 
+                  disabled={isProcessingRefund || !refundItemId} 
+                  className="w-full gap-2 rounded-xl h-12 font-black uppercase text-xs tracking-widest bg-destructive hover:bg-destructive/90 shadow-lg shadow-destructive/20 mt-2"
+                >
+                  {isProcessingRefund ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <>
+                      <RotateCcw className="h-4 w-4" /> Process Refund
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

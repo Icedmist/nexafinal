@@ -243,19 +243,19 @@ function CatalogPage() {
           <Button 
             variant="outline" 
             size="sm" 
-            className="hidden gap-1.5 sm:inline-flex border-primary/20 hover:border-primary/50" 
+            className="flex gap-1 items-center h-8 sm:h-9 text-[10px] sm:text-xs border-primary/20 hover:border-primary/50" 
             onClick={() => exportItemsQRCodes(items)}
           >
-            <QrCode className="h-4 w-4" />Export QRs
+            <QrCode className="h-3.5 w-3.5" />Export QRs
           </Button>
           <PermissionGate permission="create_item">
-            <Button variant="outline" size="sm" className="hidden gap-1.5 sm:inline-flex" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />Import
+            <Button variant="outline" size="sm" className="flex gap-1 items-center h-8 sm:h-9 text-[10px] sm:text-xs" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5" />Import
             </Button>
           </PermissionGate>
           <PermissionGate permission="create_item">
-            <Button onClick={openCreate} className="hidden gap-1.5 sm:inline-flex">
-              <Plus className="h-4 w-4" />New Item
+            <Button onClick={openCreate} className="flex gap-1 items-center h-8 sm:h-9 text-[10px] sm:text-xs">
+              <Plus className="h-3.5 w-3.5" />New Item
             </Button>
           </PermissionGate>
         </div>

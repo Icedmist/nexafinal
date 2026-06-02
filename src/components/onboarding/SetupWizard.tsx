@@ -14,6 +14,8 @@ import { toast } from "sonner";
 
 const NAIRA = "₦";
 
+const BASE_UNITS = ["Piece", "Box", "Carton", "Pack", "Roll", "kg", "g", "L", "ml", "m"];
+
 // Brand presets color map
 export const BRAND_COLORS = [
   { name: "Teal", hex: "#0d9488", class: "bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-500", border: "border-teal-500", glow: "shadow-teal-500/20" },
@@ -52,6 +54,7 @@ const CATEGORY_PRESETS: Record<string, string[]> = {
 
 export interface QuickProductInput {
   name: string;
+  costPrice: string;
   price: string;
   stock: string;
   unit: string;
@@ -100,7 +103,7 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [categoryInput, setCategoryInput] = useState("");
   const [products, setProducts] = useState<QuickProductInput[]>([
-    { name: "", price: "", stock: "", unit: "Piece" }
+    { name: "", costPrice: "", price: "", stock: "", unit: "Piece" }
   ]);
 
   const handleStoreNameChange = (val: string) => {
@@ -166,12 +169,12 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
 
   // Spreadsheet table rows management
   const addProductRow = () => {
-    setProducts([...products, { name: "", price: "", stock: "", unit: "Piece" }]);
+    setProducts([...products, { name: "", costPrice: "", price: "", stock: "", unit: "Piece" }]);
   };
 
   const deleteProductRow = (index: number) => {
     if (products.length === 1) {
-      setProducts([{ name: "", price: "", stock: "", unit: "Piece" }]);
+      setProducts([{ name: "", costPrice: "", price: "", stock: "", unit: "Piece" }]);
       return;
     }
     setProducts(products.filter((_, i) => i !== index));
@@ -187,8 +190,13 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
     // Validate products (only rows with items)
     const validProducts = products.filter(p => p.name.trim() !== "");
     for (const p of validProducts) {
+      const costVal = parseFloat(p.costPrice);
       const priceVal = parseFloat(p.price);
       const stockVal = parseFloat(p.stock);
+      if (p.costPrice && (isNaN(costVal) || costVal < 0)) {
+        toast.error(`Invalid purchase price for item: ${p.name}`);
+        return;
+      }
       if (isNaN(priceVal) || priceVal < 0) {
         toast.error(`Invalid selling price for item: ${p.name}`);
         return;
@@ -550,66 +558,164 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
                   <p className="text-xs text-muted-foreground">Load your initial products and quantities to start selling instantly upon launching your dashboard.</p>
                 </div>
 
-                <div className="flex-1 flex flex-col min-h-[200px] overflow-hidden border border-border rounded-2xl bg-muted/15 shadow-inner">
-                  {/* Spreadsheet Header */}
-                  <div className="grid grid-cols-12 gap-2 p-3 bg-muted/50 border-b border-border text-[9px] font-black uppercase tracking-widest text-muted-foreground select-none">
-                    <div className="col-span-5 pl-1">Item Name</div>
-                    <div className="col-span-2">Selling Price</div>
-                    <div className="col-span-2">Initial Stock</div>
-                    <div className="col-span-2">Base Unit</div>
-                    <div className="col-span-1 text-center">Action</div>
+                <div className="flex-1 flex flex-col min-h-[250px] overflow-hidden border border-border rounded-2xl bg-muted/15 shadow-inner">
+                  {/* DESKTOP SPREADSHEET TABLE VIEW */}
+                  <div className="hidden md:flex flex-col flex-1 overflow-hidden">
+                    <div className="grid grid-cols-12 gap-2 p-3 bg-muted/50 border-b border-border text-[9px] font-black uppercase tracking-widest text-muted-foreground select-none">
+                      <div className="col-span-4 pl-1">Item Name</div>
+                      <div className="col-span-2">Purchase Price</div>
+                      <div className="col-span-2">Selling Price</div>
+                      <div className="col-span-1.5">Initial Stock</div>
+                      <div className="col-span-1.5">Base Unit</div>
+                      <div className="col-span-1 text-center">Action</div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5 max-h-[220px]">
+                      {products.map((p, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-4">
+                            <Input
+                              placeholder="e.g. Paracetamol tablets"
+                              value={p.name}
+                              onChange={(e) => updateProductRow(idx, "name", e.target.value)}
+                              className="h-9 rounded-lg border-2 text-xs font-bold"
+                            />
+                          </div>
+                          <div className="col-span-2 relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">{NAIRA}</span>
+                            <Input
+                              type="number"
+                              placeholder="Cost"
+                              value={p.costPrice}
+                              onChange={(e) => updateProductRow(idx, "costPrice", e.target.value)}
+                              className="h-9 rounded-lg border-2 text-xs font-mono font-bold pl-4.5 pr-1"
+                            />
+                          </div>
+                          <div className="col-span-2 relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">{NAIRA}</span>
+                            <Input
+                              type="number"
+                              placeholder="Price"
+                              value={p.price}
+                              onChange={(e) => updateProductRow(idx, "price", e.target.value)}
+                              className="h-9 rounded-lg border-2 text-xs font-mono font-bold pl-4.5 pr-1"
+                            />
+                          </div>
+                          <div className="col-span-1.5">
+                            <Input
+                              type="number"
+                              placeholder="Qty"
+                              value={p.stock}
+                              onChange={(e) => updateProductRow(idx, "stock", e.target.value)}
+                              className="h-9 rounded-lg border-2 text-xs font-mono font-bold px-2"
+                            />
+                          </div>
+                          <div className="col-span-1.5">
+                            <select
+                              value={p.unit}
+                              onChange={(e) => updateProductRow(idx, "unit", e.target.value)}
+                              className="h-9 rounded-lg border-2 text-xs font-bold px-1.5 bg-background w-full border-input focus:ring-1 focus:ring-primary focus:border-primary"
+                            >
+                              {BASE_UNITS.map((u) => (
+                                <option key={u} value={u}>{u}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-span-1 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => deleteProductRow(idx)}
+                              className="h-8 w-8 rounded-lg flex items-center justify-center border-2 border-border/80 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors text-muted-foreground shrink-0"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Spreadsheet Rows */}
-                  <div className="flex-1 overflow-y-auto p-2 space-y-1.5 max-h-[170px]">
-                    {products.map((p, idx) => (
-                      <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-5">
-                          <Input
-                            placeholder="e.g. Paracetamol tablets"
-                            value={p.name}
-                            onChange={(e) => updateProductRow(idx, "name", e.target.value)}
-                            className="h-9 rounded-lg border-2 text-xs font-bold"
-                          />
+                  {/* MOBILE RESPONSIVE CARDS VIEW */}
+                  <div className="flex md:hidden flex-col flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-3 max-h-[300px]">
+                      {products.map((p, idx) => (
+                        <div key={idx} className="p-3 bg-background border border-border rounded-xl space-y-2 relative shadow-sm">
+                          <div className="flex justify-between items-center pb-1 border-b border-border/40">
+                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Product #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => deleteProductRow(idx)}
+                              className="h-7 w-7 rounded-lg flex items-center justify-center border border-border/80 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors text-muted-foreground"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <div className="space-y-1.5">
+                            <div>
+                              <label className="text-[8px] font-black text-muted-foreground uppercase tracking-wider">Item Name</label>
+                              <Input
+                                placeholder="e.g. Paracetamol tablets"
+                                value={p.name}
+                                onChange={(e) => updateProductRow(idx, "name", e.target.value)}
+                                className="h-8 rounded-lg border-2 text-xs font-bold mt-0.5"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="relative">
+                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-wider">Purchase Price</label>
+                                <div className="relative mt-0.5">
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">{NAIRA}</span>
+                                  <Input
+                                    type="number"
+                                    placeholder="Cost"
+                                    value={p.costPrice}
+                                    onChange={(e) => updateProductRow(idx, "costPrice", e.target.value)}
+                                    className="h-8 rounded-lg border-2 text-xs font-mono font-bold pl-5 pr-1"
+                                  />
+                                </div>
+                              </div>
+                              <div className="relative">
+                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-wider">Selling Price</label>
+                                <div className="relative mt-0.5">
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">{NAIRA}</span>
+                                  <Input
+                                    type="number"
+                                    placeholder="Price"
+                                    value={p.price}
+                                    onChange={(e) => updateProductRow(idx, "price", e.target.value)}
+                                    className="h-8 rounded-lg border-2 text-xs font-mono font-bold pl-5 pr-1"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-wider">Initial Stock</label>
+                                <Input
+                                  type="number"
+                                  placeholder="0"
+                                  value={p.stock}
+                                  onChange={(e) => updateProductRow(idx, "stock", e.target.value)}
+                                  className="h-8 rounded-lg border-2 text-xs font-mono font-bold mt-0.5 px-2"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-wider">Base Unit</label>
+                                <select
+                                  value={p.unit}
+                                  onChange={(e) => updateProductRow(idx, "unit", e.target.value)}
+                                  className="h-8 rounded-lg border-2 text-xs font-bold px-1.5 bg-background w-full border-input focus:ring-1 focus:ring-primary focus:border-primary mt-0.5"
+                                >
+                                  {BASE_UNITS.map((u) => (
+                                    <option key={u} value={u}>{u}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="col-span-2 relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">{NAIRA}</span>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={p.price}
-                            onChange={(e) => updateProductRow(idx, "price", e.target.value)}
-                            className="h-9 rounded-lg border-2 text-xs font-mono font-bold pl-5 pr-1"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={p.stock}
-                            onChange={(e) => updateProductRow(idx, "stock", e.target.value)}
-                            className="h-9 rounded-lg border-2 text-xs font-mono font-bold px-2"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Input
-                            placeholder="Piece"
-                            value={p.unit}
-                            onChange={(e) => updateProductRow(idx, "unit", e.target.value)}
-                            className="h-9 rounded-lg border-2 text-xs font-bold px-2"
-                          />
-                        </div>
-                        <div className="col-span-1 flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => deleteProductRow(idx)}
-                            className="h-8 w-8 rounded-lg flex items-center justify-center border-2 border-border/80 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors text-muted-foreground shrink-0"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   {/* Spreadsheet Footer Add Button */}

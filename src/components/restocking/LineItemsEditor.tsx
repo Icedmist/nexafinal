@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { useState } from "react";
 import type { Item } from "@/types/inventory";
 
+const NAIRA = "₦";
+
 export interface LineItemRow {
   id: string;
   itemId: string;
@@ -273,7 +275,7 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
                 <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Total</Label>
               )}
               <span className="flex h-8 items-center text-[10px] font-mono font-black text-foreground">
-                ${lineTotal.toLocaleString()}
+                {NAIRA}{lineTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
               </span>
             </div>
 
@@ -304,7 +306,7 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
           <span className="text-sm font-medium text-foreground">
             Total:{" "}
             <span className="font-mono text-base">
-              ${runningTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {NAIRA}{runningTotal.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </span>
           </span>
         </div>

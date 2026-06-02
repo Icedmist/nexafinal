@@ -10,6 +10,8 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.Cancelled]: "Cancelled",
 };
 
+const NAIRA = "₦";
+
 interface RestockPrintViewProps {
   purchaseOrder: PurchaseOrder;
   supplier: Supplier | undefined;
@@ -75,9 +77,9 @@ export function RestockPrintView({ purchaseOrder, supplier, items }: RestockPrin
                 <td className="py-1.5 font-mono text-xs">{item?.sku ?? "—"}</td>
                 <td className="py-1.5 text-right font-mono">{li.quantityOrdered}</td>
                 <td className="py-1.5 text-right font-mono">{li.quantityReceived}</td>
-                <td className="py-1.5 text-right font-mono">${li.unitCost.toFixed(2)}</td>
+                <td className="py-1.5 text-right font-mono">{NAIRA}{li.unitCost.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</td>
                 <td className="py-1.5 text-right font-mono font-medium">
-                  ${(li.quantityOrdered * li.unitCost).toFixed(2)}
+                  {NAIRA}{(li.quantityOrdered * li.unitCost).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
                 </td>
               </tr>
             );
@@ -87,9 +89,9 @@ export function RestockPrintView({ purchaseOrder, supplier, items }: RestockPrin
           <tr className="border-t-2 border-black">
             <td colSpan={5} className="py-2 text-right font-semibold">Total</td>
             <td className="py-2 text-right font-mono font-bold">
-              ${purchaseOrder.totalCost.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+              {NAIRA}{purchaseOrder.totalCost.toLocaleString("en-NG", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
               })}
             </td>
           </tr>

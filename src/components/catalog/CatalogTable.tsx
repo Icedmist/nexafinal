@@ -115,52 +115,7 @@ export function CatalogTable({
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <div>
-        <div className="space-y-3">
-          {paged.map((item) => (
-            <Card
-              key={item.id}
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => onRowClick?.(item)}
-            >
-              <CardHeader className="pb-2 pt-3 px-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium truncate">{item.name}</CardTitle>
-                  <StatusBadge status={stockStatus(item)} />
-                </div>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">SKU</span>
-                  <span className="font-mono text-xs">{item.sku}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Qty</span>
-                  <span className="font-mono">{item.currentStock}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Category</span>
-                  <span className="truncate ml-2">{catMap.get(item.categoryId ?? "") ?? "—"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Supplier</span>
-                  <span className="truncate ml-2">{supMap.get(item.supplierId ?? "") ?? "—"}</span>
-                </div>
-                {actionRenderer && (
-                  <div className="pt-1" onClick={(e) => e.stopPropagation()}>
-                    {actionRenderer(item)}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        {pagination}
-      </div>
-    );
-  }
+
 
   return (
     <div>

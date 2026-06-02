@@ -171,7 +171,7 @@ function OnboardingPage() {
           currentStock: Number(prod.stock) || 0,
           reorderPoint: 5,
           reorderQuantity: 10,
-          costPrice: 0,
+          costPrice: Number(prod.costPrice) || 0,
           sellingPrice: Number(prod.price) || 0,
           locationId: null,
           supplierId: null,

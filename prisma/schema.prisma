@@ -1,0 +1,62 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model StoreTenant {
+  id                String             @id @default(uuid())
+  name              String
+  createdAt         DateTime           @default(now())
+  moniepointLink    MoniepointAccount?
+  transactions      Transaction[]
+  users             UserStoreAccess[]
+}
+
+model MoniepointAccount {
+  id                 String   @id @default(uuid())
+  storeTenantId      String   @unique
+  storeTenant        StoreTenant @relation(fields: [storeTenantId], references: [id], onDelete: Cascade)
+  encryptedApiKey    String   // Encrypted at-rest using AES-256-GCM
+  merchantReference  String   @unique // Mapped from Moniepoint's business registration
+  businessName       String
+  webhookGroupId     String?  // Saved upon successful Moniepoint webhook registration
+  isLinked           Boolean  @default(true)
+  linkedAt           DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Transaction {
+  id               String      @id @default(uuid())
+  storeTenantId    String
+  storeTenant      StoreTenant @relation(fields: [storeTenantId], references: [id], onDelete: Cascade)
+  moniepointRef    String      @unique // Unique reference issued by Moniepoint for idempotency
+  amountInKobo     Int         // Stored as integer to avoid floating-point drift
+  currency         String      @default("NGN")
+  status           String      // SUCCESSFUL, FAILED, PENDING, REVERSED
+  paymentMethod    String      // CARD, TRANSFER, POS_TERMINAL
+  terminalId       String?     // Scopes transaction to specific physical POS terminal
+  rawPayload       Json        // Full historical snapshot of incoming webhook data
+  settledAt        DateTime
+  createdAt        DateTime    @default(now())
+
+  @@index([storeTenantId])
+  @@index([moniepointRef])
+}
+
+model UserStoreAccess {
+  id            String      @id @default(uuid())
+  userId        String
+  storeTenantId String
+  storeTenant   StoreTenant @relation(fields: [storeTenantId], references: [id], onDelete: Cascade)
+  role          StoreRole   // ENUM: OWNER, MANAGER, CASHIER
+}
+
+enum StoreRole {
+  OWNER
+  MANAGER
+  CASHIER
+}
