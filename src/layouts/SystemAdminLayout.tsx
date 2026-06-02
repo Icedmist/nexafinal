@@ -33,6 +33,14 @@ export function SystemAdminLayout() {
     }
   }, [location.pathname, role, navigate, user, loading, isSystemAdmin]);
 
+  // Force Dark Mode theme context on administrative dashboard pages & portals
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+    return () => {
+      document.documentElement.classList.remove("dark");
+    };
+  }, []);
+
   // Auth guard — redirect to landing if not logged in
   useEffect(() => {
     if (!loading && !user) {
@@ -45,7 +53,7 @@ export function SystemAdminLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-900 text-slate-100">
+    <div className="dark flex h-screen overflow-hidden bg-slate-900 text-slate-100">
       <aside className="hidden w-[280px] shrink-0 md:block">
         <SystemAdminSidebar />
       </aside>
