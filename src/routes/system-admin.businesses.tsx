@@ -10,7 +10,10 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Download
+  Download,
+  Users,
+  ShoppingBag,
+  TrendingUp
 } from "lucide-react";
 import { 
   collection, 
@@ -20,7 +23,8 @@ import {
   doc, 
   updateDoc,
   deleteDoc,
-  where
+  where,
+  limit
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
@@ -47,9 +51,85 @@ export default function SystemBusinesses() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  const [storeStaff, setStoreStaff] = useState<any[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [storeActivities, setStoreActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [salesCount, setSalesCount] = useState<number | null>(null);
+  const [productsCount, setProductsCount] = useState<number | null>(null);
+
   useEffect(() => {
     fetchBusinesses();
   }, [statusFilter]);
+
+  useEffect(() => {
+    if (selectedBusiness) {
+      fetchStoreStaff(selectedBusiness.id);
+      fetchStoreActivities(selectedBusiness.id);
+      fetchStoreMetadata(selectedBusiness.id);
+    } else {
+      setStoreStaff([]);
+      setStoreActivities([]);
+      setSalesCount(null);
+      setProductsCount(null);
+    }
+  }, [selectedBusiness]);
+
+  const fetchStoreStaff = async (storeId: string) => {
+    setLoadingStaff(true);
+    try {
+      const q = query(
+        collection(db, "staff"),
+        where("storeId", "==", storeId)
+      );
+      const snap = await getDocs(q);
+      setStoreStaff(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error("Error fetching store staff:", err);
+      setStoreStaff([]);
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  const fetchStoreActivities = async (storeId: string) => {
+    setLoadingActivities(true);
+    try {
+      const q = query(
+        collection(db, "activity_logs"),
+        where("storeId", "==", storeId),
+        orderBy("timestamp", "desc"),
+        limit(5)
+      );
+      const snap = await getDocs(q);
+      setStoreActivities(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error("Error fetching store activities:", err);
+      setStoreActivities([]);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const fetchStoreMetadata = async (storeId: string) => {
+    try {
+      const salesQuery = query(collection(db, "sales"), where("storeId", "==", storeId));
+      const salesSnap = await getDocs(salesQuery);
+      setSalesCount(salesSnap.size);
+    } catch (err) {
+      console.error("Error counting sales:", err);
+      setSalesCount(0);
+    }
+
+    try {
+      const productsQuery = query(collection(db, "products"), where("storeId", "==", storeId));
+      const productsSnap = await getDocs(productsQuery);
+      setProductsCount(productsSnap.size);
+    } catch (err) {
+      console.error("Error counting products:", err);
+      setProductsCount(0);
+    }
+  };
 
   const fetchBusinesses = async () => {
     setLoading(true);
@@ -201,12 +281,17 @@ export default function SystemBusinesses() {
                     <td className="px-8 py-6">
                       <div className={cn(
                         "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ring-1",
-                        biz.status === "active" 
-                          ? "bg-emerald-500/5 text-emerald-500 ring-emerald-500/20" 
-                          : "bg-rose-500/5 text-rose-500 ring-rose-500/20"
+                        biz.status === "active" && "bg-emerald-500/5 text-emerald-400 ring-emerald-500/20",
+                        biz.status === "suspended" && "bg-rose-500/5 text-rose-400 ring-rose-500/20",
+                        (biz.status === "pending" || !biz.status) && "bg-amber-500/5 text-amber-400 ring-amber-500/20"
                       )}>
-                        <div className={cn("h-1.5 w-1.5 rounded-full", biz.status === "active" ? "bg-emerald-500" : "bg-rose-500")} />
-                        {biz.status || "active"}
+                        <div className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          biz.status === "active" && "bg-emerald-500",
+                          biz.status === "suspended" && "bg-rose-500",
+                          (biz.status === "pending" || !biz.status) && "bg-amber-500"
+                        )} />
+                        {biz.status || "pending"}
                       </div>
                     </td>
                     <td className="px-8 py-6">
@@ -292,14 +377,14 @@ export default function SystemBusinesses() {
 
       {/* Business Details Dialog Modal */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-2xl bg-slate-950/95 border-slate-800 text-white rounded-[2.5rem] p-8 nexa-glass shadow-2xl animate-in fade-in duration-300">
+        <DialogContent className="max-w-2xl bg-slate-950/98 border-slate-800 text-white rounded-[2.5rem] p-8 nexa-glass shadow-2xl animate-in fade-in duration-300">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black italic uppercase tracking-tight text-white flex items-center gap-3">
               <Building2 className="h-6 w-6 text-blue-500" />
               Store Operations Details
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Detailed system profile and infrastructure metrics for {selectedBusiness?.name}.
+              Detailed system profile, real-time analytics, and registered staff for {selectedBusiness?.name}.
             </DialogDescription>
           </DialogHeader>
 
@@ -313,7 +398,7 @@ export default function SystemBusinesses() {
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Slug / Domain Prefix</span>
-                  <span className="text-base font-bold text-blue-400 mt-1 block">{selectedBusiness.slug || "None"}.nexa.os</span>
+                  <span className="text-base font-bold text-blue-400 mt-1 block">{selectedBusiness.slug || "none"}.nexa.os</span>
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Owner UID</span>
@@ -321,16 +406,16 @@ export default function SystemBusinesses() {
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Created Date</span>
-                  <span className="text-base font-bold text-slate-300 mt-1 block">
+                  <span className="text-sm font-bold text-slate-300 mt-1 block">
                     {selectedBusiness.createdAt?.seconds ? new Date(selectedBusiness.createdAt.seconds * 1000).toLocaleString() : "N/A"}
                   </span>
                 </div>
               </div>
 
-              {/* Infrastructure Details */}
+              {/* Real-time Infrastructure & Core Stats */}
               <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Infrastructure Details</span>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Operational Metrics & Assets</span>
+                <div className="grid grid-cols-4 gap-2 text-center">
                   <div className="p-3 bg-black/40 rounded-xl border border-white/5">
                     <span className="text-lg font-bold text-white block">{selectedBusiness.branchCount || 1}</span>
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Branches</span>
@@ -340,13 +425,81 @@ export default function SystemBusinesses() {
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Type</span>
                   </div>
                   <div className="p-3 bg-black/40 rounded-xl border border-white/5">
-                    <span className="text-lg font-bold text-emerald-500 block capitalize">{selectedBusiness.status || "active"}</span>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</span>
+                    {productsCount === null ? (
+                      <div className="h-5 flex items-center justify-center"><div className="h-3 w-3 animate-spin rounded-full border border-blue-500/30 border-t-blue-500" /></div>
+                    ) : (
+                      <span className="text-lg font-bold text-blue-400 block">{productsCount}</span>
+                    )}
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Products</span>
+                  </div>
+                  <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                    {salesCount === null ? (
+                      <div className="h-5 flex items-center justify-center"><div className="h-3 w-3 animate-spin rounded-full border border-emerald-500/30 border-t-emerald-500" /></div>
+                    ) : (
+                      <span className="text-lg font-bold text-emerald-400 block">{salesCount}</span>
+                    )}
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Sales Count</span>
                   </div>
                 </div>
               </div>
 
-              {/* Quick Controls */}
+              {/* Registered Staff Roster */}
+              <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center justify-between">
+                  <span>Registered Staff Roster ({storeStaff.length})</span>
+                  <span className="text-[9px] text-indigo-400 font-bold lowercase tracking-wider">Workforce Roster</span>
+                </span>
+                
+                {loadingStaff ? (
+                  <div className="flex justify-center py-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border border-indigo-500/30 border-t-indigo-500" />
+                  </div>
+                ) : storeStaff.length === 0 ? (
+                  <span className="text-xs text-slate-500 italic block">No active staff members registered under this workspace.</span>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {storeStaff.map((st: any) => (
+                      <div key={st.id} className="flex items-center gap-1.5 rounded-xl bg-slate-950 border border-slate-800 px-3 py-1.5 text-xs text-white">
+                        <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                        <span className="font-bold">{st.name || st.email}</span>
+                        <span className="text-[9px] rounded bg-white/5 px-1 py-0.5 text-slate-400 font-mono uppercase leading-none">{st.role || "staff"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Store Activities */}
+              <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center justify-between">
+                  <span>Recent Store Actions</span>
+                  <span className="text-[9px] text-blue-400 font-bold lowercase tracking-wider">Store Activity Logs</span>
+                </span>
+                
+                {loadingActivities ? (
+                  <div className="flex justify-center py-4">
+                    <div className="h-5 w-5 animate-spin rounded-full border border-blue-500/30 border-t-blue-500" />
+                  </div>
+                ) : storeActivities.length === 0 ? (
+                  <span className="text-xs text-slate-500 italic block py-2">No recent audit trails registered under this store workspace.</span>
+                ) : (
+                  <div className="space-y-2">
+                    {storeActivities.map((act) => (
+                      <div key={act.id} className="flex justify-between items-start gap-4 p-3 rounded-xl bg-black/40 border border-white/5 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-white leading-tight">{act.title || act.type}</span>
+                          <span className="text-[10px] text-slate-400">{act.message}</span>
+                        </div>
+                        <span className="text-[9px] text-slate-500 font-mono shrink-0">
+                          {act.timestamp?.seconds ? new Date(act.timestamp.seconds * 1000).toLocaleTimeString() : "Recent"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Controls */}
               <div className="flex gap-3 justify-end pt-4 border-t border-slate-900">
                 <Button 
                   variant="outline" 

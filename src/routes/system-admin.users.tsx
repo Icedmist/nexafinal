@@ -14,7 +14,7 @@ import {
   UserCheck,
   Ban
 } from "lucide-react";
-import { collection, query, getDocs, orderBy, limit } from "firebase/firestore";
+import { collection, query, getDocs, orderBy, limit, where } from "firebase/firestore";
 import { db, functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
 import { toast } from "sonner";
@@ -42,6 +42,9 @@ export default function SystemUsers() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
 
   const handleForcePasswordReset = async (email: string) => {
     const toastId = toast.loading(`Generating password reset link for ${email}...`);
@@ -78,7 +81,44 @@ export default function SystemUsers() {
 
   useEffect(() => {
     fetchUsers();
+    fetchBusinesses();
   }, []);
+
+  useEffect(() => {
+    if (selectedUser) {
+      fetchUserActivities(selectedUser.id);
+    } else {
+      setUserActivities([]);
+    }
+  }, [selectedUser]);
+
+  const fetchBusinesses = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, "businesses"));
+      setBusinesses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error("Error fetching businesses for lookup:", err);
+    }
+  };
+
+  const fetchUserActivities = async (uid: string) => {
+    setLoadingActivities(true);
+    try {
+      const q = query(
+        collection(db, "activity_logs"),
+        where("userId", "==", uid),
+        orderBy("timestamp", "desc"),
+        limit(5)
+      );
+      const snap = await getDocs(q);
+      setUserActivities(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error("Error fetching user activities:", err);
+      setUserActivities([]);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -160,13 +200,15 @@ export default function SystemUsers() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "system_admin":
-        return <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-blue-400 ring-1 ring-blue-500/20"><ShieldAlert className="h-3 w-3" /> System Admin</span>;
+        return <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-blue-400 ring-1 ring-blue-500/20"><ShieldAlert className="h-3 w-3" /> System Admin</span>;
       case "owner":
-        return <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-400 ring-1 ring-indigo-500/20"><ShieldCheck className="h-3 w-3" /> Store Owner</span>;
+        return <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400 ring-1 ring-amber-500/20"><ShieldCheck className="h-3 w-3" /> Store Owner</span>;
       case "manager":
-        return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 ring-1 ring-emerald-500/20"><Shield className="h-3 w-3" /> Manager</span>;
+        return <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-purple-400 ring-1 ring-purple-500/20"><Shield className="h-3 w-3" /> Manager</span>;
+      case "suspended":
+        return <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-400 ring-1 ring-rose-500/20"><Ban className="h-3 w-3" /> Suspended</span>;
       default:
-        return <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400 ring-1 ring-slate-500/20">Staff</span>;
+        return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 ring-1 ring-emerald-500/20">Staff</span>;
     }
   };
 
@@ -266,7 +308,9 @@ export default function SystemUsers() {
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2 text-slate-400">
                         <Building className="h-4 w-4 text-slate-600" />
-                        <span className="text-xs font-bold tracking-tight">{user.storeId || "Standalone"}</span>
+                        <span className="text-xs font-bold tracking-tight">
+                          {businesses.find(b => b.id === user.storeId)?.name || user.storeId || "Standalone"}
+                        </span>
                       </div>
                     </td>
                     <td className="px-8 py-5">
@@ -372,7 +416,14 @@ export default function SystemUsers() {
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Access Role</span>
-                  <span className="text-sm font-bold mt-1 block text-blue-400 uppercase tracking-wider">{selectedUser.role}</span>
+                  <div className="mt-1">{getRoleBadge(selectedUser.role)}</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 col-span-2">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Associated Store Workspace</span>
+                  <span className="text-sm font-bold text-white mt-1 block flex items-center gap-2">
+                    <Building className="h-4 w-4 text-blue-500" />
+                    {businesses.find(b => b.id === selectedUser.storeId)?.name || selectedUser.storeId || "Standalone (Global Access)"}
+                  </span>
                 </div>
               </div>
 
@@ -407,6 +458,36 @@ export default function SystemUsers() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Recent User Activities */}
+              <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center justify-between">
+                  <span>Recent User Activities</span>
+                  <span className="text-[9px] text-blue-400 font-bold lowercase tracking-wider">Live Platform Audit Logs</span>
+                </span>
+                
+                {loadingActivities ? (
+                  <div className="flex justify-center py-4">
+                    <div className="h-5 w-5 animate-spin rounded-full border border-blue-500/30 border-t-blue-500" />
+                  </div>
+                ) : userActivities.length === 0 ? (
+                  <span className="text-xs text-slate-500 italic block py-2">No recent audit trails registered in logs.</span>
+                ) : (
+                  <div className="space-y-2">
+                    {userActivities.map((act) => (
+                      <div key={act.id} className="flex justify-between items-start gap-4 p-3 rounded-xl bg-black/40 border border-white/5 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-white leading-tight">{act.title || act.type}</span>
+                          <span className="text-[10px] text-slate-400">{act.message}</span>
+                        </div>
+                        <span className="text-[9px] text-slate-500 font-mono shrink-0">
+                          {act.timestamp?.seconds ? new Date(act.timestamp.seconds * 1000).toLocaleTimeString() : "Recent"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Administrative Actions */}
