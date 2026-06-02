@@ -318,7 +318,7 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
 
-  const { uid, email: providedEmail, password, displayName, photoURL, role, branchId } = request.data || {};
+  const { uid, email: providedEmail, password, displayName, photoURL, role, branchId, isActive } = request.data || {};
 
   if (!uid) {
     throw new HttpsError('invalid-argument', 'User UID is required.');
@@ -339,7 +339,8 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
       password: !!password, 
       displayName: !!displayName, 
       photoURL: !!photoURL,
-      role: !!role 
+      role: !!role,
+      isActive: isActive !== undefined ? isActive : "unchanged"
     } 
   });
 
@@ -393,7 +394,7 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
         await admin.auth().updateUser(targetUid, updatePayload);
       }
 
-      if (role || branchId !== undefined) {
+      if (role || branchId !== undefined || isActive !== undefined) {
         const currentClaims = userRecord.customClaims || {};
         const storeId = currentClaims.storeId;
         
@@ -401,12 +402,21 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
           console.warn(`Warning: storeId missing from custom claims for user ${targetUid}. Attempting recovery from Firestore.`);
         }
 
+        let resolvedRole = role || currentClaims.role;
+        if (isActive === true && resolvedRole === "suspended") {
+          // Reactivating: fetch the real role from Firestore staff doc
+          const staffDoc = await admin.firestore().collection("staff").doc(uid).get();
+          resolvedRole = staffDoc.data()?.role || "staff";
+        } else if (isActive === false) {
+          resolvedRole = "suspended";
+        }
+
         await admin.auth().setCustomUserClaims(targetUid, {
           ...currentClaims,
-          role: role || currentClaims.role,
+          role: resolvedRole,
           branchId: branchId !== undefined ? branchId : currentClaims.branchId || null,
         });
-        console.log(`Updated claims for ${targetUid}: role=${role || currentClaims.role}, branchId=${branchId}`);
+        console.log(`Updated claims for ${targetUid}: role=${resolvedRole}, branchId=${branchId}`);
       }
     }
 
@@ -418,6 +428,7 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
     if (branchId) firestoreUpdate.branchId = branchId;
     if (photoURL) firestoreUpdate.photoURL = photoURL;
     if (email) firestoreUpdate.email = email;
+    if (isActive !== undefined) firestoreUpdate.isActive = isActive;
 
     if (Object.keys(firestoreUpdate).length > 0) {
       // Use set with merge:true to handle missing documents gracefully

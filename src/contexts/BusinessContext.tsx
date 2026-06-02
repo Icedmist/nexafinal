@@ -23,6 +23,7 @@ interface BusinessContextType {
   ownerId: string | null;
   storeId: string | null;
   needsOnboarding: boolean;
+  switchStore?: (storeId: string | null) => void;
 }
 
 const BusinessContext = createContext<BusinessContextType>({ 
@@ -31,7 +32,8 @@ const BusinessContext = createContext<BusinessContextType>({
   updateProfile: async () => {},
   ownerId: null,
   storeId: null,
-  needsOnboarding: false
+  needsOnboarding: false,
+  switchStore: () => {}
 });
 
 export const useBusiness = () => useContext(BusinessContext);
@@ -58,6 +60,28 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [storeId, setStoreId] = useState<string | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("system_admin_selected_store_id");
+    } catch (_) {
+      return null;
+    }
+  });
+
+  const switchStore = (id: string | null) => {
+    if (claims?.role !== "system_admin") {
+      console.warn("Only system admins can switch stores.");
+      return;
+    }
+    setSelectedStoreId(id);
+    try {
+      if (id) {
+        localStorage.setItem("system_admin_selected_store_id", id);
+      } else {
+        localStorage.removeItem("system_admin_selected_store_id");
+      }
+    } catch (_) {}
+  };
 
   // Load cached business profile immediately for offline resilience
   useEffect(() => {
@@ -90,18 +114,18 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoadingProfile(true);
 
       try {
-        let activeStoreId = store?.id;
+        let activeStoreId = store?.id || (claims?.role === "system_admin" ? selectedStoreId : null);
         let activeOwnerId = store?.ownerId;
 
         // If we are on a tenant subdomain, but the user's claims don't match the storeId yet,
         // we MUST wait or we'll get a permission-denied error.
-        if (store && claims?.storeId && claims.storeId !== store.id) {
+        if (store && claims?.storeId && claims.storeId !== store.id && claims.role !== "system_admin") {
            // If they have a different storeId, they shouldn't be here, but let the security rules handle it
            // OR we can show a specific "Unauthorized" state.
            console.warn("User storeId mismatch:", { userStore: claims.storeId, tenantStore: store.id });
         }
 
-        if (!store) {
+        if (!store && !activeStoreId) {
           // FALLBACK: Find store by ownerId OR by staff storeId claim on main domain
           try {
             const ownerQuery = query(collection(db, "stores"), where("ownerId", "==", user.uid), limit(1));
@@ -123,7 +147,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const cached = loadCachedBusinessState();
             if (cached && cached.storeId) {
               activeStoreId = cached.storeId;
-              activeOwnerId = cached.ownerId;
+              activeOwnerId = cached.ownerId || undefined;
             }
           }
 
@@ -177,7 +201,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 ownerId: data.ownerId,
               };
               setProfile(newProfile);
-              cacheBusinessState(newProfile, activeOwnerId || null, activeStoreId || null);
+              setOwnerId(data.ownerId || null);
+              cacheBusinessState(newProfile, data.ownerId || null, activeStoreId || null);
             } else {
               setProfile(null);
               setNeedsOnboarding(true);
@@ -200,7 +225,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       mounted = false;
       if (unsubscribe) unsubscribe();
     };
-  }, [user, store, loadingTenant, claims, claimsReady]);
+  }, [user, store, loadingTenant, claims, claimsReady, selectedStoreId]);
 
   const updateProfile = async (updates: Partial<BusinessProfile>) => {
     if (!user || !ownerId) return;
@@ -239,7 +264,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updateProfile, 
       ownerId,
       storeId,
-      needsOnboarding
+      needsOnboarding,
+      switchStore
     }}>
       {children}
     </BusinessContext.Provider>

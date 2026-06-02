@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Plus, Menu, User, LogOut, Settings, ChevronDown, ScanBarcode, Wifi, WifiOff } from "lucide-react";
+import { Search, Plus, Menu, User, LogOut, Settings, ChevronDown, ScanBarcode, Wifi, WifiOff, Building2 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,9 @@ import { PermissionGate } from "@/hooks/usePermissions";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, getDocs, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
@@ -64,12 +65,32 @@ export function Header() {
   
   const { logout } = useAuth();
   const { role, isSystemAdmin } = useRole();
-  const { profile } = useBusiness();
+  const { profile, switchStore, storeId } = useBusiness();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [staffName, setStaffName] = useState("");
+  const [allStores, setAllStores] = useState<{ id: string; name: string; slug: string }[]>([]);
+
+  useEffect(() => {
+    if (!isSystemAdmin) return;
+    const fetchAllStores = async () => {
+      try {
+        const q = query(collection(db, "stores"), orderBy("name"));
+        const snap = await getDocs(q);
+        const storesList = snap.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || "Unnamed Store",
+          slug: doc.data().slug || ""
+        }));
+        setAllStores(storesList);
+      } catch (err) {
+        console.error("Error fetching stores in store selector:", err);
+      }
+    };
+    fetchAllStores();
+  }, [isSystemAdmin]);
 
   // Safe connectivity indicator — reads browser online/offline state only.
   // IMPORTANT: We do NOT call Firestore disableNetwork()/enableNetwork() here
@@ -229,6 +250,63 @@ export function Header() {
           
           <NotificationBell onClick={() => setNotifOpen(true)} />
         </div>
+      )}
+
+      {isSystemAdmin && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
+              className="h-10 px-3 gap-2 rounded-xl border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 hover:border-blue-500 text-blue-400 text-xs font-black uppercase tracking-widest transition-all active:scale-95 flex items-center shrink-0"
+            >
+              <Building2 className="h-4 w-4" />
+              <span className="max-w-[120px] truncate">
+                {profile?.storeDetails?.name || "Select Store Sandbox"}
+              </span>
+              <ChevronDown className="h-3 w-3 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64 max-h-[300px] overflow-y-auto nexa-glass p-2 border-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-400">
+              Active Store Sandbox
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-slate-800 my-2" />
+            <DropdownMenuItem 
+              onClick={() => {
+                if (switchStore) {
+                  switchStore(null);
+                  toast.success("Exited store view. Showing platform metrics.");
+                }
+              }}
+              className="rounded-xl h-10 px-3 cursor-pointer focus:bg-slate-900 focus:text-white transition-all text-xs font-bold text-slate-400"
+            >
+              None (Global Command)
+            </DropdownMenuItem>
+            {allStores.map((s) => (
+              <DropdownMenuItem 
+                key={s.id}
+                onClick={() => {
+                  if (switchStore) {
+                    switchStore(s.id);
+                    toast.success(`Switched store context to: ${s.name}`);
+                    if (isSystemRoute) {
+                      navigate("/app/dashboard");
+                    }
+                  }
+                }}
+                className={cn(
+                  "rounded-xl h-10 px-3 cursor-pointer focus:bg-blue-600 focus:text-white transition-all text-xs font-bold",
+                  storeId === s.id ? "bg-blue-600/20 text-blue-400 border border-blue-500/20" : "text-slate-200"
+                )}
+              >
+                <div className="flex flex-col">
+                  <span>{s.name}</span>
+                  <span className="text-[9px] text-slate-500 group-hover:text-slate-300 font-medium lowercase">@{s.slug}</span>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
       <DropdownMenu>
