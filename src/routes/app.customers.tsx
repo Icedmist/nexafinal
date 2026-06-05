@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Search, User, Phone, ShoppingBag, MessageCircle, Send,
   TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X,
@@ -58,7 +58,22 @@ function CustomersPage() {
   
   const [search, setSearch] = useState("");
   const { store } = useTenant();
-  const [tab, setTab] = useState<CustomerTab>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") as CustomerTab;
+  const tab = (tabParam && ["all", "frequent", "high-spenders", "debtors", "inactive"].includes(tabParam)) ? tabParam : "all";
+
+  const setTab = (newTab: CustomerTab) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newTab === "all") {
+        next.delete("tab");
+      } else {
+        next.set("tab", newTab);
+      }
+      return next;
+    });
+  };
+  
   const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
   const [messageOpen, setMessageOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
@@ -231,6 +246,9 @@ function CustomersPage() {
       });
       toast.success(`Payment of ${NAIRA}${amount.toLocaleString()} recorded for ${messageTarget.name}`);
       setPaymentOpen(false);
+      setMessageTarget(null);
+      setPaymentAmount("");
+      setPaymentNote("");
     } catch (err) {
       toast.error("Failed to record payment");
     } finally {
@@ -430,7 +448,14 @@ function CustomersPage() {
         </DialogContent>
       </Dialog>
       {/* Clear Debt Dialog */}
-      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+      <Dialog open={paymentOpen} onOpenChange={(open) => {
+        setPaymentOpen(open);
+        if (!open) {
+          setMessageTarget(null);
+          setPaymentAmount("");
+          setPaymentNote("");
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

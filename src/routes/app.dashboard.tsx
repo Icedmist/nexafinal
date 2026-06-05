@@ -159,15 +159,17 @@ function DashboardPage() {
     const customerDebts: Record<string, { name: string; phone: string; balance: number }> = {};
     
     sales.filter(s => s.isCreditSale && s.customerPhone).forEach(s => {
-      if (!customerDebts[s.customerPhone!]) {
-        customerDebts[s.customerPhone!] = { name: s.customerName || "Unknown", phone: s.customerPhone!, balance: 0 };
+      const phone = s.customerPhone!.trim();
+      if (!customerDebts[phone]) {
+        customerDebts[phone] = { name: s.customerName || "Unknown", phone, balance: 0 };
       }
-      customerDebts[s.customerPhone!].balance += s.totalNgn;
+      customerDebts[phone].balance += s.totalNgn;
     });
 
     payments.forEach(p => {
-      if (customerDebts[p.customerPhone]) {
-        customerDebts[p.customerPhone].balance -= p.amountNgn;
+      const phone = p.customerPhone.trim();
+      if (customerDebts[phone]) {
+        customerDebts[phone].balance -= p.amountNgn;
       }
     });
 
@@ -373,7 +375,7 @@ function DashboardPage() {
               <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={Banknote} /></button>
               <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Net Profit" value={`${NAIRA}${netProfit.toLocaleString("en-NG")}`} accentColor={netProfit >= 0 ? "healthy" : "danger"} icon={netProfit >= 0 ? TrendingUp : TrendingDown} /></button>
               <button type="button" onClick={() => navigate("/app/expenses" )} className="text-left"><MetricCard label="Expenses" value={`${NAIRA}${totalExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
-              <button type="button" onClick={() => navigate("/app/customers" )} className="text-left"><MetricCard label="Outstanding Debt" value={`${NAIRA}${totalOutstandingDebt.toLocaleString("en-NG")}`} accentColor="danger" icon={AlertTriangle} /></button>
+              <button type="button" onClick={() => navigate("/app/customers?tab=debtors" )} className="text-left"><MetricCard label="Outstanding Debt" value={`${NAIRA}${totalOutstandingDebt.toLocaleString("en-NG")}`} accentColor="danger" icon={AlertTriangle} /></button>
             </div>
           </AccordionSection>
 
@@ -456,10 +458,20 @@ function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Debtor List</span>
-                  <Badge variant="outline" className="text-[10px] border-destructive/20 text-destructive bg-destructive/5 font-black uppercase tracking-widest">
-                    {debtors.length} Customers
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Debtor List</span>
+                    <Badge variant="outline" className="text-[10px] border-destructive/20 text-destructive bg-destructive/5 font-black uppercase tracking-widest">
+                      {debtors.length} Customers
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => navigate("/app/customers?tab=debtors")}
+                    className="h-auto p-0 text-xs font-bold text-primary hover:text-primary/80"
+                  >
+                    View Debts Page →
+                  </Button>
                 </div>
                 <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-1">
                   {debtors.map((d) => (
