@@ -276,6 +276,7 @@ export function Header() {
                 if (switchStore) {
                   switchStore(null);
                   toast.success("Exited store view. Showing platform metrics.");
+                  navigate("/system-admin/dashboard");
                 }
               }}
               className="rounded-xl h-10 px-3 cursor-pointer focus:bg-slate-900 focus:text-white transition-all text-xs font-bold text-slate-400"
@@ -287,11 +288,10 @@ export function Header() {
                 key={s.id}
                 onClick={() => {
                   if (switchStore) {
+                    localStorage.setItem("system_admin_selected_store_slug", s.slug);
                     switchStore(s.id);
                     toast.success(`Switched store context to: ${s.name}`);
-                    if (isSystemRoute) {
-                      navigate("/app/dashboard");
-                    }
+                    navigate(`/app/dashboard?s=${s.slug}`);
                   }
                 }}
                 className={cn(

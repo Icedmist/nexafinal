@@ -17,14 +17,14 @@ interface QueryResult<T> {
 export function useStaff(): QueryResult<Staff[]> {
   const { user, claims } = useAuth();
   const { store } = useTenant();
-  const { ownerId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Priority: use storeId from claims or store context
-    const targetStoreId = claims?.storeId || store?.id;
+    // Priority: use storeId from BusinessContext, fallback to claims or store context
+    const targetStoreId = storeId || claims?.storeId || store?.id;
 
     if (!user || !targetStoreId) {
       if (!user) setData([]);
@@ -60,7 +60,7 @@ export function useStaff(): QueryResult<Staff[]> {
     });
 
     return () => unsubscribe();
-  }, [user, claims, store]);
+  }, [user, claims, store, storeId]);
 
   return { data, isLoading, error };
 }
@@ -68,12 +68,12 @@ export function useStaff(): QueryResult<Staff[]> {
 export function useStoreBranches(): QueryResult<Branch[]> {
   const { user, claims } = useAuth();
   const { store } = useTenant();
-  const { ownerId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const [data, setData] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const targetStoreId = claims?.storeId || store?.id;
+    const targetStoreId = storeId || claims?.storeId || store?.id;
     if (!targetStoreId) {
       if (!store) setIsLoading(false);
       return;
@@ -101,7 +101,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     });
 
     return () => unsubscribe();
-  }, [store?.id, claims?.storeId, user?.uid, claims?.role, claims?.branchId, ownerId, store?.ownerId]);
+  }, [storeId, store?.id, claims?.storeId, user?.uid, claims?.role, claims?.branchId, ownerId, store?.ownerId]);
 
   return { data, isLoading, error: null };
 }

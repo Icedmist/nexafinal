@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Store } from "@/types/tenant";
+import { useLocation } from "react-router-dom";
 
 const RESERVED_SUBDOMAINS = ["www", "admin", "api", "dev", "staging", "auth"];
 
@@ -11,9 +12,12 @@ const detectSlug = () => {
   const hostname = window.location.hostname;
   const searchParams = new URLSearchParams(window.location.search);
   
-  // Priority 1: Query parameter (useful for local dev)
+  // Priority 1: Query parameter (useful for local dev / admin impersonation)
   const querySlug = searchParams.get("s");
-  if (querySlug) return querySlug;
+  if (querySlug) {
+    sessionStorage.setItem("nexa_active_slug", querySlug);
+    return querySlug;
+  }
 
   // Priority 2: Subdomain detection
   const parts = hostname.split(".");
@@ -22,38 +26,57 @@ const detectSlug = () => {
   if (hostname.includes("localhost") || hostname.includes("127.0.0.1")) {
     if (parts.length > 1 && parts[0] !== "localhost" && parts[0] !== "127") {
       const subdomain = parts[0];
-      if (!RESERVED_SUBDOMAINS.includes(subdomain)) return subdomain;
+      if (!RESERVED_SUBDOMAINS.includes(subdomain)) {
+        sessionStorage.setItem("nexa_active_slug", subdomain);
+        return subdomain;
+      }
     }
-    return "";
+  } else {
+    // Handle production domains: store.nexa.com
+    if (parts.length > 2) {
+      const subdomain = parts[0];
+      if (!RESERVED_SUBDOMAINS.includes(subdomain)) {
+        sessionStorage.setItem("nexa_active_slug", subdomain);
+        return subdomain;
+      }
+    }
   }
-  
-  // Handle production domains: store.nexa.com
-  if (parts.length > 2) {
-    const subdomain = parts[0];
-    if (!RESERVED_SUBDOMAINS.includes(subdomain)) return subdomain;
-  }
+
+  // Priority 3: Fallback to session active slug
+  const cachedActiveSlug = sessionStorage.getItem("nexa_active_slug");
+  if (cachedActiveSlug) return cachedActiveSlug;
+
+  // Priority 4: Fallback to system admin selected store slug in localStorage
+  const persistActiveSlug = localStorage.getItem("system_admin_selected_store_slug");
+  if (persistActiveSlug) return persistActiveSlug;
   
   return "";
 };
 
 export function useTenant() {
+  const location = useLocation();
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const fetchedRef = useRef(false);
+  const fetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Guard against duplicate calls (React strict mode)
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-
     const slug = detectSlug();
 
     if (!slug) {
       setStore(null);
       setLoading(false);
+      fetchedRef.current = null;
       return;
     }
+
+    // Skip if we already fetched/are fetching this specific slug
+    if (fetchedRef.current === slug) {
+      setLoading(false);
+      return;
+    }
+    fetchedRef.current = slug;
+    setLoading(true);
 
     const fetchStore = async () => {
       const isBrowser = typeof window !== "undefined";
@@ -68,6 +91,9 @@ export function useTenant() {
           try {
             const data = JSON.parse(sessionCached);
             setStore(data);
+            // Sync with system admin selected store for context alignment
+            localStorage.setItem("system_admin_selected_store_id", data.id);
+            localStorage.setItem("system_admin_selected_store_slug", data.slug);
             setLoading(false);
             return; // Session cache is fresh enough — done
           } catch (e) {
@@ -83,6 +109,9 @@ export function useTenant() {
           try {
             const data = JSON.parse(persistCached);
             setStore(data);
+            // Sync with system admin selected store for context alignment
+            localStorage.setItem("system_admin_selected_store_id", data.id);
+            localStorage.setItem("system_admin_selected_store_slug", data.slug);
             setLoading(false);
             loadedFromCache = true;
             // Don't return — still try to refresh from Firestore below
@@ -109,6 +138,9 @@ export function useTenant() {
           if (isBrowser) {
             sessionStorage.setItem(sessionKey, JSON.stringify(storeData));
             localStorage.setItem(persistKey, JSON.stringify(storeData));
+            // Also update the selected store details for system admin context sync
+            localStorage.setItem("system_admin_selected_store_id", storeData.id);
+            localStorage.setItem("system_admin_selected_store_slug", storeData.slug);
           }
         }
       } catch (err: any) {
@@ -123,7 +155,7 @@ export function useTenant() {
     };
 
     fetchStore();
-  }, []);
+  }, [location.search, location.pathname]);
 
   return { store, loading, error };
 }

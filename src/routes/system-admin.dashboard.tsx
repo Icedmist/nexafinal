@@ -244,20 +244,8 @@ export default function SystemDashboard() {
                     <div className="flex items-center justify-end gap-2">
                       <button 
                         onClick={() => {
-                          const host = window.location.hostname;
-                          const protocol = window.location.protocol;
-                          const port = window.location.port;
                           const slug = store.slug;
-                          
-                          let targetUrl = "";
-                          if (host.includes("localhost") || host.includes("127.0.0.1")) {
-                            targetUrl = `${protocol}//${slug}.localhost${port ? `:${port}` : ""}/app/dashboard`;
-                          } else {
-                            const parts = host.split(".");
-                            const domain = parts.slice(-2).join(".");
-                            targetUrl = `${protocol}//${slug}.${domain}/app/dashboard`;
-                          }
-                          window.open(targetUrl, "_blank");
+                          window.open(`/app/dashboard?s=${slug}`, "_blank");
                         }}
                         title="Audit Store (Jump In)"
                         className="flex h-8 items-center gap-2 rounded-lg bg-blue-600/10 px-3 text-[10px] font-black uppercase text-blue-500 transition-all hover:bg-blue-600 hover:text-white"

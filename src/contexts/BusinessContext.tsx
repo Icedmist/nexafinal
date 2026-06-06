@@ -79,6 +79,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.setItem("system_admin_selected_store_id", id);
       } else {
         localStorage.removeItem("system_admin_selected_store_id");
+        localStorage.removeItem("system_admin_selected_store_slug");
+        sessionStorage.removeItem("nexa_active_slug");
       }
     } catch (_) {}
   };

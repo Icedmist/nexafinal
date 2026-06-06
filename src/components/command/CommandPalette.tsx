@@ -177,19 +177,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
       if (value.startsWith("store:")) {
         const slug = value.replace("store:", "");
-        const host = window.location.hostname;
-        const protocol = window.location.protocol;
-        const port = window.location.port;
-        
-        let targetUrl = "";
-        if (host.includes("localhost") || host.includes("127.0.0.1")) {
-          targetUrl = `${protocol}//${slug}.localhost${port ? `:${port}` : ""}/app/dashboard`;
-        } else {
-          const parts = host.split(".");
-          const domain = parts.slice(-2).join(".");
-          targetUrl = `${protocol}//${slug}.${domain}/app/dashboard`;
-        }
-        window.open(targetUrl, "_blank");
+        window.open(`/app/dashboard?s=${slug}`, "_blank");
         return;
       }
 

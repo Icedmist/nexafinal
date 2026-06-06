@@ -36,8 +36,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 
     let q = query(
       collection(db, "sales"),
-      where("storeId", "==", storeId),
-      orderBy("createdAt", "desc")
+      where("storeId", "==", storeId)
     );
 
     if (!isAdmin) {
@@ -49,6 +48,9 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       snapshot.forEach((doc) => {
         sales.push({ ...doc.data(), id: doc.id } as SaleTransaction);
       });
+
+      // Sort client-side by createdAt descending to avoid composite index requirements
+      sales.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setData(sales);
       setIsLoading(false);
@@ -85,8 +87,7 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
 
     let q = query(
       collection(db, "debt_payments"),
-      where("storeId", "==", storeId),
-      orderBy("createdAt", "desc")
+      where("storeId", "==", storeId)
     );
 
     if (!isAdmin) {
@@ -98,6 +99,9 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
       snapshot.forEach((doc) => {
         payments.push({ ...doc.data(), id: doc.id } as DebtPayment);
       });
+      
+      // Sort client-side by createdAt descending to avoid composite index requirements
+      payments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setData(payments);
       setIsLoading(false);
