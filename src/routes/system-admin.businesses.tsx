@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ProvisionStoreDialog } from "@/components/system-admin/ProvisionStoreDialog";
 
 interface Business {
   id: string;
@@ -57,6 +58,7 @@ export default function SystemBusinesses() {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [salesCount, setSalesCount] = useState<number | null>(null);
   const [productsCount, setProductsCount] = useState<number | null>(null);
+  const [provisionOpen, setProvisionOpen] = useState(false);
 
   useEffect(() => {
     fetchBusinesses();
@@ -187,7 +189,10 @@ export default function SystemBusinesses() {
             <Download className="h-4 w-4" />
             Export CSV
           </button>
-          <button className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white uppercase tracking-widest transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/20">
+          <button 
+            onClick={() => setProvisionOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white uppercase tracking-widest transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/20"
+          >
             Provision New
           </button>
         </div>
@@ -510,6 +515,11 @@ export default function SystemBusinesses() {
           )}
         </DialogContent>
       </Dialog>
+      <ProvisionStoreDialog 
+        open={provisionOpen} 
+        onOpenChange={setProvisionOpen} 
+        onSuccess={fetchBusinesses}
+      />
     </div>
   );
 }
