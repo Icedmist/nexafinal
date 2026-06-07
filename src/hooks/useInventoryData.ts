@@ -79,6 +79,12 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
           return status === filters.status;
         });
       }
+      if (filters?.locationId) {
+        filtered = filtered.filter(i => i.locationId === filters.locationId);
+      }
+      if (filters?.supplierId) {
+        filtered = filtered.filter(i => i.supplierId === filters.supplierId);
+      }
       
       setData(filtered);
       setIsLoading(false);
@@ -89,7 +95,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims, filters?.categoryId, filters?.status, filters?.search, filters?.locationId]);
+  }, [user, storeId, claimsReady, claims, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
 
   return { data, isLoading, error };
 }

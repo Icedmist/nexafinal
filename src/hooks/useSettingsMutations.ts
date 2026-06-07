@@ -1,9 +1,11 @@
 import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 export function useSettingsMutations() {
   const { user } = useAuth();
+  const { storeId } = useBusiness();
 
   const addStaff = async (staffData: any) => {
     if (!user) return;
@@ -23,9 +25,10 @@ export function useSettingsMutations() {
   };
 
   const addCustomField = async (fieldData: any) => {
-    if (!user) return;
+    if (!user || !storeId) return;
     await addDoc(collection(db, "customFields"), {
       ...fieldData,
+      storeId,
       ownerId: user.uid,
       createdAt: serverTimestamp(),
     });

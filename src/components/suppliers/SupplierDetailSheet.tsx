@@ -50,8 +50,8 @@ export function SupplierDetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+      <DialogContent className="sm:max-w-[640px] max-h-[90vh] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none flex flex-col">
+        <div className="nexa-card bg-card p-6 flex flex-col overflow-hidden max-h-full flex-1">
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">

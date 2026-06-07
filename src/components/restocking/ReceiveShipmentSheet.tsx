@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PackageCheck, FileText, ShoppingCart, QrCode } from "lucide-react";
 import type { PurchaseOrder, Item } from "@/types/inventory";
-import { cn } from "@/lib/utils";
+import { cn, extractItemIdentifier } from "@/lib/utils";
 import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { toast } from "sonner";
 
@@ -38,11 +38,6 @@ export function ReceiveShipmentSheet({
   items,
   onConfirm,
 }: ReceiveShipmentSheetProps) {
-  const itemMap = useMemo(
-    () => new Map(items.map((i) => [i.id, i])),
-    [items],
-  );
-
   const initialQtys = useMemo(
     () =>
       Object.fromEntries(
@@ -54,8 +49,8 @@ export function ReceiveShipmentSheet({
     [purchaseOrder.items],
   );
 
-  const [qtys, setQtys] = useState<Record<string, number>>(initialQtys);
   const [notes, setNotes] = useState("");
+  const [qtys, setQtys] = useState<Record<string, number>>(initialQtys);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Reset when sheet opens with new PO
@@ -65,6 +60,8 @@ export function ReceiveShipmentSheet({
     setQtys(initialQtys);
     setNotes("");
   }
+
+  const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
   const hasAnyQty = useMemo(
     () => Object.values(qtys).some((q) => q > 0),
@@ -84,10 +81,10 @@ export function ReceiveShipmentSheet({
   }
 
   function handleQRScan(code: string) {
-    const query = code.trim().toLowerCase();
+    const cleanCode = extractItemIdentifier(code).toLowerCase();
     const lineItem = purchaseOrder.items.find(li => {
       const item = itemMap.get(li.itemId);
-      return item?.sku.toLowerCase() === query || item?.barcode?.toLowerCase() === query;
+      return item?.id.toLowerCase() === cleanCode || item?.sku.toLowerCase() === cleanCode || item?.barcode?.toLowerCase() === cleanCode;
     });
 
     if (lineItem) {
@@ -99,14 +96,14 @@ export function ReceiveShipmentSheet({
         toast.error("Item already fully received");
       }
     } else {
-      toast.error(`Item not found in this order: ${code}`);
+      toast.error(`Item not found in this order: ${cleanCode}`);
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+      <DialogContent className="sm:max-w-[640px] max-h-[90vh] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none flex flex-col">
+        <div className="nexa-card bg-card p-6 flex flex-col overflow-hidden max-h-full flex-1">
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">

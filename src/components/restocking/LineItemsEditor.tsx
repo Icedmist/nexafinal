@@ -13,6 +13,8 @@ import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { toast } from "sonner";
 import { useState } from "react";
 import type { Item } from "@/types/inventory";
+import { extractItemIdentifier } from "@/lib/utils";
+
 
 const NAIRA = "₦";
 
@@ -56,11 +58,12 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
   }
 
   function handleScan(code: string) {
-    // Find item by SKU or ID
-    const item = items.find((i) => i.sku === code || i.id === code);
+    const cleanCode = extractItemIdentifier(code);
+    // Find item by SKU, ID, or barcode
+    const item = items.find((i) => i.sku === cleanCode || i.id === cleanCode || i.barcode === cleanCode);
     
     if (!item) {
-      toast.error(`Product with code "${code}" not found`);
+      toast.error(`Product with code "${cleanCode}" not found`);
       return;
     }
 

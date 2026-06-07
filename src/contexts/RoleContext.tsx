@@ -26,6 +26,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [realRole, setRealRole] = useState<UserRoleType>("loading");
   const [loading, setLoading] = useState(true);
   const [isStoreMismatch, setIsStoreMismatch] = useState(false);
+  const [hasRefreshed, setHasRefreshed] = useState(false);
+
+  // Reset the refreshed flag when the user changes
+  useEffect(() => {
+    setHasRefreshed(false);
+  }, [user?.uid]);
 
   useEffect(() => {
     // If we're still loading core data, stay in loading state
@@ -41,12 +47,20 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const isOwner = (store && user.uid === store.ownerId) || (user.uid === businessOwnerId);
     const activeStoreId = store?.id || businessStoreId;
 
     // Check for store mismatch early
     // We only check if the user HAS a storeId in their claims. 
     // System admins are global and don't mismatch.
-    const hasMismatch = !!(claims?.storeId && activeStoreId && claims.storeId !== activeStoreId && claims.role !== "system_admin");
+    // Exclude owner from mismatch check to avoid stale claim lockout
+    const hasMismatch = !!(
+      claims?.storeId && 
+      activeStoreId && 
+      claims.storeId !== activeStoreId && 
+      claims.role !== "system_admin" &&
+      !isOwner
+    );
     setIsStoreMismatch(hasMismatch);
 
     // 1. High Priority: Use Custom Claims (Zero DB Read)
@@ -62,6 +76,17 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
       // Security Check: If there's a mismatch, we don't grant the role from claims
       if (hasMismatch) {
+        if (!hasRefreshed) {
+          setHasRefreshed(true);
+          console.log("Store mismatch detected. Attempting to force refresh token...");
+          user.getIdToken(true)
+            .then(() => {
+              console.log("Token refreshed successfully");
+            })
+            .catch((err) => {
+              console.error("Failed to force refresh token:", err);
+            });
+        }
         setRealRole("suspended");
         setLoading(false);
         return;
@@ -75,9 +100,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // 2. Fallback: Check if user is the store owner (merchant root)
-    const isOwner = (store && user.uid === store.ownerId) || (user.uid === businessOwnerId);
-    
     if (isOwner && !hasMismatch) {
       setRealRole("owner");
       setLoading(false);
@@ -110,7 +132,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     };
 
     resolveFallback();
-  }, [user, store, loadingTenant, claims, claimsReady, businessStoreId, businessOwnerId, loadingProfile]);
+  }, [user, store, loadingTenant, claims, claimsReady, businessStoreId, businessOwnerId, loadingProfile, hasRefreshed]);
 
   const value = useMemo<RoleContextValue>(() => {
     const role = realRole;

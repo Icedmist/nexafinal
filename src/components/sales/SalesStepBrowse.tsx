@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useItems, useCategories } from "@/hooks/useInventoryData";
-import { cn } from "@/lib/utils";
+import { cn, extractItemIdentifier } from "@/lib/utils";
 import type { Item } from "@/types/inventory";
 import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { toast } from "sonner";
@@ -68,11 +68,12 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   }, [onAdd]);
 
   const handleBarcodeSubmit = useCallback((val: string) => {
-    const query = val.trim();
+    const cleanCode = extractItemIdentifier(val);
+    const query = cleanCode.trim().toLowerCase();
     if (!query) return;
 
     const item = items.find(
-      (i) => i.barcode?.toLowerCase() === query.toLowerCase() || i.sku.toLowerCase() === query.toLowerCase()
+      (i) => i.id.toLowerCase() === query || i.barcode?.toLowerCase() === query || i.sku.toLowerCase() === query
     );
 
     if (item) {

@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { Category, Supplier, Location } from "@/types/inventory";
 import type { ItemFilters } from "@/types/inventory";
 import { QRScannerDialog } from "../shared/QRScannerDialog";
+import { extractItemIdentifier } from "@/lib/utils";
 
 interface CatalogFiltersProps {
   filters: ItemFilters;
@@ -130,7 +131,7 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
       <QRScannerDialog
         open={isScannerOpen}
         onOpenChange={setIsScannerOpen}
-        onScan={(code) => update({ search: code })}
+        onScan={(code) => update({ search: extractItemIdentifier(code) })}
       />
     </>
   );
