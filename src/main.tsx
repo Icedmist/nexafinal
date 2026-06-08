@@ -15,16 +15,12 @@ async function cleanupStaleServiceWorkers() {
   if (!('serviceWorker' in navigator)) return;
 
   const registrations = await navigator.serviceWorker.getRegistrations();
-  const staleRegistrations = registrations.filter((registration) =>
-    registration.active?.scriptURL.includes('/sw.js')
-  );
-
-  if (!staleRegistrations.length) return;
-
-  await Promise.all(staleRegistrations.map((registration) => registration.unregister()));
-
-  // Force reload once so the page loads without stale cached HTML.
-  window.location.reload();
+  
+  // Unregister all service workers to clear stale caches
+  if (registrations.length) {
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+    console.log('✅ Cleared stale service workers');
+  }
 }
 
 cleanupStaleServiceWorkers().catch((err) => {
