@@ -174,8 +174,21 @@ function CustomersPage() {
   const openWhatsApp = (phone: string, text: string) => {
     const cleaned = phone.replace(/\D/g, "");
     const intlPhone = cleaned.startsWith("0") ? `234${cleaned.slice(1)}` : cleaned;
-    const url = `https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
+    const encoded = encodeURIComponent(text);
+    const appUrl = `whatsapp://send?phone=${intlPhone}&text=${encoded}`;
+    const webUrl = `https://wa.me/${intlPhone}?text=${encoded}`;
+
+    // Try app deep link first (mobile). If it fails (e.g., WhatsApp not installed), fallback to web URL.
+    try {
+      // On mobile browsers, setting location will attempt to open the app.
+      window.location.href = appUrl;
+      // Fallback: open web link after a short delay
+      setTimeout(() => {
+        window.open(webUrl, "_blank");
+      }, 700);
+    } catch (e) {
+      window.open(webUrl, "_blank");
+    }
   };
 
   const handleSendMessage = (customer: CustomerRecord) => {

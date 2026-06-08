@@ -1,32 +1,34 @@
 <!DOCTYPE html>
-<!-- Build Trigger: 2026-05-08-15-30 -->
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nexa Store OS</title>
-  <meta name="description"
-    content="The unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand." />
-  <meta name="author" content="NEXA TECHNOLOGIES" />
-
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="NEXA TECHNOLOGIES" />
-  <meta property="og:description"
-    content="The unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand." />
-
-  <!-- Twitter -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="NEXA TECHNOLOGIES" />
-  <meta name="twitter:description"
-    content="The unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand." />
-</head>
-
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
-
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NexaStoreOS — Intelligent Retail for Nigeria</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content="The unified OS for modern retail. Track inventory, manage global suppliers, and forecast demand." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+    <style>
+      html,body{height:100%;margin:0}
+      body{font-family:'DM Sans',sans-serif;background:#FAFBFF;color:#08091A;display:flex;align-items:center;justify-content:center}
+      .container{max-width:980px;padding:36px}
+      .hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:18px}
+      .title{font-size:28px;font-weight:800}
+      .subtitle{color:#6B7299}
+      .cta{padding:12px 20px;border-radius:10px;background:#2B5BFF;color:#fff;text-decoration:none;font-weight:700}
+      @media (max-width:480px){.title{font-size:20px}}
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="hero">
+        <h1 class="title">NexaStoreOS — Intelligent Retail for Nigeria</h1>
+        <p class="subtitle">The complete, WhatsApp-native inventory and sales system built for local businesses. Manage stock, sales, and customers from your phone.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:12px">
+          <a class="cta" href="/app">Open App</a>
+          <a class="cta" href="/auth/signup" style="background:#00C4CF;color:#072">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>

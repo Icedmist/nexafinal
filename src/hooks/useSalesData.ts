@@ -273,7 +273,8 @@ export function useSalesMutations() {
     const paymentData = {
       ...payment,
       storeId,
-      branchId: claims?.branchId || null,
+      // Normalize branchId to match queries (non-admin listeners expect "none" when no branch)
+      branchId: claims?.branchId || "none",
       recordedBy: user.uid,
       recordedByName: user.displayName || user.email?.split("@")[0] || "Staff",
       createdAt: new Date().toISOString(),

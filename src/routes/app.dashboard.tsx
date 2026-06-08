@@ -156,22 +156,27 @@ function DashboardPage() {
 
   // Debt management list
   const debtors = useMemo(() => {
-    const customerDebts: Record<string, { name: string; phone: string; balance: number }> = {};
+    const customerDebts: Record<string, { name: string; phone?: string; balance: number }> = {};
     
-    sales.filter(s => s.isCreditSale && s.customerPhone).forEach(s => {
-      const phone = s.customerPhone!.trim();
-      const normPhone = normalizePhone(phone);
-      if (!customerDebts[normPhone]) {
-        customerDebts[normPhone] = { name: s.customerName || "Unknown", phone, balance: 0 };
+    sales.filter(s => s.isCreditSale && (s.customerPhone || s.customerName)).forEach(s => {
+      const phone = s.customerPhone?.trim();
+      const name = s.customerName?.trim();
+      const key = phone ? normalizePhone(phone) : `name:${name?.toLowerCase()}`;
+      
+      if (!customerDebts[key]) {
+        customerDebts[key] = { name: name || "Unknown", phone: phone || undefined, balance: 0 };
       }
-      customerDebts[normPhone].balance += s.totalNgn;
+      customerDebts[key].balance += s.totalNgn;
     });
 
     payments.forEach(p => {
-      const phone = p.customerPhone.trim();
-      const normPhone = normalizePhone(phone);
-      if (customerDebts[normPhone]) {
-        customerDebts[normPhone].balance -= p.amountNgn;
+      const phone = p.customerPhone?.trim();
+      const name = p.customerName?.trim();
+      if (!phone && !name) return;
+      
+      const key = phone ? normalizePhone(phone) : `name:${name?.toLowerCase()}`;
+      if (customerDebts[key]) {
+        customerDebts[key].balance -= p.amountNgn;
       }
     });
 

@@ -20,6 +20,8 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [manualInput, setManualInput] = useState(false);
+  const [manualCode, setManualCode] = useState("");
 
   const stopScanner = () => {
     if (streamRef.current) {
@@ -69,7 +71,8 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
 
   const initDetection = () => {
     if (!('BarcodeDetector' in window)) {
-      setError("This browser doesn't support native barcode scanning. Please use Chrome on Android or a modern desktop browser.");
+      // Provide clearer guidance on unsupported platforms (iOS Safari notably lacks BarcodeDetector)
+      setError("This browser doesn't support native barcode scanning. Use Chrome on Android or use the manual input option below on iPhone.");
       return;
     }
 
@@ -130,6 +133,30 @@ export function QRScannerDialog({ open, onOpenChange, onScan }: QRScannerDialogP
                 <Button onClick={startScanner} variant="outline" className="gap-2 font-black uppercase text-[10px] tracking-widest border-2">
                   <RefreshCw className="h-3 w-3" /> Retry Permission
                 </Button>
+                <div className="mt-3 text-sm">
+                  <p className="text-xs text-muted-foreground mb-2">If your device doesn't support live scanning, you can paste the QR content manually.</p>
+                  {!manualInput ? (
+                    <Button variant="ghost" size="sm" onClick={() => setManualInput(true)} className="mt-2">Enter code manually</Button>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 mt-2 w-full">
+                      <input
+                        value={manualCode}
+                        onChange={(e) => setManualCode(e.target.value)}
+                        placeholder="Paste QR code or text here"
+                        className="w-full p-2 rounded-md border border-border bg-background text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={() => {
+                          if (manualCode.trim()) {
+                            onScan(manualCode.trim());
+                            onOpenChange(false);
+                          }
+                        }}>Submit</Button>
+                        <Button variant="outline" onClick={() => { setManualInput(false); setManualCode(""); }}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>
