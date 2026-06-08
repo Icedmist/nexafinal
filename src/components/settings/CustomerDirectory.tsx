@@ -31,21 +31,25 @@ export function CustomerDirectory() {
 
     for (const sale of sales) {
       const phone = sale.customerPhone?.trim();
-      if (!phone) continue;
-      const normPhone = normalizePhone(phone);
-      const existing = map.get(normPhone);
+      const name = sale.customerName?.trim();
+      
+      if (!phone && !name) continue;
+      
+      const key = phone ? normalizePhone(phone) : `name:${name?.toLowerCase()}`;
+      const existing = map.get(key);
+      
       if (existing) {
         existing.totalSpent += sale.totalNgn;
         existing.transactionCount++;
         if (sale.createdAt > existing.lastPurchase) {
           existing.lastPurchase = sale.createdAt;
-          if (sale.customerName) existing.name = sale.customerName;
-          existing.phone = phone; // Keep latest formatting
+          if (name) existing.name = name;
+          if (phone) existing.phone = phone; // Keep latest formatting
         }
       } else {
-        map.set(normPhone, {
-          name: sale.customerName || "Customer",
-          phone,
+        map.set(key, {
+          name: name || "Customer",
+          phone: phone || "",
           totalSpent: sale.totalNgn,
           transactionCount: 1,
           lastPurchase: sale.createdAt,
@@ -100,15 +104,21 @@ export function CustomerDirectory() {
           ) : (
             <div className="space-y-2">
               {filtered.map((c) => (
-                <div key={c.phone} className="flex items-center gap-4 rounded-xl border border-border p-4 transition-colors hover:bg-muted/30">
+                <div key={c.phone || c.name} className="flex items-center gap-4 rounded-xl border border-border p-4 transition-colors hover:bg-muted/30">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <User className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Phone className="h-3 w-3" />{c.phone}
-                    </p>
+                    {c.phone ? (
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3" />{c.phone}
+                      </p>
+                    ) : (
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground opacity-70">
+                        <User className="h-3 w-3" /> No phone number
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold font-mono">{NAIRA}{c.totalSpent.toLocaleString("en-NG")}</p>

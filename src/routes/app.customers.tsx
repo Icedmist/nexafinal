@@ -91,9 +91,13 @@ function CustomersPage() {
     // Process Sales
     for (const sale of sales) {
       const phone = sale.customerPhone?.trim();
-      if (!phone) continue;
-      const normPhone = normalizePhone(phone);
-      const existing = map.get(normPhone);
+      const name = sale.customerName?.trim();
+      
+      if (!phone && !name) continue;
+      
+      const key = phone ? normalizePhone(phone) : `name:${name?.toLowerCase()}`;
+      const existing = map.get(key);
+      
       if (existing) {
         existing.totalSpent += sale.totalNgn;
         existing.transactionCount++;
@@ -102,13 +106,13 @@ function CustomersPage() {
         }
         if (sale.createdAt > existing.lastPurchase) {
           existing.lastPurchase = sale.createdAt;
-          if (sale.customerName) existing.name = sale.customerName;
-          existing.phone = phone; // keep the latest formatting
+          if (name) existing.name = name;
+          if (phone) existing.phone = phone; // keep the latest formatting
         }
       } else {
-        map.set(normPhone, {
-          name: sale.customerName || "Customer",
-          phone,
+        map.set(key, {
+          name: name || "Customer",
+          phone: phone || "",
           totalSpent: sale.totalNgn,
           transactionCount: 1,
           lastPurchase: sale.createdAt,
@@ -120,9 +124,14 @@ function CustomersPage() {
 
     // Subtract Payments
     for (const payment of payments) {
-      const phone = payment.customerPhone.trim();
-      const normPhone = normalizePhone(phone);
-      const record = map.get(normPhone);
+      const phone = payment.customerPhone?.trim();
+      const name = payment.customerName?.trim();
+      
+      if (!phone && !name) continue;
+      
+      const key = phone ? normalizePhone(phone) : `name:${name?.toLowerCase()}`;
+      const record = map.get(key);
+      
       if (record) {
         record.debtBalance -= payment.amountNgn;
       }
@@ -153,11 +162,11 @@ function CustomersPage() {
     totalDebt: customers.reduce((s, c) => s + c.debtBalance, 0),
   }), [customers]);
 
-  const toggleSelect = (phone: string) => {
+  const toggleSelect = (phoneOrName: string) => {
     setSelectedCustomers((prev) => {
       const next = new Set(prev);
-      if (next.has(phone)) next.delete(phone);
-      else next.add(phone);
+      if (next.has(phoneOrName)) next.delete(phoneOrName);
+      else next.add(phoneOrName);
       return next;
     });
   };
@@ -185,12 +194,23 @@ function CustomersPage() {
 
   const handleSendWhatsApp = () => {
     if (messageTarget) {
+      if (!messageTarget.phone) {
+        toast.error(`No phone number recorded for ${messageTarget.name}`);
+        return;
+      }
       openWhatsApp(messageTarget.phone, messageText);
     } else {
-      const targets = customers.filter((c) => selectedCustomers.has(c.phone));
+      const targets = customers.filter((c) => selectedCustomers.has(c.phone || c.name));
+      let sentCount = 0;
       for (const c of targets) {
+        if (!c.phone) continue;
         const text = messageText.replace("{name}", c.name).replace("{amount}", `${NAIRA}${c.totalSpent.toLocaleString("en-NG")}`).replace("{debt}", `${NAIRA}${c.debtBalance.toLocaleString("en-NG")}`);
         openWhatsApp(c.phone, text);
+        sentCount++;
+      }
+      if (sentCount === 0) {
+        toast.error("No selected customers have a phone number");
+        return;
       }
     }
     setMessageOpen(false);
@@ -326,21 +346,27 @@ function CustomersPage() {
             <div className="space-y-2">
               {filtered.map((c) => (
                 <div
-                  key={c.phone}
+                  key={c.phone || c.name}
                   className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-muted/30"
                 >
-                  <button type="button" onClick={() => toggleSelect(c.phone)} className="shrink-0">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${selectedCustomers.has(c.phone) ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
-                      {selectedCustomers.has(c.phone) ? <CheckSquare className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                  <button type="button" onClick={() => toggleSelect(c.phone || c.name)} className="shrink-0">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${selectedCustomers.has(c.phone || c.name) ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
+                      {selectedCustomers.has(c.phone || c.name) ? <CheckSquare className="h-5 w-5" /> : <User className="h-5 w-5" />}
                     </div>
                   </button>
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{c.name}</p>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
-                        <Phone className="h-3 w-3" />{c.phone}
-                      </p>
+                      {c.phone ? (
+                        <p className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />{c.phone}
+                        </p>
+                      ) : (
+                        <p className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground opacity-70">
+                          <User className="h-3 w-3" /> No phone number
+                        </p>
+                      )}
                       {c.email && (
                         <Badge variant="outline" className="text-[10px] h-4 py-0 font-normal opacity-70">
                           {c.email}
