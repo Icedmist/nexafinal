@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { exportCustomersPDF } from "@/lib/pdf-export";
+import { normalizePhone } from "@/lib/utils";
 
 const NAIRA = "₦";
 
@@ -31,16 +32,18 @@ export function CustomerDirectory() {
     for (const sale of sales) {
       const phone = sale.customerPhone?.trim();
       if (!phone) continue;
-      const existing = map.get(phone);
+      const normPhone = normalizePhone(phone);
+      const existing = map.get(normPhone);
       if (existing) {
         existing.totalSpent += sale.totalNgn;
         existing.transactionCount++;
         if (sale.createdAt > existing.lastPurchase) {
           existing.lastPurchase = sale.createdAt;
           if (sale.customerName) existing.name = sale.customerName;
+          existing.phone = phone; // Keep latest formatting
         }
       } else {
-        map.set(phone, {
+        map.set(normPhone, {
           name: sale.customerName || "Customer",
           phone,
           totalSpent: sale.totalNgn,

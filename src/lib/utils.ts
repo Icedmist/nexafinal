@@ -28,3 +28,10 @@ export function extractItemIdentifier(code: string): string {
   return trimmed;
 }
 
+export function normalizePhone(phone: string | undefined | null): string {
+  if (!phone) return "";
+  const cleaned = phone.replace(/\D/g, "");
+  return cleaned.length >= 10 ? cleaned.slice(-10) : cleaned;
+}
+
+

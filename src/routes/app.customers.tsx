@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { toast } from "sonner";
 import { CreditCard, DollarSign } from "lucide-react";
+import { normalizePhone } from "@/lib/utils";
 
 const NAIRA = "₦";
 
@@ -91,7 +92,8 @@ function CustomersPage() {
     for (const sale of sales) {
       const phone = sale.customerPhone?.trim();
       if (!phone) continue;
-      const existing = map.get(phone);
+      const normPhone = normalizePhone(phone);
+      const existing = map.get(normPhone);
       if (existing) {
         existing.totalSpent += sale.totalNgn;
         existing.transactionCount++;
@@ -101,9 +103,10 @@ function CustomersPage() {
         if (sale.createdAt > existing.lastPurchase) {
           existing.lastPurchase = sale.createdAt;
           if (sale.customerName) existing.name = sale.customerName;
+          existing.phone = phone; // keep the latest formatting
         }
       } else {
-        map.set(phone, {
+        map.set(normPhone, {
           name: sale.customerName || "Customer",
           phone,
           totalSpent: sale.totalNgn,
@@ -118,7 +121,8 @@ function CustomersPage() {
     // Subtract Payments
     for (const payment of payments) {
       const phone = payment.customerPhone.trim();
-      const record = map.get(phone);
+      const normPhone = normalizePhone(phone);
+      const record = map.get(normPhone);
       if (record) {
         record.debtBalance -= payment.amountNgn;
       }

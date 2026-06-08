@@ -9,7 +9,7 @@ import { StockStatusDonut, CategoryDonut } from "@/components/dashboard/StockDon
 import { DashboardReorderSection } from "@/components/insights/DashboardReorderSection";
 import { DashboardAnomalySection } from "@/components/insights/DashboardAnomalySection";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
-import { cn } from "@/lib/utils";
+import { cn, normalizePhone } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useStockSummary, useItems, useMovements, useSuppliers } from "@/hooks/useInventoryData";
@@ -160,16 +160,18 @@ function DashboardPage() {
     
     sales.filter(s => s.isCreditSale && s.customerPhone).forEach(s => {
       const phone = s.customerPhone!.trim();
-      if (!customerDebts[phone]) {
-        customerDebts[phone] = { name: s.customerName || "Unknown", phone, balance: 0 };
+      const normPhone = normalizePhone(phone);
+      if (!customerDebts[normPhone]) {
+        customerDebts[normPhone] = { name: s.customerName || "Unknown", phone, balance: 0 };
       }
-      customerDebts[phone].balance += s.totalNgn;
+      customerDebts[normPhone].balance += s.totalNgn;
     });
 
     payments.forEach(p => {
       const phone = p.customerPhone.trim();
-      if (customerDebts[phone]) {
-        customerDebts[phone].balance -= p.amountNgn;
+      const normPhone = normalizePhone(phone);
+      if (customerDebts[normPhone]) {
+        customerDebts[normPhone].balance -= p.amountNgn;
       }
     });
 
@@ -199,11 +201,12 @@ function DashboardPage() {
     for (const sale of sales) {
       const phone = sale.customerPhone?.trim();
       if (!phone) continue;
-      if (!customerSpends[phone]) {
-        customerSpends[phone] = { name: sale.customerName || "Customer", phone, totalSpent: 0, count: 0 };
+      const normPhone = normalizePhone(phone);
+      if (!customerSpends[normPhone]) {
+        customerSpends[normPhone] = { name: sale.customerName || "Customer", phone, totalSpent: 0, count: 0 };
       }
-      customerSpends[phone].totalSpent += sale.totalNgn;
-      customerSpends[phone].count += 1;
+      customerSpends[normPhone].totalSpent += sale.totalNgn;
+      customerSpends[normPhone].count += 1;
     }
     return Object.values(customerSpends)
       .sort((a, b) => b.totalSpent - a.totalSpent)
