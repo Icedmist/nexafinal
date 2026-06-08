@@ -11,6 +11,26 @@ import './styles.css';
 const container = document.getElementById('root');
 if (!container) throw new Error('Failed to find the root element');
 
+async function cleanupStaleServiceWorkers() {
+  if (!('serviceWorker' in navigator)) return;
+
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  const staleRegistrations = registrations.filter((registration) =>
+    registration.active?.scriptURL.includes('/sw.js')
+  );
+
+  if (!staleRegistrations.length) return;
+
+  await Promise.all(staleRegistrations.map((registration) => registration.unregister()));
+
+  // Force reload once so the page loads without stale cached HTML.
+  window.location.reload();
+}
+
+cleanupStaleServiceWorkers().catch((err) => {
+  console.warn('Failed to cleanup service worker:', err);
+});
+
 const root = createRoot(container);
 root.render(
   <React.StrictMode>
