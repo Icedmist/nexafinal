@@ -1,5 +1,4 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { useState, useEffect } from "react";
 import { useTenant } from "@/hooks/useTenant";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -9,120 +8,81 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   Package,
-  ScanLine,
-  TrendingUp,
-  Users,
-  ArrowRight,
-  Shield,
-  Globe,
-  Zap,
-  Sparkles,
-  Command,
   Eye,
   EyeOff,
   Building2,
-  Linkedin,
-  Layers,
-  LayoutDashboard,
-  CheckCircle2,
-  MapPin,
-  Check,
-  Smartphone,
-  MessageSquare,
-  AlertTriangle,
 } from "lucide-react";
 import nexaLogo from "@/assets/nexa-logo.svg";
 import type { Store } from "@/types/tenant";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-
-function RevealSection({
-  children,
-  className = "",
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-}) {
-  const { ref, isVisible } = useScrollReveal();
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-1000 ease-out ${
-        isVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"
-      } ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Nav() {
-  const [scrolled, setScrolled] = useState(false);
-  const { user } = useAuth();
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 px-6 py-4 ${scrolled ? "bg-[#0A1F44]/95 backdrop-blur-xl border-b border-white/5 shadow-lg" : "bg-transparent"}`}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="bg-[#00C2FF]/10 rounded-2xl p-2 border border-[#00C2FF]/20 transition-transform group-hover:rotate-12">
-            <img src={nexaLogo} className="h-8 w-8 invert brightness-0" alt="NEXA Logo" />
-          </div>
-          <span className="text-xl font-black font-['Montserrat',sans-serif] text-white tracking-tight uppercase italic">NEXA Store OS</span>
-        </Link>
-
-        <div className="flex items-center gap-4">
-          {user ? (
-            <Link to="/app/dashboard">
-              <Button className="rounded-xl font-black bg-[#00C2FF] hover:bg-[#00C2FF]/90 text-[#0A1F44] uppercase text-[10px] tracking-widest gap-2">
-                Dashboard <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          ) : (
-            <>
-              <Link to="/auth/login">
-                <Button variant="ghost" className="font-bold text-sm text-slate-200 hover:text-white rounded-xl">Login</Button>
-              </Link>
-              <Link to="/auth/signup">
-                <Button className="rounded-xl font-black bg-[#00C2FF] hover:bg-[#00C2FF]/90 text-[#0A1F44] uppercase text-[10px] tracking-widest px-6 shadow-lg shadow-[#00C2FF]/20">Get Started</Button>
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    </nav>
-  );
-}
+import "./landing.css";
 
 export default function LandingPage() {
   const { store, loading: tenantLoading } = useTenant();
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  const [activeTab, setActiveTab] = useState("home");
   const [activeFeature, setActiveFeature] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+  
+  // Weekly revenue chart state
+  const vals = [52, 67, 44, 81, 90, 68, 100];
+  const cols = ["#2B5BFF", "#2B5BFF", "#00C4CF", "#12D176", "#2B5BFF", "#6E40C9", "#2B5BFF"];
+  const [chartHeights, setChartHeights] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
 
-  useEffect(() => {
-    // Dynamically append Montserrat Font to document head
-    const link = document.createElement("link");
-    link.href = "https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
-    return () => {
-      document.head.removeChild(link);
-    };
-  }, []);
+  // Contact form state
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    biz: "",
+    type: "",
+    msg: ""
+  });
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     if (store && user) {
       navigate("/app/dashboard", { replace: true });
     }
   }, [store, user, navigate]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "home") {
+      const timer = setTimeout(() => {
+        setChartHeights(vals.map(v => v * 0.52));
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setChartHeights([0, 0, 0, 0, 0, 0, 0]);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const elements = document.querySelectorAll(".rv");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [activeTab]);
 
   if (tenantLoading) {
     return (
@@ -137,757 +97,686 @@ export default function LandingPage() {
     return <StoreLoginPage store={store} />;
   }
 
+  const navigateTo = (tab: string, elementId?: string) => {
+    setActiveTab(tab);
+    if (elementId) {
+      setTimeout(() => {
+        document.getElementById(elementId)?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      toast.error("Please enter your name and phone number.");
+      return;
+    }
+    setIsSubmitted(true);
+    toast.success("Request sent! We'll contact you within 2 hours.");
+  };
+
   return (
-    <div className="min-h-screen bg-[#0A1F44] text-white overflow-x-hidden selection:bg-[#00C2FF]/30 font-sans">
-      <Nav />
+    <div id="nexa-landing">
+      <div className="ambient">
+        <div className="orb orb-1"></div>
+        <div className="orb orb-2"></div>
+        <div className="orb orb-3"></div>
+      </div>
 
-      {/* ── SECTION 1: THE HERO (THE HOOK) ── */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-36 px-6 overflow-hidden bg-gradient-to-b from-[#0A1C2D] to-[#0A1F44]">
-        {/* Glow and nodes background container */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#00C2FF]/5 blur-[120px]" />
-          <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#1A73E8]/5 blur-[150px]" />
-        </div>
-
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            {/* Left Column: Content */}
-            <div className="lg:col-span-7 space-y-8 text-left">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
-                className="space-y-6"
-              >
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2FF]/30 bg-[#00C2FF]/5 px-4 py-1.5">
-                  <span className="flex h-2 w-2 rounded-full bg-[#00C2FF] animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00C2FF]">v2.0 Store OS</span>
-                </div>
-
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-black font-['Montserrat',sans-serif] leading-[1.05] tracking-tighter text-white uppercase italic">
-                  Wake Up to Your Shop’s Profit Before You Even Leave Bed.
-                </h1>
-
-                <p className="text-base md:text-lg text-slate-300 font-medium leading-relaxed max-w-xl">
-                  The complete, WhatsApp-native inventory and sales system built specifically for Northern Nigerian businesses. No expensive hardware required—run your entire shop from the phone you already own.
-                </p>
-
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                    <Link to="/auth/signup" className="flex-1 sm:flex-initial">
-                      <Button className="w-full h-16 px-10 bg-[#00C2FF] hover:bg-[#00C2FF]/90 text-[#0A1F44] rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-[#00C2FF]/20 hover:scale-[1.03] transition-all">
-                        Claim 1 of 30 Launch Spots
-                      </Button>
-                    </Link>
-                    <Link to="/auth/login" className="flex-1 sm:flex-initial">
-                      <Button variant="outline" className="w-full h-16 px-10 rounded-2xl font-bold text-sm border-white/20 hover:bg-white/5 text-white">
-                        Portal Login
-                      </Button>
-                    </Link>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#FFB800]">
-                    <Shield className="h-4 w-4 shrink-0" />
-                    <span>30-Day 100% Money-Back Guarantee</span>
-                  </div>
-                </div>
-              </motion.div>
+      {/* ═══ NAVIGATION ═══ */}
+      <nav id="nav" className={scrolled ? "scrolled" : ""}>
+        <div className="nav-inner">
+          <a className="nav-brand" onClick={() => navigateTo("home")}>
+            <div className="nav-brand-logo">
+              <img src={nexaLogo} alt="NEXA Logo" />
             </div>
-
-            {/* Right Column: Phone Mockup */}
-            <div className="lg:col-span-5 relative flex justify-center">
-              {/* Subtle 3D glowing cyan nodes behind the phone */}
-              <div className="absolute inset-0 pointer-events-none -z-10 flex items-center justify-center opacity-50">
-                <svg width="450" height="450" viewBox="0 0 400 400" fill="none" className="animate-pulse duration-4000">
-                  <circle cx="200" cy="200" r="110" stroke="#00C2FF" strokeWidth="1" strokeDasharray="6 6" />
-                  <circle cx="200" cy="200" r="160" stroke="#00C2FF" strokeWidth="0.5" />
-                  <circle cx="100" cy="120" r="6" fill="#00C2FF" />
-                  <circle cx="300" cy="280" r="4" fill="#00C2FF" />
-                  <circle cx="280" cy="100" r="5" fill="#00C2FF" />
-                  <circle cx="120" cy="270" r="4" fill="#00C2FF" />
-                  <line x1="100" y1="120" x2="200" y2="200" stroke="#00C2FF" strokeWidth="0.75" />
-                  <line x1="300" y1="280" x2="200" y2="200" stroke="#00C2FF" strokeWidth="0.75" />
-                  <line x1="280" y1="100" x2="200" y2="200" stroke="#00C2FF" strokeWidth="0.75" />
-                  <line x1="120" y1="270" x2="200" y2="200" stroke="#00C2FF" strokeWidth="0.75" />
-                </svg>
-              </div>
-
-              {/* CSS Phone Mockup */}
-              <div className="relative w-[290px] h-[580px] rounded-[3rem] border-8 border-slate-800 bg-slate-950 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden ring-4 ring-[#00C2FF]/20 flex flex-col justify-between p-3 select-none">
-                {/* Speaker/Camera notch */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-32 h-4 bg-slate-800 rounded-full z-20 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-slate-950 rounded-full" />
-                </div>
-
-                {/* Screen Content */}
-                <div className="flex-1 bg-[#0A1C2D] rounded-[2.2rem] overflow-hidden flex flex-col p-4 pt-6 text-left">
-                  {/* Screen Header */}
-                  <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] font-black text-white tracking-widest uppercase">NexaStoreOS</span>
-                    </div>
-                    <span className="text-[8px] font-mono text-slate-400">12:30 PM</span>
-                  </div>
-
-                  {/* Profit Card */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 mb-3">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Yesterday's Profit</span>
-                    <div className="flex items-baseline justify-between mt-1">
-                      <span className="text-xl font-black font-mono text-[#00C2FF]">₦48,500</span>
-                      <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">+12.4%</span>
-                    </div>
-                  </div>
-
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-2.5">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Active Staff</span>
-                      <p className="text-[10px] font-bold text-white mt-0.5">Musa & Fatima</p>
-                    </div>
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-2.5">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total Sales</span>
-                      <p className="text-[10px] font-black font-mono text-white mt-0.5">38 orders</p>
-                    </div>
-                  </div>
-
-                  {/* Live feed */}
-                  <div className="flex-1 space-y-2 overflow-hidden">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Recent Activity</span>
-                    <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
-                      <div>
-                        <p className="text-[9px] font-bold text-white">Indomie Onion 40g</p>
-                        <p className="text-[7px] text-slate-400">120 units sold by Musa</p>
-                      </div>
-                      <span className="text-[8px] font-bold text-[#00C2FF]">₦12,500</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
-                      <div>
-                        <p className="text-[9px] font-bold text-white">Peak Milk 400g</p>
-                        <p className="text-[7px] text-slate-400">Credit sale to Alhaji Musa</p>
-                      </div>
-                      <span className="text-[8px] font-bold text-[#FFB800]">₦15,000</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                      <p className="text-[8px] text-emerald-300 font-bold leading-tight">Monnify POS payment: ₦6,500 received</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 2: BENTO BOX SOCIAL PROOF ── */}
-      <section className="bg-[#0A1F44] py-24 px-6 relative overflow-hidden border-t border-white/5">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#00C2FF]/5 rounded-full blur-[120px] pointer-events-none" />
-        
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Card 1: Built for Jalingo, Gombe & Maiduguri */}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 flex flex-col justify-between hover:border-[#00C2FF]/30 transition-all group min-h-[220px]">
-              <div className="h-12 w-12 rounded-2xl bg-[#00C2FF]/10 flex items-center justify-center text-[#00C2FF] mb-6 shadow-inner">
-                <MapPin className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold font-['Montserrat',sans-serif] text-white tracking-tight mb-2">
-                  Built for Jalingo, Gombe & Maiduguri.
-                </h3>
-                <p className="text-slate-400 text-xs leading-relaxed font-medium">
-                  Designed explicitly for Northern Nigerian retail reality, bandwidth constraints, and local commerce flow.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 2: 100% WhatsApp Native */}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 flex flex-col justify-between hover:border-[#00C2FF]/30 transition-all group min-h-[220px]">
-              <div className="h-12 w-12 rounded-2xl bg-[#25D366]/10 flex items-center justify-center text-[#25D366] mb-6 shadow-inner ring-2 ring-[#25D366]/20">
-                <svg className="h-6 w-6 fill-current" viewBox="0 0 24 24">
-                  <path d="M12.004 2C6.48 2 2 6.48 2 12.004c0 1.908.533 3.768 1.543 5.404L2 22l4.764-1.25c1.554.848 3.31 1.258 5.236 1.258 5.524 0 10.004-4.48 10.004-10.004C22.004 6.48 17.528 2 12.004 2zm0 16.5c-1.745 0-3.376-.482-4.78-1.325l-.343-.205-2.82.74.753-2.75-.225-.358c-.927-1.478-1.42-3.21-1.42-5.006 0-4.687 3.813-8.5 8.5-8.5s8.5 3.813 8.5 8.5-3.813 8.5-8.5 8.5zm4.615-6.315c-.253-.127-1.5-.74-1.733-.824-.233-.085-.403-.127-.573.127-.17.254-.658.824-.805.993-.147.17-.294.19-.547.063-.253-.127-1.07-.394-2.037-1.257-.753-.672-1.26-1.502-1.408-1.756-.148-.253-.016-.39.11-.516.114-.114.254-.296.38-.445.128-.148.17-.253.254-.423.085-.17.042-.317-.02-.444-.064-.127-.573-1.38-.785-1.892-.206-.502-.413-.434-.572-.442l-.488-.007c-.17 0-.445.063-.678.317-.233.254-.89.87-.89 2.122 0 1.25.91 2.457 1.037 2.627.127.17 1.79 2.735 4.337 3.834.606.262 1.08.418 1.448.535.61.194 1.165.166 1.604.1.488-.073 1.5-.612 1.71-1.205.212-.593.212-1.1.148-1.205-.063-.105-.233-.147-.487-.274z"/>
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold font-['Montserrat',sans-serif] text-white tracking-tight mb-2">
-                  100% WhatsApp Native.
-                </h3>
-                <p className="text-slate-400 text-xs leading-relaxed font-medium">
-                  Your customers don't need to download any new apps. They place orders and receive notifications directly inside WhatsApp.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 3: Integrates seamlessly with Monnify */}
-            <div className="md:col-span-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-[#00C2FF]/30 transition-all group min-h-[180px]">
-              <div className="space-y-3 max-w-2xl text-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00C2FF]/10 border border-[#00C2FF]/20 text-[#00C2FF] text-[10px] font-black uppercase tracking-wider">
-                  Payment Automation
-                </div>
-                <h3 className="text-2xl font-bold font-['Montserrat',sans-serif] text-white tracking-tight">
-                  Integrates seamlessly with Monnify.
-                </h3>
-                <p className="text-slate-300 text-sm leading-relaxed font-medium">
-                  Your POS takes the payment, NexaStoreOS tracks the inventory. Receive instant notifications for transfers and POS transactions without manual statement auditing.
-                </p>
-              </div>
-              <div className="shrink-0 flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4 w-full md:w-auto justify-center">
-                <div className="h-10 px-4 bg-white/10 rounded-lg flex items-center justify-center text-white font-extrabold tracking-widest text-xs uppercase">
-                  MONNIFY
-                </div>
-                <div className="h-8 w-px bg-white/10" />
-                <div className="h-10 px-4 bg-white/10 rounded-lg flex items-center justify-center text-white font-extrabold tracking-widest text-xs uppercase">
-                  NEXA OS
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 3: THE DISPLACEMENT STRATEGY ── */}
-      <section className="bg-white py-24 px-6 relative text-[#0A1F44]">
-        <div className="max-w-7xl mx-auto space-y-16">
-          <div className="text-center max-w-3xl mx-auto space-y-4">
-            <h2 className="text-4xl md:text-6xl font-black font-['Montserrat',sans-serif] uppercase tracking-tight">
-              Outgrow Your Old Systems Today.
-            </h2>
-            <p className="text-slate-500 font-medium italic">
-              Legacy tools hold your retail profit back. Nexa shifts your store into autopilot.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Comparison 1 */}
-            <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-[#F4F6F8] flex flex-col justify-between hover:shadow-xl transition-all text-left">
-              <div className="space-y-6">
-                <div className="inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-slate-200 text-slate-700 rounded-full">
-                  Vs. Manual Ledgers
-                </div>
-                <div className="space-y-4">
-                  <div className="border-l-4 border-red-500 pl-4 py-1">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-red-500">The Problem</h4>
-                    <p className="text-sm font-bold text-[#0A1F44] mt-1 leading-snug">
-                      What happens if the book gets lost in a fire or flood?
-                    </p>
-                  </div>
-                  <div className="border-l-4 border-emerald-500 pl-4 py-1">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-500">Nexa Solution</h4>
-                    <p className="text-sm font-bold text-slate-600 mt-1 leading-snug">
-                      Cloud backup forever. Search your sales in 30 seconds.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Comparison 2 */}
-            <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-[#F4F6F8] flex flex-col justify-between hover:shadow-xl transition-all text-left">
-              <div className="space-y-6">
-                <div className="inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-slate-200 text-slate-700 rounded-full">
-                  Vs. Excel / Spreadsheets
-                </div>
-                <div className="space-y-4">
-                  <div className="border-l-4 border-red-500 pl-4 py-1">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-red-500">The Problem</h4>
-                    <p className="text-sm font-bold text-[#0A1F44] mt-1 leading-snug">
-                      Crashes when two staff edit at once. Doesn't send receipts.
-                    </p>
-                  </div>
-                  <div className="border-l-4 border-emerald-500 pl-4 py-1">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-500">Nexa Solution</h4>
-                    <p className="text-sm font-bold text-slate-600 mt-1 leading-snug">
-                      Multi-user access with automated digital receipts. (Plus, we import your Excel data for free).
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Comparison 3 */}
-            <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-[#F4F6F8] flex flex-col justify-between hover:shadow-xl transition-all text-left">
-              <div className="space-y-6">
-                <div className="inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-slate-200 text-slate-700 rounded-full">
-                  Vs. Basic POS Systems
-                </div>
-                <div className="space-y-4">
-                  <div className="border-l-4 border-red-500 pl-4 py-1">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-red-500">The Problem</h4>
-                    <p className="text-sm font-bold text-[#0A1F44] mt-1 leading-snug">
-                      You know you got paid, but what exactly did you sell?
-                    </p>
-                  </div>
-                  <div className="border-l-4 border-emerald-500 pl-4 py-1">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-500">Nexa Solution</h4>
-                    <p className="text-sm font-bold text-slate-600 mt-1 leading-snug">
-                      Complete inventory tracking overlaid on your digital payments.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 4: THE ADDICTION ENGINE ── */}
-      <section className="bg-[#F4F6F8] py-24 px-6 relative overflow-hidden text-[#0A1F44]">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            {/* Left Content */}
-            <div className="lg:col-span-7 space-y-8 text-left">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00C2FF]/10 border border-[#00C2FF]/20 text-[#00C2FF] text-[10px] font-black uppercase tracking-wider">
-                  Automated Intelligence
-                </div>
-                <h2 className="text-4xl md:text-5xl lg:text-6xl font-black font-['Montserrat',sans-serif] uppercase tracking-tight leading-[1.1]">
-                  Your Business Intelligence, Delivered Instantly.
-                </h2>
-              </div>
-
-              {/* Interactive Tabs */}
-              <div className="space-y-4">
-                {/* Feature 1 */}
-                <button
-                  type="button"
-                  onClick={() => setActiveFeature(0)}
-                  className={`w-full text-left p-6 rounded-[2rem] border transition-all flex gap-4 items-start ${
-                    activeFeature === 0
-                      ? "bg-white border-[#00C2FF] shadow-lg"
-                      : "bg-transparent border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    activeFeature === 0 ? "bg-[#00C2FF]/10 text-[#00C2FF]" : "bg-slate-200 text-slate-600"
-                  }`}>
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base">8 AM Daily Summaries</h3>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">
-                      Start your day knowing yesterday's exact revenue and top-selling items.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Feature 2 */}
-                <button
-                  type="button"
-                  onClick={() => setActiveFeature(1)}
-                  className={`w-full text-left p-6 rounded-[2rem] border transition-all flex gap-4 items-start ${
-                    activeFeature === 1
-                      ? "bg-white border-[#00C2FF] shadow-lg"
-                      : "bg-transparent border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    activeFeature === 1 ? "bg-[#00C2FF]/10 text-[#00C2FF]" : "bg-slate-200 text-slate-600"
-                  }`}>
-                    <AlertTriangle className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base">Instant Low-Stock Alerts</h3>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">
-                      Never miss a sale. Get a WhatsApp ping the second your fast-moving items hit the reorder point.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Feature 3 */}
-                <button
-                  type="button"
-                  onClick={() => setActiveFeature(2)}
-                  className={`w-full text-left p-6 rounded-[2rem] border transition-all flex gap-4 items-start ${
-                    activeFeature === 2
-                      ? "bg-white border-[#00C2FF] shadow-lg"
-                      : "bg-transparent border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    activeFeature === 2 ? "bg-[#00C2FF]/10 text-[#00C2FF]" : "bg-slate-200 text-slate-600"
-                  }`}>
-                    <TrendingUp className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base">Live Payment Tracking</h3>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">
-                      Instant notifications the moment a customer pays.
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Right Mockup */}
-            <div className="lg:col-span-5 flex justify-center relative">
-              <div className="absolute inset-0 bg-[#00C2FF]/10 blur-[100px] rounded-full pointer-events-none" />
-
-              {/* Lockscreens Phone Mockup */}
-              <div className="relative w-[280px] h-[560px] rounded-[3rem] border-8 border-slate-800 bg-slate-900 shadow-2xl overflow-hidden p-3 flex flex-col justify-between select-none">
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-3.5 bg-slate-800 rounded-full z-20" />
-                
-                {/* Phone screen wallpaper */}
-                <div className="flex-1 bg-gradient-to-b from-[#0A1F44] via-[#0A1C2D] to-slate-950 rounded-[2.2rem] overflow-hidden flex flex-col p-4 pt-12 relative text-left">
-                  
-                  {/* Lock Screen Time */}
-                  <div className="text-center space-y-0.5 mb-8">
-                    <span className="text-white text-3xl font-black tracking-tight">08:00</span>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Saturday, June 6</p>
-                  </div>
-
-                  {/* Lock Screen Notification Cards Stack */}
-                  <div className="space-y-3 flex-1 flex flex-col justify-start">
-                    
-                    {activeFeature === 0 && (
-                      <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-4 w-4 bg-[#25D366] rounded-full flex items-center justify-center text-white text-[8px] font-bold">W</div>
-                            <span className="text-[9px] font-black text-white">Nexa Store OS</span>
-                          </div>
-                          <span className="text-[7px] text-slate-400">now</span>
-                        </div>
-                        <p className="text-[10px] font-bold text-white leading-snug">📊 Daily Report: Alhaji & Sons</p>
-                        <p className="text-[9px] text-slate-300 mt-1 leading-snug">
-                          Good morning Fatima! Yesterday's profit was <b>₦48,500</b>. Top selling item: <b>Indomie Onion 40g</b>.
-                        </p>
-                      </div>
-                    )}
-
-                    {activeFeature === 1 && (
-                      <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-4 w-4 bg-[#25D366] rounded-full flex items-center justify-center text-white text-[8px] font-bold">W</div>
-                            <span className="text-[9px] font-black text-white">Nexa Inventory Bot</span>
-                          </div>
-                          <span className="text-[7px] text-slate-400">now</span>
-                        </div>
-                        <p className="text-[10px] font-bold text-[#FFB800] leading-snug">⚠️ Low Stock Warning</p>
-                        <p className="text-[9px] text-slate-300 mt-1 leading-snug">
-                          <b>Peak Milk 400g</b> is down to 4 tins. Standard restock quantity is 2 cartons. Reply "RESTOCK" to trigger order.
-                        </p>
-                      </div>
-                    )}
-
-                    {activeFeature === 2 && (
-                      <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-4 w-4 bg-[#25D366] rounded-full flex items-center justify-center text-white text-[8px] font-bold">W</div>
-                            <span className="text-[9px] font-black text-white">Nexa Pay Alert</span>
-                          </div>
-                          <span className="text-[7px] text-slate-400">now</span>
-                        </div>
-                        <p className="text-[10px] font-bold text-emerald-400 leading-snug">✅ Payment Verified</p>
-                        <p className="text-[9px] text-slate-300 mt-1 leading-snug">
-                          Fatima Ali transferred <b>₦6,500</b> via Monnify. Inventory for Order #2839 was automatically updated.
-                        </p>
-                      </div>
-                    )}
-
-                  </div>
-
-                  {/* Lock Screen Bottom Swipe indicator */}
-                  <div className="text-center pt-2">
-                    <span className="inline-block h-1 w-24 bg-white/30 rounded-full" />
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 5: THE GRAND SLAM LAUNCH OFFER ── */}
-      <section className="bg-white py-24 px-6 relative text-[#0A1F44]">
-        <div className="max-w-4xl mx-auto space-y-16">
-          <div className="text-center space-y-4">
-            <h2 className="text-4xl md:text-5xl font-black font-['Montserrat',sans-serif] uppercase tracking-tight">
-              Premium Retail Tech, Priced for Local Reality.
-            </h2>
-            <p className="text-slate-500 font-medium italic">
-              Simple pricing designed to align our incentives with your retail growth.
-            </p>
-          </div>
-
-          {/* Founding Member Highlight Box */}
-          <div className="bg-[#F4F6F8] rounded-[2.5rem] border-4 border-[#FFB800] p-8 md:p-12 shadow-2xl relative overflow-hidden text-left">
-            {/* Yellow Tag */}
-            <div className="absolute top-0 right-0 bg-[#FFB800] text-[#0A1F44] px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-bl-2xl">
-              Limited spots
-            </div>
-
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-2xl font-black font-['Montserrat',sans-serif] uppercase">
-                  The Nexa Launch Offer
-                </h3>
-                <p className="text-sm font-black text-[#FFB800] uppercase tracking-widest mt-1">
-                  First 30 Clients Only
-                </p>
-              </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-black">₦6,500</span>
-                <span className="text-slate-400 text-sm font-bold uppercase tracking-widest">/ Month</span>
-                <span className="text-xs font-bold text-slate-500 ml-4 line-through">₦26,000 Setup Waived</span>
-              </div>
-
-              <p className="text-slate-600 text-sm font-medium leading-relaxed">
-                Start today on our Business Plan and we will completely waive all onboarding, configuration, and data-import costs.
-              </p>
-
-              {/* Checklist */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-200/50 pt-8">
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-bold">FREE Setup & Configuration</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-bold">FREE Data Import from existing systems</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-bold">FREE 1-on-1 Staff Training Session</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-bold">FREE 30-day priority WhatsApp support</span>
-                </div>
-              </div>
-
-              {/* CTA */}
-              <div className="pt-4">
-                <Link to="/auth/signup">
-                  <Button className="w-full h-14 bg-[#00C2FF] hover:bg-[#00C2FF]/95 text-[#0A1F44] rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-[#00C2FF]/30 transition-transform hover:scale-[1.01]">
-                    Claim 1 of 30 Launch Spots
-                  </Button>
+            <span className="nav-brand-name">Nexa<span>StoreOS</span></span>
+          </a>
+          <ul className="nav-menu">
+            <li><a onClick={() => navigateTo("home")} id="nl-home" className={activeTab === "home" ? "active" : ""}>Home</a></li>
+            <li><a onClick={() => navigateTo("product")} id="nl-product" className={activeTab === "product" ? "active" : ""}>Product</a></li>
+            <li><a onClick={() => navigateTo("hiw")} id="nl-hiw" className={activeTab === "hiw" ? "active" : ""}>How It Works</a></li>
+            <li><a onClick={() => navigateTo("about")} id="nl-about" className={activeTab === "about" ? "active" : ""}>About</a></li>
+            <li><a onClick={() => navigateTo("contact")} id="nl-contact" className={activeTab === "contact" ? "active" : ""}>Contact</a></li>
+          </ul>
+          <div className="nav-actions">
+            {user ? (
+              <Link to="/app/dashboard">
+                <button className="nav-signin">Dashboard</button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/auth/login">
+                  <button className="nav-signin">Sign in</button>
                 </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Guarantee Box */}
-          <div className="bg-[#0A1F44] rounded-[2.5rem] p-8 md:p-12 text-center border border-white/10 shadow-2xl relative overflow-hidden">
-            <div className="relative z-10 max-w-2xl mx-auto space-y-4">
-              <h3 className="text-base font-black uppercase tracking-widest text-[#FFB800]">
-                THE NEXA GUARANTEE
-              </h3>
-              <p className="text-white text-lg font-bold italic leading-relaxed">
-                "THE NEXA GUARANTEE: If after 30 days you do not feel NexaStoreOS has saved you more than it costs, we will refund every kobo. No questions asked. Every sales resistance collapses when risk is zero."
-              </p>
-            </div>
+                <Link to="/auth/signup">
+                  <button className="nav-cta">Get Started</button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
-      </section>
+      </nav>
 
-      {/* ── SECTION 6: LOCAL LEADERSHIP & FOOTER ── */}
-      <section className="bg-[#0A1F44] py-24 px-6 relative border-t border-white/5">
-        <div className="max-w-5xl mx-auto space-y-16">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
-            
-            {/* Visual Portrait */}
-            <div className="md:col-span-4 flex justify-center">
-              <div className="relative h-48 w-48 rounded-full p-1.5 bg-gradient-to-tr from-[#00C2FF] via-[#1A73E8] to-[#17A2B8] shadow-2xl">
-                <div className="h-full w-full rounded-full bg-[#0B1C2D] flex items-center justify-center overflow-hidden">
-                  <svg className="h-32 w-32 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
+      {/* ═══════════════════════════════════
+           HOME PAGE
+          ════════════════════════════════════ */}
+      <div className={`page ${activeTab === "home" ? "show" : ""}`} id="p-home">
+        {/* HERO */}
+        <section className="hero">
+          <div className="hero-kicker">
+            <span className="hk-badge">New</span>
+            Now live in Taraba State &nbsp;·&nbsp; First 30 founding clients only
+          </div>
+          <h1 className="display-xl">
+            Run your store like<br /><span className="grad-blue">a tech company.</span>
+          </h1>
+          <p className="body-lg">NexaStoreOS replaces spreadsheets and guesswork with one intelligent system — built for Nigerian retail, supported on the ground.</p>
+          <div className="hero-btns">
+            <button className="btn btn-primary" onClick={() => navigateTo("contact")}>Start Free — ₦0 Setup</button>
+            <button className="btn btn-secondary" onClick={() => navigateTo("hiw")}>See how it works →</button>
+          </div>
+
+          <div className="hero-mockup">
+            <div className="mockup-browser glass-card">
+              <div className="browser-bar">
+                <div className="browser-dots"><div className="bd bd-r"></div><div className="bd bd-y"></div><div className="bd bd-g"></div></div>
+                <div className="browser-url">hassan-bala.nexastoreos.com — Admin Dashboard</div>
+                <div style={{ width: "60px" }}></div>
+              </div>
+              <div className="browser-body">
+                <div className="browser-sidebar">
+                  <div className="bs-logo"><img src={nexaLogo} alt="NEXA Logo" style={{ height: "28px", width: "auto" }} /></div>
+                  <div className="bs-nav-item on"><span className="bs-nav-dot dot-blue">⊞</span>Dashboard</div>
+                  <div className="bs-nav-item"><span className="bs-nav-dot dot-green">⊕</span>New Sale</div>
+                  <div className="bs-nav-item"><span className="bs-nav-dot dot-teal">☰</span>Catalog</div>
+                  <div className="bs-nav-item"><span className="bs-nav-dot dot-amber">↑</span>Restocking</div>
+                  <div className="bs-nav-item"><span className="bs-nav-dot dot-violet">∿</span>Analytics</div>
+                  <div className="bs-nav-item"><span className="bs-nav-dot dot-blue">⊞</span>Movements</div>
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-[#FFB800] text-[#0A1F44] font-black uppercase text-[8px] tracking-widest px-2.5 py-1 rounded-full shadow-lg">
-                  CEO
+                <div className="browser-main text-left">
+                  <div className="bm-head">
+                    <div>
+                      <div className="bm-welcome">Good morning, Hassan 👋</div>
+                      <div className="bm-date">Wednesday, June 4 · Admin Dashboard</div>
+                    </div>
+                    <span className="bm-tag">● Store Online</span>
+                  </div>
+                  <div className="metrics-row">
+                    <div className="metric"><div className="metric-val">₦184k</div><div className="metric-label">Revenue</div><span className="metric-delta up">+23%</span></div>
+                    <div className="metric"><div className="metric-val">147</div><div className="metric-label">Sales</div><span className="metric-delta up">+8%</span></div>
+                    <div className="metric"><div className="metric-val">34</div><div className="metric-label">Top Item</div><span className="metric-delta up">Indomie</span></div>
+                    <div className="metric"><div className="metric-val">₦0</div><div className="metric-label">Disputes</div><span className="metric-delta up">Clean</span></div>
+                  </div>
+                  <div className="chart-block">
+                    <div className="chart-header">
+                      <span className="chart-title">Weekly Revenue</span>
+                      <span style={{ fontSize: "9px", color: "var(--ink3)" }}>This week vs last</span>
+                    </div>
+                    <div className="chart-bars" id="heroChart">
+                      {vals.map((v, i) => (
+                        <div
+                          key={i}
+                          className="cbar"
+                          style={{
+                            background: cols[i],
+                            opacity: 0.5 + v * 0.005,
+                            height: `${chartHeights[i]}px`,
+                            transition: `height 1.4s ${i * 0.08}s cubic-bezier(.23,1,.32,1)`
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="items-list">
+                    <div className="item-row"><span className="ir-name">Indomie Carton</span><span><span className="ir-badge">34 units</span><span className="ir-val">₦48,200</span></span></div>
+                    <div className="item-row"><span className="ir-name">Vegetable Oil 5L</span><span><span className="ir-badge">18 units</span><span className="ir-val">₦31,500</span></span></div>
+                    <div className="item-row"><span className="ir-name">Semovita 2kg</span><span><span className="ir-badge">12 units</span><span className="ir-val">₦22,800</span></span></div>
+                  </div>
                 </div>
               </div>
             </div>
+            <div className="notif notif-tl text-left">
+              <span className="notif-icon">💳</span>
+              <span><div className="notif-text">Payment received</div><div className="notif-val">₦12,500 — confirmed</div></span>
+            </div>
+            <div className="notif notif-bl text-left">
+              <span className="notif-icon">📊</span>
+              <span><div className="notif-text">8 AM Daily Summary</div><div className="notif-val">Yesterday: ₦184,200 revenue</div></span>
+            </div>
+            <div className="notif notif-br text-left">
+              <span className="notif-icon">⚠️</span>
+              <span><div className="notif-text">Low stock alert</div><div className="notif-val">Rice: 4 bags remaining</div></span>
+            </div>
+          </div>
+        </section>
 
-            {/* Copy */}
-            <div className="md:col-span-8 space-y-6 text-left">
-              <h3 className="text-xl font-black font-['Montserrat',sans-serif] text-white uppercase tracking-tight">
-                Local Support on the Ground
-              </h3>
-              <p className="text-slate-300 text-sm leading-relaxed font-medium">
-                "Lagos companies can't teleport staff to Taraba State. We are here on the ground. Nexa Digital Solutions LTD is building intelligent business systems right where you operate, ensuring you have the local support you need to scale."
-              </p>
-              <div>
-                <p className="text-sm font-black text-white uppercase tracking-widest">Abdulrasheed Mahmoud Bello</p>
-                <p className="text-[10px] font-bold text-[#00C2FF] uppercase tracking-wider">CEO, Nexa Digital Solutions LTD</p>
+        {/* SOCIAL PROOF BAND */}
+        <div className="proof-band">
+          <div className="proof-inner">
+            <div className="proof-item"><div className="proof-num">₦0</div><div className="proof-label">Setup cost</div></div>
+            <div className="proof-sep"></div>
+            <div className="proof-item"><div className="proof-num">10min</div><div className="proof-label">To go live</div></div>
+            <div className="proof-sep"></div>
+            <div className="proof-item"><div className="proof-num">30-Day</div><div className="proof-label">Money-back guarantee</div></div>
+            <div className="proof-sep"></div>
+            <div className="proof-item"><div className="proof-num">3</div><div className="proof-label">WhatsApp alerts daily</div></div>
+            <div className="proof-sep"></div>
+            <div className="proof-item"><div className="proof-num">100%</div><div className="proof-label">Local support</div></div>
+          </div>
+        </div>
+
+        {/* COMPARISON */}
+        <section className="section cmp-section">
+          <div className="wrap">
+            <div className="rv" style={{ textAlign: "center", maxWidth: "600px", margin: "0 auto" }}>
+              <div className="eyebrow ey-blue"><span className="ey-dot"></span>Why NexaOS</div>
+              <h2 className="display-lg">Your current tools<br />are costing you sales.</h2>
+              <p className="body-md" style={{ marginTop: "12px" }}>Every spreadsheet crash and missed receipt is revenue you'll never recover.</p>
+            </div>
+            <div className="cmp-grid">
+              <div className="cmp-item rv d1 text-left">
+                <div className="cmp-head">
+                  <div className="cmp-versus"><span className="cmp-vs-old">WhatsApp Records</span><span className="cmp-arrow">→</span><span className="cmp-vs-new">NexaOS</span></div>
+                  <div className="cmp-icon">💬</div>
+                  <div className="cmp-title">No more digging through chats.</div>
+                </div>
+                <div className="cmp-body">
+                  <div className="cmp-row"><div className="cmp-row-icon bad-icon">✕</div><div className="cmp-row-text">Sales buried in chat threads. Staff dispute transactions. No audit trail, no proof.</div></div>
+                  <div className="cmp-row"><div className="cmp-row-icon good-icon">✓</div><div className="cmp-row-text">Every sale gets a timestamped digital receipt. Full history searchable in seconds.</div></div>
+                </div>
+              </div>
+              <div className="cmp-item rv d2 text-left">
+                <div className="cmp-head">
+                  <div className="cmp-versus"><span className="cmp-vs-old">Excel / Sheets</span><span className="cmp-arrow">→</span><span className="cmp-vs-new">NexaOS</span></div>
+                  <div className="cmp-icon">📊</div>
+                  <div className="cmp-title">Multi-user. No crashes. Ever.</div>
+                </div>
+                <div className="cmp-body">
+                  <div className="cmp-row"><div className="cmp-row-icon bad-icon">✕</div><div className="cmp-row-text">Crashes when two staff edit at once. Doesn't send receipts. One bad formula destroys months of data.</div></div>
+                  <div className="cmp-row"><div className="cmp-row-icon good-icon">✓</div><div className="cmp-row-text">Multiple staff, zero conflicts, live sync. Automated receipts every transaction.</div></div>
+                </div>
+                <div className="cmp-bonus">🎁 We import your Excel data free on day one.</div>
+              </div>
+              <div className="cmp-item rv d3 text-left">
+                <div className="cmp-head">
+                  <div className="cmp-versus"><span className="cmp-vs-old">Basic POS</span><span className="cmp-arrow">→</span><span className="cmp-vs-new">NexaOS</span></div>
+                  <div className="cmp-icon">🖥️</div>
+                  <div className="cmp-title">Complete inventory intelligence.</div>
+                </div>
+                <div className="cmp-body">
+                  <div className="cmp-row"><div className="cmp-row-icon bad-icon">✕</div><div className="cmp-row-text">You know you got paid — but what sold? At what margin? What's running out?</div></div>
+                  <div className="cmp-row"><div className="cmp-row-icon good-icon">✓</div><div className="cmp-row-text">Full inventory tracking on every payment. Know what sold, when, at what margin — automatically.</div></div>
+                </div>
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Final CTA Button & Contacts */}
-          <div className="border-t border-white/5 pt-12 text-center space-y-8">
+        {/* FEATURES / ADDICTION ENGINE */}
+        <section className="section feat-section">
+          <div className="wrap">
+            <div className="rv" style={{ textAlign: "center", maxWidth: "560px", margin: "0 auto" }}>
+              <div className="eyebrow ey-violet"><span className="ey-dot"></span>The Addiction Engine</div>
+              <h2 className="display-lg">Business intelligence,<br />delivered instantly.</h2>
+              <p className="body-md" style={{ marginTop: "12px" }}>Three features that make store owners check NexaOS before WhatsApp.</p>
+            </div>
+            <div className="feat-main">
+              <div className="feat-phone rv d1">
+                <div className="phone-glow"></div>
+                <div className="phone-outer">
+                  <div className="phone-inner">
+                    <div className="phone-notch"></div>
+                    <div className="phone-screen text-left">
+                      <div className="ps-topbar">
+                        <div className="ps-logo">
+                          <img src={nexaLogo} alt="NEXA Logo" style={{ height: "20px", width: "auto" }} />
+                        </div>
+                        <div className="ps-time">8:00 AM</div>
+                      </div>
+                      <div className="ps-name">Hassan Bala</div>
+                      <div className="ps-sub">Admin Dashboard · Store Settings</div>
+                      <div className="ps-grid">
+                        <div className="ps-card"><div className="ps-card-icon">➕</div><div className="ps-card-label">Add Product</div></div>
+                        <div className="ps-card"><div className="ps-card-icon">📦</div><div className="ps-card-label">Restock</div></div>
+                        <div className="ps-card"><div className="ps-card-icon">📈</div><div className="ps-card-label">Analytics</div></div>
+                        <div className="ps-card"><div className="ps-card-icon">💳</div><div className="ps-card-label">New Sale</div></div>
+                      </div>
+                      <div className="ps-metric"><span className="ps-m-label">Today's Revenue</span><span className="ps-m-val">₦184,200</span></div>
+                      <div className="ps-metric"><span className="ps-m-label">Top Seller — Indomie</span><span className="ps-m-val">↑ 34 units</span></div>
+                      <div className="ps-bar">
+                        <div className="ps-bar-item on">⊞<br />Home</div>
+                        <div className="ps-bar-item">💳<br />Sales</div>
+                        <div className="ps-bar-item">☰<br />Catalog</div>
+                        <div className="ps-bar-item">…<br />More</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="fchip fchip-1" style={activeFeature === 0 ? { border: "1.5px solid var(--blue)", boxShadow: "0 0 15px rgba(43,91,255,0.2)" } : {}}><div className="fchip-label">📱 8 AM Summary</div><div className="fchip-val">Revenue: ₦184,200</div></div>
+                <div className="fchip fchip-2" style={activeFeature === 1 ? { border: "1.5px solid var(--amber)", boxShadow: "0 0 15px rgba(245,166,35,0.2)" } : {}}><div className="fchip-label">⚡ Low stock alert</div><div className="fchip-val">Indomie: 5 bags left</div></div>
+                <div className="fchip fchip-3" style={activeFeature === 2 ? { border: "1.5px solid var(--green)", boxShadow: "0 0 15px rgba(18,209,118,0.2)" } : {}}><div className="fchip-label">💰 Payment confirmed</div><div className="fchip-val">₦12,500 received</div></div>
+              </div>
+              <div className="feat-list rv d2 text-left">
+                <div className="feat-item" style={activeFeature === 0 ? { background: "#fff", borderColor: "rgba(43,91,255,.2)", boxShadow: "0 4px 20px rgba(43,91,255,.08)" } : {}} onClick={() => setActiveFeature(0)}>
+                  <div className="fi-icon fi-i1">🌅</div>
+                  <div><div className="fi-title">8 AM Daily Summaries</div><p className="fi-body">Wake up knowing yesterday's exact revenue, top-selling items, and what to restock — delivered straight to your WhatsApp before your day begins.</p></div>
+                </div>
+                <div className="feat-item" style={activeFeature === 1 ? { background: "#fff", borderColor: "rgba(43,91,255,.2)", boxShadow: "0 4px 20px rgba(43,91,255,.08)" } : {}} onClick={() => setActiveFeature(1)}>
+                  <div className="fi-icon fi-i2">⚡</div>
+                  <div><div className="fi-title">Instant Low-Stock Alerts</div><p className="fi-body">Get a WhatsApp ping the second your fast-moving items hit the reorder point. Never miss a sale because a shelf was empty again.</p></div>
+                </div>
+                <div className="feat-item" style={activeFeature === 2 ? { background: "#fff", borderColor: "rgba(43,91,255,.2)", boxShadow: "0 4px 20px rgba(43,91,255,.08)" } : {}} onClick={() => setActiveFeature(2)}>
+                  <div className="fi-icon fi-i3">💰</div>
+                  <div><div className="fi-title">Live Payment Tracking</div><p className="fi-body">Know the moment a customer pays — whether you're in the store, at home, or across town. Your store reports to you in real time.</p></div>
+                </div>
+                <div className="feat-item" style={activeFeature === 3 ? { background: "#fff", borderColor: "rgba(43,91,255,.2)", boxShadow: "0 4px 20px rgba(43,91,255,.08)" } : {}} onClick={() => setActiveFeature(3)}>
+                  <div className="fi-icon fi-i4">📋</div>
+                  <div><div className="fi-title">Debt Management</div><p className="fi-body">Track credit sales, outstanding balances, and send automated reminders. Finally collect everything you're owed — without the awkward conversations.</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* PRODUCT SCREENSHOT SHOWCASE */}
+        <section className="section" style={{ paddingTop: "20px", paddingBottom: "20px" }}>
+          <div className="wrap">
+            <div className="glass-card rv" style={{ overflow: "hidden" }}>
+              <div className="product-showcase rv">
+                <div className="showcase-img">
+                  <img src={nexaLogo} alt="NEXA Logo" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "40px" }} />
+                  <div className="showcase-img-overlay"></div>
+                </div>
+                <div className="showcase-content text-left">
+                  <div className="eyebrow ey-blue"><span className="ey-dot"></span>The Platform</div>
+                  <h3 className="display-md" style={{ marginBottom: "14px" }}>Your entire store,<br />one screen.</h3>
+                  <p className="body-md">Add products, track sales, manage restocking and analytics — all from your phone or browser. No technical knowledge required.</p>
+                  <div className="sc-steps">
+                    <div className="sc-step"><div className="sc-step-num">1</div><div><div className="sc-step-title">Visit nexastoreos.com or install the app</div><p className="sc-step-body">Works on any Android phone or browser.</p></div></div>
+                    <div className="sc-step"><div className="sc-step-num">2</div><div><div className="sc-step-title">Complete your store profile</div><p className="sc-step-body">Name, categories, modules — guided in 4 steps.</p></div></div>
+                    <div className="sc-step"><div className="sc-step-num">3</div><div><div className="sc-step-title">Dashboard goes live</div><p className="sc-step-body">Start selling. First WhatsApp summary arrives at 8 AM.</p></div></div>
+                  </div>
+                  <button className="btn btn-primary" onClick={() => navigateTo("hiw")}>See Full Setup Guide →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* PRICING */}
+        <section className="section pricing-section" id="pricing-anchor">
+          <div className="wrap" style={{ textAlign: "center" }}>
+            <div className="rv">
+              <div className="eyebrow ey-amber" style={{ justifyContent: "center" }}><span className="ey-dot"></span>The Launch Offer</div>
+              <h2 className="display-lg">Premium retail tech,<br />priced for local reality.</h2>
+              <p className="body-lg" style={{ maxWidth: "440px", margin: "14px auto 0" }}>Only 30 founding member spots available.</p>
+            </div>
+            <div className="pricing-card rv d1 text-left">
+              <div className="pc-badge">First 30 Clients</div>
+              <div className="pc-plan">Business Plan · Founding Member</div>
+              <div className="pc-price"><span className="pc-cur">₦</span><span className="pc-num">6,500</span><span className="pc-per">/month</span></div>
+              <div className="pc-strike">₦26,000 in onboarding fees — completely waived</div>
+              <ul className="pc-list">
+                <li><span className="pc-check">✓</span>FREE Setup &amp; Full Configuration</li>
+                <li><span className="pc-check">✓</span>FREE Data Import from existing systems</li>
+                <li><span className="pc-check">✓</span>FREE 1-on-1 Staff Training Session</li>
+                <li><span className="pc-check">✓</span>FREE 30-day Priority WhatsApp Support</li>
+                <li><span className="pc-check">✓</span>Multi-user access · Unlimited products</li>
+                <li><span className="pc-check">✓</span>WhatsApp alerts: daily summaries + low stock</li>
+              </ul>
+              <button className="btn btn-primary" style={{ width: "100%", padding: "17px", fontSize: "16px" }} onClick={() => navigateTo("contact")}>Book Your Free Demo Today</button>
+            </div>
+            <div className="guarantee-box rv d2">
+              <div className="gb-title">🛡️ The Nexa Guarantee</div>
+              <p className="gb-body">If after 30 days NexaStoreOS hasn't saved you more than it costs, we refund every kobo. No questions asked. Every objection collapses when risk is zero.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="cta-strip">
+          <h2 className="display-lg rv">Ready to know your store<br />like never before?</h2>
+          <p className="body-lg rv d1">Join Taraba's first 30 founding members. Zero risk. Full local support.</p>
+          <div className="cta-btns rv d2">
+            <button className="btn btn-white" onClick={() => window.open("tel:09038026109")}>📞 Call: 090-380-26109</button>
+            <button className="btn btn-ghost" onClick={() => navigateTo("contact")}>Book a Free Demo →</button>
+          </div>
+        </section>
+      </div>
+
+      {/* ═══════════════════════════════════
+           PRODUCT PAGE
+          ════════════════════════════════════ */}
+      <div className={`page ${activeTab === "product" ? "show" : ""}`} id="p-product">
+        <section className="page-hero section">
+          <div className="rv">
+            <div className="eyebrow ey-blue" style={{ justifyContent: "center" }}><span className="ey-dot"></span>The Platform</div>
+            <h1 className="display-xl" style={{ maxWidth: "800px", margin: "0 auto 18px" }}>Everything your store<br />needs, intelligently.</h1>
+            <p className="body-lg" style={{ maxWidth: "500px", margin: "0 auto" }}>Built for Nigerian retail. Works on any phone or browser. No IT department needed.</p>
+          </div>
+        </section>
+
+        <section className="section" style={{ paddingTop: "20px" }}>
+          <div className="wrap">
+            <div className="glass-card rv" style={{ overflow: "hidden" }}>
+              <div className="product-showcase">
+                <div className="showcase-img">
+                  <img src={nexaLogo} alt="NEXA Logo" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "40px" }} />
+                  <div className="showcase-img-overlay"></div>
+                </div>
+                <div className="showcase-content text-left">
+                  <div className="eyebrow ey-teal"><span className="ey-dot"></span>Real Product Screenshot</div>
+                  <h3 className="display-md" style={{ marginBottom: "12px" }}>The dashboard<br />your staff will love.</h3>
+                  <p className="body-md" style={{ marginBottom: "20px" }}>Clean, intuitive, and built for speed. Process a sale in under 10 seconds. Your team learns it in one session.</p>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <span style={{ padding: "6px 14px", borderRadius: "50px", background: "var(--blue-xl)", color: "var(--blue)", fontSize: "12px", fontWeight: 600 }}>📱 Mobile-first</span>
+                    <span style={{ padding: "6px 14px", borderRadius: "50px", background: "var(--green-l)", color: "#0A8A4E", fontSize: "12px", fontWeight: 600 }}>⚡ Real-time sync</span>
+                    <span style={{ padding: "6px 14px", borderRadius: "50px", background: "var(--amber-l)", color: "#7A4800", fontSize: "12px", fontWeight: 600 }}>🇳🇬 Built for Nigeria</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "16px" }} className="rv text-left">
+              <div className="eyebrow ey-blue"><span className="ey-dot"></span>Six Core Modules</div>
+              <h3 className="display-md" style={{ marginBottom: "4px" }}>One system. Six superpowers.</h3>
+            </div>
+            <div className="modules-grid text-left" style={{ marginTop: "28px" }}>
+              <div className="module-card rv d1"><div className="mc-icon mc-i1">➕</div><div className="mc-title">Product Catalog</div><p className="mc-body">Add unlimited products with prices, categories, images, and stock levels. Bulk-import from Excel free.</p></div>
+              <div className="module-card rv d2"><div className="mc-icon mc-i2">📦</div><div className="mc-title">Inventory &amp; Restocking</div><p className="mc-body">Real-time stock tracking with automated reorder alerts delivered to your WhatsApp instantly.</p></div>
+              <div className="module-card rv d3"><div className="mc-icon mc-i3">📈</div><div className="mc-title">Analytics &amp; Reports</div><p className="mc-body">Daily summaries, top sellers, revenue trends. Every number you need, delivered at 8 AM without lifting a finger.</p></div>
+              <div className="module-card rv d1"><div className="mc-icon mc-i4">💳</div><div className="mc-title">New Sale &amp; Receipts</div><p className="mc-body">Process any sale in seconds. Automated digital receipts sent to customers instantly with full payment history.</p></div>
+              <div className="module-card rv d2"><div className="mc-icon mc-i5">💰</div><div className="mc-title">Debt Management</div><p className="mc-body">Track credit sales and outstanding balances. Send automated payment reminders. Collect what you're owed.</p></div>
+              <div className="module-card rv d3"><div className="mc-icon mc-i6">👥</div><div className="mc-title">Multi-User Access</div><p className="mc-body">Let multiple staff work simultaneously with no conflicts. Assign roles and track who sold what.</p></div>
+            </div>
+          </div>
+        </section>
+        <section className="cta-strip">
+          <h2 className="display-lg rv">See it live in your store.</h2>
+          <p className="body-lg rv d1">Book a free demo. We'll set everything up for you.</p>
+          <div className="cta-btns rv d2">
+            <button className="btn btn-white" onClick={() => navigateTo("contact")}>Book Free Demo</button>
             <Link to="/auth/signup">
-              <Button className="h-16 px-10 bg-[#00C2FF] hover:bg-[#00C2FF]/90 text-[#0A1F44] rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-[#00C2FF]/20 hover:scale-105 transition-all">
-                Book Your Free Demo Today
-              </Button>
+              <button className="btn btn-ghost">Try nexastoreos.com →</button>
             </Link>
+          </div>
+        </section>
+      </div>
 
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-12 text-xs font-bold text-slate-400 border-t border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="h-6 w-6 rounded-md bg-[#00C2FF]/10 flex items-center justify-center text-[#00C2FF]">
-                  <img src={nexaLogo} className="h-4 w-4 invert brightness-0" alt="NEXA Logo" />
+      {/* ═══════════════════════════════════
+           HOW IT WORKS PAGE
+          ════════════════════════════════════ */}
+      <div className={`page ${activeTab === "hiw" ? "show" : ""}`} id="p-hiw">
+        <section className="page-hero section">
+          <div className="rv">
+            <div className="eyebrow ey-green" style={{ justifyContent: "center" }}><span className="ey-dot"></span>How It Works</div>
+            <h1 className="display-xl" style={{ maxWidth: "800px", margin: "0 auto 18px" }}>From signup to first sale<br />in <span className="grad-green">under 10 minutes.</span></h1>
+            <p className="body-lg" style={{ maxWidth: "480px", margin: "0 auto" }}>No technical knowledge required. Our team handles everything — including importing your existing data.</p>
+          </div>
+        </section>
+        <section className="section" style={{ paddingTop: "20px" }}>
+          <div className="wrap-sm text-left">
+            <div className="steps-timeline">
+              <div className="step-item rv d1"><div className="step-circle">1</div><div className="step-content"><div className="step-title">Visit nexastoreos.com or install the app</div><p className="step-body">Open the website on any phone or laptop. Works on Android, iOS, and all browsers. No app store required to get started.</p></div></div>
+              <div className="step-item rv d2"><div className="step-circle">2</div><div className="step-content"><div className="step-title">Register with email or phone</div><p className="step-body">Enter your registered email or phone number. Request a one-time PIN via SMS for instant, secure access.</p></div></div>
+              <div className="step-item rv d3"><div className="step-circle">3</div><div className="step-content"><div className="step-title">Complete your store profile</div><p className="step-body">Set your store name, business type, and product categories. Our 4-step onboarding wizard guides you through everything in about 3 minutes.</p></div></div>
+              <div className="step-item rv d1"><div className="step-circle">4</div><div className="step-content"><div className="step-title">Choose your modules</div><p className="step-body">Activate Sales, Inventory, Analytics, Debt Management — or all of them. Every module can be changed anytime in Settings.</p></div></div>
+              <div className="step-item rv d2"><div className="step-circle">5</div><div className="step-content"><div className="step-title">We import your existing data</div><p className="step-body">Have Excel records, product lists, or customer data? Our team migrates everything at zero cost so you start with full history intact.</p></div></div>
+              <div className="step-item rv d3"><div className="step-circle">6</div><div className="step-content"><div className="step-title">Your dashboard goes live</div><p className="step-body">Start adding products and making sales. Your first WhatsApp daily summary arrives at 8 AM tomorrow morning. That's it — you're running a tech-powered store.</p></div></div>
+            </div>
+          </div>
+
+          <div className="wrap" style={{ marginTop: "80px" }}>
+            <div className="rv" style={{ textAlign: "center", marginBottom: "40px" }}>
+              <div className="eyebrow ey-violet" style={{ justifyContent: "center" }}><span className="ey-dot"></span>Everything Included</div>
+              <h3 className="display-md">Every tool in one place.</h3>
+            </div>
+            <div className="feats2 text-left">
+              <div className="feat2-card rv d1"><div className="f2c-icon">📊</div><div className="f2c-title">Business Overview</div><p className="f2c-body">See total sales, revenue trends, and daily performance at a glance from your dashboard home screen.</p></div>
+              <div className="feat2-card rv d2"><div className="f2c-icon">🏆</div><div className="f2c-title">Top Sellers &amp; Customers</div><p className="f2c-body">Identify your best products and most valuable customers automatically. Know what to stock more of.</p></div>
+              <div className="feat2-card rv d3"><div className="f2c-icon">💰</div><div className="f2c-title">Debt Management &amp; Collections</div><p className="f2c-body">Track credit sales and outstanding payments. Send automated reminders — collect what you're owed.</p></div>
+              <div className="feat2-card rv d4"><div className="f2c-icon">🔔</div><div className="f2c-title">Real-Time WhatsApp Alerts</div><p className="f2c-body">Instant pings for every payment, low stock event, and daily summary. Your store talks to you constantly.</p></div>
+            </div>
+          </div>
+        </section>
+        <section className="cta-strip">
+          <h2 className="display-lg rv">Ready to get started?</h2>
+          <p className="body-lg rv d1">Our team handles the full setup. Zero technical knowledge needed.</p>
+          <div className="cta-btns rv d2">
+            <button className="btn btn-white" onClick={() => navigateTo("contact")}>Book Free Demo</button>
+            <button className="btn btn-ghost" onClick={() => navigateTo("product")}>See All Features →</button>
+          </div>
+        </section>
+      </div>
+
+      {/* ═══════════════════════════════════
+           ABOUT PAGE
+          ════════════════════════════════════ */}
+      <div className={`page ${activeTab === "about" ? "show" : ""}`} id="p-about">
+        <section className="page-hero section">
+          <div className="rv wrap-xs" style={{ margin: "0 auto", textAlign: "center" }}>
+            <div className="eyebrow ey-blue" style={{ justifyContent: "center" }}><span className="ey-dot"></span>About Us</div>
+            <h1 className="display-xl">Built locally.<br /><span className="grad-blue">Supported locally.</span></h1>
+            <p className="body-lg">We are Nexa Digital Solutions LTD — on the ground in Taraba State, not a distant office sending email tickets.</p>
+          </div>
+        </section>
+
+        <div className="about-split rv">
+          <div className="ceo-visual">
+            <div className="ceo-card-wrap text-left">
+              <div className="ceo-photo">
+                <img src={nexaLogo} alt="NEXA Logo" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "40px" }} />
+                <div className="ceo-photo-overlay"></div>
+              </div>
+              <div className="ceo-details">
+                <div className="ceo-name">Abdulrasheed Mahmoud Bello</div>
+                <div className="ceo-title-badge">CEO · Nexa Digital Solutions LTD</div>
+                <div className="ceo-contacts">
+                  <a href="tel:09038026109" className="cc-link"><span className="cc-icon">📞</span>090-380-26109</a>
+                  <a href="tel:08132321056" className="cc-link"><span className="cc-icon">📱</span>081-323-21056</a>
+                  <a href="#" className="cc-link"><span className="cc-icon">📍</span>Lamurde St, Barade, Jalingo</a>
+                  <a href="#" className="cc-link"><span className="cc-icon">🌐</span>@NexaTechs</a>
                 </div>
-                <span className="font-black text-white uppercase">NexaStoreOS</span>
               </div>
-              <p className="uppercase tracking-wider">
-                Phone: <a href="tel:09038026109" className="hover:text-white transition-colors">09038026109</a> | Lamurde Street Barade, Jalingo | Nexa Digital Solutions LTD
-              </p>
-              <div className="flex items-center gap-4 uppercase text-[10px] tracking-wider">
-                <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
-                <span className="text-white/20">|</span>
-                <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            </div>
+          </div>
+          <div className="about-narrative rv d1 text-left">
+            <div className="eyebrow ey-blue"><span className="ey-dot"></span>Our Story</div>
+            <h2 className="display-lg" style={{ marginBottom: "22px" }}>We are here<br />on the ground.</h2>
+            <blockquote>"Lagos companies can't teleport staff to Taraba State. We are here on the ground — building intelligent business systems right where you operate, so you always have the local support you need to scale."</blockquote>
+            <p>Nexa Digital Solutions LTD isn't remote software with an email ticket system. It's a local partner who walks into your store, understands your operation, and ensures the system works — not just on day one, but permanently.</p>
+            <p>We believe every Nigerian retailer deserves the same intelligence tools that big supermarket chains use. NexaStoreOS brings that power to local shops, provision stores, and distributors — at a price that makes sense for local reality.</p>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "22px", marginBottom: "28px" }}>
+              <span className="a-tag">🏢 Jalingo, Taraba State</span>
+              <span className="a-tag">📱 Mobile-First Design</span>
+              <span className="a-tag">🇳🇬 Built for Nigeria</span>
+              <span className="a-tag">🤝 Personal Support</span>
+            </div>
+            <button className="btn btn-primary" onClick={() => navigateTo("contact")}>Meet the Team →</button>
+          </div>
+        </div>
+
+        <section className="section" style={{ paddingTop: "60px" }}>
+          <div className="wrap">
+            <div className="rv" style={{ textAlign: "center", marginBottom: "36px" }}>
+              <div className="eyebrow ey-violet" style={{ justifyContent: "center" }}><span className="ey-dot"></span>Our Values</div>
+              <h3 className="display-md">Why clients trust Nexa.</h3>
+            </div>
+            <div className="value-grid text-left">
+              <div className="value-card rv d1"><div className="vc-icon">🤝</div><div className="vc-title">Local Presence</div><p className="vc-body">We're in Jalingo — not a chatbot. Real people who come to your store, set everything up, and stay reachable.</p></div>
+              <div className="value-card rv d2"><div className="vc-icon">🛡️</div><div className="vc-title">Zero-Risk Guarantee</div><p className="vc-body">30-day full refund if NexaOS doesn't save you more than it costs. We mean it — every kobo back, no questions.</p></div>
+              <div className="value-card rv d3"><div className="vc-icon">⚡</div><div className="vc-title">Fast Onboarding</div><p className="vc-body">Live in under 10 minutes. We handle the technical setup completely. You focus on your business.</p></div>
+            </div>
+          </div>
+        </section>
+        <section className="cta-strip">
+          <h2 className="display-lg rv">Come work with us.</h2>
+          <p className="body-lg rv d1">Local business. Local intelligence. Local support.</p>
+          <div className="cta-btns rv d2">
+            <button className="btn btn-white" onClick={() => navigateTo("contact")}>Get in Touch</button>
+            <button className="btn btn-white" onClick={() => window.open("tel:09038026109")}>Call Now →</button>
+          </div>
+        </section>
+      </div>
+
+      {/* ═══════════════════════════════════
+           CONTACT PAGE
+          ════════════════════════════════════ */}
+      <div className={`page ${activeTab === "contact" ? "show" : ""}`} id="p-contact">
+        <section className="page-hero section">
+          <div className="rv wrap-xs" style={{ margin: "0 auto", textAlign: "center" }}>
+            <div className="eyebrow ey-blue" style={{ justifyContent: "center" }}><span className="ey-dot"></span>Contact Us</div>
+            <h1 className="display-xl">Book your<br /><span className="grad-blue">free demo.</span></h1>
+            <p className="body-lg">Our team configures your store completely at zero cost. First 30 clients get full onboarding waived.</p>
+          </div>
+        </section>
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <div className="contact-layout">
+              <div className="contact-info rv text-left">
+                <div className="ci-brand">
+                  <div className="ci-brand-logo">
+                    <img src={nexaLogo} alt="NEXA Logo" style={{ height: "24px", width: "auto", filter: "brightness(0) invert(1)" }} />
+                  </div>
+                  <p className="ci-brand-sub">Nexa Digital Solutions LTD<br />Building Intelligent Business Systems<br />Jalingo, Taraba State · Nigeria</p>
+                </div>
+                <div className="ci-method"><div className="ci-m-icon">📞</div><div><div className="ci-m-label">Primary Phone</div><div className="ci-m-val">090-380-26109</div></div></div>
+                <div className="ci-method"><div className="ci-m-icon">📱</div><div><div className="ci-m-label">WhatsApp</div><div className="ci-m-val">081-323-21056</div></div></div>
+                <div className="ci-method"><div className="ci-m-icon">📍</div><div><div className="ci-m-label">Office Location</div><div className="ci-m-val">Lamurde St, Barade, Jalingo</div></div></div>
+                <div className="ci-method"><div className="ci-m-icon">🌐</div><div><div className="ci-m-label">Website</div><div className="ci-m-val">nexastoreos.com</div></div></div>
+                <div className="ci-method"><div className="ci-m-icon">📲</div><div><div className="ci-m-label">Social</div><div className="ci-m-val">@NexaTechs</div></div></div>
+                <div className="ci-note"><strong style={{ color: "var(--blue)" }}>⏰ Response time:</strong> We respond within 2 hours during business hours. For urgent matters, call directly.</div>
               </div>
-              <p className="uppercase tracking-widest text-[10px]">© 2026 NEXA Digital Solutions LTD</p>
+              <div className="contact-form-wrap rv d1 text-left">
+                <div className="cf-title">Request a Free Demo</div>
+                <p className="cf-sub">Fill in your details and we'll reach out within 2 hours to schedule your setup session.</p>
+                <form onSubmit={handleFormSubmit}>
+                  <div className="form-row2">
+                    <div className="fg">
+                      <label>Full Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Hassan Bala"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="fg">
+                      <label>Phone Number</label>
+                      <input
+                        type="tel"
+                        placeholder="08012345678"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="fg">
+                    <label>Business Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Bala General Store"
+                      value={formData.biz}
+                      onChange={(e) => setFormData({ ...formData, biz: e.target.value })}
+                    />
+                  </div>
+                  <div className="fg">
+                    <label>Business Type</label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    >
+                      <option value="">Select your business type...</option>
+                      <option>Provision / Grocery Store</option>
+                      <option>Wholesale / Distribution</option>
+                      <option>Pharmacy / Chemist</option>
+                      <option>Supermarket</option>
+                      <option>Electronics Shop</option>
+                      <option>Other Retail</option>
+                    </select>
+                  </div>
+                  <div className="fg">
+                    <label>Message (optional)</label>
+                    <textarea
+                      placeholder="Tell us about your store — size, current tools, what you need help with..."
+                      value={formData.msg}
+                      onChange={(e) => setFormData({ ...formData, msg: e.target.value })}
+                    ></textarea>
+                  </div>
+                  {!isSubmitted ? (
+                    <button type="submit" className="btn btn-primary" style={{ width: "100%", padding: "17px", fontSize: "15px" }}>Send Request — We'll Call You Back</button>
+                  ) : (
+                    <div className="form-success" style={{ display: "block" }}>✅ Request sent! We'll contact you within 2 hours.</div>
+                  )}
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="cta-strip">
+          <h2 className="display-lg rv">Zero risk. Full support.</h2>
+          <p className="body-lg rv d1">30-day money-back guarantee. Setup, training, and data migration all free.</p>
+          <div className="cta-btns rv d2">
+            <button className="btn btn-white" onClick={() => window.open("tel:09038026109")}>📞 Call: 090-380-26109</button>
+            <button className="btn btn-ghost" onClick={() => navigateTo("product")}>See All Features →</button>
+          </div>
+        </section>
+      </div>
+
+      {/* ═══ FOOTER ═══ */}
+      <footer>
+        <div className="footer-top">
+          <div className="footer-grid text-left">
+            <div>
+              <div className="footer-brand-row">
+                <div className="f-brand-icon">
+                  <img src={nexaLogo} alt="NEXA Logo" style={{ height: "20px", width: "auto", filter: "brightness(0) invert(1)" }} />
+                </div>
+                <span className="f-brand-name">Nexa<span>StoreOS</span></span>
+              </div>
+              <p className="footer-brand-text">Building Intelligent Business Systems for Nigerian retailers. Locally supported, locally trusted.</p>
+              <div className="footer-socials">
+                <a href="tel:09038026109" className="fs-btn">📞 Call</a>
+                <a href="tel:08132321056" className="fs-btn">📱 WhatsApp</a>
+              </div>
+            </div>
+            <div>
+              <div className="fc-col-head">Platform</div>
+              <button className="fc-link" onClick={() => navigateTo("product")}>Product Overview</button>
+              <button className="fc-link" onClick={() => navigateTo("hiw")}>How It Works</button>
+              <button className="fc-link" onClick={() => navigateTo("home", "pricing-anchor")}>Pricing</button>
+              <Link to="/auth/signup" className="fc-link">Sign Up Free</Link>
+            </div>
+            <div>
+              <div className="fc-col-head">Company</div>
+              <button className="fc-link" onClick={() => navigateTo("about")}>About Us</button>
+              <button className="fc-link" onClick={() => navigateTo("contact")}>Contact</button>
+              <button className="fc-link" onClick={() => navigateTo("contact")}>Book a Demo</button>
+            </div>
+            <div>
+              <div className="fc-col-head">Location</div>
+              <p style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.5)", lineHeight: "1.7" }}>Lamurde Street, Barade<br />Jalingo, Taraba State<br />Nigeria</p>
+              <p style={{ fontSize: "13px", color: "var(--blue)", marginTop: "10px", fontWeight: 600 }}>nexastoreos.com</p>
+            </div>
+          </div>
+          <div className="footer-bottom">
+            <span>© 2026 Nexa Digital Solutions LTD · All rights reserved</span>
+            <div className="footer-bottom-right">
+              <Link to="/terms" style={{ color: "rgba(255,255,255,.3)", textDecoration: "none", marginRight: 10 }}>Terms</Link>
+              <Link to="/privacy" style={{ color: "rgba(255,255,255,.3)", textDecoration: "none" }}>Privacy Policy</Link>
+            </div>
+            <div className="footer-pulse">
+              <span className="pulse-dot"></span>
+              <span>System Online</span>
             </div>
           </div>
         </div>
-      </section>
-    </div>
-  );
-}
-
-function PricingCard({ title, price, desc, features, featured }: { title: string, price: string, desc: string, features: string[], featured?: boolean }) {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      className={`p-10 rounded-[3rem] border-2 transition-all relative overflow-hidden flex flex-col h-full ${featured ? "bg-foreground text-background border-foreground shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] scale-105 z-10" : "bg-card border-border hover:border-primary/50"}`}
-    >
-      {featured && <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-bl-3xl">Most Popular</div>}
-      
-      <div className="space-y-2 mb-8">
-        <h3 className="text-xl font-black uppercase tracking-tight italic">{title}</h3>
-        <p className={`${featured ? "text-background/60" : "text-muted-foreground"} text-sm font-medium`}>{desc}</p>
-      </div>
-
-      <div className="mb-10">
-        <span className="text-5xl font-black tracking-tighter">{price}</span>
-        {price !== "Custom" && <span className={`${featured ? "text-background/40" : "text-muted-foreground"} text-sm font-bold ml-2 uppercase tracking-widest`}>/ Month</span>}
-      </div>
-
-      <div className="space-y-4 mb-10 flex-1">
-        {features.map((f, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <CheckCircle2 className={`h-5 w-5 ${featured ? "text-primary" : "text-primary"}`} />
-            <span className="text-sm font-bold opacity-80">{f}</span>
-          </div>
-        ))}
-      </div>
-
-      <Link to="/auth/signup" className="w-full">
-        <Button className={`w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] ${featured ? "bg-background text-foreground hover:bg-background/90 shadow-2xl shadow-black/20" : "shadow-xl shadow-primary/20"}`}>
-          Choose Plan
-        </Button>
-      </Link>
-    </motion.div>
-  );
-}
-
-function FeatureCard({ icon, title, desc, color }: { icon: any, title: string, desc: string, color: string }) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const mouseXSpring = useSpring(x);
-  const mouseYSpring = useSpring(y);
-
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const xPct = mouseX / width - 0.5;
-    const yPct = mouseY / height - 0.5;
-    x.set(xPct);
-    y.set(yPct);
-  };
-
-  const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
-  };
-
-  return (
-    <motion.div 
-      style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className="p-8 rounded-[2.5rem] bg-card border-2 border-border shadow-xl relative overflow-hidden group h-full cursor-pointer transition-colors hover:border-primary/50"
-    >
-      <div 
-        style={{ transform: "translateZ(50px)" }}
-        className="relative z-10"
-      >
-        <div className={`absolute top-0 right-0 w-32 h-32 ${color}/10 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity`} />
-        <div className={`h-16 w-16 rounded-2xl ${color}/10 flex items-center justify-center text-foreground mb-8 shadow-inner ring-4 ring-background transition-transform group-hover:scale-110`}>
-          {icon}
-        </div>
-        <h3 className="text-xl font-black uppercase tracking-tight mb-4">{title}</h3>
-        <p className="text-muted-foreground font-medium text-sm leading-relaxed">{desc}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-function Testimonial({ quote, author, role }: { quote: string, author: string, role: string }) {
-  return (
-    <div className="p-8 rounded-[2rem] bg-background border-2 border-border relative group hover:border-primary/50 transition-colors">
-      <div className="absolute top-4 right-8 text-6xl text-primary/10 font-serif font-black">"</div>
-      <p className="text-lg font-bold italic mb-6 leading-relaxed relative z-10">"{quote}"</p>
-      <div>
-        <p className="text-xs font-black uppercase tracking-widest text-foreground">{author}</p>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase">{role}</p>
-      </div>
-    </div>
-  );
-}
-
-function ValueProp({ icon: Icon, title, description }: { icon: any; title: string; description: string }) {
-  return (
-    <RevealSection className="group">
-      <div className="mb-6 h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner transition-transform group-hover:rotate-6">
-        <Icon className="h-7 w-7" />
-      </div>
-      <h3 className="text-xl font-black mb-4 uppercase tracking-tight">{title}</h3>
-      <p className="text-muted-foreground font-medium leading-relaxed">{description}</p>
-    </RevealSection>
-  );
-}
-
-function FeaturePoint({ icon: Icon, title, text }: { icon: any; title: string; text: string }) {
-  return (
-    <div className="flex gap-6 group">
-      <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-        <Icon className="h-6 w-6" />
-      </div>
-      <div>
-        <h4 className="font-black text-lg uppercase tracking-tight mb-2">{title}</h4>
-        <p className="text-muted-foreground font-medium text-sm leading-relaxed">{text}</p>
-      </div>
+      </footer>
     </div>
   );
 }
@@ -915,10 +804,10 @@ function StoreLoginPage({ store }: { store: Store }) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 selection:bg-primary/30">
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 selection:bg-[#00C2FF]/30">
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/5 blur-[120px]" />
-        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/5 blur-[150px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#00C2FF]/5 blur-[120px]" />
+        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/5 blur-[150px]" />
       </div>
 
       <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -932,15 +821,16 @@ function StoreLoginPage({ store }: { store: Store }) {
               <Building2 className="h-12 w-12" />
             </div>
           )}
+          <h2 className="text-xl font-bold uppercase tracking-tight text-white">{store.name}</h2>
           <p className="mt-2 text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] italic opacity-40">Authorized Personnel Only</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6 rounded-[2.5rem] border-2 border-border bg-card p-8 shadow-2xl relative overflow-hidden group">
+        <form onSubmit={handleLogin} className="space-y-6 rounded-[2.5rem] border-2 border-slate-800 bg-slate-950 p-8 shadow-2xl relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           
           <div className="space-y-4 relative z-10">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
+              <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email Address</Label>
               <Input
                 id="email"
                 type="email"
@@ -948,12 +838,12 @@ function StoreLoginPage({ store }: { store: Store }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12 rounded-xl border-2 font-bold focus:border-primary/50 transition-all"
+                className="h-12 rounded-xl border-2 border-slate-800 bg-slate-900 text-white font-bold focus:border-[#00C2FF]/50 transition-all"
               />
             </div>
             
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
+              <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -961,12 +851,12 @@ function StoreLoginPage({ store }: { store: Store }) {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 rounded-xl border-2 font-bold pr-12 focus:border-primary/50 transition-all"
+                  className="h-12 rounded-xl border-2 border-slate-800 bg-slate-900 text-white font-bold pr-12 focus:border-[#00C2FF]/50 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -974,9 +864,9 @@ function StoreLoginPage({ store }: { store: Store }) {
             </div>
           </div>
 
-          <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 relative z-10 overflow-hidden group/btn" disabled={loading}>
+          <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-[#00C2FF] hover:bg-[#00C2FF]/90 text-slate-900 shadow-xl shadow-[#00C2FF]/10 relative z-10 overflow-hidden group/btn" disabled={loading}>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
-            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : "Access System"}
+            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-900 border-t-transparent" /> : "Access System"}
           </Button>
         </form>
 
@@ -995,7 +885,7 @@ function StoreLoginPage({ store }: { store: Store }) {
               }
               return `${window.location.protocol}//nexastoreos.com`;
             })()} 
-            className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2"
+            className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#00C2FF] transition-colors flex items-center justify-center gap-2"
           >
             <Package className="h-3 w-3" /> NEXA OS CORE
           </a>
