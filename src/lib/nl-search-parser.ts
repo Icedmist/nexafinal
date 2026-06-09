@@ -20,6 +20,7 @@ export interface ParsedQuery {
 
 const NL_KEYWORDS = ["show", "find", "what", "which", "list", "give", "get", "where"];
 
+
 const STATUS_PATTERNS: [RegExp, string][] = [
   [/\b(running low|low stock|below reorder)\b/i, "low_stock"],
   [/\b(out of stock|zero stock|no stock|stockout)\b/i, "out_of_stock"],

@@ -752,6 +752,11 @@ export default function LandingPage() {
               <p className="uppercase tracking-wider">
                 Phone: <a href="tel:09038026109" className="hover:text-white transition-colors">09038026109</a> | Lamurde Street Barade, Jalingo | Nexa Digital Solutions LTD
               </p>
+              <div className="flex items-center gap-4 uppercase text-[10px] tracking-wider">
+                <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
+                <span className="text-white/20">|</span>
+                <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              </div>
               <p className="uppercase tracking-widest text-[10px]">© 2026 NEXA Digital Solutions LTD</p>
             </div>
           </div>

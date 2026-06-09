@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Package, Sparkles } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default SignupPage;
 
@@ -16,9 +17,14 @@ function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [agree, setAgree] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agree) {
+      toast.error("You must agree to the Terms & Conditions and Privacy Policy.");
+      return;
+    }
     setLoading(true);
     try {
       const cred = await signup(email, password, name);
@@ -87,9 +93,27 @@ function SignupPage() {
               className="h-12 rounded-xl border-2 font-bold focus:border-secondary/50 transition-all"
             />
           </div>
+          <div className="flex items-start gap-3 pt-2 relative z-10">
+            <Checkbox
+              id="agree"
+              checked={agree}
+              onCheckedChange={(checked) => setAgree(!!checked)}
+              className="mt-0.5 border-slate-300 data-[state=checked]:bg-secondary data-[state=checked]:border-secondary"
+            />
+            <Label htmlFor="agree" className="text-xs font-semibold text-slate-300 leading-normal cursor-pointer select-none">
+              I agree to the{" "}
+              <Link to="/terms" target="_blank" className="text-secondary hover:underline font-bold">
+                Terms & Conditions
+              </Link>{" "}
+              and{" "}
+              <Link to="/privacy" target="_blank" className="text-secondary hover:underline font-bold">
+                Privacy Policy
+              </Link>
+            </Label>
+          </div>
         </div>
 
-        <Button type="submit" variant="secondary" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-secondary/20 relative z-10 overflow-hidden group/btn" disabled={loading}>
+        <Button type="submit" variant="secondary" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-secondary/20 relative z-10 overflow-hidden group/btn" disabled={loading || !agree}>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
           {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-secondary-foreground border-t-transparent" /> : "Create Account"}
         </Button>
