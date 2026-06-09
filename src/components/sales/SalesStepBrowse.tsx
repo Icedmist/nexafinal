@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ShoppingCart, ScanBarcode, QrCode } from "lucide-react";
+import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,7 +106,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   }, [items, search, activeCat]);
 
   return (
-    <div className="flex h-full flex-col relative pb-28">
+    <div className="flex h-full flex-col relative">
       {/* Search bar */}
       <div className="px-4 pt-3 pb-2 flex gap-2">
         <div className="relative flex-1">
@@ -231,7 +231,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
       )}
 
       {/* Product grid */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-24">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
             <div className="rounded-full bg-muted p-4"><Package className="h-8 w-8" /></div>
@@ -246,10 +246,15 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
               return (
                 <div
                   key={item.id}
+                  onClick={() => {
+                    if (item.currentStock > 0 && qty < item.currentStock) {
+                      handleAdd(item.id);
+                    }
+                  }}
                   className={cn(
-                    "group flex flex-col overflow-hidden rounded-2xl border bg-card transition-all duration-300",
+                    "group flex flex-col overflow-hidden rounded-2xl border bg-card transition-all duration-300 cursor-pointer",
                     qty > 0 ? "border-primary/40 shadow-lg ring-1 ring-primary/20 scale-[1.02]" : "border-border hover:border-primary/20 hover:shadow-md",
-                    item.currentStock <= 0 && "opacity-75 grayscale-[0.5]"
+                    item.currentStock <= 0 && "opacity-75 grayscale-[0.5] cursor-not-allowed"
                   )}
                 >
                     <div className="relative aspect-square overflow-hidden bg-muted/20">
@@ -317,11 +322,14 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                     </div>
                   </div>
 
-                  <div className="flex items-center border-t border-border bg-muted/5">
+                  <div className="flex items-center border-t border-border bg-muted/5" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       disabled={qty === 0}
-                      onClick={() => onRemove(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove(item.id);
+                      }}
                       className="flex h-12 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-10 active:scale-90"
                     >
                       <Minus className="h-5 w-5" />
@@ -330,7 +338,10 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                     <button
                       type="button"
                       disabled={item.currentStock <= 0 || qty >= item.currentStock}
-                      onClick={() => handleAdd(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAdd(item.id);
+                      }}
                       className="flex h-12 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary disabled:opacity-10 active:scale-90"
                     >
                       <Plus className="h-5 w-5" />
@@ -343,32 +354,29 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
         )}
       </div>
 
-      {/* Fixed centered floating Sell button */}
-      <div className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-16 z-40 flex justify-center pb-4 transition-all duration-300",
-        totalItems > 0 ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
-      )}>
-        <button
-          type="button"
-          disabled={totalItems === 0}
-          onClick={() => {
-            const event = new CustomEvent("pos-go-to-cart");
-            window.dispatchEvent(event);
-          }}
-          className={cn(
-            "pointer-events-auto flex items-center gap-3 rounded-full bg-primary px-8 py-4 text-primary-foreground shadow-2xl shadow-primary/30 transition-all hover:scale-105 hover:brightness-110 active:scale-95",
-            totalItems === 0 && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          <ShoppingCart className="h-5 w-5" />
-          <span className="text-base font-bold">
-            Sell · {NAIRA}{totalNaira.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
-          </span>
-          <Badge variant="secondary" className="ml-1 h-6 min-w-6 rounded-full px-1.5 text-xs font-bold bg-primary-foreground/20 text-primary-foreground">
-            {totalItems}
-          </Badge>
-        </button>
-      </div>
+      {/* Floating Sell button - truly floating over content */}
+      {totalItems > 0 && (
+        <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex justify-center w-full px-4 transition-all duration-300">
+          <button
+            type="button"
+            onClick={() => {
+              const event = new CustomEvent("pos-go-to-cart");
+              window.dispatchEvent(event);
+            }}
+            className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-primary px-6 py-3 text-primary-foreground shadow-2xl shadow-primary/60 hover:shadow-primary/80 transition-all hover:scale-105 active:scale-95 font-bold"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            <span className="text-sm font-semibold">Sell</span>
+            <span className="text-xs text-primary-foreground/70">·</span>
+            <span className="text-sm font-mono">
+              {NAIRA}{totalNaira.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+            </span>
+            <Badge variant="secondary" className="ml-1 h-6 min-w-6 rounded-full px-1.5 text-xs font-bold bg-primary-foreground/20 text-primary-foreground">
+              {totalItems}
+            </Badge>
+          </button>
+        </div>
+      )}
       <QRScannerDialog
         open={isScannerOpen}
         onOpenChange={setIsScannerOpen}
