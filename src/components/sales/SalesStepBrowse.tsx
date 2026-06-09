@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart } from "lucide-react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -355,7 +356,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
       </div>
 
       {/* Floating Sell button - truly floating over content */}
-      {totalItems > 0 && (
+      {totalItems > 0 && createPortal(
         <div className="pointer-events-none fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-50 flex justify-center w-full max-w-md px-4 transition-all duration-300">
           <button
             type="button"
@@ -375,7 +376,8 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
               {totalItems}
             </Badge>
           </button>
-        </div>
+        </div>,
+        document.body
       )}
       <QRScannerDialog
         open={isScannerOpen}
