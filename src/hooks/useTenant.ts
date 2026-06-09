@@ -21,25 +21,35 @@ const detectSlug = () => {
 
   // Priority 2: Subdomain detection
   const parts = hostname.split(".");
+  let subdomain = "";
   
   // Handle localhost: store.localhost or store.127.0.0.1
   if (hostname.includes("localhost") || hostname.includes("127.0.0.1")) {
     if (parts.length > 1 && parts[0] !== "localhost" && parts[0] !== "127") {
-      const subdomain = parts[0];
-      if (!RESERVED_SUBDOMAINS.includes(subdomain)) {
-        sessionStorage.setItem("nexa_active_slug", subdomain);
-        return subdomain;
+      const sub = parts[0];
+      if (!RESERVED_SUBDOMAINS.includes(sub)) {
+        subdomain = sub;
       }
     }
   } else {
     // Handle production domains: store.nexa.com
     if (parts.length > 2) {
-      const subdomain = parts[0];
-      if (!RESERVED_SUBDOMAINS.includes(subdomain)) {
-        sessionStorage.setItem("nexa_active_slug", subdomain);
-        return subdomain;
+      const sub = parts[0];
+      if (!RESERVED_SUBDOMAINS.includes(sub)) {
+        subdomain = sub;
       }
     }
+  }
+
+  if (subdomain) {
+    sessionStorage.setItem("nexa_active_slug", subdomain);
+    return subdomain;
+  }
+
+  // If no subdomain is detected, and we are on the landing root path "/",
+  // we must NOT fall back to session/local cached slugs, otherwise the landing page is hijacked.
+  if (window.location.pathname === "/") {
+    return "";
   }
 
   // Priority 3: Fallback to session active slug
