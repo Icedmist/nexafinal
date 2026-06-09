@@ -175,7 +175,7 @@ export function AppLayout() {
   }, [store, claims]);
 
   if (loading || !user || !claimsReady) {
-    return null;
+    return <NexaCoreLoader />;
   }
 
   return (

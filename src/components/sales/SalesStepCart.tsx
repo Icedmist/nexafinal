@@ -41,7 +41,7 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+      <div className="flex-1 overflow-y-auto px-4 py-3 pb-28 space-y-2">
         {items.map((ci) => (
           <div key={ci.item.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/50">
@@ -83,7 +83,7 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
 
       <Separator />
 
-      <div className="px-4 py-4 space-y-3">
+      <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-4 space-y-3">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{totalQty} item{totalQty !== 1 && "s"}</span>
           <span className="font-mono">{NAIRA}{total.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>

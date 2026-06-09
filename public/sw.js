@@ -48,8 +48,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
+          // Clone immediately before response is used
+          const responseToCache = response.clone();
           if (response.ok) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
           }
           return response;
         })
@@ -62,8 +64,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
+          // Clone immediately before response is used
+          const responseToCache = response.clone();
           if (response.ok) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
           }
           return response;
         })
@@ -76,8 +80,10 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then((response) => {
       if (response) return response;
       return fetch(event.request).then((freshResponse) => {
+        // Clone immediately before response is used
+        const responseToCache = freshResponse.clone();
         if (freshResponse.ok) {
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, freshResponse.clone()));
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
         }
         return freshResponse;
       });

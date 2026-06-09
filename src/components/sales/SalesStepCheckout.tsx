@@ -245,9 +245,10 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   }
 
   return (
-    <div className="flex flex-1 flex-col px-4 py-4 overflow-y-auto">
-      {/* Customer details */}
-      <div className="space-y-4">
+    <div className="flex flex-1 flex-col">
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-32">
+        {/* Customer details */}
+        <div className="space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-1">Customer Details</h3>
           <p className="text-xs text-muted-foreground">Optional — helps with receipts and repeat tracking</p>
@@ -498,7 +499,8 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
 
 
       {/* Total and checkout button */}
-      <div className="mt-auto pt-5 space-y-3">
+      </div>
+      <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-4 space-y-3">
         <div className="flex items-center justify-between text-xl font-bold">
           <span>Total</span>
           <span className="font-mono">{NAIRA}{grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>

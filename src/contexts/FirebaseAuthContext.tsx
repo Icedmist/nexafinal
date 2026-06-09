@@ -318,7 +318,7 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   return (
     <AuthContext.Provider value={{ user, claims, loading, isLoggingOut, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
