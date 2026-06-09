@@ -22,6 +22,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export interface CheckoutItem {
   item: Item;
   quantity: number;
+  selectedUnit: string;
+  cartKey: string;
+}
+
+function getCartItemUnitPrice(item: Item, unitName: string): number {
+  if (unitName === item.unit) {
+    return item.sellingPrice;
+  }
+  const secondaryUnit = item.units?.find((u) => u.name === unitName);
+  if (secondaryUnit) {
+    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
+  }
+  return item.sellingPrice;
 }
 
 interface SalesStepCheckoutProps {
@@ -42,19 +55,9 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const [payOnCredit, setPayOnCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
   const [amountPaid, setAmountPaid] = useState<string>("");
-  const [unitOverrides, setUnitOverrides] = useState<Record<string, string>>({});
-
   // Get current price for an item based on its selected unit
   const getItemPrice = (ci: CheckoutItem) => {
-    const selectedUnitName = unitOverrides[ci.item.id];
-    if (selectedUnitName) {
-      const unit = ci.item.units?.find(u => u.name === selectedUnitName);
-      if (unit) {
-        // Use override price if set, otherwise calculate from base price
-        return unit.sellingPrice ?? (ci.item.sellingPrice * unit.conversionFactor);
-      }
-    }
-    return ci.item.sellingPrice;
+    return getCartItemUnitPrice(ci.item, ci.selectedUnit);
   };
 
   const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0);
@@ -175,8 +178,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       customerPhone: customerPhone.trim() || null,
       customerEmail: customerEmail.trim() || null,
       items: items.map((ci) => {
-        const selectedUnitName = unitOverrides[ci.item.id];
-        const unit = ci.item.units?.find(u => u.name === selectedUnitName);
+        const unit = ci.item.units?.find(u => u.name === ci.selectedUnit);
         const price = getItemPrice(ci);
         
         return {
@@ -186,7 +188,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
           quantity: ci.quantity,
           unitPriceNgn: price,
           imageUrl: ci.item.imageUrl || null,
-          selectedUnit: selectedUnitName || ci.item.unit,
+          selectedUnit: ci.selectedUnit,
           conversionFactor: unit?.conversionFactor || 1,
         };
       }),
@@ -433,37 +435,15 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
         <h3 className="text-sm font-semibold text-foreground">Order Summary</h3>
         <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
           {items.map((ci) => {
-            const hasMultiUnits = ci.item.units && ci.item.units.length > 0;
             const price = getItemPrice(ci);
             
             return (
-              <div key={ci.item.id} className="space-y-2">
+              <div key={ci.cartKey} className="space-y-2">
                 <div className="flex justify-between items-start text-xs">
                   <div className="flex-1 min-w-0 pr-4">
                     <span className="font-medium text-foreground block truncate">{ci.item.name}</span>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-muted-foreground whitespace-nowrap">Qty: {ci.quantity}</span>
-                      {hasMultiUnits && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground">in</span>
-                          <Select
-                            value={unitOverrides[ci.item.id] || ci.item.unit}
-                            onValueChange={(val) => setUnitOverrides(prev => ({ ...prev, [ci.item.id]: val }))}
-                          >
-                            <SelectTrigger className="h-6 w-auto min-w-[60px] px-2 text-[10px] py-0 border-none bg-background/50 hover:bg-background transition-colors rounded-md shadow-none">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={ci.item.unit} className="text-[10px]">{ci.item.unit} (Base Unit)</SelectItem>
-                              {ci.item.units?.map(u => (
-                                <SelectItem key={u.name} value={u.name} className="text-[10px]">
-                                  {u.name} ({u.conversionFactor} {ci.item.unit} per {u.name})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                      <span className="text-muted-foreground whitespace-nowrap">Qty: {ci.quantity} {ci.selectedUnit}</span>
                     </div>
                   </div>
                   <span className="font-mono font-bold text-foreground shrink-0 pt-0.5">

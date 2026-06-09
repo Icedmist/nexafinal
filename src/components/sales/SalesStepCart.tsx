@@ -13,6 +13,8 @@ function fmtNgn(price: number, qty: number = 1): string {
 export interface CartItem {
   item: Item;
   quantity: number;
+  selectedUnit: string;
+  cartKey: string;
 }
 
 interface SalesStepCartProps {
@@ -23,8 +25,35 @@ interface SalesStepCartProps {
   onNext: () => void;
 }
 
+function getUnitConversionFactor(item: Item, unitName: string): number {
+  if (unitName === item.unit) return 1;
+  const secondaryUnit = item.units?.find((u) => u.name === unitName);
+  return secondaryUnit?.conversionFactor ?? 1;
+}
+
+export function getCartItemUnitPrice(item: Item, unitName: string): number {
+  if (unitName === item.unit) {
+    return item.sellingPrice;
+  }
+  const secondaryUnit = item.units?.find((u) => u.name === unitName);
+  if (secondaryUnit) {
+    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
+  }
+  return item.sellingPrice;
+}
+
+function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartItems: CartItem[]): number {
+  const baseUnitsInCart = allCartItems
+    .filter((ci) => ci.item.id === item.id)
+    .reduce((sum, ci) => sum + ci.quantity * getUnitConversionFactor(ci.item, ci.selectedUnit), 0);
+  
+  const remainingBaseStock = Math.max(0, item.currentStock - baseUnitsInCart);
+  const conversionFactor = getUnitConversionFactor(item, selectedUnitName);
+  return Math.floor(remainingBaseStock / conversionFactor);
+}
+
 export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: SalesStepCartProps) {
-  const total = items.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
+  const total = items.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit) * ci.quantity, 0);
   const totalQty = items.reduce((s, ci) => s + ci.quantity, 0);
 
   if (items.length === 0) {
@@ -42,43 +71,48 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex-1 overflow-y-auto px-4 py-3 pb-28 space-y-2">
-        {items.map((ci) => (
-          <div key={ci.item.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/50">
-              {ci.item.imageUrl ? (
-                <img src={ci.item.imageUrl} alt={ci.item.name} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-lg">📦</div>
-              )}
-            </div>
+        {items.map((ci) => {
+          const unitPrice = getCartItemUnitPrice(ci.item, ci.selectedUnit);
+          const isAddDisabled = getAvailableStockForUnit(ci.item, ci.selectedUnit, items) <= 0;
 
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{ci.item.name}</p>
-              <p className="text-xs text-muted-foreground">{fmtNgn(ci.item.sellingPrice)} each</p>
-            </div>
+          return (
+            <div key={ci.cartKey} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/50">
+                {ci.item.imageUrl ? (
+                  <img src={ci.item.imageUrl} alt={ci.item.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-lg">📦</div>
+                )}
+              </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onRemove(ci.item.id)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-              >
-                <Minus className="h-3.5 w-3.5" />
-              </button>
-              <span className="min-w-7 text-center text-sm font-semibold font-mono">{ci.quantity}</span>
-              <button
-                type="button"
-                onClick={() => onAdd(ci.item.id)}
-                disabled={ci.quantity >= ci.item.currentStock}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{ci.item.name}</p>
+                <p className="text-xs text-muted-foreground">{fmtNgn(unitPrice)} per {ci.selectedUnit}</p>
+              </div>
 
-            <p className="min-w-16 text-right text-sm font-semibold font-mono">{fmtNgn(ci.item.sellingPrice, ci.quantity)}</p>
-          </div>
-        ))}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onRemove(ci.cartKey)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <span className="min-w-7 text-center text-sm font-semibold font-mono">{ci.quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => onAdd(ci.cartKey)}
+                  disabled={isAddDisabled}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <p className="min-w-16 text-right text-sm font-semibold font-mono">{fmtNgn(unitPrice, ci.quantity)}</p>
+            </div>
+          );
+        })}
       </div>
 
       <Separator />

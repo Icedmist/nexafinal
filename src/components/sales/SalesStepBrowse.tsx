@@ -9,6 +9,7 @@ import { cn, extractItemIdentifier } from "@/lib/utils";
 import type { Item } from "@/types/inventory";
 import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { toast } from "sonner";
+import { Sheet, SheetContent, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 const NAIRA = "₦";
 
@@ -16,13 +17,52 @@ function formatNaira(price: number): string {
   return `${NAIRA}${price.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-interface SalesStepBrowseProps {
-  cart: Map<string, number>;
-  onAdd: (id: string) => void;
-  onRemove: (id: string) => void;
+function getUnitConversionFactor(item: Item, unitName: string): number {
+  if (unitName === item.unit) return 1;
+  const secondaryUnit = item.units?.find((u) => u.name === unitName);
+  return secondaryUnit?.conversionFactor ?? 1;
 }
 
-export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps) {
+function getCartItemUnitPrice(item: Item, unitName: string): number {
+  if (unitName === item.unit) {
+    return item.sellingPrice;
+  }
+  const secondaryUnit = item.units?.find((u) => u.name === unitName);
+  if (secondaryUnit) {
+    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
+  }
+  return item.sellingPrice;
+}
+
+function getCartBaseUnitsForItem(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
+  let total = 0;
+  cart.forEach((qty, key) => {
+    const [id, unitName] = key.split(":");
+    if (id === itemId) {
+      const item = itemsList.find((i) => i.id === id);
+      if (item) {
+        total += qty * getUnitConversionFactor(item, unitName);
+      }
+    }
+  });
+  return total;
+}
+
+function getAvailableStockInBaseUnits(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
+  const item = itemsList.find((i) => i.id === itemId);
+  if (!item) return 0;
+  const inCart = getCartBaseUnitsForItem(itemId, cart, itemsList);
+  return Math.max(0, item.currentStock - inCart);
+}
+
+interface SalesStepBrowseProps {
+  cart: Map<string, number>;
+  onAdd: (cartKey: string) => void;
+  onRemove: (cartKey: string) => void;
+  onSetQuantity: (cartKey: string, qty: number) => void;
+}
+
+export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesStepBrowseProps) {
   const { data: items } = useItems();
   const { data: categories } = useCategories();
   const [search, setSearch] = useState("");
@@ -30,13 +70,18 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
+  const [activeUnits, setActiveUnits] = useState<Record<string, string>>({});
+  const [editingUnitsItem, setEditingUnitsItem] = useState<Item | null>(null);
 
   const totalItems = Array.from(cart.values()).reduce((s, q) => s + q, 0);
   const totalNaira = useMemo(() => {
     let sum = 0;
-    cart.forEach((qty, id) => {
-      const item = items.find((i) => i.id === id);
-      if (item) sum += item.sellingPrice * qty;
+    cart.forEach((qty, key) => {
+      const [itemId, unitName] = key.split(":");
+      const item = (items || []).find((i) => i.id === itemId);
+      if (item) {
+        sum += getCartItemUnitPrice(item, unitName) * qty;
+      }
     });
     return sum;
   }, [cart, items]);
@@ -45,7 +90,6 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   const longPressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startLongPress = useCallback((action: () => void, e?: React.TouchEvent) => {
-    // Prevent mouse events from also firing on touch devices
     if (e) e.preventDefault();
     action();
     longPressRef.current = setInterval(action, 400);
@@ -58,12 +102,13 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
     }
   }, []);
 
-  const handleAdd = useCallback((id: string) => {
-    onAdd(id);
-    setAnimatingItems((prev) => new Set(prev).add(id));
+  const handleAdd = useCallback((cartKey: string) => {
+    onAdd(cartKey);
+    const itemId = cartKey.split(":")[0];
+    setAnimatingItems((prev) => new Set(prev).add(itemId));
     setTimeout(() => setAnimatingItems((prev) => {
       const next = new Set(prev);
-      next.delete(id);
+      next.delete(itemId);
       return next;
     }), 200);
   }, [onAdd]);
@@ -73,12 +118,12 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
     const query = cleanCode.trim().toLowerCase();
     if (!query) return;
 
-    const item = items.find(
+    const item = (items || []).find(
       (i) => i.id.toLowerCase() === query || i.barcode?.toLowerCase() === query || i.sku.toLowerCase() === query
     );
 
     if (item) {
-      handleAdd(item.id);
+      handleAdd(`${item.id}:${item.unit}`);
       toast.success(`Added ${item.name}`);
       setSearch(""); // Clear for next scan
     } else {
@@ -97,7 +142,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
   const isSearchEmpty = !search.trim() && !activeCat;
 
   const filtered = useMemo(() => {
-    let list = [...items]; // Show all items, including out of stock
+    let list = [...(items || [])];
     if (activeCat) list = list.filter((i) => i.categoryId === activeCat);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -166,7 +211,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
         >
           All
         </button>
-        {categories.map((cat) => (
+        {(categories || []).map((cat) => (
           <button
             key={cat.id}
             type="button"
@@ -195,7 +240,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => handleAdd(item.id)}
+                    onClick={() => handleAdd(`${item.id}:${item.unit}`)}
                     className="shrink-0 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left hover:border-primary/40 hover:shadow-sm transition-all active:scale-95"
                   >
                     <div className="h-8 w-8 rounded-md bg-muted/50 flex items-center justify-center text-sm overflow-hidden">
@@ -242,55 +287,80 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
         ) : (
           <div className="grid grid-cols-2 gap-2.5 py-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {filtered.map((item) => {
-              const qty = cart.get(item.id) ?? 0;
+              const totalQtyInCart = Array.from(cart.entries())
+                .filter(([key]) => key.startsWith(`${item.id}:`))
+                .reduce((sum, [_, q]) => sum + q, 0);
+
               const isAnimating = animatingItems.has(item.id);
+              const activeUnit = activeUnits[item.id] || item.unit;
+              const activeUnitPrice = getCartItemUnitPrice(item, activeUnit);
+              const activeUnitQty = cart.get(`${item.id}:${activeUnit}`) ?? 0;
+              const remainingStock = getAvailableStockInBaseUnits(item.id, cart, items || []);
+              const conversionFactor = getUnitConversionFactor(item, activeUnit);
+              const canAddActiveUnit = remainingStock >= conversionFactor;
+
               return (
                 <div
                   key={item.id}
                   onClick={() => {
-                    if (item.currentStock > 0 && qty < item.currentStock) {
-                      handleAdd(item.id);
+                    if (item.currentStock > 0 && canAddActiveUnit) {
+                      handleAdd(`${item.id}:${activeUnit}`);
                     }
                   }}
                   className={cn(
                     "group flex flex-col overflow-hidden rounded-2xl border bg-card transition-all duration-300 cursor-pointer",
-                    qty > 0 ? "border-primary/40 shadow-lg ring-1 ring-primary/20 scale-[1.02]" : "border-border hover:border-primary/20 hover:shadow-md",
+                    totalQtyInCart > 0 ? "border-primary/40 shadow-lg ring-1 ring-primary/20 scale-[1.02]" : "border-border hover:border-primary/20 hover:shadow-md",
                     item.currentStock <= 0 && "opacity-75 grayscale-[0.5] cursor-not-allowed"
                   )}
                 >
-                    <div className="relative aspect-square overflow-hidden bg-muted/20">
-                      {item.imageUrl ? (
-                        <img 
-                          src={item.imageUrl} 
-                          alt={item.name} 
-                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = ""; 
-                            (e.target as HTMLImageElement).className = "hidden"; 
-                          }}
-                        />
-                      ) : null}
-                      
-                      {/* Fallback icon */}
-                      <div className={cn(
-                        "absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-muted/30 to-muted/10 text-muted-foreground/20 transition-opacity duration-300",
-                        item.imageUrl ? "opacity-0 group-hover:opacity-10" : "opacity-100"
-                      )}>
-                        <Package className="h-10 w-10 stroke-[1.5]" />
-                        <span className="text-[10px] font-black tracking-[0.2em] opacity-50 uppercase">No Image</span>
-                      </div>
-
-                      {/* Glassmorphism overlays */}
-                      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div 
+                    onClick={(e) => {
+                      if (item.units && item.units.length > 0) {
+                        e.stopPropagation();
+                        setEditingUnitsItem(item);
+                      }
+                    }}
+                    className="relative aspect-square overflow-hidden bg-muted/20"
+                  >
+                    {item.imageUrl ? (
+                      <img 
+                        src={item.imageUrl} 
+                        alt={item.name} 
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = ""; 
+                          (e.target as HTMLImageElement).className = "hidden"; 
+                        }}
+                      />
+                    ) : null}
                     
-                    {/* Top Right Badge: Quantity in Cart */}
-                    {qty > 0 && (
+                    {/* Fallback icon */}
+                    <div className={cn(
+                      "absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-muted/30 to-muted/10 text-muted-foreground/20 transition-opacity duration-300",
+                      item.imageUrl ? "opacity-0 group-hover:opacity-10" : "opacity-100"
+                    )}>
+                      <Package className="h-10 w-10 stroke-[1.5]" />
+                      <span className="text-[10px] font-black tracking-[0.2em] opacity-50 uppercase">No Image</span>
+                    </div>
+
+                    {/* Multi-unit badge if applicable */}
+                    {item.units && item.units.length > 0 && (
+                      <div className="absolute top-2 left-2 z-10 rounded-md bg-black/40 backdrop-blur-md px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider">
+                        Multi-Unit
+                      </div>
+                    )}
+
+                    {/* Glassmorphism overlays */}
+                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  
+                    {/* Top Right Badge: Total footprints in Cart */}
+                    {totalQtyInCart > 0 && (
                       <div className={cn(
                         "absolute right-2 top-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-primary px-1.5 text-[14px] font-black text-primary-foreground shadow-xl shadow-primary/40 ring-2 ring-background z-10 animate-in zoom-in-50",
                         isAnimating && "scale-125 rotate-12"
                       )}>
-                        {qty}
+                        {totalQtyInCart}
                       </div>
                     )}
                     
@@ -300,14 +370,14 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                         variant="secondary" 
                         className={cn(
                           "h-6 px-2 text-[10px] font-bold backdrop-blur-md border-none shadow-sm",
-                          item.currentStock <= 0
+                          remainingStock <= 0
                             ? "bg-destructive/90 text-destructive-foreground"
-                            : item.currentStock <= (item.reorderPoint || 5) 
+                            : remainingStock <= (item.reorderPoint || 5) 
                               ? "bg-amber-500/90 text-amber-950" 
                               : "bg-background/80 text-foreground"
                         )}
                       >
-                        {item.currentStock <= 0 ? "Out of Stock" : `${item.currentStock} in stock`}
+                        {remainingStock <= 0 ? "Out of Stock" : `${remainingStock} in stock`}
                       </Badge>
                     </div>
                   </div>
@@ -317,8 +387,78 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                     {item.description && (
                       <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed mt-0.5">{item.description}</p>
                     )}
+
+                    {/* 1-Tap Inline Unit Selector Pills */}
+                    {item.units && item.units.length > 0 && (
+                      <div 
+                        className="flex gap-1.5 overflow-x-auto no-scrollbar py-1 mt-1.5 whitespace-nowrap select-none"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Base Unit Pill */}
+                        {(() => {
+                          const baseUnitName = item.unit;
+                          const baseUnitQty = cart.get(`${item.id}:${baseUnitName}`) ?? 0;
+                          const isActive = activeUnit === baseUnitName;
+                          return (
+                            <button
+                              key={baseUnitName}
+                              type="button"
+                              onClick={() => {
+                                setActiveUnits(prev => ({ ...prev, [item.id]: baseUnitName }));
+                              }}
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-[9px] font-bold transition-all border shrink-0",
+                                isActive 
+                                  ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                                  : "bg-muted hover:bg-muted/80 text-muted-foreground border-transparent"
+                              )}
+                            >
+                              {baseUnitName}{baseUnitQty > 0 ? ` (${baseUnitQty})` : ""}
+                            </button>
+                          );
+                        })()}
+
+                        {/* Secondary Unit Pills */}
+                        {item.units.map((u) => {
+                          const secondaryUnitQty = cart.get(`${item.id}:${u.name}`) ?? 0;
+                          const isActive = activeUnit === u.name;
+                          return (
+                            <button
+                              key={u.name}
+                              type="button"
+                              onClick={() => {
+                                setActiveUnits(prev => ({ ...prev, [item.id]: u.name }));
+                              }}
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-[9px] font-bold transition-all border shrink-0",
+                                isActive 
+                                  ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                                  : "bg-muted hover:bg-muted/80 text-muted-foreground border-transparent"
+                              )}
+                            >
+                              {u.name}{secondaryUnitQty > 0 ? ` (${secondaryUnitQty})` : ""}
+                            </button>
+                          );
+                        })}
+
+                        {/* Bulk Drawer Pill */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingUnitsItem(item);
+                          }}
+                          className="px-2 py-0.5 rounded-full text-[9px] font-black bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all shrink-0"
+                        >
+                          Bulk ⚙️
+                        </button>
+                      </div>
+                    )}
+
                     <div className="mt-auto flex items-end justify-between pt-1">
-                      <p className="text-base font-black text-primary">{formatNaira(item.sellingPrice)}</p>
+                      <div className="flex flex-col">
+                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">{activeUnit}</p>
+                        <p className="text-base font-black text-primary leading-none mt-0.5">{formatNaira(activeUnitPrice)}</p>
+                      </div>
                       <span className="text-[10px] text-muted-foreground font-bold opacity-40 uppercase tracking-tighter">{item.sku}</span>
                     </div>
                   </div>
@@ -326,26 +466,30 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
                   <div className="flex items-center border-t border-border bg-muted/5" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      disabled={qty === 0}
+                      disabled={activeUnitQty === 0}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onRemove(item.id);
+                        onRemove(`${item.id}:${activeUnit}`);
                       }}
-                      className="flex h-12 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-10 active:scale-90"
+                      className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-10 active:scale-90"
                     >
-                      <Minus className="h-5 w-5" />
+                      <Minus className="h-4.5 w-4.5" />
                     </button>
-                    <div className="w-px h-6 bg-border/50" />
+                    <div className="w-px h-5 bg-border/50" />
+                    <span className="px-2 text-xs font-bold font-mono text-foreground min-w-[20px] text-center">
+                      {activeUnitQty}
+                    </span>
+                    <div className="w-px h-5 bg-border/50" />
                     <button
                       type="button"
-                      disabled={item.currentStock <= 0 || qty >= item.currentStock}
+                      disabled={item.currentStock <= 0 || !canAddActiveUnit}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAdd(item.id);
+                        handleAdd(`${item.id}:${activeUnit}`);
                       }}
-                      className="flex h-12 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary disabled:opacity-10 active:scale-90"
+                      className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary disabled:opacity-10 active:scale-90"
                     >
-                      <Plus className="h-5 w-5" />
+                      <Plus className="h-4.5 w-4.5" />
                     </button>
                   </div>
                 </div>
@@ -379,6 +523,131 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
         </div>,
         document.body
       )}
+
+      {/* Bulk All Units Drawer */}
+      <Sheet open={editingUnitsItem !== null} onOpenChange={(open) => { if (!open) setEditingUnitsItem(null); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto">
+          {editingUnitsItem && (
+            <div className="space-y-4">
+              <SheetHeader className="text-left pb-2 border-b">
+                <SheetTitle className="text-base font-bold flex items-center justify-between">
+                  <span>{editingUnitsItem.name} - Bulk Units</span>
+                  <span className="text-xs text-muted-foreground font-mono">{editingUnitsItem.sku}</span>
+                </SheetTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Remaining Available Stock: <span className="font-bold font-mono text-primary">{getAvailableStockInBaseUnits(editingUnitsItem.id, cart, items || [])}</span> {editingUnitsItem.unit}
+                </p>
+              </SheetHeader>
+
+              <div className="space-y-3">
+                {/* Render Base Unit Row */}
+                {(() => {
+                  const unitName = editingUnitsItem.unit;
+                  const qty = cart.get(`${editingUnitsItem.id}:${unitName}`) ?? 0;
+                  const price = editingUnitsItem.sellingPrice;
+                  const conversionFactor = 1;
+                  const availableBaseStock = getAvailableStockInBaseUnits(editingUnitsItem.id, cart, items || []);
+                  const maxAddable = Math.floor(availableBaseStock / conversionFactor);
+                  
+                  return (
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/20">
+                      <div>
+                        <p className="text-sm font-bold">{unitName} <span className="text-xs font-normal text-muted-foreground">(Base Unit)</span></p>
+                        <p className="text-xs text-primary font-mono font-semibold">{formatNaira(price)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={qty <= 0}
+                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty - 1)}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          type="number"
+                          value={qty || ""}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            onSetQuantity(`${editingUnitsItem.id}:${unitName}`, val);
+                          }}
+                          className="w-12 h-8 text-center text-xs font-mono p-0"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={maxAddable <= 0}
+                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty + 1)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Render Secondary Units */}
+                {editingUnitsItem.units?.map((u) => {
+                  const unitName = u.name;
+                  const qty = cart.get(`${editingUnitsItem.id}:${unitName}`) ?? 0;
+                  const price = u.sellingPrice ?? (editingUnitsItem.sellingPrice * u.conversionFactor);
+                  const conversionFactor = u.conversionFactor;
+                  const availableBaseStock = getAvailableStockInBaseUnits(editingUnitsItem.id, cart, items || []);
+                  const maxAddable = Math.floor(availableBaseStock / conversionFactor);
+
+                  return (
+                    <div key={unitName} className="flex items-center justify-between p-3 rounded-xl border bg-muted/20">
+                      <div>
+                        <p className="text-sm font-bold">{unitName}</p>
+                        <p className="text-xs text-muted-foreground">1 {unitName} = {conversionFactor} {editingUnitsItem.unit}</p>
+                        <p className="text-xs text-primary font-mono font-semibold mt-0.5">{formatNaira(price)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={qty <= 0}
+                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty - 1)}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          type="number"
+                          value={qty || ""}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            onSetQuantity(`${editingUnitsItem.id}:${unitName}`, val);
+                          }}
+                          className="w-12 h-8 text-center text-xs font-mono p-0"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={maxAddable <= 0}
+                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty + 1)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <Button className="w-full sm:w-auto" onClick={() => setEditingUnitsItem(null)}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       <QRScannerDialog
         open={isScannerOpen}
         onOpenChange={setIsScannerOpen}

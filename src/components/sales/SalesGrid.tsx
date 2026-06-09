@@ -18,6 +18,46 @@ const STEPS = [
 
 type StepId = (typeof STEPS)[number]["id"];
 
+import type { Item } from "@/types/inventory";
+
+export function getUnitConversionFactor(item: Item, unitName: string): number {
+  if (unitName === item.unit) return 1;
+  const secondaryUnit = item.units?.find((u) => u.name === unitName);
+  return secondaryUnit?.conversionFactor ?? 1;
+}
+
+export function getCartItemUnitPrice(item: Item, unitName: string): number {
+  if (unitName === item.unit) {
+    return item.sellingPrice;
+  }
+  const secondaryUnit = item.units?.find((u) => u.name === unitName);
+  if (secondaryUnit) {
+    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
+  }
+  return item.sellingPrice;
+}
+
+export function getCartBaseUnitsForItem(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
+  let total = 0;
+  cart.forEach((qty, key) => {
+    const [id, unitName] = key.split(":");
+    if (id === itemId) {
+      const item = itemsList.find((i) => i.id === id);
+      if (item) {
+        total += qty * getUnitConversionFactor(item, unitName);
+      }
+    }
+  });
+  return total;
+}
+
+export function getAvailableStockInBaseUnits(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
+  const item = itemsList.find((i) => i.id === itemId);
+  if (!item) return 0;
+  const inCart = getCartBaseUnitsForItem(itemId, cart, itemsList);
+  return Math.max(0, item.currentStock - inCart);
+}
+
 export function SalesGrid() {
   const { data: items } = useItems();
   const [cart, setCart] = useState<Map<string, number>>(new Map());
@@ -32,32 +72,82 @@ export function SalesGrid() {
     return () => window.removeEventListener("pos-go-to-cart", handler);
   }, [goToCart]);
 
-  const addToCart = (itemId: string) => {
+  const addToCart = (cartKey: string) => {
     setCart((prev) => {
       const next = new Map(prev);
-      next.set(itemId, (next.get(itemId) ?? 0) + 1);
+      const [itemId, unitName] = cartKey.split(":");
+      const item = (items || []).find((i) => i.id === itemId);
+      if (!item) return prev;
+
+      const conversionFactor = getUnitConversionFactor(item, unitName);
+      const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
+      if (availableBaseStock < conversionFactor) {
+        return prev;
+      }
+
+      next.set(cartKey, (next.get(cartKey) ?? 0) + 1);
       return next;
     });
   };
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = (cartKey: string) => {
     setCart((prev) => {
       const next = new Map(prev);
-      const qty = (next.get(itemId) ?? 0) - 1;
-      if (qty <= 0) next.delete(itemId);
-      else next.set(itemId, qty);
+      const qty = (next.get(cartKey) ?? 0) - 1;
+      if (qty <= 0) next.delete(cartKey);
+      else next.set(cartKey, qty);
+      return next;
+    });
+  };
+
+  const setQuantityInCart = (cartKey: string, qty: number) => {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const [itemId, unitName] = cartKey.split(":");
+      const item = (items || []).find((i) => i.id === itemId);
+      if (!item) return prev;
+
+      if (qty <= 0) {
+        next.delete(cartKey);
+        return next;
+      }
+
+      const currentUnitQty = prev.get(cartKey) ?? 0;
+      const conversionFactor = getUnitConversionFactor(item, unitName);
+      const baseUnitsDiff = (qty - currentUnitQty) * conversionFactor;
+      const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
+
+      if (availableBaseStock < baseUnitsDiff) {
+        const maxAddableQty = Math.floor(availableBaseStock / conversionFactor);
+        const cappedQty = currentUnitQty + maxAddableQty;
+        if (cappedQty <= 0) {
+          next.delete(cartKey);
+        } else {
+          next.set(cartKey, cappedQty);
+        }
+      } else {
+        next.set(cartKey, qty);
+      }
       return next;
     });
   };
 
   const cartItems: CartItem[] = [];
-  cart.forEach((qty, id) => {
-    const item = items.find((i) => i.id === id);
-    if (item) cartItems.push({ item, quantity: qty });
+  cart.forEach((qty, key) => {
+    const [itemId, unitName] = key.split(":");
+    const item = (items || []).find((i) => i.id === itemId);
+    if (item) {
+      cartItems.push({
+        item,
+        quantity: qty,
+        selectedUnit: unitName,
+        cartKey: key,
+      });
+    }
   });
 
   const totalItems = Array.from(cart.values()).reduce((s, q) => s + q, 0);
-  const totalNaira = cartItems.reduce((s, ci) => s + ci.item.sellingPrice * ci.quantity, 0);
+  const totalNaira = cartItems.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit) * ci.quantity, 0);
 
   const handleComplete = () => {
     setCart(new Map());
@@ -116,7 +206,12 @@ export function SalesGrid() {
       {/* Step content */}
       <div className="flex-1 overflow-hidden flex flex-col">
         {step === "browse" && (
-          <SalesStepBrowse cart={cart} onAdd={addToCart} onRemove={removeFromCart} />
+          <SalesStepBrowse 
+            cart={cart} 
+            onAdd={addToCart} 
+            onRemove={removeFromCart} 
+            onSetQuantity={setQuantityInCart} 
+          />
         )}
         {step === "cart" && (
           <SalesStepCart
