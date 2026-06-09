@@ -356,7 +356,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove }: SalesStepBrowseProps)
 
       {/* Floating Sell button - truly floating over content */}
       {totalItems > 0 && (
-        <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex justify-center w-full px-4 transition-all duration-300">
+        <div className="pointer-events-none fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-50 flex justify-center w-full max-w-md px-4 transition-all duration-300">
           <button
             type="button"
             onClick={() => {
