@@ -31,6 +31,10 @@ export default defineConfig({
   server: {
     host: "::",
     port: 8080,
+    allowedHosts: [".localhost", "localhost"],
+    hmr: {
+      protocol: "ws",
+    },
     watch: {
       ignored: ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/functions/**", "**/docs/**", "**/e2e/**"],
     },

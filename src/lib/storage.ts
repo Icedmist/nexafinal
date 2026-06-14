@@ -2,7 +2,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase";
 import imageCompression from "browser-image-compression";
 
-export type UploadPath = "user_profiles" | "products" | "branches";
+export type UploadPath = "user_profiles" | "products" | "branches" | "refunds";
 
 export interface UploadResult {
   url: string;

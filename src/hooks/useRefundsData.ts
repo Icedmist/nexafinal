@@ -48,7 +48,7 @@ export function useRefunds(): QueryResult<Refund[]> {
         refunds.push({ id: doc.id, ...doc.data() } as Refund);
       });
 
-      let filtered = refunds;
+      const filtered = refunds;
 
       setData(filtered);
       setIsLoading(false);
@@ -59,7 +59,7 @@ export function useRefunds(): QueryResult<Refund[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims?.branchId]);
+  }, [user, storeId, claimsReady, claims?.branchId, claims?.role]);
 
   return { data, isLoading, error };
 }
@@ -68,15 +68,23 @@ export function useRefundsMutations() {
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
 
-  const addRefund = async (refund: Omit<Refund, "id" | "ownerId">) => {
+  const addRefund = async (refund: Omit<Refund, "id">) => {
     if (!user || !storeId) throw new Error("Authentication required");
-    return await addDoc(collection(db, "refunds"), {
+
+    // Build the document payload, only including proofImageUrl if it exists
+    const payload: Record<string, string | number | null | undefined> = {
       ...refund,
       storeId,
       branchId: claims?.branchId || null,
       ownerId: user.uid,
       recordedBy: user.uid,
-    });
+    };
+
+    // Clean up undefined optional fields so Firestore doesn't store them as null
+    if (!payload.proofImageUrl) delete payload.proofImageUrl;
+    if (!payload.returnDescription) delete payload.returnDescription;
+
+    return await addDoc(collection(db, "refunds"), payload);
   };
 
   return { addRefund };

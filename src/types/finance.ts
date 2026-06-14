@@ -42,6 +42,8 @@ export interface Refund {
   amountNgn: number;
   reason: RefundReason;
   notes: string;
+  proofImageUrl?: string;
+  returnDescription?: string;
   branchId?: string | null;
   recordedBy?: string;
   recordedByName?: string;
