@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { exportSalesHistoryPDF } from "@/lib/pdf-export";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { uploadImage } from "@/lib/storage";
 
 const NAIRA = "₦";
 
@@ -60,6 +61,28 @@ export function SalesHistoryPage() {
   const [refundReason, setRefundReason] = useState<string>("customer_return");
   const [refundNotes, setRefundNotes] = useState<string>("");
   const [isProcessingRefund, setIsProcessingRefund] = useState<boolean>(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const proofInputRef = useRef<HTMLInputElement>(null);
+
+  const handleProofSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be under 10MB");
+      return;
+    }
+    setProofFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setProofPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const clearProof = () => {
+    setProofFile(null);
+    setProofPreview(null);
+    if (proofInputRef.current) proofInputRef.current.value = "";
+  };
 
   const handleRefundSubmit = async () => {
     if (!refundSale || !refundItemId) return;
@@ -73,6 +96,16 @@ export function SalesHistoryPage() {
 
     setIsProcessingRefund(true);
     try {
+      let proofImageUrl: string | undefined;
+      if (proofFile) {
+        try {
+          const result = await uploadImage(proofFile, "refunds", `return_proof_${Date.now()}`);
+          proofImageUrl = result.url;
+        } catch (uploadErr) {
+          toast.error("Failed to upload proof image, but refund will still be processed");
+        }
+      }
+
       await addRefund({
         saleId: refundSale.id,
         itemId: selectedItem.itemId,
@@ -81,10 +114,12 @@ export function SalesHistoryPage() {
         amountNgn: selectedItem.unitPriceNgn * refundQty,
         reason: refundReason as any,
         notes: refundNotes,
+        proofImageUrl,
         createdAt: new Date().toISOString(),
       });
       toast.success(`Refund processed successfully: ${fmtNgn(selectedItem.unitPriceNgn * refundQty)}`);
       setRefundSale(null);
+      clearProof();
     } catch (err) {
       console.error(err);
       toast.error("Failed to process refund");
@@ -579,9 +614,9 @@ export function SalesHistoryPage() {
 
       {/* Process Refund Dialog */}
       <Dialog open={!!refundSale} onOpenChange={(o) => !o && setRefundSale(null)}>
-        <DialogContent className="rounded-3xl border-none p-6 nexa-card bg-card sm:max-w-md">
+        <DialogContent className="rounded-3xl border-none p-0 bg-transparent shadow-none [&>button]:hidden sm:max-w-md">
           {refundSale && (
-            <div className="space-y-6">
+            <div className="nexa-card bg-card p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
                   <RotateCcw className="h-5 w-5 text-destructive" />
@@ -663,6 +698,40 @@ export function SalesHistoryPage() {
                         className="rounded-xl border-2" 
                         rows={3} 
                       />
+                    </div>
+
+                    {/* Proof of Return Image Upload */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-muted-foreground uppercase">Proof of Return (Photo)</Label>
+                      <div className="rounded-xl border-2 border-dashed border-border bg-muted/20 p-4">
+                        {proofPreview ? (
+                          <div className="relative">
+                            <img src={proofPreview} alt="Proof preview" className="w-full h-40 object-cover rounded-lg" />
+                            <button
+                              type="button"
+                              onClick={clearProof}
+                              className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center gap-2 cursor-pointer py-2">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                              <Upload className="h-5 w-5" />
+                            </div>
+                            <p className="text-xs font-medium text-muted-foreground">Tap to upload proof image</p>
+                            <p className="text-[10px] text-muted-foreground/70">JPG, PNG up to 10MB</p>
+                            <input
+                              ref={proofInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleProofSelect}
+                            />
+                          </label>
+                        )}
+                      </div>
                     </div>
 
                     {(() => {

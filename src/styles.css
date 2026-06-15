@@ -383,7 +383,7 @@
   }
 
   .nexa-card:hover {
-    @apply shadow-[0_20px_40px_0_rgba(31,38,135,0.12)] -translate-y-1;
+    @apply shadow-[0_20px_40px_0_rgba(31,38,135,0.12)];
   }
 
   .nexa-glass {

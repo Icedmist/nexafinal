@@ -31,10 +31,9 @@ export default defineConfig({
   server: {
     host: "::",
     port: 8080,
-    allowedHosts: [".localhost", "localhost"],
+    allowedHosts: true,
     hmr: {
       protocol: "ws",
-      host: "localhost",
     },
     watch: {
       ignored: ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/functions/**", "**/docs/**", "**/e2e/**"],
@@ -43,9 +42,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "react": path.resolve(__dirname, "./node_modules/react"),
-      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
-      "react-router-dom": path.resolve(__dirname, "./node_modules/react-router-dom"),
     },
     dedupe: ["react", "react-dom", "react-router-dom"],
   },
