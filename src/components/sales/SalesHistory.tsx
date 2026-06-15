@@ -429,7 +429,11 @@ export function SalesHistoryPage() {
               key={sale.id}
               className={cn(
                 "group cursor-pointer nexa-card-hover border-2 transition-all",
-                selectedSaleIds.includes(sale.id) ? "border-primary bg-primary/[0.02]" : "border-border"
+                selectedSaleIds.includes(sale.id)
+                  ? "border-primary bg-primary/[0.02]"
+                  : sale.hasRefund
+                  ? "border-destructive/30 bg-destructive/[0.01] hover:border-destructive/60"
+                  : "border-border"
               )}
               onClick={() => setSelectedSale(sale)}
             >
@@ -462,11 +466,14 @@ export function SalesHistoryPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {sale.hasRefund && (
-                      <span className="text-[9px] font-black uppercase tracking-wider bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                        <RotateCcw className="h-2.5 w-2.5" /> Refunded
+                      <span className="text-[10px] font-black uppercase tracking-wider text-destructive flex items-center gap-0.5 animate-pulse">
+                        <RotateCcw className="h-3 w-3" /> Refunded
                       </span>
                     )}
-                    <span className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                    <span className={cn(
+                      "text-[11px] font-mono font-medium uppercase tracking-wider",
+                      sale.hasRefund ? "text-destructive font-bold" : "text-muted-foreground"
+                    )}>
                       #{sale.id.slice(-6)}
                     </span>
                   </div>
@@ -502,6 +509,11 @@ export function SalesHistoryPage() {
                      <PaymentIcon method={(sale as SaleWithPayment).paymentMethod} isCreditSale={sale.isCreditSale} />
                      {!sale.isCreditSale && (
                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{(sale as SaleWithPayment).paymentMethod || "Cash"}</span>
+                     )}
+                     {sale.hasRefund && (
+                       <span className="text-[10px] font-black text-destructive uppercase tracking-widest flex items-center gap-1 ml-2">
+                         <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" /> Refunded
+                       </span>
                      )}
                    </div>
                    <div className="flex items-center gap-1 text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
