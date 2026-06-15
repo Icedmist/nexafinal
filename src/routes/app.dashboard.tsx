@@ -286,6 +286,7 @@ function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <button 
+            data-tour="settings"
             onClick={() => navigate("/app/settings")}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border hover:border-primary/30 hover:bg-muted/50 transition-all text-sm font-medium shadow-sm group"
           >
@@ -359,6 +360,7 @@ function DashboardPage() {
         </motion.button>
 
         <motion.button 
+          data-tour="sales"
           variants={{
             hidden: { y: 20, opacity: 0 },
             visible: { y: 0, opacity: 1 }
@@ -375,6 +377,7 @@ function DashboardPage() {
         </motion.button>
 
         <motion.button 
+          data-tour="settings"
           variants={{
             hidden: { y: 20, opacity: 0 },
             visible: { y: 0, opacity: 1 }
@@ -400,7 +403,7 @@ function DashboardPage() {
               <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={Banknote} /></button>
               <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Net Profit" value={`${NAIRA}${netProfit.toLocaleString("en-NG")}`} accentColor={netProfit >= 0 ? "healthy" : "danger"} icon={netProfit >= 0 ? TrendingUp : TrendingDown} /></button>
               <button type="button" onClick={() => navigate("/app/expenses" )} className="text-left"><MetricCard label="Expenses" value={`${NAIRA}${totalExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
-              <button type="button" onClick={() => navigate("/app/customers?tab=debtors" )} className="text-left"><MetricCard label="Outstanding Debt" value={`${NAIRA}${totalOutstandingDebt.toLocaleString("en-NG")}`} accentColor="danger" icon={AlertTriangle} /></button>
+              <button type="button" data-tour="customers" onClick={() => navigate("/app/customers?tab=debtors" )} className="text-left"><MetricCard label="Outstanding Debt" value={`${NAIRA}${totalOutstandingDebt.toLocaleString("en-NG")}`} accentColor="danger" icon={AlertTriangle} /></button>
             </div>
           </AccordionSection>
 

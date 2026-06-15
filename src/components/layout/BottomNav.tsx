@@ -20,7 +20,7 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-14 items-stretch border-t border-border bg-card md:hidden">
+      <nav data-tour="sidebar" className="fixed bottom-0 left-0 right-0 z-40 flex h-14 items-stretch border-t border-border bg-card md:hidden">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.href}
