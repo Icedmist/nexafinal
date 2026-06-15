@@ -31,6 +31,7 @@ export interface SaleTransaction {
   recordedBy?: string;
   recordedByName?: string;
   createdAt: string;
+  hasRefund?: boolean;
 }
 
 // ─── Enums ───────────────────────────────────────────────

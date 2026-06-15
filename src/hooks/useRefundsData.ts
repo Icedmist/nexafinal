@@ -123,6 +123,13 @@ export function useRefundsMutations() {
       updatedAt: new Date().toISOString()
     });
 
+    // 4. Update the sale document to mark it as containing a refund
+    const saleRef = doc(db, "sales", refund.saleId);
+    batch.update(saleRef, {
+      hasRefund: true,
+      updatedAt: new Date().toISOString()
+    });
+
     await batch.commit();
 
     // 4. Trigger Notification

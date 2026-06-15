@@ -460,9 +460,16 @@ export function SalesHistoryPage() {
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select</span>
                   </div>
-                  <span className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                    #{sale.id.slice(-6)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {sale.hasRefund && (
+                      <span className="text-[9px] font-black uppercase tracking-wider bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                        <RotateCcw className="h-2.5 w-2.5" /> Refunded
+                      </span>
+                    )}
+                    <span className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                      #{sale.id.slice(-6)}
+                    </span>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="px-4 pb-4">
@@ -523,7 +530,7 @@ export function SalesHistoryPage() {
               </div>
 
               <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-2 relative overflow-hidden">
-                <div className="absolute top-0 right-0 h-1 w-full bg-primary/20" />
+                <div className={cn("absolute top-0 right-0 h-1 w-full", selectedSale.hasRefund ? "bg-destructive/60" : "bg-primary/20")} />
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground font-bold uppercase tracking-wider">Transaction ID</span>
                   <span className="font-mono font-black text-foreground">#{selectedSale.id.slice(-8).toUpperCase()}</span>
@@ -532,6 +539,14 @@ export function SalesHistoryPage() {
                   <span className="text-muted-foreground font-bold uppercase tracking-wider">Date & Time</span>
                   <span className="font-bold text-foreground">{format(new Date(selectedSale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                 </div>
+                {selectedSale.hasRefund && (
+                  <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
+                    <span className="text-muted-foreground font-bold uppercase tracking-wider">Status</span>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-destructive/10 text-destructive px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <RotateCcw className="h-2.5 w-2.5" /> Refunded
+                    </span>
+                  </div>
+                )}
                  <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
                    <span className="text-muted-foreground font-bold uppercase tracking-wider">Payment Method</span>
                    <div className="flex items-center gap-1.5">
