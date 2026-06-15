@@ -47,6 +47,8 @@ export interface Refund {
   branchId?: string | null;
   recordedBy?: string;
   recordedByName?: string;
+  selectedUnit?: string;
+  conversionFactor?: number;
   createdAt: string;
 }
 

@@ -126,10 +126,36 @@ function ReturnsPage() {
               {/* Return description shown below the main row */}
               {r.returnDescription && (
                 <div className="mt-2 pt-2 border-t border-border/50">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Return Reason</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Return Description</p>
                   <p className="text-xs text-foreground/80 leading-relaxed">{r.returnDescription}</p>
                 </div>
               )}
+
+              {/* Additional Refund Details */}
+              <div className="mt-2 pt-2 border-t border-border/50 grid grid-cols-2 gap-y-1 gap-x-4 sm:grid-cols-4 text-[11px] text-muted-foreground">
+                <div>
+                  <span className="font-semibold text-foreground/75">Sale ID: </span>
+                  <span className="font-mono">{r.saleId.slice(0, 8)}...</span>
+                </div>
+                {r.recordedByName && (
+                  <div>
+                    <span className="font-semibold text-foreground/75">Processed By: </span>
+                    <span>{r.recordedByName}</span>
+                  </div>
+                )}
+                {r.selectedUnit && (
+                  <div>
+                    <span className="font-semibold text-foreground/75">Unit: </span>
+                    <span>{r.selectedUnit}{r.conversionFactor && r.conversionFactor !== 1 ? ` (x${r.conversionFactor})` : ""}</span>
+                  </div>
+                )}
+                {r.notes && (
+                  <div className="col-span-2 sm:col-span-4">
+                    <span className="font-semibold text-foreground/75">Notes: </span>
+                    <span>{r.notes}</span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -221,6 +247,8 @@ function RefundFormSheet({ open, onOpenChange, sales }: {
         notes,
         returnDescription: returnDescription.trim(),
         proofImageUrl,
+        selectedUnit: selectedItem.selectedUnit,
+        conversionFactor: selectedItem.conversionFactor,
         createdAt: new Date().toISOString(),
       });
       toast.success(`Refund processed: ${NAIRA}${(selectedItem.unitPriceNgn * qty).toLocaleString("en-NG")}`);

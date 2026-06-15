@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { exportSalesHistoryPDF } from "@/lib/pdf-export";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,7 +26,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SaleTransaction } from "@/types/inventory";
 import { toast } from "sonner";
-import { useRefundsMutations } from "@/hooks/useRefundsData";
+import { useRefunds, useRefundsMutations } from "@/hooks/useRefundsData";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,12 +49,19 @@ export function SalesHistoryPage() {
 
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
+  const { data: refunds } = useRefunds();
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
   const [selectedSaleIds, setSelectedSaleIds] = useState<string[]>([]);
-
   const { addRefund } = useRefundsMutations();
+
+  const saleRefunds = useMemo(() => {
+    if (!selectedSale || !refunds) return [];
+    return refunds.filter((r) => r.saleId === selectedSale.id);
+  }, [selectedSale, refunds]);
+
   const [refundSale, setRefundSale] = useState<SaleTransaction | null>(null);
   const [refundItemId, setRefundItemId] = useState<string>("");
   const [refundQty, setRefundQty] = useState<number>(1);
@@ -115,6 +122,8 @@ export function SalesHistoryPage() {
         reason: refundReason as any,
         notes: refundNotes,
         proofImageUrl,
+        selectedUnit: selectedItem.selectedUnit,
+        conversionFactor: selectedItem.conversionFactor,
         createdAt: new Date().toISOString(),
       });
       toast.success(`Refund processed successfully: ${fmtNgn(selectedItem.unitPriceNgn * refundQty)}`);
@@ -581,6 +590,42 @@ export function SalesHistoryPage() {
                 <span className="text-3xl font-black font-mono tracking-tighter text-primary">{fmtNgn(selectedSale.totalNgn)}</span>
               </div>
 
+              {/* Processed Refunds section */}
+              {saleRefunds.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-[10px] font-bold text-destructive uppercase tracking-widest px-1 flex items-center gap-1">
+                    <RotateCcw className="h-3 w-3" /> Refunds Processed
+                  </h4>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                    {saleRefunds.map((ref) => (
+                      <div key={ref.id} className="flex flex-col gap-1.5 p-3 rounded-xl border border-destructive/20 bg-destructive/5">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-xs font-bold text-foreground">{ref.itemName}</p>
+                            <p className="text-[10px] text-muted-foreground">Qty: {ref.quantity} · {new Date(ref.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <span className="font-mono text-xs font-black text-destructive">-{fmtNgn(ref.amountNgn)}</span>
+                        </div>
+                        {ref.notes && (
+                          <p className="text-[10px] text-muted-foreground leading-relaxed italic">Notes: {ref.notes}</p>
+                        )}
+                        {ref.proofImageUrl && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage(ref.proofImageUrl!)}
+                              className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
+                            >
+                              <Eye className="h-3 w-3" /> View Proof Photo
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 pt-2">
                 <Button 
                   className="flex-1 gap-2 rounded-xl h-12 font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
@@ -764,6 +809,15 @@ export function SalesHistoryPage() {
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Proof Image Preview Dialog */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-lg p-2 rounded-2xl bg-card border border-border">
+          {previewImage && (
+            <img src={previewImage} alt="Return proof" className="w-full h-auto rounded-xl" />
           )}
         </DialogContent>
       </Dialog>

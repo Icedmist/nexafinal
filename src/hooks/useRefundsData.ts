@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy, addDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, writeBatch, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import type { Refund } from "@/types/finance";
 import { isAdminRole } from "@/lib/roles";
+import { notifyActivity } from "@/lib/notification-service";
 
 interface QueryResult<T> {
   data: T;
@@ -72,19 +73,77 @@ export function useRefundsMutations() {
     if (!user || !storeId) throw new Error("Authentication required");
 
     // Build the document payload, only including proofImageUrl if it exists
-    const payload: Record<string, string | number | null | undefined> = {
+    const payload: any = {
       ...refund,
       storeId,
       branchId: claims?.branchId || null,
       ownerId: user.uid,
       recordedBy: user.uid,
+      recordedByName: user.displayName || user.email || "Staff",
     };
 
-    // Clean up undefined optional fields so Firestore doesn't store them as null
-    if (!payload.proofImageUrl) delete payload.proofImageUrl;
-    if (!payload.returnDescription) delete payload.returnDescription;
+    // Clean up undefined optional fields so Firestore doesn't store them as null/undefined
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    });
 
-    return await addDoc(collection(db, "refunds"), payload);
+    const batch = writeBatch(db);
+    const refundRef = doc(collection(db, "refunds"));
+
+    // 1. Create Refund Document
+    batch.set(refundRef, payload);
+
+    // 2. Increment product currentStock (base quantity = refund.quantity * conversionFactor)
+    const productRef = doc(db, "products", refund.itemId);
+    const conversionFactor = refund.conversionFactor || 1;
+    const incrementAmount = refund.quantity * conversionFactor;
+
+    batch.update(productRef, {
+      currentStock: increment(incrementAmount),
+      updatedAt: new Date().toISOString()
+    });
+
+    // 3. Create stock movement record
+    const movementRef = doc(collection(db, "movements"));
+    batch.set(movementRef, {
+      itemId: refund.itemId,
+      type: "received", // MovementType.Received
+      quantity: incrementAmount,
+      unitUsed: refund.selectedUnit || null,
+      reference: `Refund: ${refundRef.id}`,
+      notes: `Returned from Sale ${refund.saleId}. Reason: ${refund.reason}${refund.notes ? ` - ${refund.notes}` : ""}`,
+      storeId,
+      branchId: claims?.branchId || null,
+      ownerId: user.uid,
+      performedBy: user.uid,
+      performedByName: user.displayName || user.email || "Staff",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    await batch.commit();
+
+    // 4. Trigger Notification
+    try {
+      await notifyActivity({
+        type: "movement",
+        category: "inventory",
+        severity: "low",
+        title: "Product Refunded",
+        message: `${refund.quantity} ${refund.selectedUnit || "units"} of ${refund.itemName} refunded.`,
+        userId: user.uid,
+        userEmail: user.email || "",
+        storeId,
+        branchId: claims?.branchId || undefined,
+        metadata: { refundId: refundRef.id, itemId: refund.itemId, qty: refund.quantity }
+      });
+    } catch (err) {
+      console.error("Failed to log activity notification for refund:", err);
+    }
+
+    return refundRef;
   };
 
   return { addRefund };
