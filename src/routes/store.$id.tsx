@@ -114,6 +114,7 @@ export default function PublicStorePage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [senderAccount, setSenderAccount] = useState("");
 
   // Completed transaction for receipt screen
   const [completedSale, setCompletedSale] = useState<any | null>(null);
@@ -342,8 +343,8 @@ export default function PublicStorePage() {
       toast.error("Your cart is empty.");
       return;
     }
-    if (!customerName.trim() || !customerPhone.trim()) {
-      toast.error("Please fill in your name and phone number.");
+    if (!customerName.trim() || !customerPhone.trim() || !senderAccount.trim()) {
+      toast.error("Please fill in your name, phone number, and sender account details.");
       return;
     }
 
@@ -381,6 +382,7 @@ export default function PublicStorePage() {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         customerEmail: customerEmail.trim() || null,
+        senderAccount: senderAccount.trim() || null,
         items: checkoutItems,
         totalNgn: cartTotalAmount,
         paymentMethod: "transfer",
@@ -484,6 +486,8 @@ export default function PublicStorePage() {
           <p className="text-sm text-muted-foreground mb-6">
             {error === "Storefront is private" 
               ? "This business hasn't made their storefront public yet." 
+              : error === "Failed to load storefront catalog details."
+              ? "We encountered an issue loading this storefront's catalog. Please try again."
               : "We couldn't locate this storefront. Verify the link and try again."}
           </p>
           <Button asChild className="rounded-full px-6">
@@ -539,6 +543,10 @@ export default function PublicStorePage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Phone:</span>
                 <span className="font-medium">{completedSale.customerPhone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Account Used:</span>
+                <span className="font-medium">{completedSale.senderAccount || "N/A"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date:</span>
@@ -618,6 +626,7 @@ export default function PublicStorePage() {
           <div className="text-xs space-y-1 mb-3">
             <p><strong>Customer:</strong> {completedSale.customerName}</p>
             <p><strong>Phone:</strong> {completedSale.customerPhone}</p>
+            {completedSale.senderAccount && <p><strong>Account:</strong> {completedSale.senderAccount}</p>}
             <p><strong>Date:</strong> {new Date(completedSale.createdAt).toLocaleString()}</p>
           </div>
 
@@ -678,19 +687,7 @@ export default function PublicStorePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Cart trigger button */}
-            <Button 
-              onClick={() => setIsCartOpen(true)}
-              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md flex items-center gap-2"
-            >
-              <ShoppingBag className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Cart</span>
-              {cartTotalItemsCount > 0 && (
-                <Badge className="bg-white text-primary hover:bg-white border-none text-[11px] font-bold h-5 px-1.5 min-w-5 justify-center rounded-full">
-                  {cartTotalItemsCount}
-                </Badge>
-              )}
-            </Button>
+            {/* Cart trigger button moved to floating bottom */}
           </div>
         </div>
       </header>
@@ -777,7 +774,7 @@ export default function PublicStorePage() {
               return (
                 <div 
                   key={product.id}
-                  className={`flex flex-col rounded-[2xl] overflow-hidden border bg-card transition-all duration-300 ${
+                  className={`flex flex-col rounded-[2.5rem] overflow-hidden border bg-card transition-all duration-300 ${
                     itemTotalInCart > 0 
                       ? "border-primary/50 shadow-lg shadow-primary/5 ring-1 ring-primary/20" 
                       : "border-border hover:border-primary/20 hover:shadow-md"
@@ -1076,9 +1073,22 @@ export default function PublicStorePage() {
                     />
                   </div>
 
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Sender Account / Reference *</label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. 0123456789 or Ref#123"
+                      required
+                      value={senderAccount}
+                      onChange={(e) => setSenderAccount(e.target.value)}
+                      className="rounded-full bg-background"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Provide the account number or reference you used for the transfer.</p>
+                  </div>
+
                   <Button
                     type="submit"
-                    disabled={checkoutLoading || !customerName.trim() || !customerPhone.trim()}
+                    disabled={checkoutLoading || !customerName.trim() || !customerPhone.trim() || !senderAccount.trim()}
                     className="w-full rounded-full gap-2 text-primary-foreground bg-primary hover:bg-primary/95 mt-4 nexa-button-shine"
                   >
                     {checkoutLoading ? (
@@ -1097,6 +1107,22 @@ export default function PublicStorePage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Floating Cart Button */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <Button 
+          onClick={() => setIsCartOpen(true)}
+          className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xl flex items-center gap-3 px-8 h-14 text-base font-bold border-4 border-background/50 hover:scale-105 transition-transform"
+        >
+          <ShoppingBag className="h-5 w-5" />
+          <span>View Cart</span>
+          {cartTotalItemsCount > 0 && (
+            <Badge className="bg-white text-primary hover:bg-white border-none text-xs font-black h-6 min-w-[24px] px-2 justify-center rounded-full ml-1 shadow-sm">
+              {cartTotalItemsCount}
+            </Badge>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
