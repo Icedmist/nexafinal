@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Store, Save, Building2 } from "lucide-react";
+import { Store, Save, Building2, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Plus, MapPin, TrendingUp, Users, ShoppingCart, Package, Edit2 } from "l
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { isAdminRole } from "@/lib/roles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 const NAIRA = "₦";
 function fmtNgn(amount: number): string {
@@ -67,6 +68,11 @@ export function StoreSettings() {
   const [receiptFooter, setReceiptFooter] = useState("");
   const [taxRate, setTaxRate] = useState("0");
 
+  const [isPublic, setIsPublic] = useState(false);
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+
   const isAdmin = isAdminRole(claims?.role);
   const isManager = claims?.role === 'manager';
   const branchId = claims?.branchId;
@@ -80,6 +86,10 @@ export function StoreSettings() {
       setAddress(profile.storeDetails?.address || "");
       setReceiptFooter(profile.storeDetails?.receiptFooter || "");
       setTaxRate(profile.storeDetails?.taxRate?.toString() || "0");
+      setIsPublic(profile.storeDetails?.isPublic || false);
+      setBankName(profile.storeDetails?.bankName || "");
+      setAccountNumber(profile.storeDetails?.accountNumber || "");
+      setAccountName(profile.storeDetails?.accountName || "");
     }
   }, [profile]);
 
@@ -93,6 +103,10 @@ export function StoreSettings() {
           address: address.trim(),
           receiptFooter: receiptFooter.trim(),
           taxRate: parseFloat(taxRate) || 0,
+          isPublic,
+          bankName: bankName.trim(),
+          accountNumber: accountNumber.trim(),
+          accountName: accountName.trim(),
         } as any
       });
       toast.success("Store settings saved");
@@ -210,7 +224,109 @@ export function StoreSettings() {
         </CardContent>
       </Card>
 
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-widest text-foreground">
+            <Globe className="h-4 w-4" /> Public Storefront Settings
+          </CardTitle>
+          <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+            Configure your store's public page and bank details for online orders.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border bg-muted/20">
+            <div className="space-y-1">
+              <Label htmlFor="make-public" className="text-sm font-bold">Enable Public Storefront</Label>
+              <p className="text-xs text-muted-foreground">
+                Make your store and active products viewable to the public.
+              </p>
+            </div>
+            <Switch 
+              id="make-public" 
+              checked={isPublic} 
+              onCheckedChange={setIsPublic}
+              disabled={!canEditGlobal}
+            />
+          </div>
 
+          {isPublic && (
+            <>
+              {/* Public Store Link */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Public Shareable Link</Label>
+                <div className="flex items-center gap-2 p-4 rounded-xl border border-border bg-background/50">
+                  <code className="flex-1 font-mono font-bold text-sm truncate text-primary">
+                    {`${window.location.origin}/store/${profile?.storeDetails?.slug || profile?.id}`}
+                  </code>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="rounded-lg h-8 px-3 font-bold text-xs"
+                    onClick={() => {
+                      const url = `${window.location.origin}/store/${profile?.storeDetails?.slug || profile?.id}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success("Public storefront URL copied!");
+                    }}
+                  >
+                    Copy Link
+                  </Button>
+                </div>
+              </div>
+
+              {/* Bank Details section */}
+              <div className="space-y-4 pt-2">
+                <h4 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                  Payment Bank Account Details
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Customers will transfer payments to this account at checkout. You will need to verify the transfer when they collect their products.
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="bank-name">Bank Name</Label>
+                    <Input 
+                      id="bank-name" 
+                      value={bankName} 
+                      onChange={(e) => setBankName(e.target.value)} 
+                      placeholder="e.g. GTBank" 
+                      className="font-bold"
+                      disabled={!canEditGlobal}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account-number">Account Number</Label>
+                    <Input 
+                      id="account-number" 
+                      value={accountNumber} 
+                      onChange={(e) => setAccountNumber(e.target.value)} 
+                      placeholder="e.g. 0123456789" 
+                      className="font-mono font-bold"
+                      disabled={!canEditGlobal}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account-name">Account Name</Label>
+                    <Input 
+                      id="account-name" 
+                      value={accountName} 
+                      onChange={(e) => setAccountName(e.target.value)} 
+                      placeholder="e.g. Nexa Store Ltd" 
+                      className="font-bold"
+                      disabled={!canEditGlobal}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {canEditGlobal && (
+            <Button onClick={handleSave} className="gap-1.5 rounded-xl font-bold">
+              <Save className="h-4 w-4" /> Save Storefront Settings
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       <BranchManagement isRestrictedManager={isRestrictedManager} />
     </div>

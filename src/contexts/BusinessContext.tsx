@@ -7,7 +7,18 @@ import { isAdminRole } from '@/lib/roles';
 
 export interface BusinessProfile {
   id: string;
-  storeDetails: { name: string; phone: string; address: string; receiptFooter?: string; taxRate?: number; slug?: string; };
+  storeDetails: { 
+    name: string; 
+    phone: string; 
+    address: string; 
+    receiptFooter?: string; 
+    taxRate?: number; 
+    slug?: string; 
+    isPublic?: boolean;
+    bankName?: string;
+    accountNumber?: string;
+    accountName?: string;
+  };
   businessType: string;
   categories: string[];
   complexityLevel: "basic" | "advanced";
@@ -194,6 +205,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   receiptFooter: data.storeDetails?.receiptFooter || "",
                   taxRate: data.storeDetails?.taxRate || 0,
                   slug: data.slug || "",
+                  isPublic: data.storeDetails?.isPublic || false,
+                  bankName: data.storeDetails?.bankName || "",
+                  accountNumber: data.storeDetails?.accountNumber || "",
+                  accountName: data.storeDetails?.accountName || "",
                 },
                 businessType: data.businessType || "retail",
                 categories: data.categories || [],
@@ -250,7 +265,11 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       name: store.name,
       phone: "",
       address: "",
-      slug: store.slug
+      slug: store.slug,
+      isPublic: false,
+      bankName: "",
+      accountNumber: "",
+      accountName: "",
     },
     businessType: "retail",
     categories: [],

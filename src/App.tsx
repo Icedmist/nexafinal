@@ -33,6 +33,7 @@ const SiteMapPage = lazy(() => import('./routes/sitemap'));
 const MoniepointPage = lazy(() => import('./routes/app.moniepoint'));
 const TermsPage = lazy(() => import('./routes/terms'));
 const PrivacyPage = lazy(() => import('./routes/privacy'));
+const PublicStorePage = lazy(() => import('./routes/store.$id'));
 
 // System Admin Pages
 const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout').then(m => ({ default: m.SystemAdminLayout })));
@@ -72,6 +73,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/store/:id" element={<PublicStorePage />} />
             
             {/* Auth Routes */}
             <Route path="/auth" element={<AuthLayout />}>

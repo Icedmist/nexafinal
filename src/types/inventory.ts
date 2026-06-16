@@ -32,6 +32,9 @@ export interface SaleTransaction {
   recordedByName?: string;
   createdAt: string;
   hasRefund?: boolean;
+  collectionCode?: string;
+  status?: "completed" | "pending_pickup" | "picked_up";
+  isPublicOrder?: boolean;
 }
 
 // ─── Enums ───────────────────────────────────────────────

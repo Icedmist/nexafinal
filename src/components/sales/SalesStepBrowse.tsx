@@ -13,17 +13,17 @@ import { Sheet, SheetContent, SheetTitle, SheetHeader } from "@/components/ui/sh
 
 const NAIRA = "₦";
 
-function formatNaira(price: number): string {
+export function formatNaira(price: number): string {
   return `${NAIRA}${price.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-function getUnitConversionFactor(item: Item, unitName: string): number {
+export function getUnitConversionFactor(item: Item, unitName: string): number {
   if (unitName === item.unit) return 1;
   const secondaryUnit = item.units?.find((u) => u.name === unitName);
   return secondaryUnit?.conversionFactor ?? 1;
 }
 
-function getCartItemUnitPrice(item: Item, unitName: string): number {
+export function getCartItemUnitPrice(item: Item, unitName: string): number {
   if (unitName === item.unit) {
     return item.sellingPrice;
   }
@@ -34,7 +34,7 @@ function getCartItemUnitPrice(item: Item, unitName: string): number {
   return item.sellingPrice;
 }
 
-function getCartBaseUnitsForItem(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
+export function getCartBaseUnitsForItem(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
   let total = 0;
   cart.forEach((qty, key) => {
     const [id, unitName] = key.split(":");
@@ -48,7 +48,7 @@ function getCartBaseUnitsForItem(itemId: string, cart: Map<string, number>, item
   return total;
 }
 
-function getAvailableStockInBaseUnits(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
+export function getAvailableStockInBaseUnits(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
   const item = itemsList.find((i) => i.id === itemId);
   if (!item) return 0;
   const inCart = getCartBaseUnitsForItem(itemId, cart, itemsList);
