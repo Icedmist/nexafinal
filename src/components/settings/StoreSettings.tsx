@@ -60,7 +60,7 @@ function StoreActivitySummary() {
 
 export function StoreSettings() {
   const { profile, updateProfile, loadingProfile } = useBusiness();
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
 
   const [storeName, setStoreName] = useState("");
   const [phone, setPhone] = useState("");
@@ -73,11 +73,12 @@ export function StoreSettings() {
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
 
-  const isAdmin = isAdminRole(claims?.role);
+  const isOwner = !!(user && profile && user.uid === profile.ownerId);
+  const isAdmin = isAdminRole(claims?.role) || isOwner;
   const isManager = claims?.role === 'manager';
   const branchId = claims?.branchId;
   const isRestrictedManager = isManager && !!branchId;
-  const canEditGlobal = isAdmin || (isManager && !branchId);
+  const canEditGlobal = isAdmin || (isManager && !branchId) || isOwner;
 
   useEffect(() => {
     if (profile) {
