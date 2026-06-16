@@ -70,6 +70,54 @@ service cloud.firestore {
       );
     }
 
+    // PRODUCTS: Publicly readable so public store pages can browse items
+    match /products/{productId} {
+      allow read: if true;
+      allow create, delete: if isAuth() && (
+        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
+        (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
+        isAdmin()
+      );
+      allow update: if (isAuth() && (
+        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
+        (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
+        isAdmin()
+      )) || (
+        // Public checkout: only allowed to decrement/update stock
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStock', 'updatedAt'])
+      );
+    }
+
+    // CATEGORIES: Publicly readable for navigation
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAuth() && (
+        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
+        (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
+        isAdmin()
+      );
+    }
+
+    // SALES: Public checkout creates a transaction and reads a specific receipt
+    match /sales/{saleId} {
+      allow create, read: if true;
+      allow update, delete: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        isAdmin()
+      );
+    }
+
+    // MOVEMENTS: Public checkout records stock decrement movements
+    match /movements/{movementId} {
+      allow create: if true;
+      allow read, update, delete: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        isAdmin()
+      );
+    }
+
     // MULTI-TENANT DATA: Gated by storeId claim with owner fallback
     match /{collectionName}/{docId} {
       allow read: if isAuth() && (
