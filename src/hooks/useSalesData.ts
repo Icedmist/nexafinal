@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocFromCache } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocFromCache, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -284,5 +284,15 @@ export function useSalesMutations() {
     return paymentRef.id;
   };
 
-  return { addSale, recordDebtPayment };
+  const updateSaleStatus = async (saleId: string, status: "completed" | "pending_pickup" | "picked_up") => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    
+    const saleRef = doc(db, "sales", saleId);
+    await updateDoc(saleRef, {
+      status,
+      updatedAt: new Date().toISOString()
+    });
+  };
+
+  return { addSale, recordDebtPayment, updateSaleStatus };
 }

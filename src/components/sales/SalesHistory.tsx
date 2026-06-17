@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { exportSalesHistoryPDF } from "@/lib/pdf-export";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,7 +18,7 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { isAdminRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
-import { useSales } from "@/hooks/useSalesData";
+import { useSales, useSalesMutations } from "@/hooks/useSalesData";
 import { useRole } from "@/hooks/useRole";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useStoreBranches } from "@/hooks/useStaffData";
@@ -50,6 +50,7 @@ export function SalesHistoryPage() {
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
   const { data: refunds } = useRefunds();
+  const { updateSaleStatus } = useSalesMutations();
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
@@ -470,6 +471,11 @@ export function SalesHistoryPage() {
                         <RotateCcw className="h-3 w-3" /> Refunded
                       </span>
                     )}
+                    {!sale.hasRefund && sale.status === "pending_pickup" && (
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Pending Pickup
+                      </span>
+                    )}
                     <span className={cn(
                       "text-[11px] font-mono font-medium uppercase tracking-wider",
                       sale.hasRefund ? "text-destructive font-bold" : "text-muted-foreground"
@@ -551,14 +557,22 @@ export function SalesHistoryPage() {
                   <span className="text-muted-foreground font-bold uppercase tracking-wider">Date & Time</span>
                   <span className="font-bold text-foreground">{format(new Date(selectedSale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                 </div>
-                {selectedSale.hasRefund && (
-                  <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
-                    <span className="text-muted-foreground font-bold uppercase tracking-wider">Status</span>
+                <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
+                  <span className="text-muted-foreground font-bold uppercase tracking-wider">Status</span>
+                  {selectedSale.hasRefund ? (
                     <span className="text-[10px] font-black uppercase tracking-wider bg-destructive/10 text-destructive px-2 py-0.5 rounded-full flex items-center gap-1">
                       <RotateCcw className="h-2.5 w-2.5" /> Refunded
                     </span>
-                  </div>
-                )}
+                  ) : selectedSale.status === "pending_pickup" ? (
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5" /> Pending Pickup
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Check className="h-2.5 w-2.5" /> Completed
+                    </span>
+                  )}
+                </div>
                  <div className="flex justify-between items-center text-xs pt-2 border-t border-border/50">
                    <span className="text-muted-foreground font-bold uppercase tracking-wider">Payment Method</span>
                    <div className="flex items-center gap-1.5">
@@ -650,6 +664,25 @@ export function SalesHistoryPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {selectedSale.status === "pending_pickup" && (
+                <div className="pt-4 border-t border-border/50">
+                  <Button 
+                    className="w-full h-12 rounded-xl font-black uppercase tracking-widest text-xs bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 gap-2"
+                    onClick={async () => {
+                      try {
+                        await updateSaleStatus(selectedSale.id, "completed");
+                        toast.success("Order marked as picked up!");
+                        setSelectedSale({...selectedSale, status: "completed"});
+                      } catch (err) {
+                        toast.error("Failed to update status");
+                      }
+                    }}
+                  >
+                    <Check className="h-4 w-4" /> Approve & Mark Picked Up
+                  </Button>
                 </div>
               )}
 
