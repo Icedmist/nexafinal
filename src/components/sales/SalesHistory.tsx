@@ -52,6 +52,7 @@ export function SalesHistoryPage() {
   const { data: refunds } = useRefunds();
   const { updateSaleStatus } = useSalesMutations();
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
+  const [collectionCodeInput, setCollectionCodeInput] = useState("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
@@ -533,7 +534,12 @@ export function SalesHistoryPage() {
       )}
 
       {/* Sale detail sheet */}
-      <Dialog open={!!selectedSale} onOpenChange={(o) => !o && setSelectedSale(null)}>
+      <Dialog open={!!selectedSale} onOpenChange={(o) => {
+        if (!o) {
+          setSelectedSale(null);
+          setCollectionCodeInput("");
+        }
+      }}>
         <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none [&>button]:hidden">
           {selectedSale && (
             <div className="nexa-card bg-card p-6 space-y-6">
@@ -668,20 +674,35 @@ export function SalesHistoryPage() {
               )}
 
               {selectedSale.status === "pending_pickup" && (
-                <div className="pt-4 border-t border-border/50">
+                <div className="pt-4 border-t border-border/50 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground uppercase">Collection Code Verification</Label>
+                    <Input 
+                      placeholder="Enter customer's pickup code..." 
+                      className="rounded-xl border-2 h-11 font-mono font-bold uppercase text-center tracking-widest"
+                      value={collectionCodeInput}
+                      onChange={(e) => setCollectionCodeInput(e.target.value.toUpperCase())}
+                    />
+                  </div>
                   <Button 
                     className="w-full h-12 rounded-xl font-black uppercase tracking-widest text-xs bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 gap-2"
+                    disabled={!collectionCodeInput.trim()}
                     onClick={async () => {
+                      if (collectionCodeInput !== selectedSale.collectionCode) {
+                        toast.error("Invalid Collection Code! Please check with the customer.");
+                        return;
+                      }
                       try {
                         await updateSaleStatus(selectedSale.id, "completed");
-                        toast.success("Order marked as picked up!");
+                        toast.success("Code verified! Order marked as picked up.");
                         setSelectedSale({...selectedSale, status: "completed"});
+                        setCollectionCodeInput("");
                       } catch (err) {
                         toast.error("Failed to update status");
                       }
                     }}
                   >
-                    <Check className="h-4 w-4" /> Approve & Mark Picked Up
+                    <Check className="h-4 w-4" /> Verify Code & Approve
                   </Button>
                 </div>
               )}
