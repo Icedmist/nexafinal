@@ -30,6 +30,7 @@ import { useTenant } from "@/contexts/TenantContext";
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
+  barcode: z.string().optional(),
   description: z.string().optional(),
   categoryId: z.string().optional(),
   supplierId: z.string().optional(),
@@ -56,6 +57,7 @@ interface ItemFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item?: Item | null;
+  defaultBarcode?: string | null;
   categories: Category[];
   suppliers: Supplier[];
   locations: Location[];
@@ -69,6 +71,7 @@ export function ItemFormSheet({
   open,
   onOpenChange,
   item,
+  defaultBarcode,
   categories,
   suppliers,
   locations,
@@ -87,6 +90,7 @@ export function ItemFormSheet({
     defaultValues: {
       name: "",
       sku: "",
+      barcode: "",
       description: "",
       categoryId: "",
       supplierId: "",
@@ -131,6 +135,7 @@ export function ItemFormSheet({
         reset({
           name: item.name,
           sku: item.sku,
+          barcode: item.barcode || "",
           description: item.description || "",
           categoryId: item.categoryId ?? "",
           supplierId: item.supplierId ?? "",
@@ -150,6 +155,7 @@ export function ItemFormSheet({
         reset({
           name: "",
           sku: "",
+          barcode: defaultBarcode || "",
           description: "",
           categoryId: "none",
           supplierId: "none",
@@ -167,7 +173,7 @@ export function ItemFormSheet({
         });
       }
     }
-  }, [open, item, reset]);
+  }, [open, item, defaultBarcode, reset]);
 
   const onSubmit = (data: FormValues) => {
     // Check for SKU conflict manually before proceeding
@@ -325,12 +331,21 @@ export function ItemFormSheet({
                   <input {...register("name")} className={`${inputCls} mt-1.5`} placeholder="e.g. Wireless Mouse" />
                   {errors.name && <p className={errCls}>{errors.name.message}</p>}
                 </div>
-                <div>
-                  <label className={`${labelCls} flex items-center gap-1.5`}>
-                    SKU * <HelpTooltip text="Unique identifier for this item. Must be different from all other items." />
-                  </label>
-                  <input {...register("sku")} className={`${inputCls} mt-1.5 font-mono uppercase`} placeholder="STK-XXXX" />
-                  {errors.sku && <p className={errCls}>{errors.sku.message}</p>}
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className={`${labelCls} flex items-center gap-1.5`}>
+                      SKU * <HelpTooltip text="Unique identifier for this item. Must be different from all other items." />
+                    </label>
+                    <input {...register("sku")} className={`${inputCls} mt-1.5 font-mono uppercase`} placeholder="STK-XXXX" />
+                    {errors.sku && <p className={errCls}>{errors.sku.message}</p>}
+                  </div>
+                  <div>
+                    <label className={`${labelCls} flex items-center gap-1.5`}>
+                      Barcode <HelpTooltip text="Optional barcode for scanning." />
+                    </label>
+                    <input {...register("barcode")} className={`${inputCls} mt-1.5 font-mono`} placeholder="Scan or type..." />
+                    {errors.barcode && <p className={errCls}>{errors.barcode.message}</p>}
+                  </div>
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Description (Optional)</label>

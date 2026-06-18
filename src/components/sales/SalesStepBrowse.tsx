@@ -10,6 +10,16 @@ import type { Item } from "@/types/inventory";
 import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle, SheetHeader } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom";
+import { useUpdateItem } from "@/hooks/useInventoryMutations";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const NAIRA = "₦";
 
@@ -73,6 +83,14 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
   const [activeUnits, setActiveUnits] = useState<Record<string, string>>({});
   const [editingUnitsItem, setEditingUnitsItem] = useState<Item | null>(null);
 
+  const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null);
+  const [isLinking, setIsLinking] = useState(false);
+  const [linkSearch, setLinkSearch] = useState("");
+
+  const navigate = useNavigate();
+  const updateItem = useUpdateItem();
+  const { can } = usePermissions();
+
   const totalItems = Array.from(cart.values()).reduce((s, q) => s + q, 0);
   const totalNaira = useMemo(() => {
     let sum = 0;
@@ -127,7 +145,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
       toast.success(`Added ${item.name}`);
       setSearch(""); // Clear for next scan
     } else {
-      toast.error(`Item not found: ${query}`);
+      setUnknownBarcode(query);
     }
   }, [items, handleAdd]);
 
@@ -653,6 +671,132 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
         onOpenChange={setIsScannerOpen}
         onScan={handleBarcodeSubmit}
       />
+
+      {/* Unknown Barcode Dialog */}
+      <Dialog open={!!unknownBarcode} onOpenChange={(v) => {
+        if (!v) {
+          setUnknownBarcode(null);
+          setIsLinking(false);
+          setLinkSearch("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md border-none shadow-2xl bg-card p-0 overflow-hidden">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black text-foreground">
+                Unknown Barcode Scanned
+              </DialogTitle>
+              <DialogDescription className="mt-1.5 text-sm">
+                The barcode <span className="font-mono font-bold text-primary">{unknownBarcode}</span> was not found in your inventory.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-6">
+              {!isLinking ? (
+                <div className="space-y-3">
+                  <Button 
+                    className="w-full justify-start h-12 text-sm font-bold" 
+                    onClick={() => {
+                      navigate(`/app/catalog?newItem=true&newBarcode=${unknownBarcode}`);
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add New Product
+                  </Button>
+                  
+                  {can("edit_item") && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start h-12 text-sm font-bold"
+                      onClick={() => setIsLinking(true)}
+                    >
+                      <ScanBarcode className="mr-2 h-4 w-4" />
+                      Link to Existing Product
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="w-full mt-2"
+                    onClick={() => setUnknownBarcode(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      autoFocus
+                      placeholder="Search product to link..."
+                      className="pl-9"
+                      value={linkSearch}
+                      onChange={(e) => setLinkSearch(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+                    {items?.filter(i => 
+                      !linkSearch || 
+                      i.name.toLowerCase().includes(linkSearch.toLowerCase()) || 
+                      i.sku.toLowerCase().includes(linkSearch.toLowerCase())
+                    ).map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          if (!unknownBarcode) return;
+                          toast.loading("Linking barcode...", { id: "link-barcode" });
+                          updateItem.mutate({ id: item.id, updates: { barcode: unknownBarcode } }, {
+                            onSuccess: () => {
+                              handleAdd(`${item.id}:${item.unit}`);
+                              toast.success(`Linked barcode to ${item.name} and added to cart`, { id: "link-barcode" });
+                              setUnknownBarcode(null);
+                              setIsLinking(false);
+                              setSearch("");
+                            },
+                            onError: () => toast.error("Failed to link barcode", { id: "link-barcode" })
+                          });
+                        }}
+                        className="w-full flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20 hover:border-primary/40 hover:bg-muted/40 transition-colors text-left"
+                      >
+                        <div>
+                          <p className="text-sm font-bold truncate max-w-[200px]">{item.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">{item.sku}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-primary">{formatNaira(item.sellingPrice)}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{item.currentStock} in stock</p>
+                        </div>
+                      </button>
+                    ))}
+                    
+                    {items?.filter(i => 
+                      !linkSearch || 
+                      i.name.toLowerCase().includes(linkSearch.toLowerCase()) || 
+                      i.sku.toLowerCase().includes(linkSearch.toLowerCase())
+                    ).length === 0 && (
+                      <p className="text-center text-sm text-muted-foreground py-4">No products found</p>
+                    )}
+                  </div>
+
+                  <Button 
+                    variant="ghost" 
+                    className="w-full"
+                    onClick={() => {
+                      setIsLinking(false);
+                      setLinkSearch("");
+                    }}
+                  >
+                    Back
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

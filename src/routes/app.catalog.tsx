@@ -45,7 +45,7 @@ export default CatalogPage;
 
 function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { item: itemId, newItem } = Object.fromEntries(searchParams.entries()) as any;
+  const { item: itemId, newItem, newBarcode } = Object.fromEntries(searchParams.entries()) as any;
   const navigate = useNavigate();
 
   // Auto-open create form when navigated with newItem param
@@ -64,6 +64,7 @@ function CatalogPage() {
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev);
           next.delete("newItem");
+          next.delete("newBarcode");
           return next;
         }, { replace: true });
       }
@@ -295,6 +296,7 @@ function CatalogPage() {
         open={sheetOpen}
         onOpenChange={handleSheetOpenChange}
         item={editItem}
+        defaultBarcode={newBarcode}
         categories={categories}
         suppliers={suppliers}
         locations={locations}
