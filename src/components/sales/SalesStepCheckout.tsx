@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, MessageCircle } from "lucide-react";
+import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, MessageCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { Item, SaleTransaction } from "@/types/inventory";
 import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
-import { useSalesMutations, useSales } from "@/hooks/useSalesData";
+import { useSalesMutations, useSales, useDebtPayments } from "@/hooks/useSalesData";
 import { notifyActivity } from "@/lib/notification-service";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -44,7 +44,7 @@ interface SalesStepCheckoutProps {
 
 export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps) {
   const { profile } = useBusiness();
-  const { addSale } = useSalesMutations();
+  const { addSale, recordDebtPayment } = useSalesMutations();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -79,18 +79,28 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
 
   const total = subtotal - discountAmount;
 
+  const { data: sales = [] } = useSales();
+  const { data: payments = [] } = useDebtPayments();
+  const [includeDebt, setIncludeDebt] = useState(false);
+
   // Tax
   const taxRate = profile?.storeDetails?.taxRate ?? 0;
   const taxAmount = total * (taxRate / 100);
-  const grandTotal = total + taxAmount;
+
+  const customerDebt = useMemo(() => {
+    const qPhone = customerPhone.trim();
+    if (!qPhone || qPhone.length < 8) return 0;
+    const creditSales = sales.filter(s => s.isCreditSale && s.customerPhone === qPhone).reduce((sum, s) => sum + s.totalNgn, 0);
+    const cleared = payments.filter(p => p.customerPhone === qPhone).reduce((sum, p) => sum + p.amountNgn, 0);
+    return Math.max(0, creditSales - cleared);
+  }, [customerPhone, sales, payments]);
+
+  const grandTotal = total + taxAmount + (includeDebt && customerDebt > 0 ? customerDebt : 0);
 
   const changeGiven = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
     return Math.max(0, paid - grandTotal);
   }, [amountPaid, grandTotal]);
-
-
-  const { data: sales = [] } = useSales();
   
   const customersList = useMemo(() => {
     const map = new Map<string, { name: string; phone: string; email?: string; createdAt?: string }>();
@@ -166,7 +176,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
     if (isProcessing) return;
     
     // Validate required data
-    if (!storeId || !claims?.storeId) {
+    if (!storeId && !claims?.storeId) {
       toast.error("Store context not loaded. Please refresh and try again.");
       return;
     }
@@ -202,6 +212,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       changeGivenNgn: changeGiven,
       paymentMethod,
       isCreditSale: payOnCredit,
+      debtSettledNgn: includeDebt && customerDebt > 0 ? customerDebt : 0,
       recordedByName: recordedBy,
       createdAt: new Date().toISOString(),
     };
@@ -210,6 +221,15 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       const docRef = await addSale(saleData);
       const sale = { id: docRef?.id || `sale-${Date.now()}`, ...saleData };
       setLastSale(sale);
+
+      if (includeDebt && customerDebt > 0) {
+        await recordDebtPayment({
+          customerPhone: customerPhone.trim(),
+          customerName: customerName.trim() || "Customer",
+          amountNgn: customerDebt,
+          notes: `Auto-settled with sale ${sale.id}`
+        });
+      }
       
       await notifyActivity({
         type: "sale",
@@ -300,6 +320,26 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
                   <span className="text-muted-foreground font-mono ml-auto">{s.phone}</span>
                 </button>
               ))}
+            </div>
+          )}
+          {customerDebt > 0 && (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 flex flex-col gap-2 mt-2">
+              <div className="flex items-start gap-2 text-destructive">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold">Outstanding Debt</p>
+                  <p className="text-xs">This customer owes {NAIRA}{customerDebt.toLocaleString("en-NG")}</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={includeDebt} 
+                  onChange={(e) => setIncludeDebt(e.target.checked)} 
+                  className="rounded border-destructive/30 text-destructive focus:ring-destructive" 
+                />
+                Include debt settlement in this transaction
+              </label>
             </div>
           )}
         </div>
@@ -470,6 +510,12 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
                 <div className="flex justify-between text-[11px] text-muted-foreground">
                   <span>Tax ({taxRate}%)</span>
                   <span className="font-mono">+{NAIRA}{taxAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+                </div>
+              )}
+              {includeDebt && customerDebt > 0 && (
+                <div className="flex justify-between text-[11px] text-destructive">
+                  <span>Debt Settlement</span>
+                  <span className="font-mono">+{NAIRA}{customerDebt.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
                 </div>
               )}
             </div>

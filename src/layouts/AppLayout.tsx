@@ -89,6 +89,11 @@ export function AppLayout() {
         const port = window.location.port;
         const protocol = window.location.protocol;
         
+        // Prevent infinite redirect: if we are already on the correct subdomain, don't redirect again
+        if (host.startsWith(`${slug}.`)) {
+          return;
+        }
+        
         // Construct target URL
         let targetUrl = "";
         if (host.includes("localhost") || host.includes("127.0.0.1")) {

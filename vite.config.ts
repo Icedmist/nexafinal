@@ -34,6 +34,7 @@ export default defineConfig({
     allowedHosts: true,
     hmr: {
       protocol: "ws",
+      host: "localhost",
     },
     watch: {
       ignored: ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/functions/**", "**/docs/**", "**/e2e/**"],

@@ -43,7 +43,7 @@ interface CustomerRecord {
   debtBalance: number;
 }
 
-type CustomerTab = "all" | "frequent" | "high-spenders" | "debtors" | "inactive";
+type CustomerTab = "all" | "frequent" | "high-spenders" | "debtors" | "inactive" | "cleared-debts";
 
 const MESSAGE_TEMPLATES = [
   { id: "receipt", label: "Receipt / Thank You", text: "Hi {name}, thank you for shopping with us! Your total was {amount}. We appreciate your business. 🙏" },
@@ -61,7 +61,7 @@ function CustomersPage() {
   const { store } = useTenant();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") as CustomerTab;
-  const tab = (tabParam && ["all", "frequent", "high-spenders", "debtors", "inactive"].includes(tabParam)) ? tabParam : "all";
+  const tab = (tabParam && ["all", "frequent", "high-spenders", "debtors", "inactive", "cleared-debts"].includes(tabParam)) ? tabParam : "all";
 
   const setTab = (newTab: CustomerTab) => {
     setSearchParams((prev) => {
@@ -345,6 +345,7 @@ function CustomersPage() {
             <TabsTrigger value="high-spenders" className="text-xs">Top</TabsTrigger>
             <TabsTrigger value="debtors" className="text-xs">Debtors</TabsTrigger>
             <TabsTrigger value="inactive" className="text-xs">Inactive</TabsTrigger>
+            <TabsTrigger value="cleared-debts" className="text-xs">Cleared Debts</TabsTrigger>
           </TabsList>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -353,7 +354,39 @@ function CustomersPage() {
         </div>
 
         <TabsContent value={tab} className="mt-3">
-          {filtered.length === 0 ? (
+          {tab === "cleared-debts" ? (
+            payments.length === 0 ? (
+              <EmptyState icon={CreditCard} title="No cleared debts found" description="When customers clear their debts, the records will appear here." />
+            ) : (
+              <div className="space-y-2">
+                {[...payments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-muted/30">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10 text-green-500 shrink-0">
+                      <CheckSquare className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.customerName || "Customer"}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                        {p.customerPhone && (
+                          <p className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />{p.customerPhone}
+                          </p>
+                        )}
+                        <p className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(p.createdAt).toLocaleDateString()} {new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      {p.notes && <p className="text-xs text-muted-foreground mt-1 truncate">{p.notes}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold font-mono text-green-500">+{NAIRA}{p.amountNgn.toLocaleString("en-NG")}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : filtered.length === 0 ? (
             <EmptyState icon={User} title="No customers found" description="Complete sales with customer phone numbers to build your directory." />
           ) : (
             <div className="space-y-2">
