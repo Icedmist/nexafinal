@@ -340,7 +340,7 @@ function CustomersPage() {
       {/* Tabs and search */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as CustomerTab)}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="grid w-full grid-cols-5 sm:w-auto">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 sm:w-auto">
             <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
             <TabsTrigger value="frequent" className="text-xs">Frequent</TabsTrigger>
             <TabsTrigger value="high-spenders" className="text-xs">Top</TabsTrigger>
