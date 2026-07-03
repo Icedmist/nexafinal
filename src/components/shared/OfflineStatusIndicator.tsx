@@ -28,7 +28,7 @@ export function OfflineStatusIndicator() {
   const getSyncIcon = () => {
     switch (syncStatus) {
       case 'syncing':
-        return <Loader2 className="h-3 w-3 animate-spin" />;
+        return <Loader2 className="h-3 w-3 text-amber-500" />;
       case 'synced':
         return <CheckCircle2 className="h-3 w-3 text-green-500" />;
       case 'error':

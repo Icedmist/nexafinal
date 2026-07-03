@@ -19,6 +19,9 @@ import { Button } from "@/components/ui/button";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { exportStaffPerformancePDF } from "@/lib/pdf-export";
 
+import { Skeleton } from "@/components/ui/skeleton";
+import { MetricCardSkeleton } from "@/components/shared/skeletons";
+
 interface StaffMetrics {
   uid: string;
   name: string;
@@ -69,9 +72,23 @@ export function StaffPerformance() {
   }, [metrics]);
 
   if (salesLoading || staffLoading) {
-    return <div className="h-64 flex items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-    </div>;
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+        </div>
+        <Card className="p-6 border-2">
+          <Skeleton className="h-5 w-48 mb-4" />
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   return (

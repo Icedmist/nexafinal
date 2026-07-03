@@ -1,37 +1,28 @@
 import { useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, MeshDistortMaterial, Sphere, PerspectiveCamera } from "@react-three/drei";
+import { Canvas } from "@react-three/fiber";
+import { Float, MeshDistortMaterial, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 
 function Scene() {
   const meshRef = useRef<THREE.Mesh>(null!);
   const ringRef = useRef<THREE.Group>(null!);
 
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    meshRef.current.rotation.x = Math.cos(t / 4) / 2;
-    meshRef.current.rotation.y = Math.sin(t / 4) / 2;
-    meshRef.current.rotation.z = Math.sin(t / 4) / 2;
-    meshRef.current.position.y = Math.sin(t / 2) / 4;
-    
-    ringRef.current.rotation.z = t * 0.5;
-    ringRef.current.rotation.x = t * 0.2;
-  });
+  // Rotation and animations are removed to align with static loading states.
 
   return (
     <>
       <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={1} color="#00ffff" />
+      <pointLight position={[10, 10, 10]} intensity={1} color="#00f2ff" />
       <pointLight position={[-10, -10, -10]} intensity={0.5} color="#7000ff" />
       
-      <Float speed={2} rotationIntensity={1} floatIntensity={1}>
-        {/* Central Pulsing Core */}
+      <Float speed={0} rotationIntensity={0} floatIntensity={0}>
+        {/* Central Static Core */}
         <mesh ref={meshRef}>
           <octahedronGeometry args={[1, 0]} />
           <MeshDistortMaterial
             color="#00f2ff"
-            speed={3}
-            distort={0.4}
+            speed={0}
+            distort={0}
             radius={1}
             emissive="#00f2ff"
             emissiveIntensity={0.5}
@@ -69,7 +60,7 @@ function Scene() {
 }
 
 /**
- * Nexa3DLoader - A futuristic 3D loading experience using Three.js and React Three Fiber.
+ * Nexa3DLoader - A futuristic static 3D loading experience.
  */
 export function Nexa3DLoader() {
   return (
@@ -81,20 +72,13 @@ export function Nexa3DLoader() {
         </Canvas>
       </div>
       <div className="flex flex-col items-center gap-2">
-        <span className="text-sm font-black uppercase tracking-[0.5em] text-primary animate-pulse">
+        <span className="text-sm font-black uppercase tracking-[0.5em] text-primary">
           Nexa Dimension
         </span>
         <div className="h-1 w-32 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-full origin-left bg-primary animate-[loading_2s_infinite_ease-in-out]" />
+          <div className="h-full w-1/2 bg-primary" />
         </div>
       </div>
-      <style>{`
-        @keyframes loading {
-          0% { transform: scaleX(0); }
-          50% { transform: scaleX(1); }
-          100% { transform: scaleX(0); transform-origin: right; }
-        }
-      `}</style>
     </div>
   );
 }

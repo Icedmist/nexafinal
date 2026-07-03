@@ -19,6 +19,8 @@ import { useExpenses, useExpensesMutations } from "@/hooks/useExpensesData";
 import { useRole } from "@/hooks/useRole";
 import { useStoreBranches } from "@/hooks/useStaffData";
 
+import { ListSkeleton } from "@/components/shared/skeletons";
+
 function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
   const { deleteExpense } = useExpensesMutations();
@@ -46,7 +48,11 @@ function ExpensesPage() {
   const weeklyTotal = thisWeek.reduce((s, e) => s + e.amount, 0);
 
   if (isLoading) {
-    return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+    return (
+      <div className="mx-auto max-w-[1000px] space-y-4 p-4">
+        <ListSkeleton items={5} />
+      </div>
+    );
   }
 
   return (

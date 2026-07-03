@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Package, PackagePlus, CheckCircle2, AlertTriangle, XCircle, ChevronDown, Banknote, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Settings, Plus as PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/dashboard/MetricCard";
+import { MetricCardSkeleton, TableSkeleton, ListSkeleton } from "@/components/shared/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { StockStatusDonut, CategoryDonut } from "@/components/dashboard/StockDonutChart";
@@ -258,13 +260,27 @@ function DashboardPage() {
       setIsPaying(false);
     }
   };
-
   const storeName = profile?.storeDetails?.name || "NEXA Store OS";
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-[1400px] space-y-6 p-4">
+        <div className="grid gap-4 md:grid-cols-4">
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+            <Skeleton className="h-5 w-32" />
+            <TableSkeleton rows={4} />
+          </div>
+          <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+            <Skeleton className="h-5 w-32" />
+            <ListSkeleton items={4} />
+          </div>
+        </div>
       </div>
     );
   }

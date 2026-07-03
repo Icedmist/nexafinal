@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ProvisionStoreDialog } from "@/components/system-admin/ProvisionStoreDialog";
+import { TableSkeleton } from "@/components/shared/skeletons";
 
 interface Business {
   id: string;
@@ -238,9 +239,8 @@ export default function SystemBusinesses() {
       {/* Table Container */}
       <div className="rounded-3xl border border-slate-800 bg-slate-950 overflow-hidden shadow-2xl shadow-black/50">
         {loading ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500/30 border-t-blue-500" />
-            <span className="text-sm font-medium text-slate-500">Scanning registry...</span>
+          <div className="p-8">
+            <TableSkeleton rows={5} columns={5} />
           </div>
         ) : filteredBusinesses.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center gap-4 text-center">
@@ -419,7 +419,7 @@ export default function SystemBusinesses() {
                   </div>
                   <div className="p-3 bg-black/40 rounded-xl border border-white/5">
                     {productsCount === null ? (
-                      <div className="h-5 flex items-center justify-center"><div className="h-3 w-3 animate-spin rounded-full border border-blue-500/30 border-t-blue-500" /></div>
+                      <span className="text-lg font-bold text-slate-500 block">...</span>
                     ) : (
                       <span className="text-lg font-bold text-blue-400 block">{productsCount}</span>
                     )}
@@ -427,7 +427,7 @@ export default function SystemBusinesses() {
                   </div>
                   <div className="p-3 bg-black/40 rounded-xl border border-white/5">
                     {salesCount === null ? (
-                      <div className="h-5 flex items-center justify-center"><div className="h-3 w-3 animate-spin rounded-full border border-emerald-500/30 border-t-emerald-500" /></div>
+                      <span className="text-lg font-bold text-slate-500 block">...</span>
                     ) : (
                       <span className="text-lg font-bold text-emerald-400 block">{salesCount}</span>
                     )}
@@ -444,9 +444,7 @@ export default function SystemBusinesses() {
                 </span>
                 
                 {loadingStaff ? (
-                  <div className="flex justify-center py-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border border-indigo-500/30 border-t-indigo-500" />
-                  </div>
+                  <span className="text-xs text-slate-500 italic block">Retrieving workforce roster...</span>
                 ) : storeStaff.length === 0 ? (
                   <span className="text-xs text-slate-500 italic block">No active staff members registered under this workspace.</span>
                 ) : (
@@ -470,9 +468,7 @@ export default function SystemBusinesses() {
                 </span>
                 
                 {loadingActivities ? (
-                  <div className="flex justify-center py-4">
-                    <div className="h-5 w-5 animate-spin rounded-full border border-blue-500/30 border-t-blue-500" />
-                  </div>
+                  <span className="text-xs text-slate-500 italic block py-2">Retrieving store activity logs...</span>
                 ) : storeActivities.length === 0 ? (
                   <span className="text-xs text-slate-500 italic block py-2">No recent audit trails registered under this store workspace.</span>
                 ) : (

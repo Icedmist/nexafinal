@@ -7,6 +7,9 @@ import { useSales } from "@/hooks/useSalesData";
 import { useExpenses } from "@/hooks/useExpensesData";
 import { useRefunds } from "@/hooks/useRefundsData";
 
+import { Skeleton } from "@/components/ui/skeleton";
+import { MetricCardSkeleton, ChartSkeleton } from "@/components/shared/skeletons";
+
 const NAIRA = "₦";
 
 function fmtN(n: number): string {
@@ -60,8 +63,30 @@ export function SalesAnalyticsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-[1200px] space-y-4 p-4">
+        <div>
+          <Skeleton className="h-6 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+        </div>
+        <Card className="p-6">
+          <Skeleton className="h-5 w-40 mb-4" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+          </div>
+        </Card>
+        <Card className="p-6">
+          <Skeleton className="h-5 w-32 mb-4" />
+          <ChartSkeleton height={160} />
+        </Card>
       </div>
     );
   }

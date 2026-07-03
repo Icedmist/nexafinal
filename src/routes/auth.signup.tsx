@@ -115,7 +115,7 @@ function SignupPage() {
 
         <Button type="submit" variant="secondary" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-secondary/20 relative z-10 overflow-hidden group/btn" disabled={loading || !agree}>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
-          {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-secondary-foreground border-t-transparent" /> : "Create Account"}
+          {loading ? "Creating Account..." : "Create Account"}
         </Button>
       </form>
 

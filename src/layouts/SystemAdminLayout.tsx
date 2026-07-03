@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { canAccessRoute } from "@/lib/route-guard";
 
 import { Header } from "@/components/layout/Header";
-import { NexaCoreLoader } from "@/components/shared/NexaCoreLoader";
 
 export function SystemAdminLayout() {
   const { user, loading } = useAuth();

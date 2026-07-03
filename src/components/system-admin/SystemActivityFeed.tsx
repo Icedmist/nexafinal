@@ -4,6 +4,8 @@ import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 interface ActivityLog {
   id: string;
   type: string;
@@ -85,9 +87,19 @@ export function SystemActivityFeed() {
       
       <div className="space-y-3">
         {loading ? (
-          <div className="py-10 text-center">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-blue-500 mx-auto mb-2" />
-            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Listening...</span>
+          <div className="space-y-3 animate-pulse">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-start gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                <Skeleton className="h-8 w-8 rounded-lg bg-slate-800 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3 w-3/4 bg-slate-800" />
+                  <div className="flex justify-between mt-2">
+                    <Skeleton className="h-2 w-20 bg-slate-800" />
+                    <Skeleton className="h-2 w-12 bg-slate-800" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : logs.length === 0 ? (
           <div className="py-10 text-center border border-dashed border-slate-800 rounded-2xl">

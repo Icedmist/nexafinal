@@ -384,7 +384,7 @@ export default function MoniepointPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Card className="border-border bg-card/60 backdrop-blur-md rounded-2xl p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" /> Today's POS Volume
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Today's POS Volume
               </p>
               <p className="mt-3 text-xl sm:text-2xl font-black font-mono text-foreground">{fmtNgn(metrics.todayVolume)}</p>
             </Card>
@@ -505,7 +505,7 @@ export default function MoniepointPage() {
                             : "bg-orange-500/10 text-orange-400 border border-orange-500/20"
                         }`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${
-                            tx.status === "SUCCESSFUL" ? "bg-emerald-500 animate-pulse" : tx.status === "FAILED" ? "bg-red-500" : "bg-orange-500"
+                            tx.status === "SUCCESSFUL" ? "bg-emerald-500" : tx.status === "FAILED" ? "bg-red-500" : "bg-orange-500"
                           }`} />
                           {tx.status}
                         </span>
@@ -635,7 +635,7 @@ export default function MoniepointPage() {
               disabled={simulating}
               className="rounded-xl font-black uppercase tracking-widest text-xs h-10 px-5 gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${simulating ? "animate-spin" : ""}`} />
+              <RefreshCw className="h-4 w-4" />
               Inject Simulated Webhook
             </Button>
           </DialogFooter>
@@ -702,7 +702,7 @@ export default function MoniepointPage() {
                     <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2.5 animate-in fade-in duration-300">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1.5 font-mono">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                           Reconciliation Matched
                         </span>
                         <Badge variant="outline" className="h-5 text-[8px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 uppercase font-black tracking-widest">

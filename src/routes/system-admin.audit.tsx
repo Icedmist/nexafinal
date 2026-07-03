@@ -27,6 +27,7 @@ import {
 import { db } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { TableSkeleton } from "@/components/shared/skeletons";
 
 interface ActivityLog {
   id: string;

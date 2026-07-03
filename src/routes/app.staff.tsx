@@ -3,6 +3,7 @@ import {  } from "react-router-dom";
 import { Plus, Users, UserPlus, Mail, Shield, Building2, Search, MoreVertical, Ban, CheckCircle2, Pencil, TrendingUp, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { TableSkeleton } from "@/components/shared/skeletons";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -127,7 +128,15 @@ function StaffPage() {
   };
 
   if (isLoading) {
-    return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+    return (
+      <div className="mx-auto max-w-[1200px] space-y-6 p-4">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Staff Management</h1>
+          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Loading team members...</p>
+        </div>
+        <TableSkeleton rows={5} />
+      </div>
+    );
   }
 
   return (

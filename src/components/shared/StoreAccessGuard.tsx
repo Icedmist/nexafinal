@@ -11,17 +11,16 @@ export const StoreAccessGuard: React.FC<{ children: React.ReactNode }> = ({ chil
   if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background nexa-gradient-mesh">
-        <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-1000">
+        <div className="flex flex-col items-center gap-6">
           <div className="relative h-20 w-20 flex items-center justify-center">
             <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 rounded-full border-t-4 border-primary animate-spin" />
-            <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center animate-pulse">
+            <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
                <ShieldAlert className="h-5 w-5 text-primary" />
             </div>
           </div>
           <div className="text-center space-y-2">
             <p className="text-sm font-black uppercase tracking-[0.3em] text-primary/70">Nexa Store OS</p>
-            <p className="text-xs font-bold text-muted-foreground animate-pulse">Verifying system access credentials...</p>
+            <p className="text-xs font-bold text-muted-foreground">Verifying system access credentials...</p>
           </div>
         </div>
       </div>
@@ -32,20 +31,19 @@ export const StoreAccessGuard: React.FC<{ children: React.ReactNode }> = ({ chil
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#030711] p-6 relative overflow-hidden">
         {/* Cinematic Background Elements */}
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-destructive/10 blur-[150px] pointer-events-none rounded-full animate-pulse" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-primary/5 blur-[150px] pointer-events-none rounded-full animate-pulse" />
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-destructive/10 blur-[150px] pointer-events-none rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-primary/5 blur-[150px] pointer-events-none rounded-full" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-xl animate-in fade-in zoom-in-95 slide-in-from-bottom-12 duration-1000 ease-out">
           <div className="nexa-glass bg-card/40 border-destructive/30 p-10 md:p-16 text-center space-y-10 shadow-[0_48px_100px_-20px_rgba(0,0,0,0.5)] rounded-[2.5rem] backdrop-blur-2xl">
             <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2.5rem] bg-destructive/10 text-destructive border-2 border-destructive/20 shadow-[inset_0_2px_12px_rgba(255,0,0,0.1)] relative group">
               <ShieldAlert className="h-14 w-14 group-hover:scale-110 transition-transform duration-700 ease-out" />
-              <div className="absolute inset-0 rounded-[2.5rem] bg-destructive/5 animate-ping opacity-20" />
             </div>
             
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10 border border-destructive/20 mb-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-destructive">Protocol Violation</span>
               </div>
               <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground uppercase italic leading-none">

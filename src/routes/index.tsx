@@ -123,7 +123,7 @@ export default function LandingPage() {
   if (tenantLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0A1F44]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#00C2FF] border-t-transparent" />
+        <div className="h-8 w-8 rounded-full border-4 border-[#00C2FF]/20 border-t-[#00C2FF]" />
       </div>
     );
   }
@@ -1097,7 +1097,7 @@ function StoreLoginPage({ store }: { store: Store }) {
 
           <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-[#00C2FF] hover:bg-[#00C2FF]/90 text-slate-900 shadow-xl shadow-[#00C2FF]/10 relative z-10 overflow-hidden group/btn" disabled={loading}>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
-            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-900 border-t-transparent" /> : "Access System"}
+            {loading ? "Accessing..." : "Access System"}
           </Button>
         </form>
 

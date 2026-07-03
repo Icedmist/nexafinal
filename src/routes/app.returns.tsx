@@ -17,6 +17,8 @@ import type { SaleTransaction, SaleLineItem } from "@/types/inventory";
 
 const NAIRA = "₦";
 
+import { ListSkeleton } from "@/components/shared/skeletons";
+
 export default ReturnsPage;
 
 import { useSales } from "@/hooks/useSalesData";
@@ -33,7 +35,11 @@ function ReturnsPage() {
   const totalRefunded = filtered.reduce((s, r) => s + r.amountNgn, 0);
 
   if (isLoading) {
-    return <div className="p-12 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+    return (
+      <div className="mx-auto max-w-[1000px] space-y-4 p-4">
+        <ListSkeleton items={5} />
+      </div>
+    );
   }
 
   return (
@@ -378,7 +384,7 @@ function RefundFormSheet({ open, onOpenChange, sales }: {
 
           <Button onClick={handleSubmit} disabled={!selectedItem || isUploading} className="w-full gap-2">
             {isUploading ? (
-              <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Uploading Proof...</>
+              "Uploading Proof..."
             ) : (
               <><RotateCcw className="h-4 w-4" /> Process Refund</>
             )}

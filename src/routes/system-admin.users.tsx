@@ -268,7 +268,7 @@ export default function SystemUsers() {
                 <tr>
                   <td colSpan={5} className="py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500/30 border-t-blue-500" />
+                      <div className="h-6 w-6 rounded-full border-2 border-blue-500/20 border-t-blue-500" />
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Querying Identity Vault...</span>
                     </div>
                   </td>
@@ -469,7 +469,7 @@ export default function SystemUsers() {
                 
                 {loadingActivities ? (
                   <div className="flex justify-center py-4">
-                    <div className="h-5 w-5 animate-spin rounded-full border border-blue-500/30 border-t-blue-500" />
+                    <div className="h-5 w-5 rounded-full border border-blue-500/20 border-t-blue-500" />
                   </div>
                 ) : userActivities.length === 0 ? (
                   <span className="text-xs text-slate-500 italic block py-2">No recent audit trails registered in logs.</span>

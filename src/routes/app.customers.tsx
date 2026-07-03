@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { CreditCard, DollarSign } from "lucide-react";
 import { normalizePhone } from "@/lib/utils";
 import { DebtClearingHistory } from "@/components/sales/DebtClearingHistory";
+import { ListSkeleton } from "@/components/shared/skeletons";
 
 const NAIRA = "₦";
 
@@ -296,8 +297,8 @@ function CustomersPage() {
 
   if (salesLoading || paymentsLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-[1400px] space-y-4 p-4">
+        <ListSkeleton items={5} />
       </div>
     );
   }
@@ -545,12 +546,8 @@ function CustomersPage() {
               disabled={isSubmitting || !paymentAmount}
               className="gap-2"
             >
-              {isSubmitting ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                <CheckSquare className="h-4 w-4" />
-              )}
-              Confirm Payment
+              <CheckSquare className="h-4 w-4" />
+              {isSubmitting ? "Confirming..." : "Confirm Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>

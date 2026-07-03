@@ -470,8 +470,8 @@ export default function PublicStorePage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground animate-pulse">Loading storefront details...</p>
+          <RefreshCw className="h-10 w-10 text-primary" />
+          <p className="text-sm text-muted-foreground">Loading storefront details...</p>
         </div>
       </div>
     );
@@ -1092,9 +1092,7 @@ export default function PublicStorePage() {
                     className="w-full rounded-full gap-2 text-primary-foreground bg-primary hover:bg-primary/95 mt-4 nexa-button-shine"
                   >
                     {checkoutLoading ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" /> Processing Order...
-                      </>
+                      "Processing Order..."
                     ) : (
                       <>
                         Complete Transfer & Place Order <ArrowRight className="h-4 w-4" />

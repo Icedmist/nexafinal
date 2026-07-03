@@ -146,7 +146,8 @@ export function MoniepointLink() {
   if (loading) {
     return (
       <div className="flex h-48 items-center justify-center">
-        <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+        <RefreshCw className="h-6 w-6 text-primary" />
+        <span className="ml-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Loading Moniepoint settings...</span>
       </div>
     );
   }
@@ -208,7 +209,7 @@ export function MoniepointLink() {
         <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-primary/5 blur-[50px] pointer-events-none rounded-full" />
         <div className="flex items-start gap-4">
           <div className="bg-primary/20 rounded-2xl p-3 text-primary shadow-inner">
-            <Activity className={`h-6 w-6 ${account ? "animate-pulse" : ""}`} />
+            <Activity className="h-6 w-6" />
           </div>
           <div className="flex-1">
             <h2 className="text-lg font-black uppercase tracking-wider text-primary">Moniepoint POS Integration</h2>
@@ -218,7 +219,7 @@ export function MoniepointLink() {
             <div className="mt-4 flex flex-wrap gap-2">
               {account ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   Live Mirroring Active
                 </span>
               ) : (
@@ -341,7 +342,6 @@ export function MoniepointLink() {
                   disabled={linking || !apiKey}
                   className="w-full rounded-xl h-11 font-black uppercase tracking-widest text-xs gap-2 shadow-lg shadow-primary/20"
                 >
-                  <RefreshCw className={`h-4 w-4 ${linking ? "animate-spin" : ""}`} /> 
                   {linking ? "Validating & Registering..." : "Provision Moniepoint Link"}
                 </Button>
               </form>
@@ -374,8 +374,8 @@ export function MoniepointLink() {
                 </div>
               ))}
               {diagnosticStatus === "running" && (
-                <div className="flex items-center gap-2 text-primary text-[10px] animate-pulse">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
+                <div className="flex items-center gap-2 text-primary text-[10px]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                   Awaiting server handshake...
                 </div>
               )}
@@ -389,11 +389,11 @@ export function MoniepointLink() {
           <div className="absolute top-[-10%] left-[-10%] w-[30%] h-[30%] bg-primary/5 blur-[50px] pointer-events-none rounded-full" />
           <CardContent className="p-8 flex flex-col items-center text-center gap-6">
             <div className="relative">
-              <div className="h-20 w-20 rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center animate-pulse">
+              <div className="h-20 w-20 rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                 <Link2 className="h-10 w-10 text-primary" />
               </div>
               <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-xl bg-background border-2 border-card flex items-center justify-center shadow-lg">
-                <Activity className="h-4 w-4 text-primary animate-pulse" />
+                <Activity className="h-4 w-4 text-primary" />
               </div>
             </div>
 
@@ -401,7 +401,7 @@ export function MoniepointLink() {
               <h3 className="text-xl font-black uppercase tracking-tight text-foreground">
                 Automated POS & Ledger Sync
               </h3>
-              <p className="text-xs font-bold text-muted-foreground leading-relaxed uppercase tracking-tight animate-pulse">
+              <p className="text-xs font-bold text-muted-foreground leading-relaxed uppercase tracking-tight">
                 Unlock frictionless payments by mirroring physical Moniepoint terminal swipes and direct bank transfers into your cloud POS dashboard in real time.
               </p>
             </div>

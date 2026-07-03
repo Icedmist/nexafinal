@@ -182,7 +182,7 @@ function LoginPage() {
       <div className="text-center">
         <div className="mx-auto h-24 w-24 items-center justify-center rounded-3xl bg-white flex text-primary mb-6 shadow-inner ring-8 ring-primary/5 overflow-hidden">
            {tenantLoading ? (
-             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+             <div className="h-6 w-6 rounded-full border-2 border-primary/20 border-t-primary" />
            ) : store?.branding?.logo ? (
              <img src={store.branding.logo} className="h-full w-full object-contain p-2" alt="Logo" />
            ) : (
@@ -245,7 +245,7 @@ function LoginPage() {
 
         <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 relative z-10 overflow-hidden group/btn" disabled={loading}>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
-          {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : "Sign In"}
+          {loading ? "Signing In..." : "Sign In"}
         </Button>
       </form>
 
