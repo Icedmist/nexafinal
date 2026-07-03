@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import {
   CheckSquare, Clock, Phone, User, ChevronDown, ChevronUp,
   Calendar, TrendingUp, Users, Wallet, Filter, Search,
-  UserCheck, ArrowDownRight, History,
+  UserCheck, ArrowDownRight, History, Download,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/shared/EmptyState";
 import type { SaleTransaction, DebtPayment } from "@/types/inventory";
 import { normalizePhone } from "@/lib/utils";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { exportDebtHistoryPDF } from "@/lib/pdf-export";
 
 const NAIRA = "₦";
 
@@ -84,6 +86,8 @@ export function DebtClearingHistory({ payments, sales }: DebtClearingHistoryProp
   const [search, setSearch] = useState("");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "amount-high" | "amount-low" | "balance">("recent");
+  const { profile } = useBusiness();
+  const storeName = profile?.storeDetails?.name || "Nexa POS";
 
   // Filter payments by time frame
   const filteredPayments = useMemo(() => {
@@ -345,7 +349,7 @@ export function DebtClearingHistory({ payments, sales }: DebtClearingHistoryProp
 
       {/* Filters Bar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={timeFrame} onValueChange={(v) => setTimeFrame(v as TimeFrame)}>
             <SelectTrigger className="w-[140px] h-9 text-xs">
               <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
@@ -371,6 +375,16 @@ export function DebtClearingHistory({ payments, sales }: DebtClearingHistoryProp
               <SelectItem value="balance">Most Owing</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest hover:bg-muted/50 gap-1.5"
+            onClick={() => exportDebtHistoryPDF(filteredPayments, storeName, timeFrameLabels[timeFrame])}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download PDF
+          </Button>
         </div>
 
         <div className="relative w-full sm:w-56">

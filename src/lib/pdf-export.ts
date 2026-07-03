@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import type { SaleTransaction } from "@/types/inventory";
+import type { SaleTransaction, DebtPayment } from "@/types/inventory";
 
 const NAIRA = "₦";
 
@@ -425,4 +425,156 @@ export async function exportStaffPerformancePDF(metrics: StaffPerformanceRecord[
   }
 
   doc.save(`staff-performance-${new Date().getTime()}.pdf`);
+}
+
+// 4. DEBT CLEARING HISTORY REPORT GENERATOR
+export async function exportDebtHistoryPDF(
+  payments: DebtPayment[],
+  storeName: string,
+  filterDescription: string = "All Records"
+) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 15;
+
+  // Header Theme Color - Premium Nexa Dark (Slate/Indigo mix)
+  const headerColor = [22, 28, 45]; // HSL Tailored Dark Slate
+
+  // DRAW BRANDED TITLE BANNER
+  doc.setFillColor(headerColor[0], headerColor[1], headerColor[2]);
+  doc.rect(0, 0, pageW, 40, "F");
+
+  // Title Text
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text(storeName.toUpperCase(), margin, 18);
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(190, 200, 220);
+  doc.text(`DEBT CLEARING HISTORY REPORT  |  ${filterDescription.toUpperCase()}`, margin, 26);
+  doc.text(`Generated on ${format(new Date(), "dd MMM yyyy, HH:mm")}`, margin, 32);
+
+  // METRICS WIDGET BOXES
+  const totalCleared = payments.reduce((sum, p) => sum + p.amountNgn, 0);
+  const paymentCount = payments.length;
+  const uniqueCustomers = new Set(payments.map(p => p.customerPhone?.trim())).size;
+
+  // Widget border/bg
+  doc.setFillColor(248, 249, 250);
+  doc.setDrawColor(220, 225, 230);
+  doc.roundedRect(margin, 48, pageW - 2 * margin, 20, 3, 3, "FD");
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(100, 110, 120);
+  doc.text("TOTAL DEBT CLEARED", margin + 15, 56);
+  doc.text("TOTAL PAYMENTS LOGGED", margin + 75, 56);
+  doc.text("ACTIVE PAYING CUSTOMERS", margin + 135, 56);
+
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42); // Slate 900
+  doc.text(fmtNgn(totalCleared), margin + 15, 62);
+  doc.text(String(paymentCount), margin + 75, 62);
+  doc.text(`${uniqueCustomers} Customers`, margin + 135, 62);
+
+  // TABLE HEADERS
+  let currentY = 82;
+  const colWidths = [35, 45, 35, 35, 30]; // Date, Customer, Staff, Notes, Amount
+  const headers = ["DATE & TIME", "CUSTOMER NAME", "RECORDED BY", "NOTES / REMARKS", "AMOUNT CLEARED"];
+
+  doc.setFillColor(22, 28, 45);
+  doc.rect(margin, currentY, pageW - 2 * margin, 8, "F");
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+
+  let currentX = margin;
+  headers.forEach((h, idx) => {
+    // right align the last column
+    if (idx === headers.length - 1) {
+      doc.text(h, pageW - margin - 5, currentY + 5.5, { align: "right" });
+    } else {
+      doc.text(h, currentX + 4, currentY + 5.5);
+    }
+    currentX += colWidths[idx];
+  });
+
+  // TABLE ROWS
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(8);
+
+  payments.forEach((payment, index) => {
+    currentY += 8.5;
+
+    // Add page if near bottom
+    if (currentY > pageH - 20) {
+      doc.addPage();
+      currentY = 20;
+
+      // Repeat header on new page
+      doc.setFillColor(22, 28, 45);
+      doc.rect(margin, currentY, pageW - 2 * margin, 8, "F");
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+
+      let newX = margin;
+      headers.forEach((h, idx) => {
+        if (idx === headers.length - 1) {
+          doc.text(h, pageW - margin - 5, currentY + 5.5, { align: "right" });
+        } else {
+          doc.text(h, newX + 4, currentY + 5.5);
+        }
+        newX += colWidths[idx];
+      });
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(15, 23, 42);
+      currentY += 8.5;
+    }
+
+    // Alternating background colors
+    if (index % 2 === 0) {
+      doc.setFillColor(250, 250, 250);
+      doc.rect(margin, currentY - 1.5, pageW - 2 * margin, 8.5, "F");
+    }
+
+    // Row borders
+    doc.setDrawColor(240, 242, 245);
+    doc.line(margin, currentY + 7, pageW - margin, currentY + 7);
+
+    // Data cells
+    doc.setTextColor(15, 23, 42);
+    const dateStr = format(new Date(payment.createdAt), "dd MMM yyyy, HH:mm");
+    const customer = `${payment.customerName || "Customer"}${payment.customerPhone ? ` (${payment.customerPhone})` : ""}`;
+    const staff = payment.recordedByName || "Staff";
+    const notes = payment.notes || "—";
+    const amountVal = fmtNgn(payment.amountNgn);
+
+    doc.text(dateStr, margin + 4, currentY + 4);
+    doc.text(customer.slice(0, 25), margin + colWidths[0] + 4, currentY + 4);
+    doc.text(staff.slice(0, 18), margin + colWidths[0] + colWidths[1] + 4, currentY + 4);
+    doc.text(notes.slice(0, 18), margin + colWidths[0] + colWidths[1] + colWidths[2] + 4, currentY + 4);
+
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(34, 197, 94); // Green 500
+    doc.text(amountVal, pageW - margin - 5, currentY + 4, { align: "right" });
+    doc.setFont("Helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
+  });
+
+  // Footer branding
+  const totalPages = (doc.internal as any).getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(150, 155, 160);
+    doc.text(`Nexa Store OS  |  Debt Clearing Ledger  |  Page ${i} of ${totalPages}`, pageW / 2, pageH - 8, { align: "center" });
+  }
+
+  doc.save(`debt-clearing-history-${new Date().getTime()}.pdf`);
 }
