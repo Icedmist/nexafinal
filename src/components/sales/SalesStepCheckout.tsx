@@ -44,6 +44,7 @@ interface SalesStepCheckoutProps {
 
 export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps) {
   const { profile } = useBusiness();
+  const businessType = profile?.businessType || "retail";
   const { addSale, recordDebtPayment } = useSalesMutations();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -283,7 +284,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
               <Input id="checkout-phone" value={customerPhone} onChange={(e) => handlePhoneChange(e.target.value)} placeholder="08012345678" className="pl-10 h-11 font-mono" />
             </div>
             {customerPhone.length >= 8 && knownCustomers.has(customerPhone) && (
-              <p className="text-xs text-primary">✓ Returning customer — {knownCustomers.get(customerPhone)}</p>
+              <p className={cn("text-xs", businessType === "restaurant" ? "text-emerald-600" : "text-primary")}>✓ Returning customer — {knownCustomers.get(customerPhone)}</p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -357,8 +358,11 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
               <Button
                 type="button"
                 size="sm"
-                variant={discount?.type === "percentage" ? "default" : "outline"}
-                className="flex-1 h-9 text-xs gap-1"
+                variant={discount?.type === "percentage" ? (businessType === "restaurant" ? "secondary" : "default") : "outline"}
+                className={cn(
+                  "flex-1 h-9 text-xs gap-1",
+                  discount?.type === "percentage" && businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700 text-white"
+                )}
                 onClick={() => setDiscount(discount?.type === "percentage" ? null : { type: "percentage", value: discount?.value ?? 0 })}
               >
                 <Percent className="h-3 w-3" /> %
@@ -366,8 +370,11 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
               <Button
                 type="button"
                 size="sm"
-                variant={discount?.type === "flat" ? "default" : "outline"}
-                className="flex-1 h-9 text-xs gap-1"
+                variant={discount?.type === "flat" ? (businessType === "restaurant" ? "secondary" : "default") : "outline"}
+                className={cn(
+                  "flex-1 h-9 text-xs gap-1",
+                  discount?.type === "flat" && businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700 text-white"
+                )}
                 onClick={() => setDiscount(discount?.type === "flat" ? null : { type: "flat", value: discount?.value ?? 0 })}
               >
                 {NAIRA} Flat
@@ -397,14 +404,19 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
             </div>
             <Button size="sm" variant="outline" onClick={handleApplyPromo} className="h-9">Apply</Button>
           </div>
-          {promoApplied && <p className="text-xs text-primary">✓ Promo applied: {promoApplied.type === "percentage" ? `${promoApplied.value}% off` : `${NAIRA}${promoApplied.value} off`}</p>}
+          {promoApplied && <p className={cn("text-xs", businessType === "restaurant" ? "text-emerald-600" : "text-primary")}>✓ Promo applied: {promoApplied.type === "percentage" ? `${promoApplied.value}% off` : `${NAIRA}${promoApplied.value} off`}</p>}
         </div>
 
         {/* Credit toggle */}
         <button
           type="button"
           onClick={() => setPayOnCredit(!payOnCredit)}
-          className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all w-full ${payOnCredit ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
+          className={cn(
+            "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all w-full",
+            payOnCredit
+              ? (businessType === "restaurant" ? "border-emerald-600 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" : "border-primary bg-primary/10 text-primary")
+              : (businessType === "restaurant" ? "border-border text-muted-foreground hover:border-emerald-600/40" : "border-border text-muted-foreground hover:border-primary/40")
+          )}
         >
           <Wallet className="h-4 w-4" />
           {payOnCredit ? "Paying on credit ✓" : "Add to customer credit"}
@@ -429,8 +441,8 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
               className={cn(
                 "flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs font-medium transition-all",
                 paymentMethod === m.id
-                  ? "border-primary bg-primary/10 text-primary shadow-sm"
-                  : "border-border text-muted-foreground hover:border-primary/40"
+                  ? (businessType === "restaurant" ? "border-emerald-600 bg-emerald-500/10 text-emerald-600 shadow-sm" : "border-primary bg-primary/10 text-primary shadow-sm")
+                  : (businessType === "restaurant" ? "border-border text-muted-foreground hover:border-emerald-600/40" : "border-border text-muted-foreground hover:border-primary/40")
               )}
             >
               <m.icon className="h-5 w-5" />
@@ -501,7 +513,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
                 <span className="font-mono text-foreground font-medium">{NAIRA}{subtotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
               </div>
               {discountAmount > 0 && (
-                <div className="flex justify-between text-[11px] text-primary">
+                <div className={cn("flex justify-between text-[11px]", businessType === "restaurant" ? "text-emerald-600" : "text-primary")}>
                   <span>Discount</span>
                   <span className="font-mono">-{NAIRA}{discountAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
                 </div>
@@ -533,7 +545,10 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
         </div>
         <Button 
           onClick={handleCheckout} 
-          className="w-full gap-2 h-12 text-base rounded-xl" 
+          className={cn(
+            "w-full gap-2 h-12 text-base rounded-xl",
+            businessType === "restaurant" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
+          )}
           size="lg"
           disabled={isProcessing}
         >

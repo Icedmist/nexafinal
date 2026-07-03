@@ -2,6 +2,8 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { Item } from "@/types/inventory";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { cn } from "@/lib/utils";
 
 const NAIRA = "₦";
 
@@ -53,6 +55,8 @@ function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartI
 }
 
 export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: SalesStepCartProps) {
+  const { profile } = useBusiness();
+  const businessType = profile?.businessType || "retail";
   const total = items.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit) * ci.quantity, 0);
   const totalQty = items.reduce((s, ci) => s + ci.quantity, 0);
 
@@ -103,7 +107,12 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
                   type="button"
                   onClick={() => onAdd(ci.cartKey)}
                   disabled={isAddDisabled}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-colors"
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors disabled:opacity-30",
+                    businessType === "restaurant"
+                      ? "hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-500"
+                      : "hover:bg-primary/10 hover:text-primary"
+                  )}
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -126,7 +135,14 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
           <span>Total</span>
           <span className="font-mono">{NAIRA}{total.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
         </div>
-        <Button onClick={onNext} className="w-full" size="lg">
+        <Button
+          onClick={onNext}
+          className={cn(
+            "w-full",
+            businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700 text-white"
+          )}
+          size="lg"
+        >
           Proceed to Checkout
         </Button>
         <Button variant="ghost" size="sm" className="w-full text-destructive" onClick={onClear}>

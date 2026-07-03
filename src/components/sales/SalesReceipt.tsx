@@ -11,6 +11,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { ensureDate } from "@/lib/date-utils";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { cn } from "@/lib/utils";
 
 
 const NAIRA = "₦";
@@ -357,6 +358,7 @@ interface SalesReceiptProps {
 
 export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const { profile } = useBusiness();
+  const businessType = profile?.businessType || "retail";
   const { store } = useTenant();
   const { user } = useAuth();
 
@@ -424,11 +426,17 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                <ScrollArea className="flex-1 w-full overflow-y-auto">
                 <div className="p-4 sm:p-8 space-y-6">
                    {/* Decorative background element */}
-                   <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/5 blur-3xl -z-10" />
+                   <div className={cn(
+                     "absolute -top-24 -right-24 h-48 w-48 rounded-full blur-3xl -z-10",
+                     businessType === "restaurant" ? "bg-emerald-600/5" : "bg-primary/5"
+                   )} />
                    
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <div className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-xl",
+                        businessType === "restaurant" ? "bg-emerald-600/10 text-emerald-600" : "bg-primary/10 text-primary"
+                      )}>
                         <Receipt className="h-5 w-5" />
                       </div>
                       <div>
@@ -439,7 +447,10 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                   </div>
 
                   <div className="rounded-3xl border-2 border-border bg-muted/20 p-5 space-y-3 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 h-1 w-full bg-primary" />
+                    <div className={cn(
+                      "absolute top-0 left-0 h-1 w-full",
+                      businessType === "restaurant" ? "bg-emerald-600" : "bg-primary"
+                    )} />
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Transaction ID</span>
                       <span className="font-mono font-black text-sm text-foreground bg-background px-2 py-1 rounded-lg border">#{sale.id.slice(-8).toUpperCase()}</span>
@@ -450,14 +461,17 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-border/50">
                       <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
-                      <Badge variant="outline" className="capitalize font-black text-[10px] tracking-wider bg-primary/5 border-primary/20 text-primary px-3">
+                      <Badge variant="outline" className={cn(
+                        "capitalize font-black text-[10px] tracking-wider px-3",
+                        businessType === "restaurant" ? "bg-emerald-600/5 border-emerald-600/20 text-emerald-600" : "bg-primary/5 border-primary/20 text-primary"
+                      )}>
                         {(sale as any).paymentMethod || "cash"}
                       </Badge>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-border/50">
                       <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
                       <div className="flex items-center gap-1.5">
-                        <UserCircle className="h-3.5 w-3.5 text-primary" />
+                        <UserCircle className={cn("h-3.5 w-3.5", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
                         <span className="font-black text-xs text-foreground uppercase tracking-tight">
                           {sale.recordedByName || user?.displayName || user?.email?.split('@')[0] || "Cashier"}
                         </span>
@@ -508,7 +522,10 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                           <span className="font-mono text-foreground">{fmtNgn(sale.subtotalNgn)}</span>
                         </div>
                         {sale.discountAmountNgn && (
-                          <div className="flex justify-between text-xs font-bold text-primary uppercase tracking-widest">
+                          <div className={cn(
+                            "flex justify-between text-xs font-bold uppercase tracking-widest",
+                            businessType === "restaurant" ? "text-emerald-600" : "text-primary"
+                          )}>
                             <span>Discount</span>
                             <span className="font-mono">-{fmtNgn(sale.discountAmountNgn)}</span>
                           </div>
@@ -522,7 +539,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                       </div>
                     )}
 
-                    <div className="rounded-3xl bg-primary text-primary-foreground p-6 shadow-xl shadow-primary/20 space-y-4">
+                    <div className={cn(
+                      "rounded-3xl p-6 shadow-xl space-y-4",
+                      businessType === "restaurant"
+                        ? "bg-emerald-600 text-white shadow-emerald-500/20"
+                        : "bg-primary text-primary-foreground shadow-primary/20"
+                    )}>
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Amount Due</p>
@@ -532,7 +554,10 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                       </div>
 
                       {sale.amountPaidNgn && (
-                        <div className="pt-3 border-t border-primary-foreground/20 space-y-2">
+                        <div className={cn(
+                          "pt-3 border-t space-y-2",
+                          businessType === "restaurant" ? "border-white/20" : "border-primary-foreground/20"
+                        )}>
                           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
                             <span>Amount Paid</span>
                             <span className="font-mono">{fmtNgn(sale.amountPaidNgn)}</span>

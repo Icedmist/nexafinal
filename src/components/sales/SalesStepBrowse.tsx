@@ -8,6 +8,10 @@ import { useItems, useCategories } from "@/hooks/useInventoryData";
 import { cn, extractItemIdentifier } from "@/lib/utils";
 import type { Item } from "@/types/inventory";
 import { QRScannerDialog } from "../shared/QRScannerDialog";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { RestaurantProductGrid } from "./layouts/RestaurantProductGrid";
+import { TextileProductGrid } from "./layouts/TextileProductGrid";
+import { ProvisionsProductGrid } from "./layouts/ProvisionsProductGrid";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import {
@@ -74,6 +78,8 @@ interface SalesStepBrowseProps {
 
 export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesStepBrowseProps) {
   const { data: items } = useItems();
+  const { profile } = useBusiness();
+  const businessType = profile?.businessType || "retail";
   const { data: categories } = useCategories();
   const [search, setSearch] = useState("");
   const [barcodeMode, setBarcodeMode] = useState(false);
@@ -175,7 +181,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
       <div className="px-4 pt-3 pb-2 flex gap-2">
         <div className="relative flex-1">
           {barcodeMode ? (
-            <ScanBarcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-pulse" />
+            <ScanBarcode className={cn("absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-pulse", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
           ) : (
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           )}
@@ -188,7 +194,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
               }
             }}
             placeholder={barcodeMode ? "Scan or enter SKU..." : "Search by name or SKU…"}
-            className={cn("pl-9 h-10", barcodeMode && "border-primary ring-1 ring-primary/20")}
+            className={cn("pl-9 h-10", barcodeMode && (businessType === "restaurant" ? "border-emerald-600 ring-1 ring-emerald-600/20" : "border-primary ring-1 ring-primary/20"))}
             autoFocus={barcodeMode}
           />
           {search && (
@@ -224,7 +230,9 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
           onClick={() => setActiveCat(null)}
           className={cn(
             "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-            !activeCat ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent"
+            !activeCat 
+              ? (businessType === "restaurant" ? "bg-emerald-600 text-white shadow-sm" : "bg-primary text-primary-foreground shadow-sm") 
+              : "bg-muted text-muted-foreground hover:bg-accent"
           )}
         >
           All
@@ -236,7 +244,9 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
             onClick={() => setActiveCat(activeCat === cat.id ? null : cat.id)}
             className={cn(
               "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
-              activeCat === cat.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent"
+              activeCat === cat.id 
+                ? (businessType === "restaurant" ? "bg-emerald-600 text-white shadow-sm" : "bg-primary text-primary-foreground shadow-sm") 
+                : "bg-muted text-muted-foreground hover:bg-accent"
             )}
           >
             {cat.name}
@@ -302,7 +312,45 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
             <p className="text-sm font-medium">No products found</p>
             <p className="text-xs">Try adjusting your search or filter</p>
           </div>
+        ) : businessType === "restaurant" ? (
+          <RestaurantProductGrid
+            filtered={filtered}
+            cart={cart}
+            onAdd={handleAdd}
+            onRemove={onRemove}
+            onSetQuantity={onSetQuantity}
+            animatingItems={animatingItems}
+            setAnimatingItems={setAnimatingItems}
+            activeUnits={activeUnits}
+            setActiveUnits={setActiveUnits}
+            items={items || []}
+          />
+        ) : businessType === "textile" ? (
+          <TextileProductGrid
+            filtered={filtered}
+            cart={cart}
+            onAdd={handleAdd}
+            onRemove={onRemove}
+            onSetQuantity={onSetQuantity}
+            animatingItems={animatingItems}
+            setAnimatingItems={setAnimatingItems}
+            items={items || []}
+          />
+        ) : ["wholesale", "agriculture"].includes(businessType) ? (
+          <ProvisionsProductGrid
+            filtered={filtered}
+            cart={cart}
+            onAdd={handleAdd}
+            onRemove={onRemove}
+            onSetQuantity={onSetQuantity}
+            animatingItems={animatingItems}
+            setAnimatingItems={setAnimatingItems}
+            activeUnits={activeUnits}
+            setActiveUnits={setActiveUnits}
+            items={items || []}
+          />
         ) : (
+          /* Default retail grid */
           <div className="grid grid-cols-2 gap-2.5 py-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {filtered.map((item) => {
               const totalQtyInCart = Array.from(cart.entries())
@@ -526,7 +574,12 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
               const event = new CustomEvent("pos-go-to-cart");
               window.dispatchEvent(event);
             }}
-            className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-primary px-6 py-3 text-primary-foreground shadow-2xl shadow-primary/60 hover:shadow-primary/80 transition-all hover:scale-105 active:scale-95 font-bold"
+            className={cn(
+              "pointer-events-auto flex items-center gap-2.5 rounded-full px-6 py-3 text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 font-bold",
+              businessType === "restaurant"
+                ? "bg-emerald-600 shadow-emerald-600/30 hover:shadow-emerald-600/40"
+                : "bg-primary shadow-primary/60 hover:shadow-primary/80"
+            )}
           >
             <ShoppingCart className="h-4 w-4" />
             <span className="text-sm font-semibold">Sell</span>

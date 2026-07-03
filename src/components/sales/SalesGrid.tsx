@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { SalesStepBrowse } from "./SalesStepBrowse";
 import { SalesStepCart, type CartItem } from "./SalesStepCart";
 import { SalesStepCheckout } from "./SalesStepCheckout";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 const NAIRA = "₦";
 
@@ -60,6 +61,8 @@ export function getAvailableStockInBaseUnits(itemId: string, cart: Map<string, n
 
 export function SalesGrid() {
   const { data: items } = useItems();
+  const { profile } = useBusiness();
+  const businessType = profile?.businessType || "retail";
   const [cart, setCart] = useState<Map<string, number>>(new Map());
   const [step, setStep] = useState<StepId>("browse");
 
@@ -163,7 +166,11 @@ export function SalesGrid() {
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-semibold text-foreground">Point of Sale</h1>
           {totalItems > 0 && step === "browse" && (
-            <Button size="sm" className="gap-2" onClick={goToCart}>
+            <Button
+              size="sm"
+              className={cn("gap-2", businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+              onClick={goToCart}
+            >
               <ShoppingCart className="h-4 w-4" />
               Cart
               <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 rounded-full px-1 text-[10px]">
@@ -187,9 +194,9 @@ export function SalesGrid() {
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
                 step === s.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? (businessType === "restaurant" ? "bg-emerald-600 text-white shadow-sm" : "bg-primary text-primary-foreground shadow-sm")
                   : i < stepIdx
-                    ? "bg-primary/10 text-primary"
+                    ? (businessType === "restaurant" ? "bg-emerald-600/10 text-emerald-600" : "bg-primary/10 text-primary")
                     : "bg-muted text-muted-foreground",
                 s.id === "checkout" && cartItems.length === 0 && "opacity-40 cursor-not-allowed"
               )}
