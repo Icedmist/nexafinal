@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { HelpTooltip } from "@/components/shared/HelpTooltip";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, Plus, PackagePlus, Tag, Boxes, Banknote, MapPin, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Plus, PackagePlus, Tag, Boxes, Banknote, MapPin, Upload, Image as ImageIcon, Palette, Ruler, Layers, Sparkles } from "lucide-react";
 import { uploadImage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import {
@@ -22,11 +22,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Item, Category, Supplier, Location } from "@/types/inventory";
+import type { Item, Category, Supplier, Location, ProductVariant } from "@/types/inventory";
 import { ItemStatus } from "@/types/inventory";
 import type { Branch } from "@/types/tenant";
 import { useRole } from "@/hooks/useRole";
 import { useTenant } from "@/contexts/TenantContext";
+import {
+  VARIANT_ATTRIBUTES,
+  DEFAULT_SIZE_OPTIONS,
+  DEFAULT_MATERIAL_OPTIONS,
+  getAttributeOptions,
+  getColorHex,
+  generateVariantId,
+  type VariantAttribute,
+} from "@/lib/variants";
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
@@ -49,6 +58,18 @@ const schema = z.object({
     conversionFactor: z.coerce.number().min(0.00001, "Conversion must be greater than 0"),
     sellingPrice: z.coerce.number().optional(),
   })).optional(),
+  // Variant support
+  variantAttributes: z.array(z.string()).optional(),
+  selectedColors: z.array(z.string()).optional(),
+  selectedSizes: z.array(z.string()).optional(),
+  selectedMaterials: z.array(z.string()).optional(),
+  variants: z.array(z.object({
+    id: z.string(),
+    attributes: z.record(z.string()),
+    price: z.coerce.number().min(0),
+    stock: z.coerce.number().min(0),
+    sku: z.string().optional(),
+  })).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -65,6 +86,364 @@ interface ItemFormSheetProps {
   existingSkus: string[];
   onSave: (data: Partial<Item>) => void;
   loading?: boolean;
+}
+
+interface VariantsSectionProps {
+  control: ReturnType<typeof useForm<FormValues>>["control"];
+  watch: ReturnType<typeof useForm<FormValues>>["watch"];
+  setValue: ReturnType<typeof useForm<FormValues>>["setValue"];
+  errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"];
+  cardGroupCls: string;
+  labelCls: string;
+  inputCls: string;
+}
+
+function VariantsSection({ control, watch, setValue, errors, cardGroupCls, labelCls, inputCls }: VariantsSectionProps) {
+  const variantAttributes = watch("variantAttributes") || [];
+  const selectedColors = watch("selectedColors") || [];
+  const selectedSizes = watch("selectedSizes") || [];
+  const selectedMaterials = watch("selectedMaterials") || [];
+  const variants = watch("variants") || [];
+  const sellingPrice = watch("sellingPrice") || 0;
+
+  const hasColour = variantAttributes.includes("Colour");
+  const hasSize = variantAttributes.includes("Size");
+  const hasMaterial = variantAttributes.includes("Material");
+
+  // Generate variant combinations when selections change
+  const generateVariants = () => {
+    const colors = hasColour ? (selectedColors.length > 0 ? selectedColors : ["Default"]) : ["Default"];
+    const sizes = hasSize ? (selectedSizes.length > 0 ? selectedSizes : ["Default"]) : ["Default"];
+    const materials = hasMaterial ? (selectedMaterials.length > 0 ? selectedMaterials : ["Default"]) : ["Default"];
+
+    const combos: ProductVariant[] = [];
+    for (const color of colors) {
+      for (const size of sizes) {
+        for (const material of materials) {
+          const attrs: Record<string, string> = {};
+          if (hasColour) attrs["Colour"] = color;
+          if (hasSize) attrs["Size"] = size;
+          if (hasMaterial) attrs["Material"] = material;
+
+          // Check if this variant already exists
+          const existing = variants.find((v: ProductVariant) => {
+            return Object.keys(attrs).every(k => v.attributes[k] === attrs[k]);
+          });
+
+          combos.push(existing || {
+            id: generateVariantId(),
+            attributes: attrs,
+            price: sellingPrice,
+            stock: 0,
+          });
+        }
+      }
+    }
+    return combos;
+  };
+
+  // Regenerate variants when attributes or selections change
+  const regenerateVariants = () => {
+    const newVariants = generateVariants();
+    setValue("variants", newVariants);
+  };
+
+  const toggleAttribute = (attr: string) => {
+    const current = variantAttributes;
+    const next = current.includes(attr)
+      ? current.filter((a: string) => a !== attr)
+      : [...current, attr];
+    setValue("variantAttributes", next);
+
+    // Clear selections for removed attributes
+    if (attr === "Colour") setValue("selectedColors", []);
+    if (attr === "Size") setValue("selectedSizes", []);
+    if (attr === "Material") setValue("selectedMaterials", []);
+
+    // Regenerate after state updates
+    setTimeout(regenerateVariants, 0);
+  };
+
+  const toggleColor = (color: string) => {
+    const current = selectedColors;
+    const next = current.includes(color)
+      ? current.filter((c: string) => c !== color)
+      : [...current, color];
+    setValue("selectedColors", next);
+    setTimeout(regenerateVariants, 0);
+  };
+
+  const toggleSize = (size: string) => {
+    const current = selectedSizes;
+    const next = current.includes(size)
+      ? current.filter((s: string) => s !== size)
+      : [...current, size];
+    setValue("selectedSizes", next);
+    setTimeout(regenerateVariants, 0);
+  };
+
+  const toggleMaterial = (material: string) => {
+    const current = selectedMaterials;
+    const next = current.includes(material)
+      ? current.filter((m: string) => m !== material)
+      : [...current, material];
+    setValue("selectedMaterials", next);
+    setTimeout(regenerateVariants, 0);
+  };
+
+  const updateVariant = (index: number, field: string, value: number | string) => {
+    const current = [...(variants as ProductVariant[])];
+    current[index] = { ...current[index], [field]: value };
+    setValue("variants", current);
+  };
+
+  const fillAll = (field: "price" | "stock", value: number) => {
+    const current = (variants as ProductVariant[]).map((v) => ({ ...v, [field]: value }));
+    setValue("variants", current);
+  };
+
+  const hasVariants = variantAttributes.length > 0;
+
+  return (
+    <div className={cardGroupCls}>
+      <div className="mb-4 flex items-center gap-2 text-primary">
+        <Layers className="h-4 w-4" />
+        <h3 className="font-semibold text-foreground">Variants</h3>
+        {hasVariants && (
+          <span className="ml-1 inline-flex items-center rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+            new
+          </span>
+        )}
+      </div>
+
+      {/* Attribute Selector */}
+      <div className="space-y-3">
+        <div>
+          <label className={labelCls}>Which attributes does this product have?</label>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {VARIANT_ATTRIBUTES.map((attr) => {
+              const isActive = variantAttributes.includes(attr);
+              return (
+                <button
+                  key={attr}
+                  type="button"
+                  onClick={() => toggleAttribute(attr)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                    isActive
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                      : "bg-background text-muted-foreground border-border hover:bg-accent"
+                  )}
+                >
+                  {attr === "Colour" && <Palette className="h-3 w-3" />}
+                  {attr === "Size" && <Ruler className="h-3 w-3" />}
+                  {attr === "Material" && <Sparkles className="h-3 w-3" />}
+                  {attr}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Color Swatches */}
+        {hasColour && (
+          <div>
+            <label className={labelCls}>Colours in stock</label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {getAttributeOptions("Colour").map((color) => {
+                const isSelected = selectedColors.includes(color);
+                const hex = getColorHex(color);
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => toggleColor(color)}
+                    className={cn(
+                      "flex items-center justify-center h-8 w-8 rounded-full border-2 transition-all",
+                      isSelected
+                        ? "border-emerald-600 ring-2 ring-emerald-600/30 scale-110"
+                        : "border-border hover:border-muted-foreground/50"
+                    )}
+                    style={{ backgroundColor: hex || "#e5e7eb" }}
+                    title={color}
+                  >
+                    {isSelected && (
+                      <svg className="h-4 w-4 text-white drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Size Pills */}
+        {hasSize && (
+          <div>
+            <label className={labelCls}>Sizes in stock</label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {DEFAULT_SIZE_OPTIONS.map((size) => {
+                const isSelected = selectedSizes.includes(size);
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => toggleSize(size)}
+                    className={cn(
+                      "h-8 min-w-8 px-2 rounded-lg text-xs font-bold transition-all border",
+                      isSelected
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                        : "bg-background text-muted-foreground border-border hover:bg-accent"
+                    )}
+                  >
+                    {size}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  const custom = prompt("Enter custom size:");
+                  if (custom && !selectedSizes.includes(custom)) {
+                    toggleSize(custom);
+                  }
+                }}
+                className="h-8 px-2 rounded-lg text-xs font-bold border border-dashed border-border hover:border-emerald-500 text-muted-foreground hover:text-emerald-600 transition-all"
+              >
+                + custom
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Material Pills */}
+        {hasMaterial && (
+          <div>
+            <label className={labelCls}>Materials in stock</label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {DEFAULT_MATERIAL_OPTIONS.map((material) => {
+                const isSelected = selectedMaterials.includes(material);
+                return (
+                  <button
+                    key={material}
+                    type="button"
+                    onClick={() => toggleMaterial(material)}
+                    className={cn(
+                      "h-8 px-2 rounded-lg text-xs font-bold transition-all border",
+                      isSelected
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                        : "bg-background text-muted-foreground border-border hover:bg-accent"
+                    )}
+                  >
+                    {material}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  const custom = prompt("Enter custom material:");
+                  if (custom && !selectedMaterials.includes(custom)) {
+                    toggleMaterial(custom);
+                  }
+                }}
+                className="h-8 px-2 rounded-lg text-xs font-bold border border-dashed border-border hover:border-emerald-500 text-muted-foreground hover:text-emerald-600 transition-all"
+              >
+                + custom
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Variant Grid */}
+        {hasVariants && variants.length > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className={labelCls}>Variant grid — set price & stock per combination</label>
+              <div className="flex gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] font-bold px-2"
+                  onClick={() => {
+                    const price = prompt("Set price for all variants:", String(sellingPrice));
+                    if (price !== null) fillAll("price", Number(price));
+                  }}
+                >
+                  Fill all
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border overflow-hidden">
+              {/* Header */}
+              <div className="grid grid-cols-[1fr_100px_80px] gap-2 px-3 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <span>Variant</span>
+                <span className="text-right">Price (₦)</span>
+                <span className="text-right">Stock</span>
+              </div>
+
+              {/* Rows */}
+              <div className="max-h-[300px] overflow-y-auto divide-y divide-border/50">
+                {variants.map((variant: ProductVariant, index: number) => {
+                  const label = Object.values(variant.attributes).join(" / ");
+                  const colorHex = variant.attributes["Colour"] ? getColorHex(variant.attributes["Colour"]) : null;
+
+                  return (
+                    <div
+                      key={variant.id}
+                      className="grid grid-cols-[1fr_100px_80px] gap-2 px-3 py-2.5 items-center hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {colorHex && (
+                          <span
+                            className="h-3 w-3 rounded-full border border-black/10 shrink-0"
+                            style={{ backgroundColor: colorHex }}
+                          />
+                        )}
+                        <span className="text-xs font-bold truncate">{label}</span>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          value={variant.price || ""}
+                          onChange={(e) => updateVariant(index, "price", Number(e.target.value))}
+                          className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs font-mono text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          value={variant.stock || ""}
+                          onChange={(e) => updateVariant(index, "stock", Number(e.target.value))}
+                          className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs font-mono text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p className="mt-2 text-[9px] text-muted-foreground italic">
+              Leave stock as 0 if this combination is not available. It will show as "sold out" at POS.
+            </p>
+          </div>
+        )}
+
+        {hasVariants && variants.length === 0 && (
+          <p className="text-xs text-muted-foreground italic mt-2">
+            Select colours, sizes, or materials above to generate variant combinations.
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ItemFormSheet({
@@ -104,6 +483,11 @@ export function ItemFormSheet({
       sellingPrice: 0,
       status: ItemStatus.Active,
       imageUrl: null,
+      variantAttributes: [],
+      selectedColors: [],
+      selectedSizes: [],
+      selectedMaterials: [],
+      variants: [],
     },
   });
 
@@ -132,6 +516,13 @@ export function ItemFormSheet({
   useEffect(() => {
     if (open) {
       if (item) {
+        // Derive selected colors/sizes/materials from existing variants
+        const variantAttrs = item.variantAttributes || [];
+        const variants = item.variants || [];
+        const selectedColors = [...new Set(variants.map(v => v.attributes["Colour"]).filter(Boolean))];
+        const selectedSizes = [...new Set(variants.map(v => v.attributes["Size"]).filter(Boolean))];
+        const selectedMaterials = [...new Set(variants.map(v => v.attributes["Material"]).filter(Boolean))];
+
         reset({
           name: item.name,
           sku: item.sku,
@@ -150,6 +541,11 @@ export function ItemFormSheet({
           status: item.status,
           imageUrl: item.imageUrl || null,
           units: item.units || [],
+          variantAttributes: variantAttrs,
+          selectedColors,
+          selectedSizes,
+          selectedMaterials,
+          variants,
         });
       } else {
         reset({
@@ -170,6 +566,11 @@ export function ItemFormSheet({
           status: ItemStatus.Active,
           imageUrl: null,
           units: [],
+          variantAttributes: [],
+          selectedColors: [],
+          selectedSizes: [],
+          selectedMaterials: [],
+          variants: [],
         });
       }
     }
@@ -203,7 +604,10 @@ export function ItemFormSheet({
         ...u,
         conversionFactor: Number(u.conversionFactor),
         sellingPrice: u.sellingPrice ? Number(u.sellingPrice) : undefined
-      }))
+      })),
+      // Variant support: pass through variantAttributes and variants
+      variantAttributes: cleanedData.variantAttributes || [],
+      variants: cleanedData.variants || [],
     };
  
     onSave(finalData as any);
@@ -354,6 +758,17 @@ export function ItemFormSheet({
                 </div>
               </div>
             </div>
+
+            {/* Variants */}
+            <VariantsSection
+              control={control}
+              watch={watch}
+              setValue={setValue}
+              errors={errors}
+              cardGroupCls={cardGroupCls}
+              labelCls={labelCls}
+              inputCls={inputCls}
+            />
 
             {/* Units & Measurements */}
             <div className={cardGroupCls}>

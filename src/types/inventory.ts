@@ -94,6 +94,14 @@ export interface UnitOfMeasure {
   sellingPrice?: number;   // Optional: Wholesale price override
 }
 
+export interface ProductVariant {
+  id: string;
+  attributes: Record<string, string>; // e.g., { "Colour": "Black", "Size": "38" }
+  price: number;
+  stock: number;
+  sku?: string;
+}
+
 export interface CustomFieldDefinition {
 
   id: string;
@@ -114,7 +122,7 @@ export interface Item {
   status: ItemStatus;
   unit: string; // This is the BASE UNIT
   units?: UnitOfMeasure[]; // Secondary units
-  currentStock: number; // Stored in BASE UNIT
+  currentStock: number; // Stored in BASE UNIT (or sum of variant stocks if variants exist)
   reorderPoint: number;
   reorderQuantity: number;
   costPrice: number;
@@ -126,6 +134,9 @@ export interface Item {
   customFields: Record<string, string | number | boolean>;
   createdAt: string;
   updatedAt: string;
+  // Variant support (textile, footwear, etc.)
+  variantAttributes?: string[]; // e.g., ["Colour", "Size", "Material"]
+  variants?: ProductVariant[];
 }
 
 

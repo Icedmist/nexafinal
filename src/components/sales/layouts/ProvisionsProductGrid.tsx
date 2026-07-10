@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Plus, Minus, ChevronDown, ChevronUp, Package, Layers } from "lucide-react";
+import { Plus, Minus, ChevronDown, ChevronUp, Package, Layers, ShoppingCart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/types/inventory";
 import {
@@ -49,6 +48,9 @@ export function ProvisionsProductGrid({
         const conversionFactor = getUnitConversionFactor(item, activeUnit);
         const canAddActiveUnit = remainingStock >= conversionFactor;
 
+        // Stock in the active unit
+        const stockInActiveUnit = Math.floor(remainingStock / conversionFactor);
+
         // Total quantities of all units combined in cart
         const totalQtyInCart = Array.from(cart.entries())
           .filter(([key]) => key.startsWith(`${item.id}:`))
@@ -62,8 +64,8 @@ export function ProvisionsProductGrid({
           if (item.currentStock > 0 && canAddActiveUnit) {
             const cartKey = `${item.id}:${activeUnit}`;
             onAdd(cartKey);
-            setAnimatingItems((prev) => new Set(prev).add(item.id));
-            setTimeout(() => setAnimatingItems((prev) => {
+            setAnimatingItems(prev => new Set(prev).add(item.id));
+            setTimeout(() => setAnimatingItems(prev => {
               const next = new Set(prev);
               next.delete(item.id);
               return next;
@@ -89,7 +91,7 @@ export function ProvisionsProductGrid({
               item.currentStock <= 0 && "opacity-75 grayscale-[0.3]"
             )}
           >
-            {/* Header info */}
+            {/* Header: Stock Badge + SKU */}
             <div className="flex items-start justify-between gap-2">
               <Badge
                 variant="secondary"
@@ -102,14 +104,14 @@ export function ProvisionsProductGrid({
                       : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                 )}
               >
-                {remainingStock <= 0 ? "Out of Stock" : `${remainingStock} in stock (${item.unit})`}
+                {remainingStock <= 0 ? "Out of Stock" : `${stockInActiveUnit} in stock (${activeUnit})`}
               </Badge>
               <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded select-all font-bold">
                 {item.sku}
               </span>
             </div>
 
-            {/* Product details */}
+            {/* Product Details */}
             <div className="mt-3.5 flex-1 space-y-1">
               <h3 className="text-[15px] font-extrabold leading-tight text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 {item.name}
@@ -123,7 +125,7 @@ export function ProvisionsProductGrid({
               )}
             </div>
 
-            {/* Price section in Green */}
+            {/* Price */}
             <div className="mt-4 flex items-baseline justify-between">
               <div className="flex flex-col">
                 <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">
@@ -135,7 +137,7 @@ export function ProvisionsProductGrid({
               </div>
             </div>
 
-            {/* Unit Pills */}
+            {/* Unit Pills — Level 1: Fast selection */}
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -159,8 +161,9 @@ export function ProvisionsProductGrid({
                 {/* Base Unit Pill */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveUnits((prev) => ({ ...prev, [item.id]: item.unit }));
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveUnits(prev => ({ ...prev, [item.id]: item.unit }));
                   }}
                   className={cn(
                     "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0",
@@ -182,8 +185,9 @@ export function ProvisionsProductGrid({
                   <button
                     key={u.name}
                     type="button"
-                    onClick={() => {
-                      setActiveUnits((prev) => ({ ...prev, [item.id]: u.name }));
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveUnits(prev => ({ ...prev, [item.id]: u.name }));
                     }}
                     className={cn(
                       "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0",
@@ -203,7 +207,42 @@ export function ProvisionsProductGrid({
               </div>
             </div>
 
-            {/* Inline expandable drawer for "All Units" */}
+            {/* Bottom: +/- controls for active unit */}
+            <div className="mt-4 pt-3.5 border-t border-border/50 flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground font-bold">
+                {activeUnit} Qty
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  disabled={activeUnitQty <= 0}
+                  onClick={handleRemoveClick}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <div className="relative flex items-center justify-center min-w-[24px]">
+                  <span className={cn(
+                    "text-sm font-extrabold font-mono text-foreground transition-all duration-200",
+                    isAnimating && "scale-125 text-emerald-600"
+                  )}>
+                    {activeUnitQty}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  disabled={item.currentStock <= 0 || !canAddActiveUnit}
+                  onClick={handleAddClick}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Level 2: All Units expandable drawer */}
             {isExpanded && (
               <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border/50 space-y-3 animate-in fade-in-50 duration-200">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b pb-1">
@@ -306,41 +345,6 @@ export function ProvisionsProductGrid({
                 </Button>
               </div>
             )}
-
-            {/* Bottom active quantity controls */}
-            <div className="mt-4 pt-3.5 border-t border-border/50 flex items-center justify-between gap-2">
-              <span className="text-[10px] text-muted-foreground font-bold">
-                Active Unit Qty
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg"
-                  disabled={activeUnitQty <= 0}
-                  onClick={handleRemoveClick}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <div className="relative flex items-center justify-center min-w-[24px]">
-                  <span className={cn(
-                    "text-sm font-extrabold font-mono text-foreground transition-all duration-200",
-                    isAnimating && "scale-125 text-emerald-600"
-                  )}>
-                    {activeUnitQty}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg"
-                  disabled={item.currentStock <= 0 || !canAddActiveUnit}
-                  onClick={handleAddClick}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
           </div>
         );
       })}

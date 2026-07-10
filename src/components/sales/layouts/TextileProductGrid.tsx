@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { Plus, Minus, Package, Tag, ShoppingCart, Info } from "lucide-react";
+import { Plus, Minus, Package, Tag, ShoppingCart, Info, Palette, Ruler, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Item } from "@/types/inventory";
+import type { Item, ProductVariant } from "@/types/inventory";
+import { getColorHex } from "@/lib/variants";
 import {
   formatNaira,
   getUnitConversionFactor,
@@ -22,35 +23,6 @@ interface TextileProductGridProps {
   items: Item[];
 }
 
-const COLOR_MAP: Record<string, string> = {
-  black: "#000000",
-  white: "#ffffff",
-  red: "#ef4444",
-  blue: "#3b82f6",
-  green: "#22c55e",
-  yellow: "#eab308",
-  orange: "#f97316",
-  purple: "#a855f7",
-  pink: "#ec4899",
-  gray: "#6b7280",
-  grey: "#6b7280",
-  brown: "#78350f",
-  beige: "#f5f5dc",
-  navy: "#1e3a8a",
-  teal: "#0d9488",
-  gold: "#d4af37",
-  silver: "#c0c0c0",
-  cream: "#fffdd0",
-};
-
-interface ParsedVariant {
-  unitName: string;
-  color: string;
-  size: string;
-  price: number;
-  conversionFactor: number;
-}
-
 export function TextileProductGrid({
   filtered,
   cart,
@@ -61,80 +33,31 @@ export function TextileProductGrid({
   setAnimatingItems,
   items,
 }: TextileProductGridProps) {
-  // Store expanded item ID
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
   return (
     <div className="grid grid-cols-2 gap-3 py-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {filtered.map((item) => {
-        // Parse variants
-        const variants: ParsedVariant[] = useMemo(() => {
-          const list = [
-            { name: item.unit, sellingPrice: item.sellingPrice, conversionFactor: 1 },
-            ...(item.units || []),
-          ];
-          return list.map((u) => {
-            // Split unit name to parse color and size (e.g. "Red/38", "Blue-40", "Black 42")
-            const parts = u.name.split(/[\/\-]/).map((p) => p.trim());
-            let color = parts[0] || "Default";
-            let size = parts[1] || "";
-
-            // If no separator was found, check if it's size-like or color-like
-            if (parts.length === 1) {
-              const val = parts[0];
-              if (/^\d+$/.test(val) || ["s", "m", "l", "xl", "xxl", "xs"].includes(val.toLowerCase())) {
-                size = val;
-                color = "Default";
-              }
-            }
-
-            return {
-              unitName: u.name,
-              color,
-              size,
-              price: u.sellingPrice ?? item.sellingPrice * u.conversionFactor,
-              conversionFactor: u.conversionFactor,
-            };
-          });
-        }, [item]);
-
-        // Unique colors and sizes
-        const uniqueColors = useMemo(() => {
-          return Array.from(new Set(variants.map((v) => v.color))).filter(Boolean);
-        }, [variants]);
-
-        const uniqueSizes = useMemo(() => {
-          return Array.from(new Set(variants.map((v) => v.size))).filter(Boolean);
-        }, [variants]);
-
-        return (
-          <TextileProductCard
-            key={item.id}
-            item={item}
-            variants={variants}
-            uniqueColors={uniqueColors}
-            uniqueSizes={uniqueSizes}
-            cart={cart}
-            onAdd={onAdd}
-            onRemove={onRemove}
-            onSetQuantity={onSetQuantity}
-            animatingItems={animatingItems}
-            setAnimatingItems={setAnimatingItems}
-            items={items}
-            isExpanded={expandedItemId === item.id}
-            onToggleExpand={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
-          />
-        );
-      })}
+      {filtered.map((item) => (
+        <TextileProductCard
+          key={item.id}
+          item={item}
+          cart={cart}
+          onAdd={onAdd}
+          onRemove={onRemove}
+          onSetQuantity={onSetQuantity}
+          animatingItems={animatingItems}
+          setAnimatingItems={setAnimatingItems}
+          items={items}
+          isExpanded={expandedItemId === item.id}
+          onToggleExpand={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+        />
+      ))}
     </div>
   );
 }
 
 interface TextileProductCardProps {
   item: Item;
-  variants: ParsedVariant[];
-  uniqueColors: string[];
-  uniqueSizes: string[];
   cart: Map<string, number>;
   onAdd: (cartKey: string) => void;
   onRemove: (cartKey: string) => void;
@@ -148,9 +71,6 @@ interface TextileProductCardProps {
 
 function TextileProductCard({
   item,
-  variants,
-  uniqueColors,
-  uniqueSizes,
   cart,
   onAdd,
   onRemove,
@@ -161,73 +81,108 @@ function TextileProductCard({
   isExpanded,
   onToggleExpand,
 }: TextileProductCardProps) {
-  // Color and Size selection state
+  const itemVariants = useMemo(() => item.variants || [], [item.variants]);
+  const variantAttributes = item.variantAttributes || [];
+
+  const hasColour = variantAttributes.includes("Colour");
+  const hasSize = variantAttributes.includes("Size");
+  const hasMaterial = variantAttributes.includes("Material");
+
+  // Extract unique values from itemVariants
+  const uniqueColors = useMemo(() => {
+    if (!hasColour) return [];
+    return [...new Set(itemVariants.map(v => v.attributes["Colour"]).filter(Boolean))];
+  }, [itemVariants, hasColour]);
+
+  const uniqueSizes = useMemo(() => {
+    if (!hasSize) return [];
+    return [...new Set(itemVariants.map(v => v.attributes["Size"]).filter(Boolean))];
+  }, [itemVariants, hasSize]);
+
+  const uniqueMaterials = useMemo(() => {
+    if (!hasMaterial) return [];
+    return [...new Set(itemVariants.map(v => v.attributes["Material"]).filter(Boolean))];
+  }, [itemVariants, hasMaterial]);
+
+  // Selection state
   const [selectedColor, setSelectedColor] = useState<string>(uniqueColors[0] || "");
   const [selectedSize, setSelectedSize] = useState<string>(
-    // Default to the first size available for the selected color
-    uniqueSizes.find((s) => variants.some((v) => v.color === uniqueColors[0] && v.size === s)) || ""
+    uniqueSizes.find(s => itemVariants.some(v => v.attributes["Colour"] === uniqueColors[0] && v.attributes["Size"] === s)) || ""
   );
-
-  // Local quantity to add
+  const [selectedMaterial, setSelectedMaterial] = useState<string>(uniqueMaterials[0] || "");
   const [localQty, setLocalQty] = useState<number>(1);
 
-  // Remaining stock across all units (base units)
-  const remainingStock = getAvailableStockInBaseUnits(item.id, cart, items);
-
-  // Find currently selected variant mapping
+  // Find active variant
   const activeVariant = useMemo(() => {
-    return variants.find((v) => v.color === selectedColor && v.size === selectedSize) || variants[0];
-  }, [variants, selectedColor, selectedSize]);
+    return itemVariants.find(v => {
+      const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+      const sizeMatch = !hasSize || v.attributes["Size"] === selectedSize;
+      const materialMatch = !hasMaterial || v.attributes["Material"] === selectedMaterial;
+      return colorMatch && sizeMatch && materialMatch;
+    }) || itemVariants[0];
+  }, [itemVariants, selectedColor, selectedSize, selectedMaterial, hasColour, hasSize, hasMaterial]);
 
-  const activeUnitQty = cart.get(`${item.id}:${activeVariant?.unitName}`) ?? 0;
+  // Cart key uses variant ID
+  const cartKey = activeVariant ? `${item.id}:${activeVariant.id}` : `${item.id}:default`;
+  const activeVariantQty = cart.get(cartKey) ?? 0;
+
+  // Stock
+  const variantStock = activeVariant?.stock ?? 0;
+  const remainingStock = getAvailableStockInBaseUnits(item.id, cart, items);
   const isAnimating = animatingItems.has(item.id);
 
-  // Min price for "from ₦X"
+  // Price calculations
   const minPrice = useMemo(() => {
-    return Math.min(...variants.map((v) => v.price));
-  }, [variants]);
+    if (itemVariants.length === 0) return item.sellingPrice;
+    return Math.min(...itemVariants.map(v => v.price));
+  }, [itemVariants, item.sellingPrice]);
 
   const hasMultiplePrices = useMemo(() => {
-    return new Set(variants.map((v) => v.price)).size > 1;
-  }, [variants]);
+    return new Set(itemVariants.map(v => v.price)).size > 1;
+  }, [itemVariants]);
 
-  // Total quantity in cart for this product
+  // Total cart count
   const totalQtyInCart = useMemo(() => {
     return Array.from(cart.entries())
       .filter(([key]) => key.startsWith(`${item.id}:`))
       .reduce((sum, [_, q]) => sum + q, 0);
   }, [cart, item.id]);
 
-  const handleAddVariant = () => {
-    if (!activeVariant) return;
-    const key = `${item.id}:${activeVariant.unitName}`;
-    const targetQty = activeUnitQty + localQty;
+  // Total variant stock
+  const totalVariantStock = useMemo(() => {
+    if (itemVariants.length === 0) return item.currentStock;
+    return itemVariants.reduce((sum, v) => sum + v.stock, 0);
+  }, [itemVariants, item.currentStock]);
 
-    // Check stock limit
-    const requiredBaseUnits = localQty * activeVariant.conversionFactor;
-    if (remainingStock < requiredBaseUnits) {
-      return;
-    }
+  const handleAdd = () => {
+    if (!activeVariant || variantStock <= 0) return;
 
-    onSetQuantity(key, targetQty);
+    const targetQty = activeVariantQty + localQty;
+    if (targetQty > variantStock) return;
 
-    // Animation trigger
-    setAnimatingItems((prev) => new Set(prev).add(item.id));
+    onSetQuantity(cartKey, targetQty);
+
+    setAnimatingItems(prev => new Set(prev).add(item.id));
     setTimeout(() => {
-      setAnimatingItems((prev) => {
+      setAnimatingItems(prev => {
         const next = new Set(prev);
         next.delete(item.id);
         return next;
       });
     }, 200);
 
-    // Reset local qty
     setLocalQty(1);
   };
 
   // Check if a size is available for the currently selected color
   const isSizeAvailable = (size: string) => {
-    return variants.some((v) => v.color === selectedColor && v.size === size);
+    if (!hasColour) return true;
+    return itemVariants.some(v => v.attributes["Colour"] === selectedColor && v.attributes["Size"] === size && v.stock > 0);
+  };
+
+  // Check if a color is available
+  const isColorAvailable = (color: string) => {
+    return itemVariants.some(v => v.attributes["Colour"] === color && v.stock > 0);
   };
 
   return (
@@ -238,7 +193,7 @@ function TextileProductCard({
         totalQtyInCart > 0
           ? "border-primary/50 shadow-lg ring-1 ring-primary/10 scale-[1.01]"
           : "border-border hover:border-primary/20 hover:shadow-md",
-        item.currentStock <= 0 && "opacity-75 grayscale-[0.3]"
+        totalVariantStock <= 0 && "opacity-75 grayscale-[0.3]"
       )}
     >
       {/* Product Image & Badges */}
@@ -292,14 +247,14 @@ function TextileProductCard({
             variant="secondary"
             className={cn(
               "h-5 px-1.5 text-[9px] font-bold backdrop-blur-md border-none shadow-sm",
-              remainingStock <= 0
+              totalVariantStock <= 0
                 ? "bg-destructive/90 text-destructive-foreground"
-                : remainingStock <= (item.reorderPoint || 5)
+                : totalVariantStock <= (item.reorderPoint || 5)
                   ? "bg-amber-500/90 text-amber-950"
                   : "bg-background/80 text-foreground"
             )}
           >
-            {remainingStock <= 0 ? "Out" : `${remainingStock} left`}
+            {totalVariantStock <= 0 ? "Out" : `${totalVariantStock} in stock`}
           </Badge>
         </div>
       </div>
@@ -332,45 +287,47 @@ function TextileProductCard({
           className="border-t border-border/80 bg-muted/20 p-3 space-y-3 animate-in slide-in-from-bottom-2 duration-200"
         >
           {/* Colors Selector */}
-          {uniqueColors.length > 0 && (
+          {hasColour && uniqueColors.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
-                Colour
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <Palette className="h-3 w-3" />
+                Select colour
               </span>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {uniqueColors.map((color) => {
                   const isActive = selectedColor === color;
-                  const normalizedColor = color.toLowerCase();
-                  const hexColor = COLOR_MAP[normalizedColor] || null;
+                  const hexColor = getColorHex(color);
+                  const available = isColorAvailable(color);
 
                   return (
                     <button
                       key={color}
                       type="button"
+                      disabled={!available}
                       onClick={() => {
                         setSelectedColor(color);
-                        // If current size is not available with the new color, select the first available size
-                        const sizesForColor = uniqueSizes.filter((s) =>
-                          variants.some((v) => v.color === color && v.size === s)
-                        );
-                        if (!sizesForColor.includes(selectedSize)) {
-                          setSelectedSize(sizesForColor[0] || "");
+                        // Reset size if not available for new color
+                        if (hasSize && !isSizeAvailable(selectedSize)) {
+                          const firstAvailable = uniqueSizes.find(s => isSizeAvailable(s));
+                          setSelectedSize(firstAvailable || "");
                         }
                       }}
                       className={cn(
-                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border",
+                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
                         isActive
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-muted-foreground border-border hover:bg-accent"
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : available
+                            ? "bg-background text-muted-foreground border-border hover:bg-accent"
+                            : "bg-muted/40 text-muted-foreground/30 border-transparent cursor-not-allowed"
                       )}
                     >
                       {hexColor ? (
                         <span
-                          className="h-2.5 w-2.5 rounded-full border border-black/10 shrink-0"
+                          className="h-3 w-3 rounded-full border border-black/15 shrink-0"
                           style={{ backgroundColor: hexColor }}
                         />
                       ) : (
-                        <span className="h-2 w-2 rounded-full bg-muted-foreground/30 shrink-0" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/30 shrink-0" />
                       )}
                       <span>{color}</span>
                     </button>
@@ -381,27 +338,28 @@ function TextileProductCard({
           )}
 
           {/* Sizes Selector */}
-          {uniqueSizes.length > 0 && uniqueSizes.some(Boolean) && (
+          {hasSize && uniqueSizes.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
-                Size
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <Ruler className="h-3 w-3" />
+                Select size
               </span>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {uniqueSizes.map((size) => {
                   const isActive = selectedSize === size;
-                  const isAvailable = isSizeAvailable(size);
+                  const available = isSizeAvailable(size);
 
                   return (
                     <button
                       key={size}
                       type="button"
-                      disabled={!isAvailable}
+                      disabled={!available}
                       onClick={() => setSelectedSize(size)}
                       className={cn(
-                        "h-6 min-w-6 px-1.5 rounded-md text-[10px] font-bold transition-all border flex items-center justify-center",
+                        "h-7 min-w-7 px-2 rounded-lg text-[10px] font-bold transition-all border flex items-center justify-center",
                         isActive
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : isAvailable
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : available
                             ? "bg-background text-muted-foreground border-border hover:bg-accent"
                             : "bg-muted/40 text-muted-foreground/30 border-transparent cursor-not-allowed"
                       )}
@@ -414,30 +372,69 @@ function TextileProductCard({
             </div>
           )}
 
-          {/* Active Variant Price & Warning */}
-          {activeVariant && (
-            <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-1 text-[11px]">
-              <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">
-                  {activeVariant.color} {activeVariant.size ? `/ Size ${activeVariant.size}` : ""}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  Stock:{" "}
-                  <span className="font-bold">
-                    {Math.floor(remainingStock / activeVariant.conversionFactor)}
-                  </span>{" "}
-                  packs
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="font-black text-primary">{formatNaira(activeVariant.price)}</p>
-                {activeUnitQty > 0 && (
-                  <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
-                    {activeUnitQty} in cart
-                  </p>
-                )}
+          {/* Materials Selector */}
+          {hasMaterial && uniqueMaterials.length > 0 && (
+            <div className="space-y-1">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                Select material
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {uniqueMaterials.map((material) => {
+                  const isActive = selectedMaterial === material;
+                  const available = itemVariants.some(v => v.attributes["Material"] === material && v.stock > 0);
+
+                  return (
+                    <button
+                      key={material}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => setSelectedMaterial(material)}
+                      className={cn(
+                        "h-7 px-2 rounded-lg text-[10px] font-bold transition-all border",
+                        isActive
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : available
+                            ? "bg-background text-muted-foreground border-border hover:bg-accent"
+                            : "bg-muted/40 text-muted-foreground/30 border-transparent cursor-not-allowed"
+                      )}
+                    >
+                      {material}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+          )}
+
+          {/* Active Variant Price & Stock */}
+          {activeVariant && (
+            <div className="pt-2 border-t border-border/40">
+              <div className="flex items-center justify-between gap-1 text-[11px]">
+                <div className="min-w-0">
+                  <p className="font-extrabold text-foreground truncate">
+                    {Object.values(activeVariant.attributes).join(" / ")}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Stock: <span className="font-bold">{variantStock}</span> units
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-black text-primary">{formatNaira(activeVariant.price)}</p>
+                  {activeVariantQty > 0 && (
+                    <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
+                      {activeVariantQty} in cart
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!activeVariant && (
+            <p className="text-[10px] text-muted-foreground italic text-center py-1">
+              Pick a colour and size to see price and stock.
+            </p>
           )}
 
           {/* Quantity selector & Add to cart button */}
@@ -446,7 +443,7 @@ function TextileProductCard({
               <button
                 type="button"
                 disabled={localQty <= 1}
-                onClick={() => setLocalQty((q) => q - 1)}
+                onClick={() => setLocalQty(q => q - 1)}
                 className="p-1.5 text-muted-foreground disabled:opacity-20 hover:text-foreground"
               >
                 <Minus className="h-3 w-3" />
@@ -458,9 +455,9 @@ function TextileProductCard({
                 type="button"
                 disabled={
                   !activeVariant ||
-                  remainingStock < (localQty + 1) * activeVariant.conversionFactor
+                  activeVariantQty + localQty >= variantStock
                 }
-                onClick={() => setLocalQty((q) => q + 1)}
+                onClick={() => setLocalQty(q => q + 1)}
                 className="p-1.5 text-muted-foreground disabled:opacity-20 hover:text-foreground"
               >
                 <Plus className="h-3 w-3" />
@@ -469,11 +466,8 @@ function TextileProductCard({
 
             <Button
               type="button"
-              disabled={
-                !activeVariant ||
-                remainingStock < localQty * activeVariant.conversionFactor
-              }
-              onClick={handleAddVariant}
+              disabled={!activeVariant || variantStock <= 0 || activeVariantQty + localQty > variantStock}
+              onClick={handleAdd}
               className="flex-1 h-7.5 text-xs font-black"
             >
               <ShoppingCart className="mr-1 h-3.5 w-3.5" />
