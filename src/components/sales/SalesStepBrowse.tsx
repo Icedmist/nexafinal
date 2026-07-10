@@ -89,6 +89,11 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
   const [activeUnits, setActiveUnits] = useState<Record<string, string>>({});
   const [editingUnitsItem, setEditingUnitsItem] = useState<Item | null>(null);
 
+  // Restaurant-specific state
+  const [orderType, setOrderType] = useState<"dine_in" | "takeaway" | "delivery">("dine_in");
+  const [tableNumber, setTableNumber] = useState("");
+  const [orderCart, setOrderCart] = useState<Map<string, any>>(new Map());
+
   const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null);
   const [isLinking, setIsLinking] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
@@ -126,7 +131,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
     }
   }, []);
 
-  const handleAdd = useCallback((cartKey: string) => {
+  const handleAdd = useCallback((cartKey: string, config?: any) => {
     onAdd(cartKey);
     const itemId = cartKey.split(":")[0];
     setAnimatingItems((prev) => new Set(prev).add(itemId));
@@ -135,6 +140,10 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
       next.delete(itemId);
       return next;
     }), 200);
+    // Store restaurant order config
+    if (config) {
+      setOrderCart(prev => new Map(prev).set(cartKey, config));
+    }
   }, [onAdd]);
 
   const handleBarcodeSubmit = useCallback((val: string) => {
@@ -316,14 +325,17 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
           <RestaurantProductGrid
             filtered={filtered}
             cart={cart}
+            orderCart={orderCart}
             onAdd={handleAdd}
             onRemove={onRemove}
             onSetQuantity={onSetQuantity}
             animatingItems={animatingItems}
             setAnimatingItems={setAnimatingItems}
-            activeUnits={activeUnits}
-            setActiveUnits={setActiveUnits}
             items={items || []}
+            orderType={orderType}
+            setOrderType={setOrderType}
+            tableNumber={tableNumber}
+            setTableNumber={setTableNumber}
           />
         ) : businessType === "textile" ? (
           <TextileProductGrid

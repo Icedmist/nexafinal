@@ -9,6 +9,12 @@ export interface SaleLineItem {
   imageUrl?: string;
   selectedUnit?: string;
   conversionFactor?: number;
+  // Restaurant-specific fields
+  size?: string;
+  sizePrice?: number;
+  addons?: Array<{ name: string; price: number }>;
+  spiceLevel?: string;
+  kitchenNote?: string;
 }
 
 
@@ -35,6 +41,11 @@ export interface SaleTransaction {
   collectionCode?: string;
   status?: "completed" | "pending_pickup" | "picked_up";
   isPublicOrder?: boolean;
+  // Restaurant-specific fields
+  orderType?: OrderType;
+  tableNumber?: string;
+  kitchenNotes?: string;
+  packagingFee?: number;
 }
 
 // ─── Enums ───────────────────────────────────────────────
@@ -102,6 +113,61 @@ export interface ProductVariant {
   sku?: string;
 }
 
+// ─── Restaurant Menu Item Types ──────────────────────────────────────
+
+export interface MenuItemSize {
+  id: string;
+  name: string;        // e.g., "Regular", "Large"
+  price: number;       // Price for this size
+}
+
+export interface MenuItemAddon {
+  id: string;
+  name: string;        // e.g., "Chicken", "Beef"
+  price: number;       // Additional price for this addon
+}
+
+export interface ComboSlot {
+  id: string;
+  categoryId: string;  // Which category to pick from
+  categoryName: string; // Display name: "Choose your protein"
+  required: boolean;   // Must pick one
+  maxPicks: number;    // How many can pick (1 for single, >1 for multi)
+}
+
+export interface MenuItemConfig {
+  sizes: MenuItemSize[];           // Required: customer must pick one
+  addons: MenuItemAddon[];         // Optional: customer can add one or skip
+  spiceLevels: string[];           // Free options: ["Mild", "Medium", "Hot"]
+  allowKitchenNotes: boolean;      // Toggle for free-text notes
+  prepTimeMinutes: number;         // Kitchen prep time estimate
+  isCombo: boolean;                // Whether this is a combo/bundle
+  comboSlots?: ComboSlot[];        // For combos: which items are included
+}
+
+export type OrderType = "dine_in" | "takeaway" | "delivery";
+
+export interface RestaurantOrderLine {
+  itemId: string;
+  itemName: string;
+  size?: string;                   // Selected size name
+  sizePrice?: number;              // Price of selected size
+  addons: Array<{ name: string; price: number }>;
+  spiceLevel?: string;
+  kitchenNote?: string;
+  quantity: number;
+  unitPriceNgn: number;            // Total unit price (size + addons)
+  totalPriceNgn: number;           // unitPrice * quantity
+}
+
+export interface RestaurantOrder {
+  orderType: OrderType;
+  tableNumber?: string;            // For dine-in
+  estimatedReadyTime?: string;     // For takeaway/delivery
+  packagingFee?: number;           // Auto-added for takeaway/delivery
+  lines: RestaurantOrderLine[];
+}
+
 export interface CustomFieldDefinition {
 
   id: string;
@@ -137,6 +203,8 @@ export interface Item {
   // Variant support (textile, footwear, etc.)
   variantAttributes?: string[]; // e.g., ["Colour", "Size", "Material"]
   variants?: ProductVariant[];
+  // Restaurant menu item config
+  menuItemConfig?: MenuItemConfig;
 }
 
 
