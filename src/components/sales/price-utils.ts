@@ -32,6 +32,16 @@ export function getItemPriceForMode(item: Item, unitName: string, saleType: Sale
     return basePrice;
   }
 
+  // Check if unitName is actually a variant ID
+  if (item.variants && item.variants.length > 0) {
+    const variant = item.variants.find(v => v.id === unitName);
+    if (variant) {
+      // Variants currently only have a single price field.
+      // If wholesale is needed for variants, we can adapt, but for now return variant.price
+      return variant.price;
+    }
+  }
+
   const secondaryUnit = item.units?.find((u) => u.name === unitName);
   if (secondaryUnit) {
     return secondaryUnit.sellingPrice ?? (basePrice * secondaryUnit.conversionFactor);

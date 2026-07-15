@@ -11,6 +11,8 @@ import {
   getAvailableStockInBaseUnits
 } from "../SalesStepBrowse";
 
+import type { SalePriceMode } from "../price-utils";
+
 interface ProvisionsProductGridProps {
   filtered: Item[];
   cart: Map<string, number>;
@@ -22,6 +24,7 @@ interface ProvisionsProductGridProps {
   activeUnits: Record<string, string>;
   setActiveUnits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   items: Item[];
+  defaultSaleType: SalePriceMode;
 }
 
 export function ProvisionsProductGrid({
@@ -35,15 +38,18 @@ export function ProvisionsProductGrid({
   activeUnits,
   setActiveUnits,
   items,
+  defaultSaleType,
 }: ProvisionsProductGridProps) {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [expandedItemSaleType, setExpandedItemSaleType] = useState<SalePriceMode>(defaultSaleType);
+  const [expandedVariantAttrs, setExpandedVariantAttrs] = useState<Record<string, string>>({});
 
   return (
     <div className="grid grid-cols-1 gap-3.5 py-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {filtered.map((item) => {
         const activeUnit = activeUnits[item.id] || item.unit;
-        const activeUnitPrice = getCartItemUnitPrice(item, activeUnit);
-        const activeUnitQty = cart.get(`${item.id}:${activeUnit}`) ?? 0;
+        const activeUnitPrice = getCartItemUnitPrice(item, activeUnit, defaultSaleType);
+        const activeUnitQty = cart.get(`${item.id}:${activeUnit}:${defaultSaleType}`) ?? 0;
         const remainingStock = getAvailableStockInBaseUnits(item.id, cart, items);
         const conversionFactor = getUnitConversionFactor(item, activeUnit);
         const canAddActiveUnit = remainingStock >= conversionFactor;
@@ -62,7 +68,7 @@ export function ProvisionsProductGrid({
         const handleAddClick = (e: React.MouseEvent) => {
           e.stopPropagation();
           if (item.currentStock > 0 && canAddActiveUnit) {
-            const cartKey = `${item.id}:${activeUnit}`;
+            const cartKey = `${item.id}:${activeUnit}:${defaultSaleType}`;
             onAdd(cartKey);
             setAnimatingItems(prev => new Set(prev).add(item.id));
             setTimeout(() => setAnimatingItems(prev => {
@@ -76,7 +82,7 @@ export function ProvisionsProductGrid({
         const handleRemoveClick = (e: React.MouseEvent) => {
           e.stopPropagation();
           if (activeUnitQty > 0) {
-            onRemove(`${item.id}:${activeUnit}`);
+            onRemove(`${item.id}:${activeUnit}:${defaultSaleType}`);
           }
         };
 
@@ -242,67 +248,129 @@ export function ProvisionsProductGrid({
               </div>
             </div>
 
-            {/* Level 2: All Units expandable drawer */}
+            {/* Level 2: All Units & Details expandable drawer */}
             {isExpanded && (
-              <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border/50 space-y-3 animate-in fade-in-50 duration-200">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b pb-1">
-                  Manage Units Directly
-                </p>
-
-                {/* Base Unit Manager */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold truncate">{item.unit}</p>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
-                      {formatNaira(item.sellingPrice)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7 rounded-md"
-                      disabled={(cart.get(`${item.id}:${item.unit}`) ?? 0) <= 0}
-                      onClick={() => {
-                        const current = cart.get(`${item.id}:${item.unit}`) ?? 0;
-                        onSetQuantity(`${item.id}:${item.unit}`, current - 1);
-                      }}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="w-6 text-center text-xs font-mono font-bold">
-                      {cart.get(`${item.id}:${item.unit}`) ?? 0}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7 rounded-md"
-                      disabled={remainingStock <= 0}
-                      onClick={() => {
-                        const current = cart.get(`${item.id}:${item.unit}`) ?? 0;
-                        onSetQuantity(`${item.id}:${item.unit}`, current + 1);
-                      }}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
+              <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border/50 space-y-4 animate-in fade-in-50 duration-200" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Product Details & Selection
+                  </p>
+                  <select
+                    className="text-[10px] h-6 rounded-md border bg-background px-1.5 font-bold outline-none cursor-pointer"
+                    value={expandedItemSaleType}
+                    onChange={(e) => setExpandedItemSaleType(e.target.value as SalePriceMode)}
+                  >
+                    <option value="retail">Retail Price</option>
+                    <option value="wholesale">Wholesale Price</option>
+                  </select>
                 </div>
 
-                {/* Secondary Units Manager */}
-                {item.units?.map((u) => {
-                  const secondaryPrice = u.sellingPrice ?? (item.sellingPrice * u.conversionFactor);
-                  const inCartQty = cart.get(`${item.id}:${u.name}`) ?? 0;
-                  const maxAddable = Math.floor(remainingStock / u.conversionFactor);
+                {/* Attributes Display */}
+                {((item.variantAttributes && item.variantAttributes.length > 0) || (item.customFields && Object.keys(item.customFields).length > 0)) && (
+                  <div className="space-y-1.5">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Attributes</p>
+                    <div className="flex flex-wrap gap-1">
+                      {item.variantAttributes?.map(attr => (
+                        <Badge key={attr} variant="outline" className="text-[8px] px-1 py-0 h-4 border-primary/20 text-primary/80">{attr}</Badge>
+                      ))}
+                      {Object.entries(item.customFields || {}).map(([k, v]) => (
+                        <Badge key={k} variant="secondary" className="text-[8px] px-1 py-0 h-4 opacity-70 truncate max-w-[100px]">{k}: {String(v)}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                  return (
-                    <div key={u.name} className="flex items-center justify-between gap-2 pt-2 border-t border-border/30">
+                {/* Variants Manager (if variants exist) */}
+                {item.variants && item.variants.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Select Variant</p>
+                    {/* Dynamic Variant Attributes Selector */}
+                    {item.variantAttributes?.map((attrName) => {
+                      const uniqueValues = [...new Set(item.variants!.map(v => v.attributes[attrName]).filter(Boolean))];
+                      if (uniqueValues.length === 0) return null;
+                      
+                      const selectedVal = expandedVariantAttrs[attrName] || uniqueValues[0];
+                      
+                      return (
+                        <div key={attrName} className="space-y-1">
+                          <span className="text-[9px] font-bold text-muted-foreground">{attrName}</span>
+                          <div className="flex flex-wrap gap-1">
+                            {uniqueValues.map(val => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => setExpandedVariantAttrs(prev => ({ ...prev, [attrName]: val }))}
+                                className={cn(
+                                  "px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border",
+                                  selectedVal === val 
+                                    ? "bg-emerald-600 text-white border-emerald-600" 
+                                    : "bg-background text-muted-foreground border-border hover:bg-muted"
+                                )}
+                              >
+                                {val}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Active Variant Cart Controls */}
+                    {(() => {
+                      // Find matching variant
+                      const activeVariant = item.variants!.find(v => {
+                        return item.variantAttributes?.every(attr => {
+                          const selectedVal = expandedVariantAttrs[attr] || [...new Set(item.variants!.map(v2 => v2.attributes[attr]).filter(Boolean))][0];
+                          return v.attributes[attr] === selectedVal;
+                        }) ?? false;
+                      }) || item.variants![0];
+
+                      const variantCartKey = `${item.id}:${activeVariant.id}:${expandedItemSaleType}`;
+                      const variantInCartQty = cart.get(variantCartKey) ?? 0;
+                      
+                      return (
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/30">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate">Selected Variant</p>
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold mt-0.5">
+                              {formatNaira(activeVariant.price)} <span className="text-muted-foreground text-[8px] font-normal">({expandedItemSaleType})</span>
+                            </p>
+                            <p className="text-[9px] text-muted-foreground">Stock: {activeVariant.stock}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 rounded-md"
+                              disabled={variantInCartQty <= 0}
+                              onClick={() => onSetQuantity(variantCartKey, variantInCartQty - 1)}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center text-xs font-mono font-bold">{variantInCartQty}</span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 rounded-md"
+                              disabled={activeVariant.stock <= 0}
+                              onClick={() => onSetQuantity(variantCartKey, variantInCartQty + 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  /* Units Manager (if no variants) */
+                  <div className="space-y-3">
+                    {/* Base Unit Manager */}
+                    <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-xs font-bold truncate">{u.name}</p>
-                        <p className="text-[9px] text-muted-foreground leading-none">
-                          1 {u.name} = {u.conversionFactor} {item.unit}
-                        </p>
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold mt-0.5">
-                          {formatNaira(secondaryPrice)}
+                        <p className="text-xs font-bold truncate">{item.unit} <span className="text-[9px] font-normal text-muted-foreground">(Base)</span></p>
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
+                          {formatNaira(expandedItemSaleType === "wholesale" ? (item.wholesalePrice ?? item.sellingPrice) : item.sellingPrice)}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -310,36 +378,91 @@ export function ProvisionsProductGrid({
                           variant="outline"
                           size="icon"
                           className="h-7 w-7 rounded-md"
-                          disabled={inCartQty <= 0}
+                          disabled={(cart.get(`${item.id}:${item.unit}:${expandedItemSaleType}`) ?? 0) <= 0}
                           onClick={() => {
-                            onSetQuantity(`${item.id}:${u.name}`, inCartQty - 1);
+                            const key = `${item.id}:${item.unit}:${expandedItemSaleType}`;
+                            const current = cart.get(key) ?? 0;
+                            onSetQuantity(key, current - 1);
                           }}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
                         <span className="w-6 text-center text-xs font-mono font-bold">
-                          {inCartQty}
+                          {cart.get(`${item.id}:${item.unit}:${expandedItemSaleType}`) ?? 0}
                         </span>
                         <Button
                           variant="outline"
                           size="icon"
                           className="h-7 w-7 rounded-md"
-                          disabled={maxAddable <= 0}
+                          disabled={remainingStock <= 0}
                           onClick={() => {
-                            onSetQuantity(`${item.id}:${u.name}`, inCartQty + 1);
+                            const key = `${item.id}:${item.unit}:${expandedItemSaleType}`;
+                            const current = cart.get(key) ?? 0;
+                            onSetQuantity(key, current + 1);
                           }}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* Secondary Units Manager */}
+                    {item.units?.map((u) => {
+                      const basePrice = expandedItemSaleType === "wholesale" ? (item.wholesalePrice ?? item.sellingPrice) : item.sellingPrice;
+                      const secondaryPrice = u.sellingPrice ?? (basePrice * u.conversionFactor);
+                      
+                      const key = `${item.id}:${u.name}:${expandedItemSaleType}`;
+                      const inCartQty = cart.get(key) ?? 0;
+                      const maxAddable = Math.floor(remainingStock / u.conversionFactor);
+
+                      return (
+                        <div key={u.name} className="flex items-center justify-between gap-2 pt-2 border-t border-border/30">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate">{u.name}</p>
+                            <p className="text-[9px] text-muted-foreground leading-none">
+                              1 {u.name} = {u.conversionFactor} {item.unit}
+                            </p>
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold mt-0.5">
+                              {formatNaira(secondaryPrice)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 rounded-md"
+                              disabled={inCartQty <= 0}
+                              onClick={() => {
+                                onSetQuantity(key, inCartQty - 1);
+                              }}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center text-xs font-mono font-bold">
+                              {inCartQty}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 rounded-md"
+                              disabled={maxAddable <= 0}
+                              onClick={() => {
+                                onSetQuantity(key, inCartQty + 1);
+                              }}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <Button
                   size="sm"
-                  className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-                  onClick={() => setExpandedItemId(null)}
+                  className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                  onClick={(e) => { e.stopPropagation(); setExpandedItemId(null); }}
                 >
                   Done
                 </Button>

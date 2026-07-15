@@ -369,6 +369,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
             activeUnits={activeUnits}
             setActiveUnits={setActiveUnits}
             items={items || []}
+            defaultSaleType={defaultSaleType}
           />
         ) : (
           /* Default retail grid */
