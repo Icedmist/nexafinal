@@ -731,14 +731,16 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
 
                       {/* Quantity Selector & Add to Cart */}
                       <div className="flex items-center gap-1.5 pt-1">
-                        <select 
-                          className="text-[10px] h-7.5 rounded-lg border bg-background px-2 font-medium shrink-0 max-w-[85px] outline-none focus:ring-1 focus:ring-primary/20 cursor-pointer"
-                          value={expanderSaleType}
-                          onChange={(e) => setExpandedItemSaleType(e.target.value as SalePriceMode)}
-                        >
-                          <option value="retail">Retail</option>
-                          <option value="wholesale">Wholesale</option>
-                        </select>
+                        {!hasVariants && (
+                          <select 
+                            className="text-[10px] h-7.5 rounded-lg border bg-background px-2 font-medium shrink-0 max-w-[85px] outline-none focus:ring-1 focus:ring-primary/20 cursor-pointer"
+                            value={expanderSaleType}
+                            onChange={(e) => setExpandedItemSaleType(e.target.value as SalePriceMode)}
+                          >
+                            <option value="retail">Retail</option>
+                            <option value="wholesale">Wholesale</option>
+                          </select>
+                        )}
 
                         <div className="flex items-center border rounded-lg bg-background shrink-0">
                           <button

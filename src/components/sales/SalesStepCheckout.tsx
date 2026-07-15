@@ -194,7 +194,10 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
         
         return {
           itemId: ci.item.id,
-          itemName: ci.item.name,
+          itemName: (() => {
+            const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
+            return variant ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}` : ci.item.name;
+          })(),
           sku: ci.item.sku,
           quantity: ci.quantity,
           unitPriceNgn: price,
@@ -502,10 +505,20 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
               <div key={ci.cartKey} className="space-y-2">
                 <div className="flex justify-between items-start text-xs">
                   <div className="flex-1 min-w-0 pr-4">
-                    <span className="font-medium text-foreground block truncate">{ci.item.name}</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-muted-foreground whitespace-nowrap">Qty: {ci.quantity} {ci.selectedUnit}</span>
-                    </div>
+                    {(() => {
+                      const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
+                      const displayLabel = variant 
+                        ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}`
+                        : ci.item.name;
+                      return (
+                        <>
+                          <span className="font-medium text-foreground block truncate">{displayLabel}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-muted-foreground whitespace-nowrap">Qty: {ci.quantity} {variant ? "unit" : ci.selectedUnit}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                   <span className="font-mono font-bold text-foreground shrink-0 pt-0.5">
                     {NAIRA}{(price * ci.quantity).toLocaleString("en-NG", { minimumFractionDigits: 0 })}

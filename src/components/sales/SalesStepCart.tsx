@@ -41,8 +41,18 @@ export function getCartItemUnitPrice(item: Item, unitName: string, saleType: Sal
 }
 
 function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartItems: CartItem[]): number {
+  const isVariant = item.variants?.some(v => v.id === selectedUnitName);
+  
+  if (isVariant) {
+    const variant = item.variants!.find(v => v.id === selectedUnitName)!;
+    const variantInCart = allCartItems
+      .filter((ci) => ci.item.id === item.id && ci.selectedUnit === selectedUnitName)
+      .reduce((sum, ci) => sum + ci.quantity, 0);
+    return Math.max(0, variant.stock - variantInCart);
+  }
+
   const baseUnitsInCart = allCartItems
-    .filter((ci) => ci.item.id === item.id)
+    .filter((ci) => ci.item.id === item.id && !ci.item.variants?.some(v => v.id === ci.selectedUnit))
     .reduce((sum, ci) => sum + ci.quantity * getUnitConversionFactor(ci.item, ci.selectedUnit), 0);
   
   const remainingBaseStock = Math.max(0, item.currentStock - baseUnitsInCart);
@@ -86,8 +96,31 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{ci.item.name}</p>
-                <p className="text-xs text-muted-foreground">{fmtNgn(unitPrice)} per {ci.selectedUnit}</p>
+                {(() => {
+                  const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
+                  const hasVariants = !!variant;
+                  const displayLabel = hasVariants 
+                    ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}`
+                    : ci.item.name;
+
+                  return (
+                    <>
+                      <p className="text-sm font-medium truncate" title={displayLabel}>{displayLabel}</p>
+                      <p className="text-xs text-muted-foreground">{fmtNgn(unitPrice)} per {hasVariants ? "unit" : ci.selectedUnit}</p>
+                      
+                      {/* Custom Fields (only for non-variant products) */}
+                      {!hasVariants && ci.item.customFields && Object.keys(ci.item.customFields).length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {Object.entries(ci.item.customFields).map(([k, v]) => (
+                            <span key={k} className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {k}: {String(v)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center gap-1">

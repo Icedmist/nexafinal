@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { exportSalesHistoryPDF } from "@/lib/pdf-export";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check, ShoppingBag, Package, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -426,7 +426,13 @@ export function SalesHistoryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((sale) => (
+          {filtered.map((sale) => {
+            const hasRetail = sale.items.some(i => i.salePriceMode === "retail" || !i.salePriceMode);
+            const hasWholesale = sale.items.some(i => i.salePriceMode === "wholesale");
+            const saleMode = hasRetail && hasWholesale ? "Mixed" : hasWholesale ? "Wholesale" : "Retail";
+            const ModeIcon = hasRetail && hasWholesale ? Layers : hasWholesale ? Package : ShoppingBag;
+
+            return (
             <Card
               key={sale.id}
               className={cn(
@@ -477,6 +483,15 @@ export function SalesHistoryPage() {
                         <Clock className="h-3 w-3" /> Pending Pickup
                       </span>
                     )}
+                    <span className={cn(
+                      "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 border",
+                      saleMode === "Wholesale" ? "border-indigo-500/30 text-indigo-600 bg-indigo-500/5 dark:text-indigo-400" :
+                      saleMode === "Mixed" ? "border-purple-500/30 text-purple-600 bg-purple-500/5 dark:text-purple-400" :
+                      "border-sky-500/30 text-sky-600 bg-sky-500/5 dark:text-sky-400"
+                    )} title={`${saleMode} Sale`}>
+                      <ModeIcon className="h-3 w-3" />
+                      {saleMode}
+                    </span>
                     <span className={cn(
                       "text-[11px] font-mono font-medium uppercase tracking-wider",
                       sale.hasRefund ? "text-destructive font-bold" : "text-muted-foreground"
@@ -529,7 +544,7 @@ export function SalesHistoryPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       )}
 
