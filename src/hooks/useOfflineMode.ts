@@ -123,22 +123,7 @@ export function useOfflineMode() {
     };
   }, []);
 
-  // Register service worker on mount
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((reg) => {
-          console.log('✅ Service Worker registered');
 
-          // Check for updates periodically
-          setInterval(() => {
-            reg.update();
-          }, 60000); // Every minute
-        })
-        .catch((err) => console.warn('Service Worker registration failed:', err));
-    }
-  }, []);
 
   return {
     isOnline,

@@ -15,7 +15,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NexaCoreLoader } from "@/components/shared/NexaCoreLoader";
+
 import { StoreAccessGuard } from "@/components/shared/StoreAccessGuard";
 import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
@@ -180,7 +180,7 @@ export function AppLayout() {
   }, [store, claims]);
 
   if (loading || !user || !claimsReady) {
-    return <NexaCoreLoader />;
+    return null;
   }
 
   return (

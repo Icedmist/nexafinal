@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-import { NexaCoreLoader } from "./NexaCoreLoader";
+import { Loader2 } from "lucide-react";
 
 /**
  * LogoutOverlay - A full-screen premium overlay that provides visual feedback
@@ -23,7 +23,7 @@ export function LogoutOverlay() {
           <div className="absolute h-[500px] w-[500px] rounded-full bg-primary/5 blur-[120px] opacity-40" />
 
           <div className="relative z-10 flex flex-col items-center gap-8">
-            <NexaCoreLoader />
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
             
             <div className="flex flex-col items-center gap-4 text-center px-6">
               <h2 className="text-xl md:text-2xl font-black tracking-tight text-foreground uppercase">
