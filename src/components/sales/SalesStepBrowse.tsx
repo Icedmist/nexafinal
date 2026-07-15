@@ -86,6 +86,8 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
   const [activeUnits, setActiveUnits] = useState<Record<string, string>>({});
   const [editingUnitsItem, setEditingUnitsItem] = useState<Item | null>(null);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [expandedItemSaleType, setExpandedItemSaleType] = useState<SalePriceMode>("retail");
 
   // Restaurant-specific state
   const [orderType, setOrderType] = useState<"dine_in" | "takeaway" | "delivery">("dine_in");
@@ -379,7 +381,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
               const isAnimating = animatingItems.has(item.id);
               const activeUnit = activeUnits[item.id] || item.unit;
               const activeUnitPrice = getCartItemUnitPrice(item, activeUnit, defaultSaleType);
-              const activeUnitQty = cart.get(`${item.id}:${activeUnit}`) ?? 0;
+              const activeUnitQty = cart.get(`${item.id}:${activeUnit}:${defaultSaleType}`) ?? 0;
               const remainingStock = getAvailableStockInBaseUnits(item.id, cart, items || []);
               const conversionFactor = getUnitConversionFactor(item, activeUnit);
               const canAddActiveUnit = remainingStock >= conversionFactor;
@@ -388,8 +390,14 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                 <div
                   key={item.id}
                   onClick={() => {
-                    if (item.currentStock > 0 && canAddActiveUnit) {
-                      handleAdd(`${item.id}:${activeUnit}:${defaultSaleType}`);
+                    if (item.units && item.units.length > 0) {
+                      setEditingUnitsItem(item);
+                    } else {
+                      setExpandedItemId(prev => {
+                        if (prev === item.id) return null;
+                        setExpandedItemSaleType(defaultSaleType);
+                        return item.id;
+                      });
                     }
                   }}
                   className={cn(
@@ -482,7 +490,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                         {/* Base Unit Pill */}
                         {(() => {
                           const baseUnitName = item.unit;
-                          const baseUnitQty = cart.get(`${item.id}:${baseUnitName}`) ?? 0;
+                          const baseUnitQty = cart.get(`${item.id}:${baseUnitName}:${defaultSaleType}`) ?? 0;
                           const isActive = activeUnit === baseUnitName;
                           return (
                             <button
@@ -505,7 +513,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
 
                         {/* Secondary Unit Pills */}
                         {item.units.map((u) => {
-                          const secondaryUnitQty = cart.get(`${item.id}:${u.name}`) ?? 0;
+                          const secondaryUnitQty = cart.get(`${item.id}:${u.name}:${defaultSaleType}`) ?? 0;
                           const isActive = activeUnit === u.name;
                           return (
                             <button
@@ -548,13 +556,14 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                     </div>
                   </div>
 
+                  {/* Quick +/- controls (always visible) */}
                   <div className="flex items-center border-t border-border bg-muted/5" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       disabled={activeUnitQty === 0}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onRemove(`${item.id}:${activeUnit}`);
+                        onRemove(`${item.id}:${activeUnit}:${defaultSaleType}`);
                       }}
                       className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-10 active:scale-90"
                     >
@@ -577,6 +586,91 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                       <Plus className="h-4.5 w-4.5" />
                     </button>
                   </div>
+
+                  {/* Inline Expander Panel (for single-unit items) */}
+                  {expandedItemId === item.id && !(item.units && item.units.length > 0) && (() => {
+                    const expanderSaleType = expandedItemSaleType;
+                    const expanderUnitPrice = getCartItemUnitPrice(item, activeUnit, expanderSaleType);
+                    const expanderUnitQty = cart.get(`${item.id}:${activeUnit}:${expanderSaleType}`) ?? 0;
+                    
+                    return (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="border-t border-border/80 bg-muted/20 p-3 space-y-3 animate-in slide-in-from-bottom-2 duration-200"
+                    >
+                      {/* Price & Stock Info */}
+                      <div className="flex items-start justify-between text-[11px]">
+                        <div>
+                          <p className="font-extrabold text-foreground">{item.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Stock: <span className="font-bold">{remainingStock}</span> {item.unit}
+                          </p>
+                          {/* Special Attributes */}
+                          {(item.customFields && Object.keys(item.customFields).length > 0) || (item.variantAttributes && item.variantAttributes.length > 0) ? (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {item.variantAttributes?.map(attr => (
+                                <Badge key={attr} variant="outline" className="text-[8px] px-1 py-0 h-4 border-primary/20 text-primary/80">{attr}</Badge>
+                              ))}
+                              {Object.entries(item.customFields || {}).map(([k, v]) => (
+                                <Badge key={k} variant="secondary" className="text-[8px] px-1 py-0 h-4 opacity-70 truncate max-w-[80px]">{k}: {String(v)}</Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <p className="font-black text-primary text-[13px]">{formatNaira(expanderUnitPrice)}</p>
+                          <p className="text-[9px] text-muted-foreground uppercase font-bold">
+                            per {activeUnit}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quantity Selector & Add to Cart */}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
+                        <select 
+                          className="text-[10px] h-7.5 rounded-lg border bg-background px-2 font-medium shrink-0 max-w-[85px] outline-none focus:ring-1 focus:ring-primary/20 cursor-pointer"
+                          value={expanderSaleType}
+                          onChange={(e) => setExpandedItemSaleType(e.target.value as SalePriceMode)}
+                        >
+                          <option value="retail">Retail</option>
+                          <option value="wholesale">Wholesale</option>
+                        </select>
+
+                        <div className="flex items-center border rounded-lg bg-background shrink-0">
+                          <button
+                            type="button"
+                            disabled={expanderUnitQty <= 0}
+                            onClick={() => onRemove(`${item.id}:${activeUnit}:${expanderSaleType}`)}
+                            className="p-1.5 text-muted-foreground disabled:opacity-20 hover:text-foreground"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-5 text-center text-[10px] font-mono font-bold select-none">
+                            {expanderUnitQty}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={item.currentStock <= 0 || !canAddActiveUnit}
+                            onClick={() => handleAdd(`${item.id}:${activeUnit}:${expanderSaleType}`)}
+                            className="p-1.5 text-muted-foreground disabled:opacity-20 hover:text-foreground"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+
+                        <Button
+                          type="button"
+                          disabled={item.currentStock <= 0 || !canAddActiveUnit}
+                          onClick={() => handleAdd(`${item.id}:${activeUnit}:${expanderSaleType}`)}
+                          className="flex-1 h-7.5 text-[10px] font-black px-0"
+                        >
+                          <ShoppingCart className="mr-1 h-3 w-3" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                    );
+                  })()}
                 </div>
               );
             })}

@@ -494,6 +494,12 @@ export function ItemFormSheet({
   });
 
   const imageUrl = watch("imageUrl");
+  const watchedVariantAttrs = watch("variantAttributes") || [];
+  const watchedVariants = watch("variants") || [];
+  const hasActiveVariants = watchedVariantAttrs.length > 0 && watchedVariants.length > 0;
+  const variantStockTotal = hasActiveVariants
+    ? watchedVariants.reduce((sum, v) => sum + (v.stock || 0), 0)
+    : 0;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -601,6 +607,9 @@ export function ItemFormSheet({
       branchId: (data.branchId === "all" || !data.branchId) ? null : data.branchId,
     };
     
+    // Stock is managed manually as requested, even for variant products
+    // (Bypassed automatic variant stock calculation)
+
     // Ensure numeric fields are numbers
     const finalData = {
       ...cleanedData,
