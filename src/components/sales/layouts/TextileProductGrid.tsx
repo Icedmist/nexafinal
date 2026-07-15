@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, Minus, Package, Tag, ShoppingCart, Info, Palette, Ruler, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,13 +104,59 @@ function TextileProductCard({
     return [...new Set(itemVariants.map(v => v.attributes["Material"]).filter(Boolean))];
   }, [itemVariants, hasMaterial]);
 
-  // Selection state
-  const [selectedColor, setSelectedColor] = useState<string>(uniqueColors[0] || "");
-  const [selectedSize, setSelectedSize] = useState<string>(
-    uniqueSizes.find(s => itemVariants.some(v => v.attributes["Colour"] === uniqueColors[0] && v.attributes["Size"] === s)) || ""
-  );
-  const [selectedMaterial, setSelectedMaterial] = useState<string>(uniqueMaterials[0] || "");
+  // Selection state - initialize with first available option
+  const [selectedColor, setSelectedColor] = useState<string>("");
+  const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedMaterial, setSelectedMaterial] = useState<string>("");
   const [localQty, setLocalQty] = useState<number>(1);
+
+  // Initialize color on first mount or when unique colors change
+  useEffect(() => {
+    if (hasColour && uniqueColors.length > 0) {
+      if (!selectedColor || !uniqueColors.includes(selectedColor)) {
+        setSelectedColor(uniqueColors[0]);
+      }
+    } else if (!hasColour) {
+      setSelectedColor("");
+    }
+  }, [hasColour, uniqueColors]);
+
+  // Reset size when color changes
+  useEffect(() => {
+    if (!hasSize || uniqueSizes.length === 0) {
+      setSelectedSize("");
+      return;
+    }
+
+    // Find first size with available stock for this color
+    const availableSize = uniqueSizes.find(s => 
+      itemVariants.some(v => {
+        const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+        return v.attributes["Size"] === s && colorMatch && v.stock > 0;
+      })
+    );
+    
+    setSelectedSize(availableSize || uniqueSizes[0] || "");
+  }, [hasSize, uniqueSizes, hasColour, selectedColor, itemVariants]);
+
+  // Reset material when size changes
+  useEffect(() => {
+    if (!hasMaterial || uniqueMaterials.length === 0) {
+      setSelectedMaterial("");
+      return;
+    }
+
+    // Find first material with available stock for this color+size
+    const availableMaterial = uniqueMaterials.find(m => 
+      itemVariants.some(v => {
+        const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+        const sizeMatch = !hasSize || v.attributes["Size"] === selectedSize;
+        return v.attributes["Material"] === m && colorMatch && sizeMatch && v.stock > 0;
+      })
+    );
+    
+    setSelectedMaterial(availableMaterial || uniqueMaterials[0] || "");
+  }, [hasMaterial, uniqueMaterials, hasColour, selectedColor, hasSize, selectedSize, itemVariants]);
 
   // Find active variant
   const activeVariant = useMemo(() => {
@@ -174,15 +220,34 @@ function TextileProductCard({
     setLocalQty(1);
   };
 
-  // Check if a size is available for the currently selected color
+  // Check if a size is available for the currently selected color and material
   const isSizeAvailable = (size: string) => {
-    if (!hasColour) return true;
-    return itemVariants.some(v => v.attributes["Colour"] === selectedColor && v.attributes["Size"] === size && v.stock > 0);
+    return itemVariants.some(v => {
+      const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+      const materialMatch = !hasMaterial || v.attributes["Material"] === selectedMaterial;
+      const sizeMatch = v.attributes["Size"] === size;
+      return colorMatch && materialMatch && sizeMatch && v.stock > 0;
+    });
   };
 
-  // Check if a color is available
+  // Check if a color is available for the currently selected size and material
   const isColorAvailable = (color: string) => {
-    return itemVariants.some(v => v.attributes["Colour"] === color && v.stock > 0);
+    return itemVariants.some(v => {
+      const colorMatch = v.attributes["Colour"] === color;
+      const sizeMatch = !hasSize || v.attributes["Size"] === selectedSize;
+      const materialMatch = !hasMaterial || v.attributes["Material"] === selectedMaterial;
+      return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+    });
+  };
+
+  // Check if a material is available for the currently selected color and size
+  const isMaterialAvailable = (material: string) => {
+    return itemVariants.some(v => {
+      const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+      const sizeMatch = !hasSize || v.attributes["Size"] === selectedSize;
+      const materialMatch = v.attributes["Material"] === material;
+      return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+    });
   };
 
   return (
@@ -306,10 +371,39 @@ function TextileProductCard({
                       disabled={!available}
                       onClick={() => {
                         setSelectedColor(color);
-                        // Reset size if not available for new color
-                        if (hasSize && !isSizeAvailable(selectedSize)) {
-                          const firstAvailable = uniqueSizes.find(s => isSizeAvailable(s));
-                          setSelectedSize(firstAvailable || "");
+                        // Temporarily use new color for availability checks
+                        const tempColor = color;
+                        
+                        // Reset size if not available for new color + current material
+                        if (hasSize && !itemVariants.some(v => {
+                          const colorMatch = v.attributes["Colour"] === tempColor;
+                          const sizeMatch = v.attributes["Size"] === selectedSize;
+                          const materialMatch = !hasMaterial || v.attributes["Material"] === selectedMaterial;
+                          return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                        })) {
+                          const firstAvailableSize = uniqueSizes.find(s => itemVariants.some(v => {
+                            const colorMatch = v.attributes["Colour"] === tempColor;
+                            const sizeMatch = v.attributes["Size"] === s;
+                            const materialMatch = !hasMaterial || v.attributes["Material"] === selectedMaterial;
+                            return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                          }));
+                          setSelectedSize(firstAvailableSize || "");
+                        }
+                        
+                        // Reset material if not available for new color + current size
+                        if (hasMaterial && !itemVariants.some(v => {
+                          const colorMatch = v.attributes["Colour"] === tempColor;
+                          const sizeMatch = !hasSize || v.attributes["Size"] === selectedSize;
+                          const materialMatch = v.attributes["Material"] === selectedMaterial;
+                          return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                        })) {
+                          const firstAvailableMaterial = uniqueMaterials.find(m => itemVariants.some(v => {
+                            const colorMatch = v.attributes["Colour"] === tempColor;
+                            const sizeMatch = !hasSize || v.attributes["Size"] === selectedSize;
+                            const materialMatch = v.attributes["Material"] === m;
+                            return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                          }));
+                          setSelectedMaterial(firstAvailableMaterial || "");
                         }
                       }}
                       className={cn(
@@ -354,7 +448,24 @@ function TextileProductCard({
                       key={size}
                       type="button"
                       disabled={!available}
-                      onClick={() => setSelectedSize(size)}
+                      onClick={() => {
+                        setSelectedSize(size);
+                        // Reset material if not available for selected color + new size
+                        if (hasMaterial && !itemVariants.some(v => {
+                          const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+                          const sizeMatch = v.attributes["Size"] === size;
+                          const materialMatch = v.attributes["Material"] === selectedMaterial;
+                          return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                        })) {
+                          const firstAvailableMaterial = uniqueMaterials.find(m => itemVariants.some(v => {
+                            const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+                            const sizeMatch = v.attributes["Size"] === size;
+                            const materialMatch = v.attributes["Material"] === m;
+                            return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                          }));
+                          setSelectedMaterial(firstAvailableMaterial || "");
+                        }
+                      }}
                       className={cn(
                         "h-7 min-w-7 px-2 rounded-lg text-[10px] font-bold transition-all border flex items-center justify-center",
                         isActive
@@ -382,14 +493,31 @@ function TextileProductCard({
               <div className="flex flex-wrap gap-1.5">
                 {uniqueMaterials.map((material) => {
                   const isActive = selectedMaterial === material;
-                  const available = itemVariants.some(v => v.attributes["Material"] === material && v.stock > 0);
+                  const available = isMaterialAvailable(material);
 
                   return (
                     <button
                       key={material}
                       type="button"
                       disabled={!available}
-                      onClick={() => setSelectedMaterial(material)}
+                      onClick={() => {
+                        setSelectedMaterial(material);
+                        // Reset size if not available for selected color + new material
+                        if (hasSize && !itemVariants.some(v => {
+                          const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+                          const sizeMatch = v.attributes["Size"] === selectedSize;
+                          const materialMatch = v.attributes["Material"] === material;
+                          return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                        })) {
+                          const firstAvailableSize = uniqueSizes.find(s => itemVariants.some(v => {
+                            const colorMatch = !hasColour || v.attributes["Colour"] === selectedColor;
+                            const sizeMatch = v.attributes["Size"] === s;
+                            const materialMatch = v.attributes["Material"] === material;
+                            return colorMatch && sizeMatch && materialMatch && v.stock > 0;
+                          }));
+                          setSelectedSize(firstAvailableSize || "");
+                        }
+                      }}
                       className={cn(
                         "h-7 px-2 rounded-lg text-[10px] font-bold transition-all border",
                         isActive
