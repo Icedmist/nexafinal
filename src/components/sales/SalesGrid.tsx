@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ShoppingCart, ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { type SalePriceMode, buildCartKey, parseCartKey, getItemPriceForMode } from "./price-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useItems } from "@/hooks/useInventoryData";
@@ -27,23 +28,16 @@ export function getUnitConversionFactor(item: Item, unitName: string): number {
   return secondaryUnit?.conversionFactor ?? 1;
 }
 
-export function getCartItemUnitPrice(item: Item, unitName: string): number {
-  if (unitName === item.unit) {
-    return item.sellingPrice;
-  }
-  const secondaryUnit = item.units?.find((u) => u.name === unitName);
-  if (secondaryUnit) {
-    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
-  }
-  return item.sellingPrice;
+export function getCartItemUnitPrice(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
+  return getItemPriceForMode(item, unitName, saleType);
 }
 
 export function getCartBaseUnitsForItem(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
   let total = 0;
   cart.forEach((qty, key) => {
-    const [id, unitName] = key.split(":");
-    if (id === itemId) {
-      const item = itemsList.find((i) => i.id === id);
+    const { itemId: cartItemId, unitName } = parseCartKey(key);
+    if (cartItemId === itemId) {
+      const item = itemsList.find((i) => i.id === itemId);
       if (item) {
         total += qty * getUnitConversionFactor(item, unitName);
       }
@@ -65,6 +59,7 @@ export function SalesGrid() {
   const businessType = profile?.businessType || "retail";
   const [cart, setCart] = useState<Map<string, number>>(new Map());
   const [step, setStep] = useState<StepId>("browse");
+  const [defaultSaleType, setDefaultSaleType] = useState<SalePriceMode>("retail");
 
   const goToCart = useCallback(() => setStep("cart"), []);
 
@@ -78,7 +73,7 @@ export function SalesGrid() {
   const addToCart = (cartKey: string) => {
     setCart((prev) => {
       const next = new Map(prev);
-      const [itemId, unitName] = cartKey.split(":");
+      const { itemId, unitName } = parseCartKey(cartKey);
       const item = (items || []).find((i) => i.id === itemId);
       if (!item) return prev;
 
@@ -106,7 +101,7 @@ export function SalesGrid() {
   const setQuantityInCart = (cartKey: string, qty: number) => {
     setCart((prev) => {
       const next = new Map(prev);
-      const [itemId, unitName] = cartKey.split(":");
+      const { itemId, unitName } = parseCartKey(cartKey);
       const item = (items || []).find((i) => i.id === itemId);
       if (!item) return prev;
 
@@ -137,7 +132,7 @@ export function SalesGrid() {
 
   const cartItems: CartItem[] = [];
   cart.forEach((qty, key) => {
-    const [itemId, unitName] = key.split(":");
+    const { itemId, unitName, saleType } = parseCartKey(key);
     const item = (items || []).find((i) => i.id === itemId);
     if (item) {
       cartItems.push({
@@ -145,12 +140,13 @@ export function SalesGrid() {
         quantity: qty,
         selectedUnit: unitName,
         cartKey: key,
+        saleType,
       });
     }
   });
 
   const totalItems = Array.from(cart.values()).reduce((s, q) => s + q, 0);
-  const totalNaira = cartItems.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit) * ci.quantity, 0);
+  const totalNaira = cartItems.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? defaultSaleType) * ci.quantity, 0);
 
   const handleComplete = () => {
     setCart(new Map());
@@ -218,6 +214,8 @@ export function SalesGrid() {
             onAdd={addToCart} 
             onRemove={removeFromCart} 
             onSetQuantity={setQuantityInCart} 
+            defaultSaleType={defaultSaleType}
+            onDefaultSaleTypeChange={setDefaultSaleType}
           />
         )}
         {step === "cart" && (
@@ -230,7 +228,7 @@ export function SalesGrid() {
           />
         )}
         {step === "checkout" && (
-          <SalesStepCheckout items={cartItems} onComplete={handleComplete} />
+          <SalesStepCheckout items={cartItems} onComplete={handleComplete} defaultSaleType={defaultSaleType} />
         )}
       </div>
 

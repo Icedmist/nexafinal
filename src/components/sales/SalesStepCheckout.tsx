@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { PriceModeSelector } from "./PriceModeSelector";
+import type { SalePriceMode } from "./price-utils";
+import { getItemPriceForMode } from "./price-utils";
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -24,25 +27,20 @@ export interface CheckoutItem {
   quantity: number;
   selectedUnit: string;
   cartKey: string;
+  saleType?: SalePriceMode;
 }
 
-function getCartItemUnitPrice(item: Item, unitName: string): number {
-  if (unitName === item.unit) {
-    return item.sellingPrice;
-  }
-  const secondaryUnit = item.units?.find((u) => u.name === unitName);
-  if (secondaryUnit) {
-    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
-  }
-  return item.sellingPrice;
+function getCartItemUnitPrice(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
+  return getItemPriceForMode(item, unitName, saleType);
 }
 
 interface SalesStepCheckoutProps {
   items: CheckoutItem[];
   onComplete: () => void;
+  defaultSaleType?: SalePriceMode;
 }
 
-export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps) {
+export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail" }: SalesStepCheckoutProps) {
   const { profile } = useBusiness();
   const businessType = profile?.businessType || "retail";
   const { addSale, recordDebtPayment } = useSalesMutations();
@@ -51,14 +49,15 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
   const [customerEmail, setCustomerEmail] = useState("");
   const [lastSale, setLastSale] = useState<SaleTransaction | null>(null);
   const [promoCode, setPromoCode] = useState("");
+  const [saleType, setSaleType] = useState<SalePriceMode>(defaultSaleType);
   const [promoApplied, setPromoApplied] = useState<{ type: "percentage" | "flat"; value: number } | null>(null);
   const [discount, setDiscount] = useState<Discount | null>(null);
   const [payOnCredit, setPayOnCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
   const [amountPaid, setAmountPaid] = useState<string>("");
-  // Get current price for an item based on its selected unit
+  // Get current price for an item based on its selected unit and sale type
   const getItemPrice = (ci: CheckoutItem) => {
-    return getCartItemUnitPrice(ci.item, ci.selectedUnit);
+    return getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
   };
 
   const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0);
@@ -190,7 +189,8 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       customerEmail: customerEmail.trim() || null,
       items: items.map((ci) => {
         const unit = ci.item.units?.find(u => u.name === ci.selectedUnit);
-        const price = getItemPrice(ci);
+        const itemSaleType = ci.saleType ?? saleType;
+        const price = getCartItemUnitPrice(ci.item, ci.selectedUnit, itemSaleType);
         
         return {
           itemId: ci.item.id,
@@ -201,6 +201,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
           imageUrl: ci.item.imageUrl || null,
           selectedUnit: ci.selectedUnit,
           conversionFactor: unit?.conversionFactor || 1,
+          salePriceMode: itemSaleType,
         };
       }),
 
@@ -215,6 +216,7 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       isCreditSale: payOnCredit,
       debtSettledNgn: includeDebt && customerDebt > 0 ? customerDebt : 0,
       recordedByName: recordedBy,
+      saleType: saleType,
       createdAt: new Date().toISOString(),
     };
 
@@ -272,9 +274,16 @@ export function SalesStepCheckout({ items, onComplete }: SalesStepCheckoutProps)
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-32">
         {/* Customer details */}
         <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">Customer Details</h3>
-          <p className="text-xs text-muted-foreground">Optional — helps with receipts and repeat tracking</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-1">Customer Details</h3>
+            <p className="text-xs text-muted-foreground">Optional — helps with receipts and repeat tracking</p>
+          </div>
+          <PriceModeSelector
+            value={saleType}
+            onValueChange={setSaleType}
+            label="Sale Type"
+          />
         </div>
         <div className="space-y-3">
           <div className="space-y-1.5">

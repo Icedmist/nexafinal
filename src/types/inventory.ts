@@ -9,6 +9,7 @@ export interface SaleLineItem {
   imageUrl?: string;
   selectedUnit?: string;
   conversionFactor?: number;
+  salePriceMode?: "retail" | "wholesale";
   // Restaurant-specific fields
   size?: string;
   sizePrice?: number;
@@ -33,6 +34,7 @@ export interface SaleTransaction {
   changeGivenNgn?: number;
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
+  saleType?: "retail" | "wholesale" | "mixed";
   branchId?: string | null;
   recordedBy?: string;
   recordedByName?: string;
@@ -193,6 +195,7 @@ export interface Item {
   reorderQuantity: number;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number;
   locationId: string | null;
   supplierId: string | null;
   branchId?: string | null;

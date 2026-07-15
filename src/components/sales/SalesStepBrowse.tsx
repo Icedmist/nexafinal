@@ -1,5 +1,8 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart } from "lucide-react";
+import { PriceModeSelector } from "./PriceModeSelector";
+import type { SalePriceMode } from "./price-utils";
+import { getItemPriceForMode } from "./price-utils";
 import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -37,15 +40,8 @@ export function getUnitConversionFactor(item: Item, unitName: string): number {
   return secondaryUnit?.conversionFactor ?? 1;
 }
 
-export function getCartItemUnitPrice(item: Item, unitName: string): number {
-  if (unitName === item.unit) {
-    return item.sellingPrice;
-  }
-  const secondaryUnit = item.units?.find((u) => u.name === unitName);
-  if (secondaryUnit) {
-    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
-  }
-  return item.sellingPrice;
+export function getCartItemUnitPrice(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
+  return getItemPriceForMode(item, unitName, saleType);
 }
 
 export function getCartBaseUnitsForItem(itemId: string, cart: Map<string, number>, itemsList: Item[]): number {
@@ -74,9 +70,11 @@ interface SalesStepBrowseProps {
   onAdd: (cartKey: string) => void;
   onRemove: (cartKey: string) => void;
   onSetQuantity: (cartKey: string, qty: number) => void;
+  defaultSaleType: SalePriceMode;
+  onDefaultSaleTypeChange: (value: SalePriceMode) => void;
 }
 
-export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesStepBrowseProps) {
+export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultSaleType, onDefaultSaleTypeChange }: SalesStepBrowseProps) {
   const { data: items } = useItems();
   const { profile } = useBusiness();
   const businessType = profile?.businessType || "retail";
@@ -106,14 +104,17 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
   const totalNaira = useMemo(() => {
     let sum = 0;
     cart.forEach((qty, key) => {
-      const [itemId, unitName] = key.split(":");
+      const parts = key.split(":");
+      const itemId = parts[0];
+      const unitName = parts[1];
+      const saleType = (parts[2] as SalePriceMode) || defaultSaleType;
       const item = (items || []).find((i) => i.id === itemId);
       if (item) {
-        sum += getCartItemUnitPrice(item, unitName) * qty;
+        sum += getCartItemUnitPrice(item, unitName, saleType) * qty;
       }
     });
     return sum;
-  }, [cart, items]);
+  }, [cart, items, defaultSaleType]);
 
   // Long-press support
   const longPressRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -156,13 +157,13 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
     );
 
     if (item) {
-      handleAdd(`${item.id}:${item.unit}`);
+      handleAdd(`${item.id}:${item.unit}:${defaultSaleType}`);
       toast.success(`Added ${item.name}`);
       setSearch(""); // Clear for next scan
     } else {
       setUnknownBarcode(query);
     }
-  }, [items, handleAdd]);
+  }, [items, handleAdd, defaultSaleType]);
 
   const topSellers = useMemo(() => {
     return [] as Item[];
@@ -188,6 +189,12 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
     <div className="flex h-full flex-col relative">
       {/* Search bar */}
       <div className="px-4 pt-3 pb-2 flex gap-2">
+        <PriceModeSelector
+          value={defaultSaleType}
+          onValueChange={onDefaultSaleTypeChange}
+          className="w-36 shrink-0"
+          label="Price Mode"
+        />
         <div className="relative flex-1">
           {barcodeMode ? (
             <ScanBarcode className={cn("absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-pulse", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
@@ -277,7 +284,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => handleAdd(`${item.id}:${item.unit}`)}
+                    onClick={() => handleAdd(`${item.id}:${item.unit}:${defaultSaleType}`)}
                     className="shrink-0 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left hover:border-primary/40 hover:shadow-sm transition-all active:scale-95"
                   >
                     <div className="h-8 w-8 rounded-md bg-muted/50 flex items-center justify-center text-sm overflow-hidden">
@@ -371,7 +378,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
 
               const isAnimating = animatingItems.has(item.id);
               const activeUnit = activeUnits[item.id] || item.unit;
-              const activeUnitPrice = getCartItemUnitPrice(item, activeUnit);
+              const activeUnitPrice = getCartItemUnitPrice(item, activeUnit, defaultSaleType);
               const activeUnitQty = cart.get(`${item.id}:${activeUnit}`) ?? 0;
               const remainingStock = getAvailableStockInBaseUnits(item.id, cart, items || []);
               const conversionFactor = getUnitConversionFactor(item, activeUnit);
@@ -382,7 +389,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
                   key={item.id}
                   onClick={() => {
                     if (item.currentStock > 0 && canAddActiveUnit) {
-                      handleAdd(`${item.id}:${activeUnit}`);
+                      handleAdd(`${item.id}:${activeUnit}:${defaultSaleType}`);
                     }
                   }}
                   className={cn(
@@ -563,7 +570,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
                       disabled={item.currentStock <= 0 || !canAddActiveUnit}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAdd(`${item.id}:${activeUnit}`);
+                        handleAdd(`${item.id}:${activeUnit}:${defaultSaleType}`);
                       }}
                       className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary disabled:opacity-10 active:scale-90"
                     >
@@ -626,8 +633,9 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
                 {/* Render Base Unit Row */}
                 {(() => {
                   const unitName = editingUnitsItem.unit;
-                  const qty = cart.get(`${editingUnitsItem.id}:${unitName}`) ?? 0;
-                  const price = editingUnitsItem.sellingPrice;
+                    const cartKey = `${editingUnitsItem.id}:${unitName}:${defaultSaleType}`;
+                    const qty = cart.get(cartKey) ?? 0;
+                    const price = defaultSaleType === "wholesale" ? (editingUnitsItem.wholesalePrice ?? editingUnitsItem.sellingPrice) : editingUnitsItem.sellingPrice;
                   const conversionFactor = 1;
                   const availableBaseStock = getAvailableStockInBaseUnits(editingUnitsItem.id, cart, items || []);
                   const maxAddable = Math.floor(availableBaseStock / conversionFactor);
@@ -674,8 +682,10 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity }: SalesS
                 {/* Render Secondary Units */}
                 {editingUnitsItem.units?.map((u) => {
                   const unitName = u.name;
-                  const qty = cart.get(`${editingUnitsItem.id}:${unitName}`) ?? 0;
-                  const price = u.sellingPrice ?? (editingUnitsItem.sellingPrice * u.conversionFactor);
+                  const cartKey = `${editingUnitsItem.id}:${unitName}:${defaultSaleType}`;
+                  const qty = cart.get(cartKey) ?? 0;
+                  const basePrice = defaultSaleType === "wholesale" ? (editingUnitsItem.wholesalePrice ?? editingUnitsItem.sellingPrice) : editingUnitsItem.sellingPrice;
+                  const price = u.sellingPrice ?? (basePrice * u.conversionFactor);
                   const conversionFactor = u.conversionFactor;
                   const availableBaseStock = getAvailableStockInBaseUnits(editingUnitsItem.id, cart, items || []);
                   const maxAddable = Math.floor(availableBaseStock / conversionFactor);

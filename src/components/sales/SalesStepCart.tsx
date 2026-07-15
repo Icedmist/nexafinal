@@ -2,6 +2,8 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { Item } from "@/types/inventory";
+import type { SalePriceMode } from "./price-utils";
+import { getItemPriceForMode } from "./price-utils";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +19,7 @@ export interface CartItem {
   quantity: number;
   selectedUnit: string;
   cartKey: string;
+  saleType?: SalePriceMode;
 }
 
 interface SalesStepCartProps {
@@ -33,15 +36,8 @@ function getUnitConversionFactor(item: Item, unitName: string): number {
   return secondaryUnit?.conversionFactor ?? 1;
 }
 
-export function getCartItemUnitPrice(item: Item, unitName: string): number {
-  if (unitName === item.unit) {
-    return item.sellingPrice;
-  }
-  const secondaryUnit = item.units?.find((u) => u.name === unitName);
-  if (secondaryUnit) {
-    return secondaryUnit.sellingPrice ?? (item.sellingPrice * secondaryUnit.conversionFactor);
-  }
-  return item.sellingPrice;
+export function getCartItemUnitPrice(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
+  return getItemPriceForMode(item, unitName, saleType);
 }
 
 function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartItems: CartItem[]): number {
@@ -57,7 +53,7 @@ function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartI
 export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: SalesStepCartProps) {
   const { profile } = useBusiness();
   const businessType = profile?.businessType || "retail";
-  const total = items.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit) * ci.quantity, 0);
+  const total = items.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail") * ci.quantity, 0);
   const totalQty = items.reduce((s, ci) => s + ci.quantity, 0);
 
   if (items.length === 0) {
@@ -76,7 +72,7 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
     <div className="flex flex-1 flex-col">
       <div className="flex-1 overflow-y-auto px-4 py-3 pb-28 space-y-2">
         {items.map((ci) => {
-          const unitPrice = getCartItemUnitPrice(ci.item, ci.selectedUnit);
+          const unitPrice = getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail");
           const isAddDisabled = getAvailableStockForUnit(ci.item, ci.selectedUnit, items) <= 0;
 
           return (

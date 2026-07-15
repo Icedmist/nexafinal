@@ -51,6 +51,7 @@ const schema = z.object({
   reorderQuantity: z.coerce.number().min(0, "Reorder quantity cannot be negative"),
   costPrice: z.coerce.number().min(0, "Cost price cannot be negative"),
   sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative"),
+  wholesalePrice: z.coerce.number().min(0, "Wholesale price cannot be negative"),
   status: z.nativeEnum(ItemStatus),
   imageUrl: z.string().nullable().optional(),
   units: z.array(z.object({
@@ -481,6 +482,7 @@ export function ItemFormSheet({
       reorderQuantity: 0,
       costPrice: 0,
       sellingPrice: 0,
+      wholesalePrice: 0,
       status: ItemStatus.Active,
       imageUrl: null,
       variantAttributes: [],
@@ -538,6 +540,7 @@ export function ItemFormSheet({
           reorderQuantity: item.reorderQuantity,
           costPrice: item.costPrice,
           sellingPrice: item.sellingPrice,
+          wholesalePrice: item.wholesalePrice ?? 0,
           status: item.status,
           imageUrl: item.imageUrl || null,
           units: item.units || [],
@@ -563,6 +566,7 @@ export function ItemFormSheet({
           reorderQuantity: 0,
           costPrice: 0,
           sellingPrice: 0,
+          wholesalePrice: 0,
           status: ItemStatus.Active,
           imageUrl: null,
           units: [],
@@ -605,6 +609,7 @@ export function ItemFormSheet({
         conversionFactor: Number(u.conversionFactor),
         sellingPrice: u.sellingPrice ? Number(u.sellingPrice) : undefined
       })),
+      wholesalePrice: cleanedData.wholesalePrice ? Number(cleanedData.wholesalePrice) : undefined,
       // Variant support: pass through variantAttributes and variants
       variantAttributes: cleanedData.variantAttributes || [],
       variants: cleanedData.variants || [],
@@ -944,12 +949,20 @@ export function ItemFormSheet({
                   {errors.costPrice && <p className={errCls}>{errors.costPrice.message}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Selling Price</label>
+                  <label className={labelCls}>Retail Selling Price</label>
                   <div className="relative mt-1.5">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
                     <input type="number" step="0.01" {...register("sellingPrice")} className={`${inputCls} pl-7`} placeholder="0.00" />
                   </div>
                   {errors.sellingPrice && <p className={errCls}>{errors.sellingPrice.message}</p>}
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={labelCls}>Wholesale Selling Price</label>
+                  <div className="relative mt-1.5">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
+                    <input type="number" step="0.01" {...register("wholesalePrice")} className={`${inputCls} pl-7`} placeholder="0.00" />
+                  </div>
+                  {errors.wholesalePrice && <p className={errCls}>{errors.wholesalePrice.message}</p>}
                 </div>
               </div>
             </div>
