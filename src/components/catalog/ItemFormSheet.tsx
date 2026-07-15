@@ -613,12 +613,13 @@ export function ItemFormSheet({
     // Ensure numeric fields are numbers
     const finalData = {
       ...cleanedData,
+      currentStock: hasActiveVariants ? variantStockTotal : cleanedData.currentStock,
       units: cleanedData.units?.map(u => ({
         ...u,
         conversionFactor: Number(u.conversionFactor),
-        sellingPrice: u.sellingPrice ? Number(u.sellingPrice) : undefined
+        sellingPrice: u.sellingPrice !== undefined && u.sellingPrice !== null ? Number(u.sellingPrice) : undefined
       })),
-      wholesalePrice: cleanedData.wholesalePrice ? Number(cleanedData.wholesalePrice) : undefined,
+      wholesalePrice: cleanedData.wholesalePrice !== undefined && cleanedData.wholesalePrice !== null ? Number(cleanedData.wholesalePrice) : 0,
       // Variant support: pass through variantAttributes and variants
       variantAttributes: cleanedData.variantAttributes || [],
       variants: cleanedData.variants || [],
@@ -922,23 +923,38 @@ export function ItemFormSheet({
                   />
                   {errors.categoryId && <p className={errCls}>{errors.categoryId.message}</p>}
                 </div>
-                <div>
-                  <label className={labelCls}>Current Stock</label>
-                  <input type="number" {...register("currentStock")} className={`${inputCls} mt-1.5`} />
-                  {errors.currentStock && <p className={errCls}>{errors.currentStock.message}</p>}
-                </div>
-                <div>
-                  <label className={`${labelCls} flex items-center gap-1.5`}>
-                    Reorder Point <HelpTooltip text="Minimum quantity before a low-stock alert is triggered. Set based on your typical usage rate." />
-                  </label>
-                  <input type="number" {...register("reorderPoint")} className={`${inputCls} mt-1.5`} />
-                  {errors.reorderPoint && <p className={errCls}>{errors.reorderPoint.message}</p>}
-                </div>
-                <div>
-                  <label className={labelCls}>Reorder Qty</label>
-                  <input type="number" {...register("reorderQuantity")} className={`${inputCls} mt-1.5`} />
-                  {errors.reorderQuantity && <p className={errCls}>{errors.reorderQuantity.message}</p>}
-                </div>
+                {!hasActiveVariants ? (
+                  <>
+                    <div>
+                      <label className={labelCls}>Current Stock</label>
+                      <input type="number" {...register("currentStock")} className={`${inputCls} mt-1.5`} />
+                      {errors.currentStock && <p className={errCls}>{errors.currentStock.message}</p>}
+                    </div>
+                    <div>
+                      <label className={`${labelCls} flex items-center gap-1.5`}>
+                        Reorder Point <HelpTooltip text="Minimum quantity before a low-stock alert is triggered. Set based on your typical usage rate." />
+                      </label>
+                      <input type="number" {...register("reorderPoint")} className={`${inputCls} mt-1.5`} />
+                      {errors.reorderPoint && <p className={errCls}>{errors.reorderPoint.message}</p>}
+                    </div>
+                    <div>
+                      <label className={labelCls}>Reorder Qty</label>
+                      <input type="number" {...register("reorderQuantity")} className={`${inputCls} mt-1.5`} />
+                      {errors.reorderQuantity && <p className={errCls}>{errors.reorderQuantity.message}</p>}
+                    </div>
+                  </>
+                ) : (
+                  <div className="sm:col-span-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Variant Stock Mode Active</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Stock quantities are managed individually for each variant combination.</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Units</p>
+                      <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{variantStockTotal}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

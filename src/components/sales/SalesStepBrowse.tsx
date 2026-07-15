@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart } from "lucide-react";
+import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart, Palette, Tag } from "lucide-react";
 import { PriceModeSelector } from "./PriceModeSelector";
 import type { SalePriceMode } from "./price-utils";
 import { getItemPriceForMode } from "./price-utils";
@@ -15,6 +15,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { RestaurantProductGrid } from "./layouts/RestaurantProductGrid";
 import { TextileProductGrid } from "./layouts/TextileProductGrid";
 import { ProvisionsProductGrid } from "./layouts/ProvisionsProductGrid";
+import { getColorHex } from "@/lib/variants";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import {
@@ -88,6 +89,14 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
   const [editingUnitsItem, setEditingUnitsItem] = useState<Item | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [expandedItemSaleType, setExpandedItemSaleType] = useState<SalePriceMode>("retail");
+  const [perItemVariantAttrs, setPerItemVariantAttrs] = useState<Record<string, Record<string, string>>>({});
+
+  const setItemVariantAttr = useCallback((itemId: string, attrName: string, value: string) => {
+    setPerItemVariantAttrs(prev => ({
+      ...prev,
+      [itemId]: { ...(prev[itemId] || {}), [attrName]: value }
+    }));
+  }, []);
 
   // Restaurant-specific state
   const [orderType, setOrderType] = useState<"dine_in" | "takeaway" | "delivery">("dine_in");
@@ -396,6 +405,17 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                     } else {
                       setExpandedItemId(prev => {
                         if (prev === item.id) return null;
+                        
+                        // Init default variant attributes
+                        const initialAttrs: Record<string, string> = {};
+                        if (item.variantAttributes && item.variants) {
+                          item.variantAttributes.forEach(attr => {
+                            const unique = [...new Set(item.variants!.map(v => v.attributes[attr]).filter(Boolean))];
+                            if (unique.length > 0) initialAttrs[attr] = unique[0];
+                          });
+                        }
+                        
+                        setPerItemVariantAttrs(p => ({ ...p, [item.id]: initialAttrs }));
                         setExpandedItemSaleType(defaultSaleType);
                         return item.id;
                       });
@@ -590,9 +610,31 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
 
                   {/* Inline Expander Panel (for single-unit items) */}
                   {expandedItemId === item.id && !(item.units && item.units.length > 0) && (() => {
+                    const itemAttrs = perItemVariantAttrs[item.id] || {};
+                    const hasVariants = item.variants && item.variants.length > 0;
+                    const hasCustomFields = item.customFields && Object.keys(item.customFields).length > 0;
                     const expanderSaleType = expandedItemSaleType;
-                    const expanderUnitPrice = getCartItemUnitPrice(item, activeUnit, expanderSaleType);
-                    const expanderUnitQty = cart.get(`${item.id}:${activeUnit}:${expanderSaleType}`) ?? 0;
+
+                    let expanderUnitPrice = getCartItemUnitPrice(item, activeUnit, expanderSaleType);
+                    let cartKey = `${item.id}:${activeUnit}:${expanderSaleType}`;
+                    let activeVariant = null;
+                    let displayLabel = item.name;
+                    let displayStock = remainingStock;
+
+                    if (hasVariants) {
+                      activeVariant = item.variants!.find(v =>
+                        item.variantAttributes!.every(attr => {
+                          const sel = itemAttrs[attr] || [...new Set(item.variants!.map(v2 => v2.attributes[attr]).filter(Boolean))][0];
+                          return v.attributes[attr] === sel;
+                        })
+                      ) || item.variants![0];
+                      expanderUnitPrice = activeVariant.price;
+                      cartKey = `${item.id}:${activeVariant.id}:${expanderSaleType}`;
+                      displayLabel = Object.values(activeVariant.attributes).join(" / ");
+                      displayStock = activeVariant.stock;
+                    }
+
+                    const expanderUnitQty = cart.get(cartKey) ?? 0;
                     
                     return (
                     <div
@@ -602,32 +644,93 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                       {/* Price & Stock Info */}
                       <div className="flex items-start justify-between text-[11px]">
                         <div>
-                          <p className="font-extrabold text-foreground">{item.name}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            Stock: <span className="font-bold">{remainingStock}</span> {item.unit}
+                          <p className="font-extrabold text-foreground truncate max-w-[150px]">{displayLabel}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Stock: <span className="font-bold">{displayStock}</span> {hasVariants ? "units" : item.unit}
                           </p>
-                          {/* Special Attributes */}
-                          {(item.customFields && Object.keys(item.customFields).length > 0) || (item.variantAttributes && item.variantAttributes.length > 0) ? (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {item.variantAttributes?.map(attr => (
-                                <Badge key={attr} variant="outline" className="text-[8px] px-1 py-0 h-4 border-primary/20 text-primary/80">{attr}</Badge>
-                              ))}
+                          {/* Custom Fields */}
+                          {hasCustomFields && !hasVariants && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
                               {Object.entries(item.customFields || {}).map(([k, v]) => (
-                                <Badge key={k} variant="secondary" className="text-[8px] px-1 py-0 h-4 opacity-70 truncate max-w-[80px]">{k}: {String(v)}</Badge>
+                                <Badge key={k} variant="secondary" className="text-[8px] px-1.5 py-0 h-4 opacity-70 truncate max-w-[100px]">{k}: {String(v)}</Badge>
                               ))}
                             </div>
-                          ) : null}
+                          )}
                         </div>
                         <div className="text-right shrink-0 ml-2">
                           <p className="font-black text-primary text-[13px]">{formatNaira(expanderUnitPrice)}</p>
                           <p className="text-[9px] text-muted-foreground uppercase font-bold">
-                            per {activeUnit}
+                            {expanderSaleType}
                           </p>
                         </div>
                       </div>
 
+                      {/* Variant Attributes Interactive Selectors */}
+                      {hasVariants && item.variantAttributes && item.variantAttributes.length > 0 && (
+                        <div className="space-y-3 pb-2 border-b border-border/50">
+                          {item.variantAttributes.map((attrName) => {
+                            const uniqueValues = [...new Set(item.variants!.map(v => v.attributes[attrName]).filter(Boolean))];
+                            if (uniqueValues.length === 0) return null;
+
+                            const selectedVal = itemAttrs[attrName] || uniqueValues[0];
+                            const isColourAttr = attrName.toLowerCase() === "colour" || attrName.toLowerCase() === "color";
+
+                            return (
+                              <div key={attrName} className="space-y-1.5">
+                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                  {isColourAttr ? <Palette className="h-3 w-3" /> : <Tag className="h-3 w-3" />}
+                                  {attrName}
+                                  {selectedVal && <span className="text-primary normal-case">— {selectedVal}</span>}
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {uniqueValues.map(val => {
+                                    const isActive = selectedVal === val;
+                                    const hexColor = isColourAttr ? getColorHex(val) : null;
+
+                                    // Check if this value has available stock
+                                    const hasStock = item.variants!.some(v => {
+                                      if (v.attributes[attrName] !== val) return false;
+                                      return item.variantAttributes!.every(otherAttr => {
+                                        if (otherAttr === attrName) return true;
+                                        const otherSel = itemAttrs[otherAttr];
+                                        return !otherSel || v.attributes[otherAttr] === otherSel;
+                                      }) && v.stock > 0;
+                                    });
+
+                                    return (
+                                      <button
+                                        key={val}
+                                        type="button"
+                                        disabled={!hasStock}
+                                        onClick={() => setItemVariantAttr(item.id, attrName, val)}
+                                        className={cn(
+                                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
+                                          isActive
+                                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                            : hasStock
+                                              ? "bg-background text-muted-foreground border-border hover:bg-accent"
+                                              : "bg-muted/40 text-muted-foreground/30 border-transparent cursor-not-allowed line-through"
+                                        )}
+                                      >
+                                        {hexColor && (
+                                          <span
+                                            className="h-3 w-3 rounded-full border border-black/15 shrink-0"
+                                            style={{ backgroundColor: hexColor }}
+                                          />
+                                        )}
+                                        {val}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
                       {/* Quantity Selector & Add to Cart */}
-                      <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
+                      <div className="flex items-center gap-1.5 pt-1">
                         <select 
                           className="text-[10px] h-7.5 rounded-lg border bg-background px-2 font-medium shrink-0 max-w-[85px] outline-none focus:ring-1 focus:ring-primary/20 cursor-pointer"
                           value={expanderSaleType}
@@ -641,7 +744,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           <button
                             type="button"
                             disabled={expanderUnitQty <= 0}
-                            onClick={() => onRemove(`${item.id}:${activeUnit}:${expanderSaleType}`)}
+                            onClick={() => onRemove(cartKey)}
                             className="p-1.5 text-muted-foreground disabled:opacity-20 hover:text-foreground"
                           >
                             <Minus className="h-3 w-3" />
@@ -651,8 +754,8 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           </span>
                           <button
                             type="button"
-                            disabled={item.currentStock <= 0 || !canAddActiveUnit}
-                            onClick={() => handleAdd(`${item.id}:${activeUnit}:${expanderSaleType}`)}
+                            disabled={displayStock <= 0 || expanderUnitQty >= displayStock}
+                            onClick={() => handleAdd(cartKey)}
                             className="p-1.5 text-muted-foreground disabled:opacity-20 hover:text-foreground"
                           >
                             <Plus className="h-3 w-3" />
@@ -661,8 +764,8 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
 
                         <Button
                           type="button"
-                          disabled={item.currentStock <= 0 || !canAddActiveUnit}
-                          onClick={() => handleAdd(`${item.id}:${activeUnit}:${expanderSaleType}`)}
+                          disabled={displayStock <= 0 || expanderUnitQty >= displayStock}
+                          onClick={() => handleAdd(cartKey)}
                           className="flex-1 h-7.5 text-[10px] font-black px-0"
                         >
                           <ShoppingCart className="mr-1 h-3 w-3" />
