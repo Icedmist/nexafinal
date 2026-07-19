@@ -204,7 +204,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
         <PriceModeSelector
           value={defaultSaleType}
           onValueChange={onDefaultSaleTypeChange}
-          className="w-36 shrink-0"
+          className="w-36 shrink-0 z-10 self-end"
           label="Price Mode"
         />
         <div className="relative flex-1">

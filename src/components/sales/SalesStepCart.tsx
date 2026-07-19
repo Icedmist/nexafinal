@@ -1,4 +1,5 @@
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Minus, Plus, Trash2, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { Item } from "@/types/inventory";
@@ -26,6 +27,7 @@ interface SalesStepCartProps {
   items: CartItem[];
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
+  onSetQuantity?: (cartKey: string, qty: number) => void;
   onClear: () => void;
   onNext: () => void;
 }
@@ -60,11 +62,13 @@ function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartI
   return Math.floor(remainingBaseStock / conversionFactor);
 }
 
-export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: SalesStepCartProps) {
+export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onClear, onNext }: SalesStepCartProps) {
   const { profile } = useBusiness();
   const businessType = profile?.businessType || "retail";
   const total = items.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail") * ci.quantity, 0);
   const totalQty = items.reduce((s, ci) => s + ci.quantity, 0);
+  const [editingCartKey, setEditingCartKey] = useState<string | null>(null);
+  const [editingQtyValue, setEditingQtyValue] = useState("");
 
   if (items.length === 0) {
     return (
@@ -131,7 +135,50 @@ export function SalesStepCart({ items, onAdd, onRemove, onClear, onNext }: Sales
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </button>
-                <span className="min-w-7 text-center text-sm font-semibold font-mono">{ci.quantity}</span>
+                {editingCartKey === ci.cartKey ? (
+                  <input
+                    type="number"
+                    autoFocus
+                    min={1}
+                    value={editingQtyValue}
+                    onChange={(e) => setEditingQtyValue(e.target.value)}
+                    onBlur={() => {
+                      const val = parseInt(editingQtyValue) || 1;
+                      if (onSetQuantity) {
+                        onSetQuantity(ci.cartKey, Math.max(1, val));
+                      }
+                      setEditingCartKey(null);
+                      setEditingQtyValue("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = parseInt(editingQtyValue) || 1;
+                        if (onSetQuantity) {
+                          onSetQuantity(ci.cartKey, Math.max(1, val));
+                        }
+                        setEditingCartKey(null);
+                        setEditingQtyValue("");
+                      } else if (e.key === "Escape") {
+                        setEditingCartKey(null);
+                        setEditingQtyValue("");
+                      }
+                    }}
+                    className="w-12 h-8 text-center text-sm font-semibold font-mono bg-background border border-primary/40 rounded-md outline-none focus:ring-1 focus:ring-primary/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCartKey(ci.cartKey);
+                      setEditingQtyValue(String(ci.quantity));
+                    }}
+                    className="min-w-7 h-8 px-1 flex items-center justify-center gap-0.5 rounded-md hover:bg-muted/50 transition-colors group/qty"
+                    title="Click to edit quantity"
+                  >
+                    <span className="text-sm font-semibold font-mono">{ci.quantity}</span>
+                    <Edit3 className="h-2.5 w-2.5 opacity-0 group-hover/qty:opacity-40 transition-opacity" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onAdd(ci.cartKey)}

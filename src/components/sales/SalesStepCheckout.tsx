@@ -20,7 +20,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 
 const NAIRA = "₦";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 export interface CheckoutItem {
   item: Item;

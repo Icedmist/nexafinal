@@ -224,6 +224,7 @@ export function SalesGrid() {
             items={cartItems}
             onAdd={addToCart}
             onRemove={removeFromCart}
+            onSetQuantity={setQuantityInCart}
             onClear={() => setCart(new Map())}
             onNext={() => setStep("checkout")}
           />
