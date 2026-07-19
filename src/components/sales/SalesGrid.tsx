@@ -150,6 +150,7 @@ export function SalesGrid() {
 
   const handleComplete = () => {
     setCart(new Map());
+    setDefaultSaleType("retail");
     setStep("browse");
   };
 

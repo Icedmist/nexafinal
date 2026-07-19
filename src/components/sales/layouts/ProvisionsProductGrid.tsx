@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Plus, Minus, ChevronDown, ChevronUp, Package, Layers, ShoppingCart, Palette, Tag } from "lucide-react";
+import { Plus, Minus, ChevronDown, ChevronUp, Package, Layers, ShoppingCart, Palette, Tag, Edit3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,8 @@ export function ProvisionsProductGrid({
   const [expandedItemSaleType, setExpandedItemSaleType] = useState<SalePriceMode>(defaultSaleType);
   // Per-item variant attribute selections: { [itemId]: { [attrName]: selectedValue } }
   const [perItemVariantAttrs, setPerItemVariantAttrs] = useState<Record<string, Record<string, string>>>({});
+  const [editingQtyItemId, setEditingQtyItemId] = useState<string | null>(null);
+  const [editingQtyValue, setEditingQtyValue] = useState("");
 
   // Toggle expansion for a specific item — resets variant state for that item
   const handleToggleExpand = useCallback((itemId: string, item: Item) => {
@@ -258,14 +260,55 @@ export function ProvisionsProductGrid({
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
-                <div className="relative flex items-center justify-center min-w-[24px]">
-                  <span className={cn(
-                    "text-sm font-extrabold font-mono text-foreground transition-all duration-200",
-                    isAnimating && "scale-125 text-emerald-600"
-                  )}>
-                    {activeUnitQty}
-                  </span>
-                </div>
+                {editingQtyItemId === `${item.id}:${activeUnit}` ? (
+                  <input
+                    type="number"
+                    autoFocus
+                    min={0}
+                    max={stockInActiveUnit + activeUnitQty}
+                    value={editingQtyValue}
+                    onChange={(e) => setEditingQtyValue(e.target.value)}
+                    onBlur={() => {
+                      const val = parseInt(editingQtyValue) || 0;
+                      const cartKey = `${item.id}:${activeUnit}:${defaultSaleType}`;
+                      onSetQuantity(cartKey, Math.max(0, val));
+                      setEditingQtyItemId(null);
+                      setEditingQtyValue("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = parseInt(editingQtyValue) || 0;
+                        const cartKey = `${item.id}:${activeUnit}:${defaultSaleType}`;
+                        onSetQuantity(cartKey, Math.max(0, val));
+                        setEditingQtyItemId(null);
+                        setEditingQtyValue("");
+                      } else if (e.key === "Escape") {
+                        setEditingQtyItemId(null);
+                        setEditingQtyValue("");
+                      }
+                    }}
+                    className="w-12 h-8 text-center text-sm font-extrabold font-mono text-foreground bg-background border border-emerald-500/40 rounded-md outline-none focus:ring-1 focus:ring-emerald-500/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingQtyItemId(`${item.id}:${activeUnit}`);
+                      setEditingQtyValue(String(activeUnitQty));
+                    }}
+                    className="relative flex items-center justify-center min-w-[32px] h-8 px-1 rounded-md hover:bg-emerald-500/5 transition-colors group/qty"
+                    title="Click to edit quantity"
+                  >
+                    <span className={cn(
+                      "text-sm font-extrabold font-mono text-foreground transition-all duration-200",
+                      isAnimating && "scale-125 text-emerald-600"
+                    )}>
+                      {activeUnitQty}
+                    </span>
+                    <Edit3 className="h-2.5 w-2.5 absolute -right-0.5 -top-0.5 opacity-0 group-hover/qty:opacity-50 transition-opacity text-muted-foreground" />
+                  </button>
+                )}
                 <Button
                   variant="outline"
                   size="icon"

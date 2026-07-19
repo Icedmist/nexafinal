@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart, Palette, Tag } from "lucide-react";
+import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart, Palette, Tag, Edit3 } from "lucide-react";
 import { PriceModeSelector } from "./PriceModeSelector";
 import type { SalePriceMode } from "./price-utils";
 import { getItemPriceForMode } from "./price-utils";
@@ -88,8 +88,9 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
   const [activeUnits, setActiveUnits] = useState<Record<string, string>>({});
   const [editingUnitsItem, setEditingUnitsItem] = useState<Item | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
-  const [expandedItemSaleType, setExpandedItemSaleType] = useState<SalePriceMode>("retail");
   const [perItemVariantAttrs, setPerItemVariantAttrs] = useState<Record<string, Record<string, string>>>({});
+  const [editingQtyItemId, setEditingQtyItemId] = useState<string | null>(null);
+  const [editingQtyValue, setEditingQtyValue] = useState("");
 
   const setItemVariantAttr = useCallback((itemId: string, attrName: string, value: string) => {
     setPerItemVariantAttrs(prev => ({
@@ -416,7 +417,6 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                         }
                         
                         setPerItemVariantAttrs(p => ({ ...p, [item.id]: initialAttrs }));
-                        setExpandedItemSaleType(defaultSaleType);
                         return item.id;
                       });
                     }
@@ -591,9 +591,50 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                       <Minus className="h-4.5 w-4.5" />
                     </button>
                     <div className="w-px h-5 bg-border/50" />
-                    <span className="px-2 text-xs font-bold font-mono text-foreground min-w-[20px] text-center">
-                      {activeUnitQty}
-                    </span>
+                    {editingQtyItemId === `${item.id}:${activeUnit}` ? (
+                      <input
+                        type="number"
+                        autoFocus
+                        min={0}
+                        max={remainingStock + activeUnitQty}
+                        value={editingQtyValue}
+                        onChange={(e) => setEditingQtyValue(e.target.value)}
+                        onBlur={() => {
+                          const val = parseInt(editingQtyValue) || 0;
+                          const cartKey = `${item.id}:${activeUnit}:${defaultSaleType}`;
+                          onSetQuantity(cartKey, Math.max(0, val));
+                          setEditingQtyItemId(null);
+                          setEditingQtyValue("");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const val = parseInt(editingQtyValue) || 0;
+                            const cartKey = `${item.id}:${activeUnit}:${defaultSaleType}`;
+                            onSetQuantity(cartKey, Math.max(0, val));
+                            setEditingQtyItemId(null);
+                            setEditingQtyValue("");
+                          } else if (e.key === "Escape") {
+                            setEditingQtyItemId(null);
+                            setEditingQtyValue("");
+                          }
+                        }}
+                        className="w-12 h-8 text-center text-xs font-bold font-mono text-foreground bg-background border border-primary/40 rounded-md outline-none focus:ring-1 focus:ring-primary/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingQtyItemId(`${item.id}:${activeUnit}`);
+                          setEditingQtyValue(String(activeUnitQty));
+                        }}
+                        className="px-2 min-w-[32px] h-8 text-xs font-bold font-mono text-foreground hover:bg-primary/5 rounded-md transition-colors flex items-center justify-center gap-1 group/qty"
+                        title="Click to edit quantity"
+                      >
+                        {activeUnitQty}
+                        <Edit3 className="h-2.5 w-2.5 opacity-0 group-hover/qty:opacity-50 transition-opacity" />
+                      </button>
+                    )}
                     <div className="w-px h-5 bg-border/50" />
                     <button
                       type="button"
@@ -613,7 +654,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                     const itemAttrs = perItemVariantAttrs[item.id] || {};
                     const hasVariants = item.variants && item.variants.length > 0;
                     const hasCustomFields = item.customFields && Object.keys(item.customFields).length > 0;
-                    const expanderSaleType = expandedItemSaleType;
+                    const expanderSaleType = defaultSaleType;
 
                     let expanderUnitPrice = getCartItemUnitPrice(item, activeUnit, expanderSaleType);
                     let cartKey = `${item.id}:${activeUnit}:${expanderSaleType}`;
@@ -731,17 +772,6 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
 
                       {/* Quantity Selector & Add to Cart */}
                       <div className="flex items-center gap-1.5 pt-1">
-                        {!hasVariants && (
-                          <select 
-                            className="text-[10px] h-7.5 rounded-lg border bg-background px-2 font-medium shrink-0 max-w-[85px] outline-none focus:ring-1 focus:ring-primary/20 cursor-pointer"
-                            value={expanderSaleType}
-                            onChange={(e) => setExpandedItemSaleType(e.target.value as SalePriceMode)}
-                          >
-                            <option value="retail">Retail</option>
-                            <option value="wholesale">Wholesale</option>
-                          </select>
-                        )}
-
                         <div className="flex items-center border rounded-lg bg-background shrink-0">
                           <button
                             type="button"
@@ -751,9 +781,17 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="w-5 text-center text-[10px] font-mono font-bold select-none">
-                            {expanderUnitQty}
-                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={displayStock}
+                            value={expanderUnitQty || ""}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              onSetQuantity(cartKey, Math.max(0, val));
+                            }}
+                            className="w-10 h-6 text-center text-[10px] font-mono font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
                           <button
                             type="button"
                             disabled={displayStock <= 0 || expanderUnitQty >= displayStock}
