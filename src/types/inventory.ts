@@ -1,3 +1,34 @@
+// ─── Supported Units ─────────────────────────────────────
+
+export const SUPPORTED_UNITS = [
+  { id: "pcs", label: "Pieces" },
+  { id: "pack", label: "Pack" },
+  { id: "box", label: "Box" },
+  { id: "bag", label: "Bag" },
+  { id: "bottle", label: "Bottle" },
+  { id: "kg", label: "Kilogram" },
+  { id: "g", label: "Gram" },
+  { id: "ltr", label: "Litre" },
+  { id: "ml", label: "Millilitre" },
+  { id: "pair", label: "Pair" },
+  { id: "roll", label: "Roll" },
+  { id: "yard", label: "Yard" },
+  { id: "m", label: "Metre" },
+  { id: "carton", label: "Carton" },
+  { id: "tonne", label: "Tonne" },
+  { id: "drum", label: "Drum" },
+  { id: "strip", label: "Strip" },
+  { id: "vial", label: "Vial" },
+  { id: "plate", label: "Plate" },
+  { id: "bowl", label: "Bowl" },
+  { id: "portion", label: "Portion" },
+  { id: "cup", label: "Cup" },
+  { id: "mudu", label: "Mudu" },
+  { id: "paint", label: "Paint" },
+  { id: "loaf", label: "Loaf" },
+  { id: "bundle", label: "Bundle" },
+] as const;
+
 // ─── Sales ───────────────────────────────────────────────
 
 export interface SaleLineItem {
@@ -99,6 +130,7 @@ export interface Category {
   parentId: string | null;
   createdAt: string;
   updatedAt: string;
+  supportedUnits?: string[];
 }
 
 export interface UnitOfMeasure {

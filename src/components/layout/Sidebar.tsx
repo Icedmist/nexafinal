@@ -23,6 +23,10 @@ import {
   Globe,
   LogOut,
   Activity,
+  Store,
+  Handshake,
+  Radar,
+  UserPlus,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -96,6 +100,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Growth",
+    items: [
+      { label: "Digital Storefront", href: "/app/ecommerce", icon: Store },
+      { label: "Affiliate Program", href: "/app/affiliates", icon: Handshake },
+      { label: "Admin Tracker", href: "/app/tracker", icon: Radar },
+    ],
+  },
+  {
     label: "Admin",
     permKey: "canAccessSettings",
     items: [
@@ -120,6 +132,7 @@ const standaloneLinks: NavItem[] = [
   { label: "Requests", href: "/app/requests", icon: Inbox },
   { label: "Site Map", href: "/sitemap", icon: Globe },
   { label: "Help", href: "/app/help", icon: HelpCircle },
+  { label: "Agent Portal", href: "/agents", icon: UserPlus },
 ];
 
 interface SidebarProps {

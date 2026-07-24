@@ -35,6 +35,12 @@ const TermsPage = lazy(() => import('./routes/terms'));
 const PrivacyPage = lazy(() => import('./routes/privacy'));
 const PublicStorePage = lazy(() => import('./routes/store.$id'));
 
+// New v1 feature pages
+const EcommercePage = lazy(() => import('./pages/EcommercePage'));
+const AffiliatesPage = lazy(() => import('./pages/AffiliatesPage'));
+const TrackerPage = lazy(() => import('./pages/TrackerPage'));
+const AgentsPage = lazy(() => import('./pages/AgentsPage'));
+
 // System Admin Pages
 const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout').then(m => ({ default: m.SystemAdminLayout })));
 const SystemDashboardPage = lazy(() => import('./routes/system-admin.dashboard'));
@@ -46,7 +52,7 @@ const SystemAuditPage = lazy(() => import('./routes/system-admin.audit'));
 
 
 import { LogoutOverlay } from './components/shared/LogoutOverlay';
-
+import { DemoProvider } from './contexts/DemoContext';
 
 
 // Create single QueryClient instance for the entire app
@@ -64,6 +70,7 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <DemoProvider>
       <LogoutOverlay />
       <Suspense fallback={null}>
         <Routes>
@@ -102,8 +109,14 @@ function App() {
               <Route path="staff" element={<StaffPage />} />
               <Route path="suppliers" element={<SuppliersPage />} />
               <Route path="moniepoint" element={<MoniepointPage />} />
+              <Route path="ecommerce" element={<EcommercePage />} />
+              <Route path="affiliates" element={<AffiliatesPage />} />
+              <Route path="tracker" element={<TrackerPage />} />
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>
+
+            {/* Agents Route (Public) */}
+            <Route path="/agents" element={<AgentsPage />} />
 
             {/* System Admin Routes (Platform Oversight) */}
             <Route path="/system-admin" element={<SystemAdminLayout />}>
@@ -126,6 +139,7 @@ function App() {
           </Route>
         </Routes>
       </Suspense>
+      </DemoProvider>
     </QueryClientProvider>
   );
 }

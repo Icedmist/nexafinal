@@ -19,6 +19,10 @@ import { cn } from "@/lib/utils";
 import { StoreAccessGuard } from "@/components/shared/StoreAccessGuard";
 import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
+import { DemoBanner } from "@/components/layout/DemoBanner";
+import { useDemo } from "@/hooks/useDemo";
+import { StoreTypeOnboardingOverlay } from "@/components/onboarding/StoreTypeOnboardingOverlay";
+import { MemberOnboarding } from "@/components/onboarding/MemberOnboarding";
 
 
 export function AppLayout() {
@@ -27,6 +31,7 @@ export function AppLayout() {
   const { profile, needsOnboarding, loadingProfile } = useBusiness();
   const { store } = useTenant();
   const { role, isSystemAdmin, loading: roleLoading } = useRole();
+  const { isDemo } = useDemo();
   const navigate = useNavigate();
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -186,6 +191,8 @@ export function AppLayout() {
   return (
     <StoreAccessGuard>
       <div className="flex h-screen flex-col overflow-hidden bg-background nexa-gradient-mesh">
+        {isDemo && <DemoBanner />}
+        <StoreTypeOnboardingOverlay />
         <div className="flex flex-1 overflow-hidden relative">
           {/* Subtle background glow */}
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
