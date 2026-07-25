@@ -4,10 +4,27 @@ import { TenantProvider } from "@/contexts/TenantContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Toaster } from "sonner";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 
-// ... (DynamicTitle removed - component not found)
+function SubdomainRedirect() {
+  const { store } = useTenant();
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Only redirect on the root path when on a subdomain and not logged in
+    if (store && !user && !loading && location.pathname === "/") {
+      navigate("/auth/login", { replace: true });
+    }
+  }, [store, user, loading, location.pathname, navigate]);
+
+  return null;
+}
 
 export function RootLayout() {
   return (
@@ -16,7 +33,7 @@ export function RootLayout() {
         <BusinessProvider>
           <RoleProvider>
             <StoreAccessGuard>
-              {/* DynamicTitle component removed - not implemented */}
+              <SubdomainRedirect />
               <ErrorBoundary>
                 <Outlet />
               </ErrorBoundary>

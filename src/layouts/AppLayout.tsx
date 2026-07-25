@@ -140,10 +140,10 @@ export function AppLayout() {
   }, [location.pathname, role, roleLoading, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin]);
 
 
-  // Auth guard — redirect to landing if not logged in (skip in demo mode)
+  // Auth guard — redirect to login if not logged in (skip in demo mode)
   useEffect(() => {
     if (!loading && !user && !isDemo) {
-      navigate("/");
+      navigate("/auth/login");
     }
   }, [user, loading, navigate, isDemo]);
 

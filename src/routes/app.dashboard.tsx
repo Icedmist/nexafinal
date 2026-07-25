@@ -110,9 +110,9 @@ function DashboardPage() {
   const { data: realSuppliers } = useSuppliers();
   const { isAdmin, isManager } = useRole();
   const { storeType, isWholesaler, isRetailer, isSupermarket } = useStoreType();
-  const { onboarding } = useDemo();
-  const businessType = onboarding.businessType;
+  const { isDemo, onboarding } = useDemo();
   const { profile } = useBusiness();
+  const businessType = isDemo ? onboarding.businessType : (profile?.businessType || null);
   const { user } = useAuth();
   const { cacheData } = useOfflineMode();
   const { data: customers = [] } = useCustomers();
