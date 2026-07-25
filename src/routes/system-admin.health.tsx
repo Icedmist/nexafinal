@@ -183,29 +183,32 @@ export default function SystemHealth() {
             <div className="space-y-4">
               <div className="rounded-xl bg-slate-900 border border-slate-800 p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-white">SSL Certificates</span>
-                  <span className="text-[10px] font-black text-emerald-500 uppercase">Valid</span>
+                  <span className="text-xs font-bold text-white">Firebase Auth</span>
+                  <span className={cn("text-[10px] font-black uppercase", status.auth === "operational" ? "text-emerald-500" : "text-rose-500")}>
+                    {status.auth === "operational" ? "Active" : "Degraded"}
+                  </span>
                 </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full w-[85%] bg-emerald-500 rounded-full" />
-                </div>
-                <p className="text-[10px] text-slate-500 mt-2">Expires in 142 days</p>
+                <p className="text-[10px] text-slate-500">Authentication provider — Google managed infrastructure.</p>
               </div>
 
               <div className="rounded-xl bg-slate-900 border border-slate-800 p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-white">DDoS Protection</span>
-                  <span className="text-[10px] font-black text-blue-500 uppercase">Active</span>
+                  <span className="text-xs font-bold text-white">Firestore Database</span>
+                  <span className={cn("text-[10px] font-black uppercase", status.database === "operational" ? "text-emerald-500" : "text-rose-500")}>
+                    {status.database === "operational" ? "Active" : "Degraded"}
+                  </span>
                 </div>
-                <p className="text-[10px] text-slate-500">Global edge network active across 12 regions.</p>
+                <p className="text-[10px] text-slate-500">Encrypted at rest, managed by Google Cloud.</p>
               </div>
 
               <div className="rounded-xl bg-slate-900 border border-slate-800 p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-white">IAM Policies</span>
-                  <span className="text-[10px] font-black text-amber-500 uppercase">Audit Req</span>
+                  <span className="text-xs font-bold text-white">Cloud Functions</span>
+                  <span className={cn("text-[10px] font-black uppercase", status.functions === "operational" ? "text-emerald-500" : "text-rose-500")}>
+                    {status.functions === "operational" ? "Active" : "Degraded"}
+                  </span>
                 </div>
-                <p className="text-[10px] text-slate-500">Last audit: 12 days ago. Recommended: Weekly.</p>
+                <p className="text-[10px] text-slate-500">Serverless backend — auto-scaling, encrypted in transit.</p>
               </div>
             </div>
           </div>

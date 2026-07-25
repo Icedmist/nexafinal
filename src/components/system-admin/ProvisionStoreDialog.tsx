@@ -8,7 +8,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Building2, Globe, User, Phone, MapPin, Hash } from "lucide-react";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 
@@ -34,20 +34,25 @@ export function ProvisionStoreDialog({ open, onOpenChange, onSuccess }: Provisio
     setLoading(true);
 
     try {
-      // 1. Basic validation
       if (!formData.name || !formData.slug) {
         throw new Error("Store name and slug are required.");
       }
 
-      // 2. Create store in Firestore
+      // Check slug uniqueness
+      const slugQuery = query(collection(db, "stores"), where("slug", "==", formData.slug));
+      const slugSnap = await getDocs(slugQuery);
+      if (!slugSnap.empty) {
+        throw new Error(`Slug "${formData.slug}" is already taken. Choose a different one.`);
+      }
+
       await addDoc(collection(db, "stores"), {
         ...formData,
         status: "active",
         setupComplete: false,
+        subscriptionTier: "starter",
+        subscriptionStatus: "trial",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        // We leave ownerId null for now, 
-        // or we could link it if we find a user by ownerEmail
       });
 
       toast.success("Store provisioned successfully!");
@@ -139,10 +144,15 @@ export function ProvisionStoreDialog({ open, onOpenChange, onSuccess }: Provisio
                     onChange={(e) => setFormData(prev => ({ ...prev, businessType: e.target.value }))}
                   >
                     <option value="retail">Retail</option>
-                    <option value="pharmacy">Pharmacy</option>
                     <option value="restaurant">Restaurant</option>
-                    <option value="service">Service</option>
-                    <option value="other">Other</option>
+                    <option value="agriculture">Agriculture</option>
+                    <option value="pharmacy">Pharmacy</option>
+                    <option value="manufacturing">Manufacturing</option>
+                    <option value="electronics">Electronics</option>
+                    <option value="social_commerce">Social Commerce</option>
+                    <option value="textile">Textile</option>
+                    <option value="wholesale">Wholesale</option>
+                    <option value="general">General</option>
                   </select>
                 </div>
               </div>

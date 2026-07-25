@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Users, 
   Search, 
@@ -45,6 +45,9 @@ export default function SystemUsers() {
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [userActivities, setUserActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "role" | "lastLogin">("name");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   const handleForcePasswordReset = async (email: string) => {
     const toastId = toast.loading(`Generating password reset link for ${email}...`);
@@ -192,10 +195,27 @@ export default function SystemUsers() {
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    const result = users.filter(u => 
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    result.sort((a, b) => {
+      if (sortBy === "name") return (a.displayName || "").localeCompare(b.displayName || "");
+      if (sortBy === "role") return a.role.localeCompare(b.role);
+      if (sortBy === "lastLogin") {
+        const aTime = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
+        const bTime = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
+        return bTime - aTime;
+      }
+      return 0;
+    });
+    return result;
+  }, [users, searchQuery, sortBy]);
+
+  const userTotalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const userSafePage = Math.min(page, userTotalPages);
+  const paginatedUsers = filteredUsers.slice((userSafePage - 1) * PAGE_SIZE, userSafePage * PAGE_SIZE);
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -243,9 +263,12 @@ export default function SystemUsers() {
           />
         </div>
         <div className="flex items-center gap-2">
-           <button className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs font-bold text-slate-400 hover:text-white transition-all">
+           <button 
+             onClick={() => setSortBy(s => s === "name" ? "role" : s === "role" ? "lastLogin" : "name")}
+             className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs font-bold text-slate-400 hover:text-white transition-all"
+           >
              <ArrowUpDown className="h-4 w-4" />
-             Sort By
+             Sort: {sortBy === "name" ? "Name" : sortBy === "role" ? "Role" : "Last Login"}
            </button>
         </div>
       </div>
@@ -280,7 +303,7 @@ export default function SystemUsers() {
                    </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                paginatedUsers.map((user) => (
                   <tr 
                     key={user.id} 
                     onClick={() => {
@@ -389,6 +412,30 @@ export default function SystemUsers() {
           </table>
         </div>
       </div>
+
+      {/* User Pagination */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">
+          Showing {paginatedUsers.length} of {filteredUsers.length} Users — Page {userSafePage} of {userTotalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setPage(p => Math.max(1, p - 1))} 
+            disabled={userSafePage <= 1}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 text-slate-600 hover:text-white disabled:opacity-30"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button 
+            onClick={() => setPage(p => Math.min(userTotalPages, p + 1))} 
+            disabled={userSafePage >= userTotalPages}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 text-slate-600 hover:text-white disabled:opacity-30"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
       <InvitePlatformUserDialog 
         open={inviteOpen} 
         onOpenChange={setInviteOpen} 
@@ -458,14 +505,17 @@ export default function SystemUsers() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Linked Store ID</label>
-                    <input 
-                      type="text"
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Linked Store</label>
+                    <select 
                       defaultValue={selectedUser.storeId || ""}
-                      placeholder="e.g. store_uid (or leave blank)"
-                      onBlur={(e) => handleUpdatePlatformUser(selectedUser.id, { storeId: e.target.value })}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs font-bold text-white outline-none focus:border-blue-500 transition-all"
-                    />
+                      onChange={(e) => handleUpdatePlatformUser(selectedUser.id, { storeId: e.target.value })}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs font-bold text-white outline-none focus:border-blue-500 transition-all cursor-pointer"
+                    >
+                      <option value="">None (Global Access)</option>
+                      {businesses.map((b: any) => (
+                        <option key={b.id} value={b.id}>{b.name || b.slug}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

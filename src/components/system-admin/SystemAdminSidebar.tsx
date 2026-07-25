@@ -8,7 +8,8 @@ import {
   LifeBuoy,
   UserCheck,
   CreditCard,
-  Mail
+  Mail,
+  Headphones
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const systemAdminLinks: NavItem[] = [
   { label: "Agent Network", href: "/system-admin/agents-network", icon: UserCheck },
   { label: "Subscriptions", href: "/system-admin/subscriptions", icon: CreditCard },
   { label: "Retention", href: "/system-admin/retention", icon: Mail },
+  { label: "Support Tickets", href: "/system-admin/support", icon: Headphones },
 ];
 
 export function SystemAdminSidebar() {

@@ -3,7 +3,8 @@ import {
   ShoppingBag, Truck, LayoutDashboard, Utensils, 
   FlaskConical, HardHat, Cpu, Package, History,
   TrendingUp, Users, Settings, HelpCircle,
-  FileText, ClipboardList, Store, LucideIcon
+  FileText, ClipboardList, Store, LucideIcon,
+  Shirt, Warehouse
 } from "lucide-react";
 
 export enum BusinessType {
@@ -14,6 +15,8 @@ export enum BusinessType {
   Manufacturing = "manufacturing",
   Electronics = "electronics",
   SocialCommerce = "social_commerce",
+  Textile = "textile",
+  Wholesale = "wholesale",
   General = "general",
 }
 
@@ -161,6 +164,44 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
     icons: { catalog: Smartphone, item: Smartphone },
     features: { hasExpiry: false, hasBatches: false, hasTableBooking: false, hasProduction: false, hasWarranty: true, isFreshGood: false },
     primaryAction: "Add Product",
+  },
+  textile: {
+    id: BusinessType.Textile,
+    labels: {
+      dashboard: "Workshop Overview",
+      catalog: "Fabrics & Garments",
+      inventory: "Stock Room",
+      sales: "Counter Sales",
+      customers: "Buyers",
+      suppliers: "Fabric Mills",
+      movements: "Stock Transfers",
+      reports: "Style Analytics",
+      store: "Textile Shop",
+      item: "Fabric/Garment",
+      unit: "Yard/Meter/Pcs",
+    },
+    icons: { catalog: Shirt, item: Shirt },
+    features: { hasExpiry: false, hasBatches: false, hasTableBooking: false, hasProduction: false, hasWarranty: false, isFreshGood: false },
+    primaryAction: "Add Fabric",
+  },
+  wholesale: {
+    id: BusinessType.Wholesale,
+    labels: {
+      dashboard: "Depot Overview",
+      catalog: "Product Catalog",
+      inventory: "Warehouse Stock",
+      sales: "Bulk Orders",
+      customers: "Retailers",
+      suppliers: "Manufacturers",
+      movements: "Transfers",
+      reports: "Volume Analytics",
+      store: "Wholesale Portal",
+      item: "SKU",
+      unit: "Carton/Bag/Unit",
+    },
+    icons: { catalog: Warehouse, item: Package },
+    features: { hasExpiry: false, hasBatches: true, hasTableBooking: false, hasProduction: false, hasWarranty: false, isFreshGood: false },
+    primaryAction: "New Order",
   },
   general: {
     id: BusinessType.General,

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Activity, Shield, UserPlus, Building, Zap, Info } from "lucide-react";
 import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -18,6 +19,7 @@ interface ActivityLog {
 
 export function SystemActivityFeed() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -134,7 +136,10 @@ export function SystemActivityFeed() {
         )}
       </div>
       
-      <button className="mt-2 w-full rounded-xl border border-slate-800 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:bg-slate-900 hover:text-slate-300">
+      <button 
+        onClick={() => navigate("/system-admin/audit")}
+        className="mt-2 w-full rounded-xl border border-slate-800 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:bg-slate-900 hover:text-slate-300"
+      >
         View Full Audit Trail
       </button>
     </div>

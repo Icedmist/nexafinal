@@ -30,15 +30,6 @@ import { SystemActivityFeed } from "@/components/system-admin/SystemActivityFeed
 import { PlatformSalesMonitor } from "@/components/system-admin/PlatformSalesMonitor";
 import { cn } from "@/lib/utils";
 
-const data = [
-  { name: "Jan", stores: 40, active: 2400 },
-  { name: "Feb", stores: 55, active: 3100 },
-  { name: "Mar", stores: 80, active: 4200 },
-  { name: "Apr", stores: 120, active: 5500 },
-  { name: "May", stores: 160, active: 6800 },
-  { name: "Jun", stores: 220, active: 8000 },
-];
-
 export default function SystemDashboard() {
   const [stats, setStats] = useState({
     totalStores: 0,
@@ -281,18 +272,18 @@ export default function SystemDashboard() {
               <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
               <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </div>
-            <span className="text-slate-500 ml-4">nexaos_platform_monitor — bash — 80x24</span>
+            <span className="text-slate-500 ml-4">Platform Activity Feed</span>
           </div>
-          <span className="text-emerald-500 animate-pulse">● LIVE_STREAM_ACTIVE</span>
         </div>
-        <div className="space-y-1 text-slate-400 overflow-hidden h-40">
-           <p><span className="text-emerald-500">[SYSTEM]</span> Initializing platform kernel...</p>
-           <p><span className="text-blue-500">[INFO]</span> Auth service connected (Region: us-central1)</p>
-           <p><span className="text-blue-500">[INFO]</span> Firestore listeners established for {stats.totalStores} stores</p>
+        <div className="space-y-1 text-slate-400 overflow-hidden h-40 p-4">
+           <p><span className="text-emerald-500">[SYSTEM]</span> Platform operational — {stats.totalStores} stores registered</p>
+           <p><span className="text-blue-500">[INFO]</span> {stats.totalUsers} users, {stats.totalStaff} staff members active</p>
            {recentStores.slice(0, 3).map(store => (
-             <p key={store.id}><span className="text-amber-500">[EVENT]</span> New business provisioned: <span className="text-white font-bold">{store.name}</span> ({store.slug}.nexa.os)</p>
+             <p key={store.id}><span className="text-amber-500">[EVENT]</span> Store: <span className="text-white font-bold">{store.name}</span> ({store.slug}.nexa.os)</p>
            ))}
-           <p className="animate-pulse">_</p>
+           {recentStores.length === 0 && !loading && (
+             <p className="text-slate-600 italic">No recent activity</p>
+           )}
         </div>
       </div>
     </div>

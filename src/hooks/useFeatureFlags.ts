@@ -1,5 +1,8 @@
 import { useMemo } from "react";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
+import { getSectorConfig } from "@/constants/sectors";
+import { useSector } from "@/hooks/useSector";
 
 export interface FeatureFlags {
   hasExpiry: boolean;
@@ -17,35 +20,55 @@ export interface FeatureFlags {
   status: string;
 }
 
-const DEFAULT_FLAGS: FeatureFlags = {
-  hasExpiry: false,
-  hasBatches: false,
-  hasTableBooking: false,
-  hasProduction: false,
-  hasWarranty: false,
-  isFreshGood: false,
-  hasEcommerce: true,
-  hasAffiliates: true,
-  hasAI: true,
-  hasTracker: true,
-  planName: "free",
-  planId: "free",
-  status: "active",
+const PLAN_FLAGS: Record<string, Partial<FeatureFlags>> = {
+  starter: {
+    hasEcommerce: false,
+    hasAffiliates: false,
+    hasAI: false,
+    hasTracker: false,
+  },
+  professional: {
+    hasEcommerce: true,
+    hasAffiliates: true,
+    hasAI: false,
+    hasTracker: false,
+  },
+  enterprise: {
+    hasEcommerce: true,
+    hasAffiliates: true,
+    hasAI: true,
+    hasTracker: true,
+  },
 };
 
 export function useFeatureFlags(): { flags: FeatureFlags } {
   const { profile } = useBusiness();
-  
+  const { isDemo } = useDemo();
+  const { config: sectorConfig } = useSector();
+
   const flags = useMemo(() => {
-    // In v2, feature flags come from the business profile's plan/subscription
-    // For now, return default flags with plan info
+    const planId = isDemo ? "professional" : (profile?.settings?.planId || profile?.subscriptionTier || "starter");
+    const planName = isDemo ? "Pro Plan" : (profile?.settings?.planName || profile?.subscriptionTier || "Starter");
+    const status = isDemo ? "active" : (profile?.settings?.subscriptionStatus || profile?.subscriptionStatus || "active");
+
+    const planOverrides = PLAN_FLAGS[planId] || PLAN_FLAGS.starter;
+
     return {
-      ...DEFAULT_FLAGS,
-      planName: profile?.settings?.planName || "free",
-      planId: profile?.settings?.planId || "free",
-      status: profile?.settings?.subscriptionStatus || "active",
+      hasExpiry: sectorConfig?.features?.hasExpiry ?? false,
+      hasBatches: sectorConfig?.features?.hasBatches ?? false,
+      hasTableBooking: sectorConfig?.features?.hasTableBooking ?? false,
+      hasProduction: sectorConfig?.features?.hasProduction ?? false,
+      hasWarranty: sectorConfig?.features?.hasWarranty ?? false,
+      isFreshGood: sectorConfig?.features?.isFreshGood ?? false,
+      hasEcommerce: planOverrides.hasEcommerce ?? false,
+      hasAffiliates: planOverrides.hasAffiliates ?? false,
+      hasAI: planOverrides.hasAI ?? false,
+      hasTracker: planOverrides.hasTracker ?? false,
+      planName,
+      planId,
+      status,
     };
-  }, [profile]);
-  
+  }, [profile, isDemo, sectorConfig]);
+
   return useMemo(() => ({ flags }), [flags]);
 }

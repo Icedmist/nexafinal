@@ -173,6 +173,19 @@ export default function SystemBusinesses() {
     }
   };
 
+  const deleteBusiness = async (business: Business) => {
+    if (!confirm(`Permanently delete "${business.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteDoc(doc(db, "stores", business.id));
+      toast.success("Business deleted.");
+      setDetailsOpen(false);
+      setSelectedBusiness(null);
+      fetchBusinesses();
+    } catch (error) {
+      toast.error("Failed to delete business.");
+    }
+  };
+
   const filteredBusinesses = useMemo(() => businesses.filter(b => 
     b.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     b.slug?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -233,7 +246,7 @@ export default function SystemBusinesses() {
         
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-2xl border border-slate-800 bg-slate-950/50 p-1">
-            {["all", "active", "suspended"].map((filter) => (
+            {["all", "active", "suspended", "pending"].map((filter) => (
               <button
                 key={filter}
                 onClick={() => { setStatusFilter(filter); setPage(1); }}
@@ -248,10 +261,6 @@ export default function SystemBusinesses() {
               </button>
             ))}
           </div>
-          
-          <button className="flex items-center justify-center h-11 w-11 rounded-2xl border border-slate-800 bg-slate-950/50 text-slate-500 hover:text-white transition-all">
-            <Filter className="h-5 w-5" />
-          </button>
         </div>
       </div>
 
@@ -529,23 +538,41 @@ export default function SystemBusinesses() {
               </div>
 
               {/* Controls */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-900">
-                <Button 
-                  variant="outline" 
-                  className="rounded-xl border-slate-800 text-slate-400 hover:text-white"
-                  onClick={() => setDetailsOpen(false)}
-                >
-                  Close Profile
-                </Button>
-                <Button 
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700 font-bold uppercase tracking-widest text-xs h-10 px-5 text-white"
-                  onClick={() => {
-                    const slug = selectedBusiness.slug;
-                    window.open(`/app/dashboard?s=${slug}`, "_blank");
-                  }}
-                >
-                  Jump Into Operations
-                </Button>
+              <div className="flex gap-3 justify-between pt-4 border-t border-slate-900">
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="rounded-xl border-slate-800 text-slate-400 hover:text-white"
+                    onClick={() => { toggleStatus(selectedBusiness); }}
+                  >
+                    {selectedBusiness.status === "active" ? "Suspend" : "Activate"}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="rounded-xl border-rose-800 text-rose-400 hover:bg-rose-950 hover:text-rose-300"
+                    onClick={() => deleteBusiness(selectedBusiness)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="rounded-xl border-slate-800 text-slate-400 hover:text-white"
+                    onClick={() => setDetailsOpen(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button 
+                    className="rounded-xl bg-blue-600 hover:bg-blue-700 font-bold uppercase tracking-widest text-xs h-10 px-5 text-white"
+                    onClick={() => {
+                      const slug = selectedBusiness.slug;
+                      window.open(`/app/dashboard?s=${slug}`, "_blank");
+                    }}
+                  >
+                    Jump In
+                  </Button>
+                </div>
               </div>
             </div>
           )}

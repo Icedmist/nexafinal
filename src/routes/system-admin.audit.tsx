@@ -47,6 +47,7 @@ export default function SystemAudit() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
+  const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
   useEffect(() => {
     fetchLogs();
@@ -262,7 +263,10 @@ export default function SystemAudit() {
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <button className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-600 hover:text-blue-500 hover:border-blue-500/50 transition-all">
+                        <button 
+                          onClick={() => setSelectedLog(selectedLog?.id === log.id ? null : log)}
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-600 hover:text-blue-500 hover:border-blue-500/50 transition-all"
+                        >
                           <Eye className="h-4 w-4" />
                         </button>
                       </td>
@@ -288,6 +292,24 @@ export default function SystemAudit() {
           )}
         </div>
       </div>
+
+      {/* Inspect Detail Panel */}
+      {selectedLog && (
+        <div className="rounded-2xl border border-blue-500/20 bg-slate-950 p-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black uppercase tracking-widest text-blue-400">Audit Entry Detail</h3>
+            <button onClick={() => setSelectedLog(null)} className="text-xs text-slate-500 hover:text-white">Close</button>
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            <div><span className="text-slate-500">Type:</span> <span className="text-white font-bold">{selectedLog.type}</span></div>
+            <div><span className="text-slate-500">Actor:</span> <span className="text-white font-bold">{selectedLog.userEmail || "System"}</span></div>
+            <div><span className="text-slate-500">Message:</span> <span className="text-white font-bold">{selectedLog.message}</span></div>
+            <div><span className="text-slate-500">Time:</span> <span className="text-white font-bold">{selectedLog.timestamp?.seconds ? new Date(selectedLog.timestamp.seconds * 1000).toLocaleString() : "N/A"}</span></div>
+            {selectedLog.storeId && <div><span className="text-slate-500">Store:</span> <span className="text-white font-bold">{selectedLog.storeId}</span></div>}
+            <div><span className="text-slate-500">User ID:</span> <span className="text-white font-mono">{selectedLog.userId || "N/A"}</span></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
