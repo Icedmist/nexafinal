@@ -30,7 +30,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useSales, useItems, useCustomers, useExpenses, useRefunds, useMovements } from "@/hooks/useInventoryData";
+import { useItems, useCustomers, useMovements } from "@/hooks/useInventoryData";
+import { useSales } from "@/hooks/useSalesData";
+import { useExpenses } from "@/hooks/useExpensesData";
+import { useRefunds } from "@/hooks/useRefundsData";
 import { useUpdateItem, useCreateRefund, useCreateMovement } from "@/hooks/useInventoryMutations";
 import { toast } from "sonner";
 import { getWhatsAppUrl, buildPersonalizedReceiptText } from "@/lib/whatsapp";
@@ -38,6 +41,7 @@ import { useRole } from "@/hooks/useRole";
 import { useDemo } from "@/hooks/useDemo";
 import { useUsers } from "@/hooks/useUsers";
 import type { SaleTransaction, Item, StockMovement } from "@/types/inventory";
+import { MovementType } from "@/types/inventory";
 import type { Expense, Refund } from "@/types/finance";
 import type { Customer } from "@/types/crm";
 
@@ -48,7 +52,7 @@ function fmtNgn(amount: number): string {
 
 function AdminTrackerPage() {
   const { isDemo, onboarding } = useDemo();
-  const { role, stores = [] } = useRole();
+  const { role } = useRole();
 
   // Data queries
   const { data: sales = [], isLoading: salesLoading } = useSales();
@@ -57,7 +61,7 @@ function AdminTrackerPage() {
   const { data: expenses = [], isLoading: expensesLoading } = useExpenses();
   const { data: refunds = [], isLoading: refundsLoading } = useRefunds();
   const { data: movements = [], isLoading: movementsLoading } = useMovements();
-  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { staff: users = [], loading: usersLoading } = useUsers();
 
   // Mutations
   const { mutate: updateItem, isLoading: priceUpdating } = useUpdateItem();
@@ -137,8 +141,7 @@ function AdminTrackerPage() {
 
   const getStoreName = (storeId?: string) => {
     if (!storeId) return "Main Store";
-    const store = stores.find((s) => s.id === storeId);
-    return store ? store.name : storeId;
+    return storeId;
   };
 
   const getUserName = (userIdOrName?: string) => {
@@ -152,23 +155,15 @@ function AdminTrackerPage() {
   // --- Filtering computations ---
   const filteredSales = useMemo(() => {
     return sales.filter((s) => {
-      // 1. Text Search
       const query = salesSearch.toLowerCase();
       const matchesSearch = !query || 
         s.id.toLowerCase().includes(query) ||
         (s.customerName && s.customerName.toLowerCase().includes(query)) ||
         (s.customerPhone && s.customerPhone.includes(query));
 
-      // 2. Store Filter
-      const matchesStore = selectedStoreFilter === "all" || s.storeId === selectedStoreFilter;
-
-      // 3. User/Staff Filter
-      const matchesUser = selectedUserFilter === "all" || s.createdBy === selectedUserFilter;
-
-      // 4. Date Filter
+      const matchesUser = selectedUserFilter === "all" || s.recordedBy === selectedUserFilter;
       const matchesDate = isDateMatch(s.createdAt, selectedDateFilter);
-
-      return matchesSearch && matchesStore && matchesUser && matchesDate;
+      return matchesSearch && matchesUser && matchesDate;
     });
   }, [sales, salesSearch, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
@@ -188,63 +183,38 @@ function AdminTrackerPage() {
     return items.filter((i) => {
       const query = itemSearch.toLowerCase();
       const matchesSearch = !query || i.name.toLowerCase().includes(query) || i.sku.toLowerCase().includes(query);
-      const matchesStore = selectedStoreFilter === "all" || i.storeId === selectedStoreFilter;
-      return matchesSearch && matchesStore;
+      return matchesSearch;
     });
-  }, [items, itemSearch, selectedStoreFilter]);
+  }, [items, itemSearch]);
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter((e) => {
-      // 1. Category Filter
       const matchesCategory = expenseFilter === "all" || e.category === expenseFilter;
-
-      // 2. Store Filter
-      const matchesStore = selectedStoreFilter === "all" || e.storeId === selectedStoreFilter;
-
-      // 3. User/Staff Filter
-      const matchesUser = selectedUserFilter === "all" || e.createdBy === selectedUserFilter;
-
-      // 4. Date Filter
+      const matchesUser = selectedUserFilter === "all" || e.recordedBy === selectedUserFilter;
       const matchesDate = isDateMatch(e.date || e.createdAt, selectedDateFilter);
-
-      return matchesCategory && matchesStore && matchesUser && matchesDate;
+      return matchesCategory && matchesUser && matchesDate;
     });
   }, [expenses, expenseFilter, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
   const filteredRefunds = useMemo(() => {
     return refunds.filter((r) => {
-      // 1. Text Search
       const query = returnSearch.toLowerCase();
       const matchesSearch = !query || 
         r.reason.toLowerCase().includes(query) ||
-        (r.customerPhone && r.customerPhone.includes(query)) ||
         (r.itemId && r.itemId.toLowerCase().includes(query));
 
-      // 2. Store Filter
-      const matchesStore = selectedStoreFilter === "all" || r.storeId === selectedStoreFilter;
-
-      // 3. User/Staff Filter
-      const matchesUser = selectedUserFilter === "all" || r.createdBy === selectedUserFilter || r.performedBy === selectedUserFilter;
-
-      // 4. Date Filter
+      const matchesUser = selectedUserFilter === "all" || r.recordedBy === selectedUserFilter;
       const matchesDate = isDateMatch(r.createdAt, selectedDateFilter);
-
-      return matchesSearch && matchesStore && matchesUser && matchesDate;
+      return matchesSearch && matchesUser && matchesDate;
     });
   }, [refunds, returnSearch, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
   const filteredMovements = useMemo(() => {
     return movements.filter((move) => {
-      // 1. Store Filter
-      const matchesStore = selectedStoreFilter === "all" || move.storeId === selectedStoreFilter;
-
-      // 2. User/Staff Filter
       const matchesUser = selectedUserFilter === "all" || move.performedBy === selectedUserFilter;
-
-      // 3. Date Filter
       const matchesDate = isDateMatch(move.createdAt, selectedDateFilter);
 
-      return matchesStore && matchesUser && matchesDate;
+      return matchesUser && matchesDate;
     });
   }, [movements, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
@@ -252,10 +222,9 @@ function AdminTrackerPage() {
   const outOfStockItems = useMemo(() => {
     return items.filter((i) => {
       const isOutOfStock = i.currentStock <= i.reorderPoint;
-      const matchesStore = selectedStoreFilter === "all" || i.storeId === selectedStoreFilter;
-      return isOutOfStock && matchesStore;
+      return isOutOfStock;
     });
-  }, [items, selectedStoreFilter]);
+  }, [items]);
 
   // --- Actions handlers ---
   const handleStartPriceEdit = (item: Item) => {
@@ -350,13 +319,13 @@ function AdminTrackerPage() {
     
     recordRefund(
       {
-        id: `REFUND-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        saleId: "",
         itemId: returnItemId,
         itemName: selectedProd?.name || "Unknown Item",
         quantity: qty,
-        refundAmount: amt,
-        reason: returnReason,
-        customerPhone: returnCustomerPhone || undefined,
+        amountNgn: amt,
+        reason: returnReason as any,
+        notes: returnCustomerPhone || "",
         createdAt: new Date().toISOString(),
       },
       {
@@ -365,9 +334,8 @@ function AdminTrackerPage() {
           // Also adjust stock upwards because item was returned
           if (selectedProd) {
             recordMovement({
-              id: `MOVE-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
               itemId: returnItemId,
-              type: "received" as const,
+              type: MovementType.Received,
               quantity: qty,
               fromLocationId: null,
               toLocationId: selectedProd.locationId || null,
@@ -413,9 +381,8 @@ function AdminTrackerPage() {
 
     recordMovement(
       {
-        id: `MOVE-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
         itemId: transferItemId,
-        type: "shipped" as const, // shipped out of section
+        type: MovementType.Shipped,
         quantity: qty,
         fromLocationId: selectedProd.locationId || null,
         toLocationId: null,
@@ -626,7 +593,7 @@ function AdminTrackerPage() {
           </div>
           {(selectedStoreFilter !== "all" || selectedUserFilter !== "all" || selectedDateFilter !== "all") && (
             <Button
-              size="xs"
+              size="sm"
               variant="ghost"
               className="text-xs text-red-500 hover:text-red-600 h-7 px-2"
               onClick={() => {
@@ -648,12 +615,7 @@ function AdminTrackerPage() {
                 <SelectValue placeholder="All Store Branches" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">🏢 All Company Branches</SelectItem>
-                {stores.map((st) => (
-                  <SelectItem key={st.id} value={st.id}>
-                    🏢 {st.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">🏢 Current Branch</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -809,14 +771,14 @@ function AdminTrackerPage() {
                         <TableCell className="font-mono text-xs text-primary font-bold">{sale.id.slice(0, 10)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] font-sans font-medium">
-                            {getStoreName(sale.storeId)}
+                            {"Main Store"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {sale.createdAt ? format(new Date(sale.createdAt), "dd MMM yyyy, HH:mm") : "N/A"}
                         </TableCell>
                         <TableCell className="text-xs font-semibold text-foreground">
-                          {getUserName(sale.createdBy)}
+                          {getUserName(sale.recordedBy)}
                         </TableCell>
                         <TableCell>
                           {sale.customerName ? (
@@ -833,7 +795,7 @@ function AdminTrackerPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="text-[10px] uppercase font-mono">
-                            {sale.source || "POS"}
+                            POS
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-foreground">
@@ -843,7 +805,7 @@ function AdminTrackerPage() {
                           <div className="flex justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button size="xs" variant="outline" className="text-xs" onClick={() => setSelectedSale(sale)}>
+                                <Button size="sm" variant="outline" className="text-xs" onClick={() => setSelectedSale(sale)}>
                                   <Receipt className="h-3 w-3 mr-1 text-emerald-600" /> Digital Receipt
                                 </Button>
                               </DialogTrigger>
@@ -949,14 +911,14 @@ function AdminTrackerPage() {
                         <TableCell className="text-xs text-muted-foreground">{c.email || "—"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] capitalize">
-                            {c.tags?.[0] || "Standard"}
+                            {c.notes?.split(",")[0] || "Standard"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {c.createdAt ? format(new Date(c.createdAt), "dd MMM yyyy") : "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-red-500">
-                          {c.debtAmount ? fmtNgn(c.debtAmount) : fmtNgn(0)}
+                          {c.debtBalance ? fmtNgn(c.debtBalance) : fmtNgn(0)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1055,13 +1017,13 @@ function AdminTrackerPage() {
                           </TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center gap-1">
-                              <Button size="xs" variant="outline" className="text-[10px] py-1 px-1.5 h-6" onClick={() => handleMarkupCalculator(item.id, 15)}>
+                              <Button size="sm" variant="outline" className="text-[10px] py-1 px-1.5 h-6" onClick={() => handleMarkupCalculator(item.id, 15)}>
                                 +15%
                               </Button>
-                              <Button size="xs" variant="outline" className="text-[10px] py-1 px-1.5 h-6" onClick={() => handleMarkupCalculator(item.id, 25)}>
+                              <Button size="sm" variant="outline" className="text-[10px] py-1 px-1.5 h-6" onClick={() => handleMarkupCalculator(item.id, 25)}>
                                 +25%
                               </Button>
-                              <Button size="xs" variant="outline" className="text-[10px] py-1 px-1.5 h-6" onClick={() => handleMarkupCalculator(item.id, 35)}>
+                              <Button size="sm" variant="outline" className="text-[10px] py-1 px-1.5 h-6" onClick={() => handleMarkupCalculator(item.id, 35)}>
                                 +35%
                               </Button>
                             </div>
@@ -1069,15 +1031,15 @@ function AdminTrackerPage() {
                           <TableCell className="text-center">
                             {isEditing ? (
                               <div className="flex justify-center gap-1">
-                                <Button size="xs" className="bg-emerald-700 text-white h-7 w-7 p-0 rounded-md" onClick={() => handleSavePriceEdit(item.id)} disabled={priceUpdating}>
+                                <Button size="sm" className="bg-emerald-700 text-white h-7 w-7 p-0 rounded-md" onClick={() => handleSavePriceEdit(item.id)} disabled={priceUpdating}>
                                   <Check className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button size="xs" variant="ghost" className="h-7 w-7 p-0 rounded-md" onClick={() => setEditingItemId(null)}>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-md" onClick={() => setEditingItemId(null)}>
                                   <X className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             ) : (
-                              <Button size="xs" variant="ghost" className="h-7 w-7 p-0 rounded-md" onClick={() => handleStartPriceEdit(item)}>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-md" onClick={() => handleStartPriceEdit(item)}>
                                 <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
                               </Button>
                             )}
@@ -1139,11 +1101,11 @@ function AdminTrackerPage() {
                     {filteredExpenses.map((exp) => (
                       <TableRow key={exp.id} className="hover:bg-muted/40">
                         <TableCell className="font-semibold text-foreground">
-                          {exp.description}
+                          {exp.notes}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] font-sans">
-                            {getStoreName(exp.storeId)}
+                            Main Store
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -1154,8 +1116,8 @@ function AdminTrackerPage() {
                         <TableCell className="text-xs text-muted-foreground font-mono">
                           {exp.date ? (exp.date.includes('T') ? format(new Date(exp.date), "dd MMM yyyy, HH:mm") : format(new Date(exp.date), "dd MMM yyyy")) : "—"}
                         </TableCell>
-                        <TableCell className="text-xs font-mono uppercase">{exp.paymentMethod || "Cash"}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground font-semibold">{getUserName(exp.createdBy)}</TableCell>
+                        <TableCell className="text-xs font-mono uppercase">Cash</TableCell>
+                        <TableCell className="text-xs text-muted-foreground font-semibold">{getUserName(exp.recordedBy)}</TableCell>
                         <TableCell className="text-right font-mono font-bold text-yellow-600 dark:text-yellow-400">
                           {fmtNgn(exp.amount || 0)}
                         </TableCell>
@@ -1212,7 +1174,7 @@ function AdminTrackerPage() {
                         <TableCell className="font-mono text-xs font-bold text-red-500">{refund.id.slice(0, 10)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] font-sans">
-                            {getStoreName(refund.storeId)}
+                            Main Store
                           </Badge>
                         </TableCell>
                         <TableCell className="font-semibold text-foreground">{refund.itemName}</TableCell>
@@ -1222,15 +1184,15 @@ function AdminTrackerPage() {
                             {refund.reason}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{refund.customerPhone || "—"}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">—</TableCell>
                         <TableCell className="text-xs text-muted-foreground font-semibold">
-                          {getUserName(refund.createdBy || refund.performedBy)}
+                          {getUserName(refund.recordedBy)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {refund.createdAt ? format(new Date(refund.createdAt), "dd MMM yyyy, HH:mm") : "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-red-500">
-                          {fmtNgn(refund.refundAmount)}
+                          {fmtNgn(refund.amountNgn)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1331,7 +1293,7 @@ function AdminTrackerPage() {
                           <TableCell className="font-mono text-xs font-bold">{move.id.slice(0, 10)}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-[10px] font-sans">
-                              {getStoreName(move.storeId)}
+                              Main Store
                             </Badge>
                           </TableCell>
                           <TableCell className="font-semibold text-foreground">

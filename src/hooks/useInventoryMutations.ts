@@ -7,6 +7,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { notifyActivity } from "@/lib/notification-service";
 import type { Item, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest, Category } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
+import type { Refund } from "@/types/finance";
 
 interface MutationResult<TData> {
   mutate: (data: TData, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => void;
@@ -501,4 +502,94 @@ export function useDeleteCategory() {
       metadata: { categoryId: id }
     });
   });
+}
+
+export function useCreateRefund() {
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const mutate = useCallback(
+    async (data: Omit<Refund, "id">, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => {
+      if (!user || !storeId) {
+        opts?.onError?.(new Error("Not authenticated"));
+        return;
+      }
+      setIsLoading(true);
+      setError(null);
+      try {
+        const batch = writeBatch(db);
+        const refundRef = doc(collection(db, "refunds"));
+        const conversionFactor = data.conversionFactor || 1;
+        const incrementAmount = data.quantity * conversionFactor;
+
+        const payload: Record<string, unknown> = {
+          ...data,
+          storeId,
+          branchId: claims?.branchId || null,
+          ownerId: user.uid,
+          recordedBy: user.uid,
+          recordedByName: user.displayName || user.email || "Staff",
+        };
+        Object.keys(payload).forEach((key) => {
+          if (payload[key] === undefined) delete payload[key];
+        });
+
+        batch.set(refundRef, payload);
+
+        const productRef = doc(db, "products", data.itemId);
+        batch.update(productRef, {
+          currentStock: increment(incrementAmount),
+          updatedAt: new Date().toISOString(),
+        });
+
+        const movementRef = doc(collection(db, "movements"));
+        batch.set(movementRef, {
+          itemId: data.itemId,
+          type: "received",
+          quantity: incrementAmount,
+          unitUsed: data.selectedUnit || null,
+          reference: `Refund: ${refundRef.id}`,
+          notes: `Returned from Sale ${data.saleId}. Reason: ${data.reason}${data.notes ? ` - ${data.notes}` : ""}`,
+          storeId,
+          branchId: claims?.branchId || null,
+          ownerId: user.uid,
+          performedBy: user.uid,
+          performedByName: user.displayName || user.email || "Staff",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        const saleRef = doc(db, "sales", data.saleId);
+        batch.update(saleRef, { hasRefund: true, updatedAt: new Date().toISOString() });
+
+        await batch.commit();
+
+        await notifyActivity({
+          type: "movement",
+          category: "inventory",
+          severity: "low",
+          title: "Product Refunded",
+          message: `${data.quantity} ${data.selectedUnit || "units"} of ${data.itemName} refunded.`,
+          userId: user.uid,
+          userEmail: user.email || "",
+          storeId,
+          branchId: claims?.branchId || undefined,
+          metadata: { refundId: refundRef.id, itemId: data.itemId, qty: data.quantity },
+        });
+
+        opts?.onSuccess?.();
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        setError(e);
+        opts?.onError?.(e);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, storeId, claims]
+  );
+
+  return { mutate, isLoading, error };
 }

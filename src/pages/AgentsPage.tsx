@@ -60,7 +60,7 @@ import {
   ExternalLink,
   Share2
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -652,7 +652,7 @@ export function AgentsPage() {
       {/* NAV */}
       <nav id="nav" className={scrolled ? "scrolled" : ""}>
         <div className="nav-inner">
-          <div className="nav-brand" onClick={() => navigate({ to: "/" })}>
+          <div className="nav-brand" onClick={() => navigate("/")}>
             <div className="nav-logo">
               <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
                 <path d="M4 4L10 4L14 12L10 20H4L8 12L4 4Z" fill="white" opacity=".9"/>
@@ -674,7 +674,7 @@ export function AgentsPage() {
           <div className="flex items-center gap-3">
             {isSuperAdmin && (
               <Button 
-                onClick={() => navigate({ to: "/app/super-admin/agents-network" })}
+                onClick={() => navigate("/agents")}
                 className="bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs rounded-full px-3 py-1"
               >
                 Super Admin

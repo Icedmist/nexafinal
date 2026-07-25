@@ -25,8 +25,8 @@ const DEMO_PARTNERS = [
 ];
 
 export default function AffiliatesPage() {
-  const { data: items } = useItems({ status: "active" });
-  const affiliateItems = items.filter(i => i.affiliateCommission && i.affiliateCommission > 0);
+  const { data: items } = useItems();
+  const affiliateItems = items.filter(i => (i as any).affiliateCommission && (i as any).affiliateCommission > 0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const { isDemo, onboarding: demoOnboarding } = useDemo();
   const { profile: liveProfile } = useBusiness();
@@ -152,7 +152,7 @@ export default function AffiliatesPage() {
                 <p className="text-xs text-muted-foreground font-mono">{item.sku}</p>
               </div>
               <div className="text-right font-semibold text-green-600">
-                ₦{item.affiliateCommission?.toLocaleString()}
+                ₦{(item as any).affiliateCommission?.toLocaleString()}
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="icon" className="h-8 w-8">

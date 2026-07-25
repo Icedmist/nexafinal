@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useSector } from "@/hooks/useSector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { CategoryManager } from "@/components/settings/CategoryManager";
@@ -19,6 +20,9 @@ import { SmartFeatures } from "@/components/settings/SmartFeatures";
 import { UserProfile } from "@/components/settings/UserProfile";
 import { TourLauncher } from "@/components/settings/TourLauncher";
 import { MoniepointLink } from "@/components/settings/MoniepointLink";
+import { RestaurantAdminPanel } from "@/components/settings/RestaurantAdminPanel";
+import { PharmaAdminPanel } from "@/components/settings/PharmaAdminPanel";
+import { AgriAdminPanel } from "@/components/settings/AgriAdminPanel";
 
 export default SettingsPage;
 
@@ -26,6 +30,7 @@ function SettingsPage() {
   const { can } = usePermissions();
   const { isAdmin, isManager, isStaff } = useRole();
   const { profile } = useBusiness();
+  const { type: sectorType } = useSector();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -49,6 +54,7 @@ function SettingsPage() {
     { value: "reorder-defaults", label: "Reorder", visible: isAdmin || isManager, component: <ReorderDefaults /> },
     { value: "smart", label: "Smart Features", visible: isAdmin, component: <SmartFeatures /> },
     { value: "users", label: "Staff", visible: isAdmin || isManager, component: <UserManagement /> },
+    { value: "sector", label: "Sector Config", visible: isAdmin && (sectorType === "restaurant" || sectorType === "pharmacy" || sectorType === "agriculture"), component: sectorType === "restaurant" ? <RestaurantAdminPanel /> : sectorType === "pharmacy" ? <PharmaAdminPanel /> : <AgriAdminPanel /> },
     { value: "help", label: "Help", visible: true, component: <TourLauncher /> },
     { value: "system", label: "System", visible: isAdmin, component: <SystemSettings /> },
   ].filter((t) => t.visible);

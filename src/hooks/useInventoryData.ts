@@ -7,6 +7,7 @@ import type {
   Item, Category, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest,
   ItemFilters, StockSummary 
 } from "@/types/inventory";
+import type { Customer } from "@/types/crm";
 import { isAdminRole } from "@/lib/roles";
 
 const getBranchAccessValues = (userBranchId: string | null | undefined) => {
@@ -399,4 +400,45 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
   }, [user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
+}
+
+export function useCustomers(): QueryResult<Customer[]> {
+  const { user, claimsReady } = useAuth();
+  const { storeId } = useBusiness();
+  const [data, setData] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) {
+        setData([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(db, "customers"),
+      where("storeId", "==", storeId),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items: Customer[] = [];
+      snapshot.forEach((doc) => {
+        items.push({ id: doc.id, ...doc.data() } as Customer);
+      });
+      setData(items);
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Firestore Listen Error (Customers):", err);
+      setError(err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, storeId, claimsReady]);
+
+  return { data, isLoading, error };
 }
