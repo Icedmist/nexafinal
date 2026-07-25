@@ -108,9 +108,11 @@ function LoginPage() {
 
         const tokenResult = await loggedInUser.getIdTokenResult(true);
         const claimStoreId = tokenResult.claims.storeId as string | undefined;
+        const claimRole = tokenResult.claims.role as string | undefined;
+        const isSystemAdmin = claimRole === "system_admin";
 
         let isStaff = false;
-        if (!isOwner) {
+        if (!isOwner && !isSystemAdmin) {
           if (claimStoreId === store.id) {
             isStaff = true;
           } else {
@@ -142,7 +144,7 @@ function LoginPage() {
           }
         }
 
-        if (!isOwner && !isStaff) {
+        if (!isOwner && !isSystemAdmin && !isStaff) {
           const correctStore = await getCorrectStoreUrl(loggedInUser.uid);
           await logout();
           
