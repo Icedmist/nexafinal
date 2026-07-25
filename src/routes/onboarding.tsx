@@ -102,7 +102,9 @@ function OnboardingPage() {
           phone: "",
           receiptFooter: "Thank you for your patronage!",
           taxRate: 0
-        }
+        },
+        // Write categories array to store document for BusinessContext
+        categories: data.categories,
       });
 
       // 3. Create initial staff record for the owner
