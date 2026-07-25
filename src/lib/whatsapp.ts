@@ -52,7 +52,7 @@ export function buildPersonalizedReceiptText(sale: SaleTransaction, storeName: s
   lines.push("*Items:*");
   
   sale.items.forEach((li) => {
-    const unitText = li.unit && li.unit !== "pcs" ? ` ${li.unit}` : "";
+    const unitText = li.selectedUnit && li.selectedUnit !== "pcs" ? ` ${li.selectedUnit}` : "";
     lines.push(`• ${li.itemName} (${li.quantity}${unitText}) - ${formatNaira(li.unitPriceNgn * li.quantity)}`);
   });
   

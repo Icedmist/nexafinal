@@ -22,8 +22,9 @@ import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { getStorefrontUrl, getCleanStoreSlug } from "@/lib/utils";
 
 export default function EcommercePage() {
-  const { data: items } = useItems({ status: "active" });
-  const ecommerceItems = items.filter(i => i.isEcommerceEnabled);
+  const { data: allItems } = useItems();
+  const items = allItems.filter(i => i.status === "active");
+  const ecommerceItems = items.filter(i => i.sellingPrice > 0 && i.currentStock > 0);
   const { profile } = useBusiness();
   const { flags } = useFeatureFlags();
 
