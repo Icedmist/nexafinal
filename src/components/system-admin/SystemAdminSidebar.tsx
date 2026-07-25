@@ -5,7 +5,10 @@ import {
   Settings,
   Activity,
   ShieldCheck,
-  LifeBuoy
+  LifeBuoy,
+  UserCheck,
+  CreditCard,
+  Mail
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -24,6 +27,9 @@ const systemAdminLinks: NavItem[] = [
   { label: "Audit Logs", href: "/system-admin/audit", icon: ShieldCheck },
   { label: "System Health", href: "/system-admin/health", icon: Activity },
   { label: "Global Settings", href: "/system-admin/settings", icon: Settings },
+  { label: "Agent Network", href: "/system-admin/agents-network", icon: UserCheck },
+  { label: "Subscriptions", href: "/system-admin/subscriptions", icon: CreditCard },
+  { label: "Retention", href: "/system-admin/retention", icon: Mail },
 ];
 
 export function SystemAdminSidebar() {

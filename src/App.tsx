@@ -49,6 +49,9 @@ const SystemUsersPage = lazy(() => import('./routes/system-admin.users'));
 const SystemHealthPage = lazy(() => import('./routes/system-admin.health'));
 const SystemSettingsPage = lazy(() => import('./routes/system-admin.settings'));
 const SystemAuditPage = lazy(() => import('./routes/system-admin.audit'));
+const SystemAgentsNetworkPage = lazy(() => import('./routes/system-admin.agents-network'));
+const SystemSubscriptionsPage = lazy(() => import('./routes/system-admin.subscriptions'));
+const SystemRetentionPage = lazy(() => import('./routes/system-admin.retention'));
 
 
 import { LogoutOverlay } from './components/shared/LogoutOverlay';
@@ -126,6 +129,9 @@ function App() {
               <Route path="health" element={<SystemHealthPage />} />
               <Route path="settings" element={<SystemSettingsPage />} />
               <Route path="audit" element={<SystemAuditPage />} />
+              <Route path="agents-network" element={<SystemAgentsNetworkPage />} />
+              <Route path="subscriptions" element={<SystemSubscriptionsPage />} />
+              <Route path="retention" element={<SystemRetentionPage />} />
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>
 
