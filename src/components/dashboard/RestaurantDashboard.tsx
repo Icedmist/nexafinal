@@ -3,17 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useItems } from "@/hooks/useInventoryData";
-import { ChefHat, Clock, Flame, Leaf, Utensils } from "lucide-react";
+import { ChefHat, Clock, Leaf, Utensils, CircleDot } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDemo } from "@/hooks/useDemo";
-import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 
 export function RestaurantDashboard() {
   const { data: items } = useItems();
-  const { isDemo, onboarding: demoOnboarding } = useDemo();
-  const { settings: liveSettings } = useSystemSettings();
-  const onboarding = isDemo ? demoOnboarding : liveSettings;
-  const isRestaurant = onboarding?.businessType === "restaurant";
 
   const [tableStatuses, setTableStatuses] = useState<Record<number, { status: "available" | "cooking" | "served"; orderTime?: string; itemsCount?: number; totalPrice?: number }>>({});
 
@@ -53,13 +47,7 @@ export function RestaurantDashboard() {
     reloadTableStatuses();
   };
   
-  const menuItems = items.filter(i => i.restaurant || (isRestaurant && i.status !== "archived"));
-  
-  const longPrepItems = [...menuItems]
-    .sort((a, b) => (b.restaurant?.preparationTime || 0) - (a.restaurant?.preparationTime || 0))
-    .slice(0, 5);
-
-  const vegetarianCount = menuItems.filter(i => i.restaurant?.isVegetarian).length;
+  const menuItems = items.filter(i => i.status !== "archived");
 
   return (
     <div className="space-y-6">
@@ -67,8 +55,8 @@ export function RestaurantDashboard() {
       <div className="grid gap-3 md:grid-cols-4">
         {[
           { label: "Menu Catalog", value: menuItems.length, sub: "Items Active", icon: ChefHat, color: "text-orange-600", bg: "bg-orange-50/10 dark:bg-orange-950/20" },
-          { label: "Plant Based", value: vegetarianCount, sub: "V/V+ Options", icon: Leaf, color: "text-green-600", bg: "bg-green-50/10 dark:bg-green-950/20" },
-          { label: "Spicy Items", value: menuItems.filter(i => i.restaurant?.spiceLevel === "hot").length, sub: "Signature Kick", icon: Flame, color: "text-red-600", bg: "bg-red-50/10 dark:bg-red-950/20" },
+          { label: "In Stock", value: items.filter(i => i.currentStock > 0 && i.status !== "archived").length, sub: "Available Items", icon: Utensils, color: "text-green-600", bg: "bg-green-50/10 dark:bg-green-950/20" },
+          { label: "Low Stock", value: items.filter(i => i.currentStock > 0 && i.currentStock <= (i.reorderPoint || 10) && i.status !== "archived").length, sub: "Needs Restock", icon: CircleDot, color: "text-red-600", bg: "bg-red-50/10 dark:bg-red-950/20" },
           { label: "Avg Prep", value: "18m", sub: "Kitchen Target", icon: Clock, color: "text-blue-600", bg: "bg-blue-50/10 dark:bg-blue-950/20" },
         ].map((stat, i) => (
           <div key={i} className={cn("rounded-xl border border-border p-4 shadow-xs", stat.bg)}>
@@ -103,30 +91,18 @@ export function RestaurantDashboard() {
                  <div key={item.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-muted/20 transition-colors">
                    <div className="flex items-center gap-3">
                      <div className="h-10 w-10 rounded-xl bg-orange-100/50 flex items-center justify-center text-xl shadow-xs border border-orange-200/30">
-                        {item.emoji || <Utensils className="h-5 w-5" />}
+                        <Utensils className="h-5 w-5 text-orange-500" />
                      </div>
                      <div>
                        <p className="text-sm font-bold">{item.name}</p>
-                       <div className="flex items-center gap-2 mt-1">
-                         {item.restaurant?.isVegetarian && (
-                           <span className="flex items-center gap-0.5 text-[8px] font-black uppercase text-green-600 tracking-tight">
-                             <Leaf className="h-2 w-2" /> Veg
-                           </span>
-                         )}
-                         {item.restaurant?.spiceLevel === "hot" && (
-                           <span className="flex items-center gap-0.5 text-[8px] font-black uppercase text-red-600 tracking-tight">
-                             <Flame className="h-2 w-2" /> Spicy
-                           </span>
-                         )}
-                         <span className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded">
-                           <Clock className="h-2.5 w-2.5" /> {item.restaurant?.preparationTime || 15}m
-                         </span>
-                       </div>
+                       <p className="text-[10px] text-muted-foreground mt-1">
+                         {item.currentStock} {item.unit} in stock
+                       </p>
                      </div>
                    </div>
                    <div className="text-right">
                      <p className="text-xs font-bold font-mono tracking-tight text-foreground">
-                       ₦{item.sellingPrice.toLocaleString()}
+                       {item.sellingPrice.toLocaleString()}
                      </p>
                      <div className="mt-1">
                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[8px] font-black uppercase text-primary border border-primary/20">
@@ -180,7 +156,7 @@ export function RestaurantDashboard() {
                 </div>
                 
                 <p className="text-center text-[9px] text-muted-foreground leading-relaxed px-4">
-                  Capacity is measured by active tickets vs. workstations. Current kitchen flow is **stable**.
+                  Capacity is measured by active tickets vs. workstations. Current kitchen flow is stable.
                 </p>
              </div>
           </CardContent>
@@ -241,7 +217,7 @@ export function RestaurantDashboard() {
                       </div>
                       <div className="flex justify-between font-mono">
                         <span>Subtotal:</span>
-                        <span className="font-bold text-foreground">₦{(table.totalPrice || 0).toLocaleString()}</span>
+                        <span className="font-bold text-foreground">{(table.totalPrice || 0).toLocaleString()}</span>
                       </div>
                     </div>
                   )}

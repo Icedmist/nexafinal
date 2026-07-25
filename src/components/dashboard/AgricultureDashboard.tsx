@@ -3,22 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useItems } from "@/hooks/useInventoryData";
 import { Calendar, CloudSun, Droplets, MapPin, Sprout, Plus } from "lucide-react";
-import { format, isAfter, isBefore, addDays, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export function AgricultureDashboard() {
   const { data: items } = useItems();
   
-  const agriculturalItems = items.filter(i => i.agriculture);
-  
-  // Sorted by expected harvest date
-  const upcomingHarvests = agriculturalItems
-    .filter(i => i.agriculture?.expectedHarvestDate)
-    .sort((a, b) => 
-      new Date(a.agriculture!.expectedHarvestDate!).getTime() - 
-      new Date(b.agriculture!.expectedHarvestDate!).getTime()
-    )
-    .slice(0, 5);
+  const agriculturalItems = items.filter(i => i.status !== "archived");
 
   return (
     <div className="space-y-6">
@@ -51,49 +41,39 @@ export function AgricultureDashboard() {
              <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-primary" />
-                  Upcoming Harvests
+                  Inventory Items
                 </CardTitle>
-                <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-tighter bg-background">Next 30 Days</Badge>
+                <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-tighter bg-background">Active Catalog</Badge>
              </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {upcomingHarvests.length === 0 ? (
+              {agriculturalItems.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground italic text-xs">
-                  No harvest dates scheduled.
+                  No items in inventory yet.
                 </div>
               ) : (
-                upcomingHarvests.map(item => {
-                  const harvestDate = parseISO(item.agriculture!.expectedHarvestDate!);
-                  const isSoon = isAfter(addDays(new Date(), 7), harvestDate) && isBefore(new Date(), harvestDate);
-                  
+                agriculturalItems.slice(0, 5).map(item => {
                   return (
                     <div key={item.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-muted/20 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-xl shadow-xs border border-border/30">
-                           {item.emoji || <Sprout className="h-5 w-5" />}
+                        <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center shadow-xs border border-border/30">
+                           <Sprout className="h-5 w-5 text-green-600" />
                          </div>
                         <div>
                           <p className="text-sm font-bold">{item.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <MapPin className="h-3 w-3 text-muted-foreground" />
                             <span className="text-[10px] font-medium text-muted-foreground">
-                              {item.agriculture?.fieldId || "Main Field"}
+                              Main Storage
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={cn("text-xs font-bold font-mono tracking-tight", isSoon ? "text-orange-600" : "text-foreground")}>
-                          {format(harvestDate, "MMM dd, yyyy")}
+                        <p className="text-xs font-bold font-mono tracking-tight text-foreground">
+                          {item.currentStock} {item.unit}
                         </p>
-                        {isSoon && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[8px] font-black uppercase text-orange-700 ring-1 ring-inset ring-orange-600/20">
-                              Peak Harvest
-                            </span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
@@ -119,7 +99,7 @@ export function AgricultureDashboard() {
              <div className="grid grid-cols-4 gap-2.5 w-full max-w-[240px]">
                 {[...Array(16)].map((_, i) => {
                   const plotId = `Field ${String.fromCharCode(65 + Math.floor(i/4))}-${(i%4)+1}`;
-                  const crop = agriculturalItems.find(it => it.agriculture?.fieldId === plotId);
+                  const crop = agriculturalItems[i % agriculturalItems.length];
                   
                   return (
                     <div 
@@ -130,7 +110,9 @@ export function AgricultureDashboard() {
                       )}
                     >
                       {crop ? (
-                        <span className="animate-in zoom-in-50 duration-300">{crop.emoji || <Sprout className="h-4 w-4" />}</span>
+                        <span className="animate-in zoom-in-50 duration-300">
+                          <Sprout className="h-4 w-4" />
+                        </span>
                       ) : (
                         <Plus className="h-2 w-2 text-muted-foreground/30" />
                       )}
@@ -146,12 +128,12 @@ export function AgricultureDashboard() {
              <div className="mt-8 w-full space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                    <span>Land Utilization</span>
-                   <span>{(agriculturalItems.length / 16 * 100).toFixed(0)}%</span>
+                   <span>{(Math.min(agriculturalItems.length, 16) / 16 * 100).toFixed(0)}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                    <div 
                      className="h-full bg-green-500 transition-all duration-1000" 
-                     style={{ width: `${(agriculturalItems.length / 16 * 100)}%` }}
+                     style={{ width: `${(Math.min(agriculturalItems.length, 16) / 16 * 100)}%` }}
                    />
                 </div>
              </div>

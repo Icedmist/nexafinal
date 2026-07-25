@@ -10,6 +10,7 @@ import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButt
 import { EMPTY_MOVEMENT_FILTERS } from "@/components/movements/movement-filter-types";
 import type { MovementFilters } from "@/components/movements/movement-filter-types";
 import { useMovements, useItems, useLocations } from "@/hooks/useInventoryData";
+import { useSector } from "@/hooks/useSector";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -43,6 +44,7 @@ function MovementsPage() {
   const { data: movements } = useMovements();
   const { data: items } = useItems();
   const { data: locations } = useLocations();
+  const sector = useSector();
 
   // Pre-filter by item query param on mount
   useEffect(() => {
@@ -83,7 +85,7 @@ function MovementsPage() {
     <div className="mx-auto max-w-[1400px] space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Stock movements</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{sector.labels.movements}</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} movements</p>
         </div>
         <div className="flex items-center gap-2">
@@ -95,7 +97,7 @@ function MovementsPage() {
           <PermissionGate permission="log_movement">
             <Button onClick={() => setFormOpen(true)} className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white">
               <Plus className="h-4 w-4" />
-              Log Movement
+              Log {sector.labels.item} Movement
             </Button>
           </PermissionGate>
         </div>
@@ -114,8 +116,8 @@ function MovementsPage() {
       {movements.length === 0 ? (
         <EmptyState
           icon={ArrowUpDown}
-          title="No stock movements recorded"
-          description="Movements track stock changes — receipts, shipments, adjustments, and transfers."
+          title={`No ${sector.labels.movements.toLowerCase()} recorded`}
+          description={`Track changes to your ${sector.labels.catalog.toLowerCase()} — receipts, shipments, adjustments, and transfers.`}
           actionLabel="Log Movement"
           onAction={() => setFormOpen(true)}
         />

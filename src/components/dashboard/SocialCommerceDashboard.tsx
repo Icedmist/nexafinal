@@ -1,18 +1,19 @@
-import { Globe, MessageCircle, Link as LinkIcon, Landmark, Eye, ShoppingCart, ArrowUpRight } from "lucide-react";
+import { Globe, MessageCircle, Link as LinkIcon, Landmark, Eye, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { getStorefrontUrl } from "@/lib/utils";
 
 export function SocialCommerceDashboard() {
-  const { settings } = useSystemSettings();
+  const { profile } = useBusiness();
   
-  const fullStoreUrl = settings.storeSlug 
-    ? getStorefrontUrl(settings.storeSlug)
+  const slug = profile?.storeDetails?.slug;
+  const fullStoreUrl = slug 
+    ? getStorefrontUrl(slug)
     : `${window.location.origin}/store/demo-store`;
 
-  const displayStoreUrl = settings.storeSlug 
-    ? `store/${settings.storeSlug}`
+  const displayStoreUrl = slug 
+    ? `store/${slug}`
     : "store/demo-store";
 
   return (
@@ -39,23 +40,21 @@ export function SocialCommerceDashboard() {
         </div>
       </div>
 
-      {/* ── Moniepoint Integration ─────────────────── */}
+      {/* ── Payment Gateway ─────────────────── */}
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between mb-4">
           <div className="p-2 rounded-lg bg-emerald-500/10">
             <Landmark className="h-5 w-5 text-emerald-600" />
           </div>
-          <Badge variant={settings.moniepointKey ? "default" : "secondary"} className="text-[10px] px-2">
-            {settings.moniepointKey ? "Connected" : "Inactive"}
-          </Badge>
+          <Badge variant="secondary" className="text-[10px] px-2">Inactive</Badge>
         </div>
         <h3 className="font-bold text-sm mb-1">Payment Gateway</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          {settings.moniepointKey ? "Accepting Moniepoint payments." : "Connect Moniepoint to accept payments."}
+          Connect Moniepoint to accept payments.
         </p>
         <Button size="sm" variant="secondary" className="w-full h-8 text-[11px] gap-1.5" asChild>
           <a href="/app/settings">
-             {settings.moniepointKey ? "Update Key" : "Connect Now"} <ArrowUpRight className="h-3 w-3" />
+             Connect Now <ArrowUpRight className="h-3 w-3" />
           </a>
         </Button>
       </div>

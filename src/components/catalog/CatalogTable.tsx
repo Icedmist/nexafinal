@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSector } from "@/hooks/useSector";
 import type { Item, Category, Supplier, Location } from "@/types/inventory";
 
 type SortDir = "asc" | "desc" | null;
@@ -60,6 +61,7 @@ export function CatalogTable({
 }: CatalogTableProps) {
   const [page, setPage] = useState(0);
   const isMobile = useIsMobile();
+  const sector = useSector();
 
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const supMap = useMemo(() => new Map(suppliers.map((s) => [s.id, s.name])), [suppliers]);
@@ -134,7 +136,7 @@ export function CatalogTable({
                   />
                 </TableHead>
               )}
-              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>Name<SortIcon col="name" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>{sector.labels.item}<SortIcon col="name" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("sku")}>SKU<SortIcon col="sku" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("categoryId")}>Category<SortIcon col="categoryId" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("currentStock")}>Qty<SortIcon col="currentStock" /></TableHead>

@@ -31,6 +31,7 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
+import { useSector } from "@/hooks/useSector";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import nexaLogo from "@/assets/nexa-logo.svg";
@@ -61,62 +62,6 @@ interface NavGroup {
   permKey?: keyof RolePermissions;
 }
 
-const navGroups: NavGroup[] = [
-  {
-    label: "Operations",
-    items: [
-      { label: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
-      { label: "Sales", href: "/app/sales", icon: ShoppingCart },
-      { label: "Sales History", href: "/app/sales-history", icon: History },
-      { label: "Sales Analytics", href: "/app/sales-analytics", icon: TrendingUp, permKey: "canViewAnalytics" },
-      { label: "Customers", href: "/app/customers", icon: Users },
-      { label: "Catalog", href: "/app/catalog", icon: Package, permKey: "canManageItems" },
-      { label: "Movements", href: "/app/movements", icon: ArrowLeftRight, permKey: "canLogMovements" },
-      { label: "Locations", href: "/app/locations", icon: MapPin, permKey: "canManageItems" },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [
-      { label: "Returns", href: "/app/returns", icon: RotateCcw },
-      { label: "Expenses", href: "/app/expenses", icon: Receipt },
-      { label: "Moniepoint Live", href: "/app/moniepoint", icon: Activity, permKey: "canViewAnalytics" },
-    ],
-  },
-  {
-    label: "Procurement",
-    permKey: "canManagePOs",
-    items: [
-      { label: "Suppliers", href: "/app/suppliers", icon: Truck },
-      { label: "Restocking", href: "/app/restocking", icon: ClipboardList },
-    ],
-  },
-  {
-    label: "Intelligence",
-    permKey: "canViewAnalytics",
-    items: [
-      { label: "Analytics", href: "/app/analytics", icon: BarChart3 },
-      { label: "AI insights", href: "/app/ai-insights", icon: Sparkles },
-    ],
-  },
-  {
-    label: "Growth",
-    items: [
-      { label: "Digital Storefront", href: "/app/ecommerce", icon: Store },
-      { label: "Affiliate Program", href: "/app/affiliates", icon: Handshake },
-      { label: "Admin Tracker", href: "/app/tracker", icon: Radar },
-    ],
-  },
-  {
-    label: "Admin",
-    permKey: "canAccessSettings",
-    items: [
-      { label: "Settings", href: "/app/settings", icon: Settings },
-      { label: "Staff", href: "/app/staff", icon: Users, permKey: "canManageUsers" },
-    ],
-  },
-];
-
 const systemAdminGroups: NavGroup[] = [
   {
     label: "Platform Admin",
@@ -143,6 +88,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const { permissions, isSystemAdmin, role } = useRole();
+  const sector = useSector();
   const { profile } = useBusiness();
   const { user, logout } = useAuth();
   const [staffName, setStaffName] = useState("");
@@ -163,6 +109,62 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const userInitials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
 
   const isBasicPOS = profile?.complexityLevel === "basic";
+
+  const navGroups: NavGroup[] = [
+    {
+      label: "Operations",
+      items: [
+        { label: sector.labels.dashboard, href: "/app/dashboard", icon: LayoutDashboard },
+        { label: sector.labels.sales, href: "/app/sales", icon: ShoppingCart },
+        { label: "Sales History", href: "/app/sales-history", icon: History },
+        { label: "Sales Analytics", href: "/app/sales-analytics", icon: TrendingUp, permKey: "canViewAnalytics" },
+        { label: sector.labels.customers, href: "/app/customers", icon: Users },
+        { label: sector.labels.catalog, href: "/app/catalog", icon: sector.icons.catalog, permKey: "canManageItems" },
+        { label: sector.labels.movements, href: "/app/movements", icon: ArrowLeftRight, permKey: "canLogMovements" },
+        { label: "Locations", href: "/app/locations", icon: MapPin, permKey: "canManageItems" },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        { label: "Returns", href: "/app/returns", icon: RotateCcw },
+        { label: "Expenses", href: "/app/expenses", icon: Receipt },
+        { label: "Moniepoint Live", href: "/app/moniepoint", icon: Activity, permKey: "canViewAnalytics" },
+      ],
+    },
+    {
+      label: "Procurement",
+      permKey: "canManagePOs",
+      items: [
+        { label: sector.labels.suppliers, href: "/app/suppliers", icon: Truck },
+        { label: "Restocking", href: "/app/restocking", icon: ClipboardList },
+      ],
+    },
+    {
+      label: "Intelligence",
+      permKey: "canViewAnalytics",
+      items: [
+        { label: "Analytics", href: "/app/analytics", icon: BarChart3 },
+        { label: "AI insights", href: "/app/ai-insights", icon: Sparkles },
+      ],
+    },
+    {
+      label: "Growth",
+      items: [
+        { label: "Digital Storefront", href: "/app/ecommerce", icon: Store },
+        { label: "Affiliate Program", href: "/app/affiliates", icon: Handshake },
+        { label: "Admin Tracker", href: "/app/tracker", icon: Radar },
+      ],
+    },
+    {
+      label: "Admin",
+      permKey: "canAccessSettings",
+      items: [
+        { label: "Settings", href: "/app/settings", icon: Settings },
+        { label: "Staff", href: "/app/staff", icon: Users, permKey: "canManageUsers" },
+      ],
+    },
+  ];
 
   const toggleGroup = (label: string) => {
     setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));

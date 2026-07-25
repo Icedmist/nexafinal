@@ -30,6 +30,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { useDemo } from "@/hooks/useDemo";
+import { useStoreType } from "@/hooks/useStoreType";
+import { useCustomers } from "@/hooks/useInventoryData";
+import { AgricultureDashboard } from "@/components/dashboard/AgricultureDashboard";
+import { PharmacyDashboard } from "@/components/dashboard/PharmacyDashboard";
+import { RestaurantDashboard } from "@/components/dashboard/RestaurantDashboard";
+import { ManufacturingDashboard } from "@/components/dashboard/ManufacturingDashboard";
+import { SocialCommerceDashboard } from "@/components/dashboard/SocialCommerceDashboard";
+import { TextileDashboard } from "@/components/dashboard/TextileDashboard";
+import { WholesalerDashboardWidget, RetailerDashboardWidget, SupermarketDashboardWidget } from "@/components/dashboard/StoreTypeDashboards";
 
 const NAIRA = "₦";
 
@@ -98,9 +109,13 @@ function DashboardPage() {
   const { data: realMovements } = useMovements();
   const { data: realSuppliers } = useSuppliers();
   const { isAdmin, isManager } = useRole();
+  const { storeType, isWholesaler, isRetailer, isSupermarket } = useStoreType();
+  const { onboarding } = useDemo();
+  const businessType = onboarding.businessType;
   const { profile } = useBusiness();
   const { user } = useAuth();
   const { cacheData } = useOfflineMode();
+  const { data: customers = [] } = useCustomers();
   // useAlertGenerator(); // Disabled for production
 
   const items = realItems;
@@ -409,6 +424,59 @@ function DashboardPage() {
           <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Settings</span>
         </motion.button>
       </motion.div>
+
+      {/* ─── Store Type Dashboard Widgets ─── */}
+      <div className="space-y-4">
+        {isWholesaler && (
+          <WholesalerDashboardWidget sales={sales} items={items} customers={customers} creditsList={[]} />
+        )}
+        {isRetailer && (
+          <RetailerDashboardWidget sales={sales} items={items} customers={customers} creditsList={[]} />
+        )}
+        {isSupermarket && (
+          <SupermarketDashboardWidget sales={sales} items={items} customers={customers} creditsList={[]} />
+        )}
+      </div>
+
+      {/* ─── Sector-Specific Command Center ─── */}
+      <div className="space-y-4">
+        {businessType === "agriculture" && (
+          <Card className="border-green-200 bg-green-50/30">
+            <CardHeader><CardTitle className="text-green-800">Agricultural Command Center</CardTitle></CardHeader>
+            <CardContent><AgricultureDashboard /></CardContent>
+          </Card>
+        )}
+        {businessType === "pharmacy" && (
+          <Card className="border-blue-200 bg-blue-50/30">
+            <CardHeader><CardTitle className="text-blue-800">Pharmacy Operations</CardTitle></CardHeader>
+            <CardContent><PharmacyDashboard /></CardContent>
+          </Card>
+        )}
+        {businessType === "restaurant" && (
+          <Card className="border-orange-200 bg-orange-50/30">
+            <CardHeader><CardTitle className="text-orange-800">Kitchen & Dining Overview</CardTitle></CardHeader>
+            <CardContent><RestaurantDashboard /></CardContent>
+          </Card>
+        )}
+        {businessType === "manufacturing" && (
+          <Card className="border-purple-200 bg-purple-50/30">
+            <CardHeader><CardTitle className="text-purple-800">Production Overview</CardTitle></CardHeader>
+            <CardContent><ManufacturingDashboard /></CardContent>
+          </Card>
+        )}
+        {businessType === "social_commerce" && (
+          <Card className="border-fuchsia-200 bg-fuchsia-50/30">
+            <CardHeader><CardTitle className="text-fuchsia-800">Social Commerce Hub</CardTitle></CardHeader>
+            <CardContent><SocialCommerceDashboard /></CardContent>
+          </Card>
+        )}
+        {businessType === "textile" && (
+          <Card className="border-rose-200 bg-rose-50/30">
+            <CardHeader><CardTitle className="text-rose-800">Textile Workshop</CardTitle></CardHeader>
+            <CardContent><TextileDashboard /></CardContent>
+          </Card>
+        )}
+      </div>
 
 
       {/* ─── Admin Dashboard ─── */}

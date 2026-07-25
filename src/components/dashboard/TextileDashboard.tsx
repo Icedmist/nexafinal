@@ -7,24 +7,19 @@ import { cn } from "@/lib/utils";
 export function TextileDashboard() {
   const { data: items } = useItems();
   
-  const textileItems = items.filter(i => i.textile);
+  const textileItems = items.filter(i => i.status !== "archived");
   
-  const totalYards = textileItems.reduce((acc, item) => {
-    if (item.unit === "yard" || item.unit === "m") {
-      return acc + item.currentStock;
-    }
-    return acc;
-  }, 0);
+  const totalStock = textileItems.reduce((acc, item) => acc + item.currentStock, 0);
 
   return (
     <div className="space-y-6">
       {/* Textile Meta Stats */}
       <div className="grid gap-3 md:grid-cols-4">
         {[
-          { label: "Fabric Stock", value: `${totalYards.toLocaleString()} yds`, sub: "Total Length", icon: Ruler, color: "text-rose-600", bg: "bg-rose-50" },
+          { label: "Total Stock", value: totalStock.toLocaleString(), sub: "Units Available", icon: Ruler, color: "text-rose-600", bg: "bg-rose-50" },
           { label: "Design Variants", value: textileItems.length, sub: "Patterns & Colors", icon: Paintbrush, color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "Material Types", value: new Set(textileItems.map(i => i.textile?.fabricContent)).size, sub: "Silk, Cotton, Lace", icon: Scissors, color: "text-indigo-600", bg: "bg-indigo-50" },
-          { label: "Bundles", value: textileItems.filter(i => i.unit === "bundle").length, sub: "Pre-cut packs", icon: Box, color: "text-emerald-600", bg: "bg-emerald-50" },
+          { label: "Categories", value: new Set(textileItems.map(i => i.categoryId)).size, sub: "Different Types", icon: Scissors, color: "text-indigo-600", bg: "bg-indigo-50" },
+          { label: "Bundles", value: textileItems.filter(i => i.unit === "bundle" || i.unit === "pack").length, sub: "Pre-cut packs", icon: Box, color: "text-emerald-600", bg: "bg-emerald-50" },
         ].map((stat, i) => (
           <div key={i} className={cn("rounded-xl border border-border p-4 shadow-xs", stat.bg)}>
             <div className="flex items-center gap-3 mb-2">
@@ -46,7 +41,7 @@ export function TextileDashboard() {
           <CardHeader className="bg-muted/30 pb-3">
              <CardTitle className="text-sm font-bold flex items-center gap-2">
                <Scissors className="h-4 w-4 text-primary" />
-               Premium Fabric Collection
+               Fabric Collection
              </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -54,13 +49,13 @@ export function TextileDashboard() {
               {textileItems.slice(0, 4).map(item => (
                 <div key={item.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-xl border border-border/30">
-                      {item.emoji || <Scissors className="h-5 w-5" />}
+                    <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center border border-border/30">
+                      <Scissors className="h-5 w-5 text-rose-600" />
                     </div>
                     <div>
                       <p className="text-sm font-bold">{item.name}</p>
                       <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
-                        {item.textile?.weaveType || "Standard Weave"} • {item.textile?.gsm || "???"} GSM
+                        Textile • {item.unit}
                       </p>
                     </div>
                   </div>
@@ -85,9 +80,10 @@ export function TextileDashboard() {
               <CardTitle className="text-sm font-bold">Textile Trends</CardTitle>
            </CardHeader>
            <CardContent className="pt-2">
-              <p className="text-2xl font-black mb-1">Lace Season</p>
+              <p className="text-2xl font-black mb-1">Fabric Season</p>
               <p className="text-[10px] text-white/70 font-medium leading-relaxed">
-                Demand for Laces & Embroidery is up 24% this week. Ensure your yards inventory is updated before the weekend sales peak.
+                Keep your inventory updated and track fabric movements efficiently. 
+                Use the catalog to manage all textile products.
               </p>
               <div className="mt-6 p-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20">
                  <p className="text-[10px] font-black uppercase tracking-widest mb-2">Popular Content</p>

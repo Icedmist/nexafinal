@@ -54,7 +54,19 @@ function SettingsPage() {
     { value: "reorder-defaults", label: "Reorder", visible: isAdmin || isManager, component: <ReorderDefaults /> },
     { value: "smart", label: "Smart Features", visible: isAdmin, component: <SmartFeatures /> },
     { value: "users", label: "Staff", visible: isAdmin || isManager, component: <UserManagement /> },
-    { value: "sector", label: "Sector Config", visible: isAdmin && (sectorType === "restaurant" || sectorType === "pharmacy" || sectorType === "agriculture"), component: sectorType === "restaurant" ? <RestaurantAdminPanel /> : sectorType === "pharmacy" ? <PharmaAdminPanel /> : <AgriAdminPanel /> },
+    { value: "sector", label: `${sectorType} Rules`, visible: isAdmin, component: sectorType === "restaurant" ? <RestaurantAdminPanel /> : sectorType === "pharmacy" ? <PharmaAdminPanel /> : sectorType === "agriculture" ? <AgriAdminPanel /> : (
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h3 className="text-lg font-bold mb-4 capitalize">{sectorType} Operations</h3>
+        <p className="text-sm text-muted-foreground mb-6">Manage rules and configurations specific to your {sectorType} business.</p>
+        <div className="p-8 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-center space-y-2">
+          <div className="p-3 bg-primary/10 rounded-full">
+              <span className="text-2xl">⚙️</span>
+          </div>
+          <p className="text-sm font-medium">Sector Operations</p>
+          <p className="text-xs text-muted-foreground">General admin tools for your {sectorType} category.</p>
+        </div>
+      </div>
+    ) },
     { value: "help", label: "Help", visible: true, component: <TourLauncher /> },
     { value: "system", label: "System", visible: isAdmin, component: <SystemSettings /> },
   ].filter((t) => t.visible);

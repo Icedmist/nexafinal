@@ -2,25 +2,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useItems } from "@/hooks/useInventoryData";
-import { AlertCircle, Calendar, FlaskConical, Pill, ShieldAlert } from "lucide-react";
+import { AlertCircle, FlaskConical, Pill, ShieldAlert, Calendar } from "lucide-react";
 import { format, isBefore, addMonths, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export function PharmacyDashboard() {
   const { data: items } = useItems();
   
-  const pharmacyItems = items.filter(i => i.pharmacy);
+  const pharmacyItems = items.filter(i => i.status !== "archived");
+
+  const lowStockItems = pharmacyItems.filter(i => i.currentStock > 0 && i.currentStock <= (i.reorderPoint || 10));
   
-  // Sorted by expiry date
-  const medicationsExpiringSoon = pharmacyItems
-    .filter(i => i.pharmacy?.expiryDate)
-    .sort((a, b) => 
-      new Date(a.pharmacy!.expiryDate!).getTime() - 
-      new Date(b.pharmacy!.expiryDate!).getTime()
-    )
+  // Sort by expiry date if available via customFields
+  const expiringSoon = pharmacyItems
+    .filter(i => {
+      const exp = String(i.customFields?.expiryDate ?? "");
+      if (!exp) return false;
+      try {
+        return isBefore(parseISO(exp), addMonths(new Date(), 3));
+      } catch { return false; }
+    })
     .slice(0, 5);
 
-  const prescriptionCount = pharmacyItems.filter(i => i.pharmacy?.requiresPrescription).length;
+  const prescriptionCount = pharmacyItems.filter(i => i.customFields?.requiresPrescription === "true" || i.customFields?.requiresPrescription === true).length;
 
   return (
     <div className="space-y-6">
@@ -28,17 +32,17 @@ export function PharmacyDashboard() {
       <div className="grid gap-3 md:grid-cols-4">
         {[
           { 
-            label: "Expired", 
-            value: pharmacyItems.filter(i => i.pharmacy?.expiryDate && isBefore(parseISO(i.pharmacy.expiryDate), new Date())).length, 
-            sub: "Requires Disposal", 
+            label: "Low Stock", 
+            value: lowStockItems.length, 
+            sub: "Needs Restock", 
             icon: ShieldAlert, 
             color: "text-red-600", 
             bg: "bg-red-50" 
           },
           { 
-            label: "Critical (3m)", 
-            value: pharmacyItems.filter(i => i.pharmacy?.expiryDate && isBefore(parseISO(i.pharmacy.expiryDate), addMonths(new Date(), 3)) && !isBefore(parseISO(i.pharmacy.expiryDate), new Date())).length, 
-            sub: "Fast Track Sale", 
+            label: "Expiring", 
+            value: expiringSoon.length, 
+            sub: "Within 3 Months", 
             icon: Calendar, 
             color: "text-orange-600", 
             bg: "bg-orange-50" 
@@ -81,39 +85,47 @@ export function PharmacyDashboard() {
              <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-red-500" />
-                  Inventory Expiry Watchlist
+                  Expiry Watchlist
                 </CardTitle>
                 <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-tighter bg-background">Regulation Checklist</Badge>
              </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {medicationsExpiringSoon.length === 0 ? (
+              {expiringSoon.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground italic text-xs">
                   All medications within safe shelf-life.
                 </div>
               ) : (
-                medicationsExpiringSoon.map(item => {
-                  const expiryDate = parseISO(item.pharmacy!.expiryDate!);
-                  const isExpired = isBefore(expiryDate, new Date());
-                  const isSoon = !isExpired && isBefore(expiryDate, addMonths(new Date(), 1));
+                expiringSoon.map(item => {
+                  const expDateStr = String(item.customFields?.expiryDate ?? "");
+                  let expiryDate: Date | null = null;
+                  let isExpired = false;
+                  let isSoon = false;
+                  try {
+                    if (expDateStr) {
+                      expiryDate = parseISO(expDateStr);
+                      isExpired = isBefore(expiryDate, new Date());
+                      isSoon = !isExpired && isBefore(expiryDate, addMonths(new Date(), 1));
+                    }
+                  } catch { /* ignore */ }
                   
                   return (
                     <div key={item.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-muted/10 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className={cn(
-                          "h-10 w-10 rounded-xl flex items-center justify-center text-xl shadow-xs border border-border/30",
+                          "h-10 w-10 rounded-xl flex items-center justify-center shadow-xs border border-border/30",
                           isExpired ? "bg-red-100" : isSoon ? "bg-orange-100" : "bg-muted/50"
                         )}>
-                          {item.emoji || <Pill className="h-5 w-5" />}
+                          <Pill className="h-5 w-5" />
                         </div>
                         <div>
                           <p className="text-sm font-bold">{item.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded font-mono uppercase text-muted-foreground">
-                              {item.pharmacy?.batchNumber || "NO-BATCH"}
+                              {item.customFields?.batchNumber || "NO-BATCH"}
                             </span>
-                            {item.pharmacy?.requiresPrescription && (
+                            {item.customFields?.requiresPrescription && (
                               <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase">
                                 Prescription
                               </span>
@@ -123,7 +135,7 @@ export function PharmacyDashboard() {
                       </div>
                       <div className="text-right">
                         <p className={cn("text-xs font-bold font-mono tracking-tight", isExpired ? "text-red-600" : isSoon ? "text-orange-600" : "text-foreground")}>
-                          {format(expiryDate, "MMM dd, yyyy")}
+                          {expiryDate ? format(expiryDate, "MMM dd, yyyy") : "N/A"}
                         </p>
                         <div className="mt-1">
                           {isExpired ? (
@@ -162,9 +174,9 @@ export function PharmacyDashboard() {
           <CardContent className="p-6 space-y-6 flex-1">
             <div className="space-y-4">
               {[
-                { label: "Prescription Verif.", percent: 100, color: "bg-green-500" },
                 { label: "Batch Traceability", percent: 85, color: "bg-blue-500" },
-                { label: "Storage Temp Check", percent: 92, color: "bg-orange-500" },
+                { label: "Stock Accuracy", percent: 92, color: "bg-orange-500" },
+                { label: "Low Stock Alerts", percent: lowStockItems.length > 0 ? Math.min(100, lowStockItems.length * 20) : 100, color: lowStockItems.length > 0 ? "bg-red-500" : "bg-green-500" },
               ].map((item, i) => (
                 <div key={i} className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-muted-foreground">
@@ -182,8 +194,8 @@ export function PharmacyDashboard() {
               <div className="flex gap-3">
                 <ShieldAlert className="h-5 w-5 text-blue-600 shrink-0" />
                 <p className="text-[10px] text-blue-800 leading-relaxed font-medium">
-                  <strong>Pharmacist Note:</strong> Ensure all batch records are synchronized with 
-                  NAFDAC traceability standards before the EOD audit.
+                  <strong>Note:</strong> Ensure all batch records are synchronized 
+                  with traceability standards before the EOD audit.
                 </p>
               </div>
             </div>

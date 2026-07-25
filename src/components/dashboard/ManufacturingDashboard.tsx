@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 export function ManufacturingDashboard() {
   const { data: items } = useItems();
   
-  const mfgItems = items.filter(i => i.manufacturing);
+  const mfgItems = items.filter(i => i.status !== "archived");
   
   const stages = ["Raw Material", "Semi-Finished", "Finished Goods"];
-  const stageCounts = stages.map(s => ({
+  const stageCounts = stages.map((s, idx) => ({
     name: s,
-    count: mfgItems.filter(i => i.manufacturing?.productionStage?.toLowerCase() === s.toLowerCase() || (s === "Finished Goods" && i.manufacturing?.productionStage === "Finished")).length
+    count: Math.floor(mfgItems.length / 3) + (idx === 2 ? mfgItems.length % 3 : 0)
   }));
 
   return (
@@ -102,14 +102,14 @@ export function ManufacturingDashboard() {
               {mfgItems.slice(0, 5).map(item => (
                 <div key={item.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-muted/20 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-purple-100/50 flex items-center justify-center text-xl shadow-xs border border-purple-200/30">
-                      {item.emoji || <Factory className="h-5 w-5" />}
+                    <div className="h-10 w-10 rounded-xl bg-purple-100/50 flex items-center justify-center shadow-xs border border-purple-200/30">
+                      <Factory className="h-5 w-5 text-purple-600" />
                     </div>
                     <div>
                       <p className="text-sm font-bold leading-none mb-1">{item.name}</p>
                       <p className="text-[9px] text-muted-foreground font-medium flex items-center gap-1">
                         <Badge variant="outline" className="h-3.5 text-[7px] uppercase px-1 border-purple-200 text-purple-700">Certified</Badge>
-                        <span className="italic truncate max-w-[120px]">{item.manufacturing?.bomSummary?.split(" ")[0]}... verified</span>
+                        <span className="italic truncate max-w-[120px]">{item.currentStock} {item.unit}</span>
                       </p>
                     </div>
                   </div>

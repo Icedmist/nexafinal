@@ -10,7 +10,7 @@ export function useSector() {
   const activeSettings = isDemo ? demoOnboarding : liveProfile;
   
   const config = useMemo(() => {
-    return getSectorConfig(activeSettings?.businessType);
+    return getSectorConfig(activeSettings?.businessType ?? undefined);
   }, [activeSettings?.businessType]);
 
   return {

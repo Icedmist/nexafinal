@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import {
   Package,
   TrendingUp,
