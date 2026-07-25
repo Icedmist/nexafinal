@@ -1,14 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, query, where, onSnapshot, orderBy, limit as firestoreLimit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
+import { DemoStore } from "@/lib/demo-store";
 import type { 
   Item, Category, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest,
   ItemFilters, StockSummary 
 } from "@/types/inventory";
 import type { Customer } from "@/types/crm";
 import { isAdminRole } from "@/lib/roles";
+
+function useDemoStore(): DemoStore | null {
+  const { isDemo, onboarding } = useDemo();
+  return useMemo(() => {
+    if (!isDemo) return null;
+    return new DemoStore(onboarding.businessType || "general");
+  }, [isDemo, onboarding.businessType]);
+}
 
 const getBranchAccessValues = (userBranchId: string | null | undefined) => {
   const values = ["all", null] as const;
@@ -27,12 +37,18 @@ interface QueryResult<T> {
 export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // CRITICAL: Must wait for claimsReady and storeId to avoid permission denied
+    if (demoStore) {
+      setData(demoStore.getItems({ categoryId: filters?.categoryId, search: filters?.search }));
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) {
         setData([]);
@@ -96,7 +112,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
+  }, [demoStore, user, storeId, claimsReady, claims, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
 
   return { data, isLoading, error };
 }
@@ -104,10 +120,17 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
 export function useItemById(id: string): QueryResult<Item | undefined> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<Item | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData(demoStore.getItems().find(i => i.id === id));
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !id || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -125,7 +148,6 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
         const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
         const userBranchId = claims?.branchId;
         
-        // Final security check for single item fetch
         if (!isAdmin && item.branchId !== userBranchId) {
           setData(undefined);
         } else {
@@ -141,7 +163,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, id, claimsReady, claims]);
+  }, [demoStore, user, storeId, id, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
@@ -149,10 +171,17 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
 export function useCategories(): QueryResult<Category[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData(demoStore.getCategories());
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -168,7 +197,7 @@ export function useCategories(): QueryResult<Category[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims]);
+  }, [demoStore, user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
@@ -176,10 +205,17 @@ export function useCategories(): QueryResult<Category[]> {
 export function useLocations(): QueryResult<Location[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData(demoStore.getLocations());
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -206,7 +242,7 @@ export function useLocations(): QueryResult<Location[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims]);
+  }, [demoStore, user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
@@ -214,10 +250,17 @@ export function useLocations(): QueryResult<Location[]> {
 export function useAllLocations(): QueryResult<Location[]> {
   const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData(demoStore.getLocations());
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -236,7 +279,7 @@ export function useAllLocations(): QueryResult<Location[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady]);
+  }, [demoStore, user, storeId, claimsReady]);
 
   return { data, isLoading, error: null };
 }
@@ -244,10 +287,17 @@ export function useAllLocations(): QueryResult<Location[]> {
 export function useSuppliers(): QueryResult<Supplier[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData(demoStore.getSuppliers());
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -263,7 +313,7 @@ export function useSuppliers(): QueryResult<Supplier[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims]);
+  }, [demoStore, user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
@@ -271,10 +321,17 @@ export function useSuppliers(): QueryResult<Supplier[]> {
 export function useMovements(count = 20): QueryResult<StockMovement[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<StockMovement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData(demoStore.getMovements().slice(0, count));
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -310,7 +367,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims, count]);
+  }, [demoStore, user, storeId, claimsReady, claims, count]);
 
   return { data, isLoading, error: null };
 }
@@ -329,10 +386,17 @@ export function useStockSummary(): QueryResult<StockSummary> {
 export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -359,7 +423,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims]);
+  }, [demoStore, user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
@@ -367,10 +431,17 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
 export function useRequests(): QueryResult<InventoryRequest[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<InventoryRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (demoStore) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       return;
@@ -397,7 +468,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims]);
+  }, [demoStore, user, storeId, claimsReady, claims]);
 
   return { data, isLoading, error: null };
 }
@@ -405,11 +476,18 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
 export function useCustomers(): QueryResult<Customer[]> {
   const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
+  const demoStore = useDemoStore();
   const [data, setData] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (demoStore) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) {
         setData([]);
@@ -438,7 +516,7 @@ export function useCustomers(): QueryResult<Customer[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady]);
+  }, [demoStore, user, storeId, claimsReady]);
 
   return { data, isLoading, error };
 }

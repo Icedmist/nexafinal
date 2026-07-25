@@ -55,7 +55,7 @@ export function TextileDashboard() {
                 <div key={item.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-xl border border-border/30">
-                      {item.emoji || "🧵"}
+                      {item.emoji || <Scissors className="h-5 w-5" />}
                     </div>
                     <div>
                       <p className="text-sm font-bold">{item.name}</p>

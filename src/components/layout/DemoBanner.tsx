@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useDemo } from "@/hooks/useDemo";
 import { useRole } from "@/hooks/useRole";
-import { X, ChevronDown, Lock } from "lucide-react";
+import { X, ChevronDown, Lock, ShoppingCart, Pill, Utensils, Smartphone, Wheat, Palette, Package } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,14 +15,14 @@ const roles: { value: string; label: string }[] = [
   { value: "staff", label: "Staff (Sales Only)" },
 ];
 
-const SECTORS = [
-  { value: "general", label: "General Retail", icon: "🛒" },
-  { value: "pharmacy", label: "Pharmacy Hub", icon: "💊" },
-  { value: "restaurant", label: "Kitchen Console", icon: "🥘" },
-  { value: "electronics", label: "Phone Accessories", icon: "📱" },
-  { value: "agriculture", label: "Agro & Farming", icon: "🌾" },
-  { value: "textile", label: "Textiles & Ankara", icon: "🎨" },
-  { value: "wholesale", label: "Wholesale Depot", icon: "📦" },
+const SECTORS: { value: string; label: string; icon: React.ReactNode }[] = [
+  { value: "general", label: "General Retail", icon: <ShoppingCart className="h-4 w-4" /> },
+  { value: "pharmacy", label: "Pharmacy Hub", icon: <Pill className="h-4 w-4" /> },
+  { value: "restaurant", label: "Kitchen Console", icon: <Utensils className="h-4 w-4" /> },
+  { value: "electronics", label: "Phone Accessories", icon: <Smartphone className="h-4 w-4" /> },
+  { value: "agriculture", label: "Agro & Farming", icon: <Wheat className="h-4 w-4" /> },
+  { value: "textile", label: "Textiles & Ankara", icon: <Palette className="h-4 w-4" /> },
+  { value: "wholesale", label: "Wholesale Depot", icon: <Package className="h-4 w-4" /> },
 ];
 
 function inspectDeviceDemoPass() {
@@ -62,7 +62,7 @@ export function DemoBanner() {
 
   const currentLabel = roles.find((r) => r.value === role)?.label ?? "Admin";
   const currentSectorLabel = SECTORS.find((s) => s.value === onboarding.businessType)?.label ?? "General Retail";
-  const currentSectorIcon = SECTORS.find((s) => s.value === onboarding.businessType)?.icon ?? "🛒";
+  const currentSectorIcon = SECTORS.find((s) => s.value === onboarding.businessType)?.icon ?? <ShoppingCart className="h-4 w-4" />;
 
   return (
     <div className="sticky top-0 z-50 flex h-10 w-full items-center justify-between bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm">

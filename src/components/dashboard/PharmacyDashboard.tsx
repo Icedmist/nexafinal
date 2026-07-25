@@ -105,7 +105,7 @@ export function PharmacyDashboard() {
                           "h-10 w-10 rounded-xl flex items-center justify-center text-xl shadow-xs border border-border/30",
                           isExpired ? "bg-red-100" : isSoon ? "bg-orange-100" : "bg-muted/50"
                         )}>
-                          {item.emoji || "💊"}
+                          {item.emoji || <Pill className="h-5 w-5" />}
                         </div>
                         <div>
                           <p className="text-sm font-bold">{item.name}</p>

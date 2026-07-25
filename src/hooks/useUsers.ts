@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
 
 export interface StaffMember {
   id: string;
@@ -18,10 +19,17 @@ export interface StaffMember {
 export function useUsers() {
   const { user } = useAuth();
   const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemo) {
+      setStaff([]);
+      setLoading(false);
+      return;
+    }
+
     if (!user || !storeId) {
       setStaff([]);
       setLoading(false);

@@ -1,5 +1,4 @@
-import { createContext, useCallback, useMemo, useState, useEffect, type ReactNode } from "react";
-import { useAuth } from "./FirebaseAuthContext";
+import { createContext, useCallback, useMemo, useState, type ReactNode } from "react";
 
 export interface OnboardingSelection {
   businessType: string | null;
@@ -63,7 +62,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [isDemo, setIsDemo] = useState(false);
   const [version, setVersion] = useState(0);
   const [onboarding, setOnboarding] = useState<OnboardingSelection>(DEFAULT_ONBOARDING);
-  const { user } = useAuth();
 
   const enterDemoMode = useCallback((ob?: OnboardingSelection) => {
     setIsDemo(true);
@@ -82,13 +80,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const bumpVersion = useCallback(() => setVersion((v) => v + 1), []);
-
-  // Automatically exit demo mode when a real user logs in
-  useEffect(() => {
-    if (user && isDemo) {
-      exitDemoMode();
-    }
-  }, [user, isDemo, exitDemoMode]);
 
   const updateOnboarding = useCallback((updates: Partial<OnboardingSelection>) => {
     setOnboarding((prev) => {

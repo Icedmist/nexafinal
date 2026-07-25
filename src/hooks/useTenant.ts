@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Store } from "@/types/tenant";
 import { useLocation } from "react-router-dom";
+import { useDemo } from "@/hooks/useDemo";
 
 const RESERVED_SUBDOMAINS = ["www", "admin", "api", "dev", "staging", "auth"];
 
@@ -65,12 +66,20 @@ const detectSlug = () => {
 
 export function useTenant() {
   const location = useLocation();
+  const { isDemo } = useDemo();
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setStore(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     const slug = detectSlug();
 
     if (!slug) {
@@ -165,7 +174,7 @@ export function useTenant() {
     };
 
     fetchStore();
-  }, [location.search, location.pathname]);
+  }, [isDemo, location.search, location.pathname]);
 
   return { store, loading, error };
 }

@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
 
 export interface CustomFieldDef {
   id: string;
@@ -22,11 +23,18 @@ interface QueryResult<T> {
 export function useCustomFields(): QueryResult<CustomFieldDef[]> {
   const { user } = useAuth();
   const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<CustomFieldDef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
@@ -52,7 +60,7 @@ export function useCustomFields(): QueryResult<CustomFieldDef[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [isDemo, user, storeId]);
 
   return { data, isLoading, error };
 }

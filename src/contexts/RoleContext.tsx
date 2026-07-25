@@ -5,6 +5,7 @@ import { doc, onSnapshot, query, collection, where, limit, getDocs, getDoc } fro
 import { db } from "@/lib/firebase";
 import { useTenant } from "./TenantContext";
 import { useBusiness } from "./BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
 
 export interface RoleContextValue {
   role: UserRoleType;
@@ -23,10 +24,20 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const { user, claims, claimsReady } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
   const { storeId: businessStoreId, ownerId: businessOwnerId, loadingProfile } = useBusiness();
+  const { isDemo } = useDemo();
   const [realRole, setRealRole] = useState<UserRoleType>("loading");
   const [loading, setLoading] = useState(true);
   const [isStoreMismatch, setIsStoreMismatch] = useState(false);
   const [hasRefreshed, setHasRefreshed] = useState(false);
+
+  // Demo mode: provide owner role immediately, skip Firestore
+  useEffect(() => {
+    if (isDemo) {
+      setRealRole("owner");
+      setLoading(false);
+      return;
+    }
+  }, [isDemo]);
 
   // Reset the refreshed flag when the user changes
   useEffect(() => {
@@ -34,6 +45,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }, [user?.uid]);
 
   useEffect(() => {
+    // Demo mode: already handled above, skip Firestore resolution
+    if (isDemo) return;
+
     // If we're still loading core data, stay in loading state
     if (loadingTenant || loadingProfile || !claimsReady) {
       setLoading(true);

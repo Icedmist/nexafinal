@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { exportSalesHistoryPDF } from "@/lib/pdf-export";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check, ShoppingBag, Package, Layers } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check, ShoppingBag, Package, Layers, RefreshCw, FileEdit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -821,11 +821,11 @@ export function SalesHistoryPage() {
                           <SelectValue placeholder="Select reason..." />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          <SelectItem value="customer_return">Customer Return 🔄</SelectItem>
+                          <SelectItem value="customer_return">Customer Return <RefreshCw className="inline h-3.5 w-3.5 ml-1" /></SelectItem>
                           <SelectItem value="damaged">Damaged / Defective ⚠️</SelectItem>
-                          <SelectItem value="wrong_item">Wrong Item Sent 📦</SelectItem>
-                          <SelectItem value="pricing_error">Pricing/Billing Error 💰</SelectItem>
-                          <SelectItem value="other">Other / Out of Stock 📝</SelectItem>
+                          <SelectItem value="wrong_item">Wrong Item Sent <Package className="inline h-3.5 w-3.5 ml-1" /></SelectItem>
+                          <SelectItem value="pricing_error">Pricing/Billing Error <Banknote className="inline h-3.5 w-3.5 ml-1" /></SelectItem>
+                          <SelectItem value="other">Other / Out of Stock <FileEdit className="inline h-3.5 w-3.5 ml-1" /></SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

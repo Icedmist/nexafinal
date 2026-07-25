@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, setDoc } 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
 import { useTenant } from "@/contexts/TenantContext";
 import { limit, writeBatch, getDocs } from "firebase/firestore";
 import type { Staff, Branch, Store } from "@/types/tenant";
@@ -18,11 +19,18 @@ export function useStaff(): QueryResult<Staff[]> {
   const { user, claims } = useAuth();
   const { store } = useTenant();
   const { storeId, ownerId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     // Priority: use storeId from BusinessContext, fallback to claims or store context
     const targetStoreId = storeId || claims?.storeId || store?.id;
 
@@ -60,7 +68,7 @@ export function useStaff(): QueryResult<Staff[]> {
     });
 
     return () => unsubscribe();
-  }, [user, claims, store, storeId]);
+  }, [isDemo, user, claims, store, storeId]);
 
   return { data, isLoading, error };
 }
@@ -69,10 +77,17 @@ export function useStoreBranches(): QueryResult<Branch[]> {
   const { user, claims } = useAuth();
   const { store } = useTenant();
   const { storeId, ownerId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     const targetStoreId = storeId || claims?.storeId || store?.id;
     if (!targetStoreId) {
       if (!store) setIsLoading(false);
@@ -101,7 +116,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     });
 
     return () => unsubscribe();
-  }, [storeId, store?.id, claims?.storeId, user?.uid, claims?.role, claims?.branchId, ownerId, store?.ownerId]);
+  }, [isDemo, storeId, store?.id, claims?.storeId, user?.uid, claims?.role, claims?.branchId, ownerId, store?.ownerId]);
 
   return { data, isLoading, error: null };
 }

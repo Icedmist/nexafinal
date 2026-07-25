@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Trash2, Tag, ChevronDown, ChevronRight, Pill, PlusCircle, Sparkles } from "lucide-react";
+import { Plus, Trash2, Tag, ChevronDown, ChevronRight, Pill, PlusCircle, Sparkles, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import type { Category } from "@/types/inventory";
+import { getLucideIcon } from "@/utils/lucideIconMap";
 
 export interface PendingProduct {
   id: string;
@@ -306,7 +307,7 @@ export function BulkProductEntry({ products, setProducts, categories, businessTy
               setProducts((prev) => [...prev, { id: Math.random().toString(36).substring(2, 9), name: template.name, price: template.estimatedPrice ? String(template.estimatedPrice) : "1500", stock: "50", unit: template.defaultUnit, categoryId: matchCat?.id || categories[0]?.id || "" }]);
               toast.success(`Added ${template.name} (${template.defaultUnit}) to products!`);
             }} className="text-[11px] px-2.5 py-1 rounded-xl border bg-card hover:bg-teal-50 hover:border-teal-300 dark:hover:bg-teal-950/40 text-foreground transition-all flex items-center gap-1 font-medium shadow-2xs">
-              <span>{template.emoji || "📦"}</span>
+              <span>{template.emoji ? (() => { const Icon = getLucideIcon(template.emoji); return <Icon className="h-3.5 w-3.5" />; })() : <Package className="h-3.5 w-3.5" />}</span>
               <span>{template.name}</span>
               <span className="text-[9px] text-teal-600 dark:text-teal-400 font-mono ml-0.5 uppercase">({template.defaultUnit})</span>
             </button>
@@ -376,7 +377,7 @@ export function BulkProductEntry({ products, setProducts, categories, businessTy
                     <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block md:hidden">Category</span>
                     <Select value={currentCategoryVal} onValueChange={(v) => updateRowCategory(p.id, v)}>
                       <SelectTrigger className="h-10 text-xs rounded-xl focus:ring-primary/20 bg-background"><SelectValue placeholder="Select category" /></SelectTrigger>
-                      <SelectContent>{categories.map((c) => (<SelectItem key={c.id} value={c.id} className="text-xs py-2"><span className="mr-2">{c.emoji}</span><span>{c.label}</span></SelectItem>))}</SelectContent>
+                      <SelectContent>{categories.map((c) => (<SelectItem key={c.id} value={c.id} className="text-xs py-2"><span className="mr-2">{(() => { const Icon = getLucideIcon(c.emoji); return <Icon className="h-3.5 w-3.5 inline" />; })()}</span><span>{c.label}</span></SelectItem>))}</SelectContent>
                     </Select>
                   </div>
 

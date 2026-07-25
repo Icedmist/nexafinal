@@ -21,6 +21,7 @@ import {
   Receipt,
   CheckCircle2,
   Zap,
+  ShoppingBag,
 } from "lucide-react";
 
 interface StoreDashboardWidgetProps {
@@ -47,7 +48,7 @@ export function WholesalerDashboardWidget({ sales, items, customers, creditsList
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xl">
-            📦
+            <Package className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -186,7 +187,7 @@ export function RetailerDashboardWidget({ sales, items }: StoreDashboardWidgetPr
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xl">
-            🛍️
+            <ShoppingBag className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -262,7 +263,7 @@ export function SupermarketDashboardWidget({ sales, items }: StoreDashboardWidge
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xl">
-            🛒
+            <ShoppingCart className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">

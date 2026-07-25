@@ -140,20 +140,20 @@ export function AppLayout() {
   }, [location.pathname, role, roleLoading, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin]);
 
 
-  // Auth guard — redirect to landing if not logged in
+  // Auth guard — redirect to landing if not logged in (skip in demo mode)
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isDemo) {
       navigate("/");
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isDemo]);
 
   // Onboarding guard — redirect to setup if store is incomplete
   useEffect(() => {
     const isSystemRoute = location.pathname.startsWith("/system-admin");
-    if (user && claimsReady && !loadingProfile && needsOnboarding && !isSystemAdmin && !isSystemRoute) {
+    if (user && claimsReady && !loadingProfile && needsOnboarding && !isSystemAdmin && !isSystemRoute && !isDemo) {
       navigate("/onboarding", { replace: true });
     }
-  }, [user, needsOnboarding, claimsReady, loadingProfile, navigate, isSystemAdmin, location.pathname]);
+  }, [user, needsOnboarding, claimsReady, loadingProfile, navigate, isSystemAdmin, location.pathname, isDemo]);
   
   // Auto-trigger notification prompt for new sessions if permission is default
   useEffect(() => {
@@ -185,7 +185,12 @@ export function AppLayout() {
   }, [store, claims]);
 
   if (loading || !user || !claimsReady) {
-    return null;
+    // Allow demo mode to proceed even without auth
+    if (isDemo && !loading) {
+      // Continue rendering
+    } else {
+      return null;
+    }
   }
 
   return (

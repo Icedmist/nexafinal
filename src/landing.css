@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
-
 *,
 *::before,
 *::after {
@@ -50,7 +48,7 @@
 .landing-body {
   background: var(--paper);
   color: var(--ink);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   overflow-x: hidden;
   line-height: 1.65;
 }
@@ -193,7 +191,7 @@
 }
 
 .nav-brand-name {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 17px;
   font-weight: 700;
   color: var(--ink);
@@ -223,7 +221,7 @@
   cursor: pointer;
   border: none;
   background: none;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
 }
 
 .nav-menu li a:hover {
@@ -253,7 +251,7 @@
   color: var(--ink2);
   cursor: pointer;
   transition: all .18s;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
 }
 
 .nav-signin:hover {
@@ -273,7 +271,7 @@
   transition: all .22s;
   box-shadow: 0 4px 16px rgba(43, 91, 255, .28);
   border: none;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
 }
 
 .nav-cta:hover {
@@ -374,7 +372,7 @@
 }
 
 .display-xl {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: clamp(44px, 6.5vw, 84px);
   font-weight: 800;
   line-height: .98;
@@ -382,7 +380,7 @@
 }
 
 .display-lg {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: clamp(34px, 4.5vw, 58px);
   font-weight: 800;
   line-height: 1.05;
@@ -390,7 +388,7 @@
 }
 
 .display-md {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: clamp(24px, 3vw, 38px);
   font-weight: 700;
   line-height: 1.1;
@@ -456,7 +454,7 @@
   gap: 8px;
   border: none;
   cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   transition: all .25s cubic-bezier(.23, 1, .32, 1);
   font-weight: 600;
   text-decoration: none;
@@ -691,7 +689,7 @@
 }
 
 .bs-logo {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 800;
   color: var(--ink);
@@ -771,7 +769,7 @@
 }
 
 .bm-welcome {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 17px;
   font-weight: 700;
   margin-bottom: 1px
@@ -806,7 +804,7 @@
 }
 
 .metric-val {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 17px;
   font-weight: 800;
   line-height: 1;
@@ -1004,7 +1002,7 @@
 }
 
 .proof-num {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 28px;
   font-weight: 800;
   color: var(--ink);
@@ -1088,7 +1086,7 @@
 }
 
 .cmp-title {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 17px;
   font-weight: 700;
   margin-bottom: 0
@@ -1215,7 +1213,7 @@
 }
 
 .ps-logo {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 800;
   color: #fff
@@ -1288,7 +1286,7 @@
 }
 
 .ps-m-val {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 800;
   color: #00C4CF
@@ -1525,7 +1523,7 @@
 }
 
 .pc-num {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 68px;
   font-weight: 800;
   letter-spacing: -4px;
@@ -1804,7 +1802,7 @@ footer {
   cursor: pointer;
   border: none;
   background: none;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   text-align: left;
   padding: 0
 }
@@ -1969,7 +1967,7 @@ footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 18px;
   font-weight: 800;
   color: var(--blue);
@@ -2099,7 +2097,7 @@ footer {
 }
 
 .ceo-name {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 21px;
   font-weight: 800;
   margin-bottom: 4px
@@ -2299,7 +2297,7 @@ footer {
 }
 
 .cf-title {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 22px;
   font-weight: 800;
   margin-bottom: 6px
@@ -2338,7 +2336,7 @@ footer {
   border: 1.5px solid rgba(0, 0, 0, .09);
   border-radius: 11px;
   background: rgba(255, 255, 255, .65);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   font-size: 14px;
   color: var(--ink);
   outline: none;

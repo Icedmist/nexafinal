@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useStoreType, STORE_TYPE_OPTIONS, type StoreClientType } from "@/hooks/useStoreType";
 import { toast } from "sonner";
 import { Zap, Check, ShieldCheck } from "lucide-react";
+import { getLucideIcon } from "@/utils/lucideIconMap";
 
 interface StoreTypeOnboardingOverlayProps {
   open?: boolean;
@@ -88,7 +89,7 @@ export function StoreTypeOnboardingOverlay({
                 )}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-3xl">{opt.icon}</span>
+                    {(() => { const Icon = getLucideIcon(opt.icon); return <Icon className="h-8 w-8" />; })()}
                     <Badge variant="secondary" className="text-[10px] font-bold">{opt.badge}</Badge>
                   </div>
                   <div>

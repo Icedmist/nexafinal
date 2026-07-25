@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getLucideIcon } from "@/utils/lucideIconMap";
 
 const NAIRA = "₦";
 
@@ -28,28 +29,28 @@ export const BRAND_COLORS = [
 
 // Industry list
 const SECTORS = [
-  { id: "retail", label: "Retail / POS", emoji: "🛍️", icon: ShoppingBag, desc: "Boutiques, general groceries, electronics shops." },
-  { id: "restaurant", label: "Restaurant / Food", emoji: "🍳", icon: Utensils, desc: "Cafes, diners, bars, and food vendors." },
-  { id: "agriculture", label: "Agriculture", emoji: "🚜", icon: Sprout, desc: "Farms, seed retailers, livestock suppliers." },
-  { id: "online_vendor", label: "Online Vendor", emoji: "📱", icon: Globe, desc: "Instagram shops, social sellers, e-commerce." },
-  { id: "pharmacy", label: "Pharmacy & Health", emoji: "💊", icon: Pill, desc: "Chemist shops, drug dispensaries, pharmacies." },
-  { id: "manufacturing", label: "Manufacturing", emoji: "⚙️", icon: Factory, desc: "Factories, raw materials processors, workshops." },
-  { id: "textile", label: "Textile", emoji: "🧵", icon: Scissors, desc: "Fabric stores, designers, apparel tailors." },
-  { id: "wholesale", label: "Wholesale", emoji: "📦", icon: Package, desc: "Bulk distributors, FMCG suppliers, warehouses." },
-  { id: "general", label: "General Inventory", emoji: "💼", icon: Archive, desc: "Multi-purpose stock systems and office goods." },
+  { id: "retail", label: "Retail / POS", icon: ShoppingBag, desc: "Boutiques, general groceries, electronics shops." },
+  { id: "restaurant", label: "Restaurant / Food", icon: Utensils, desc: "Cafes, diners, bars, and food vendors." },
+  { id: "agriculture", label: "Agriculture", icon: Sprout, desc: "Farms, seed retailers, livestock suppliers." },
+  { id: "online_vendor", label: "Online Vendor", icon: Globe, desc: "Instagram shops, social sellers, e-commerce." },
+  { id: "pharmacy", label: "Pharmacy & Health", icon: Pill, desc: "Chemist shops, drug dispensaries, pharmacies." },
+  { id: "manufacturing", label: "Manufacturing", icon: Factory, desc: "Factories, raw materials processors, workshops." },
+  { id: "textile", label: "Textile", icon: Scissors, desc: "Fabric stores, designers, apparel tailors." },
+  { id: "wholesale", label: "Wholesale", icon: Package, desc: "Bulk distributors, FMCG suppliers, warehouses." },
+  { id: "general", label: "General Inventory", icon: Archive, desc: "Multi-purpose stock systems and office goods." },
 ];
 
 // Industry presets categories
 const CATEGORY_PRESETS: Record<string, string[]> = {
-  retail: ["Clothing 👗", "Electronics ⚡", "Groceries 🛒", "Cosmetics 💄", "Home Decor 🛋️", "Toys 🧸"],
-  restaurant: ["Beverages 🥤", "Appetizers 🥗", "Main Course 🥩", "Desserts 🍰", "Sides 🍟", "Breakfast 🍳"],
-  agriculture: ["Grains 🌾", "Vegetables 🥕", "Fruits 🍎", "Seeds 🌱", "Fertilizers 🧪", "Livestock 🐂"],
-  online_vendor: ["Clothing 👗", "Shoes 👟", "Accessories 💍", "Handbags 👜", "Electronics ⚡", "Beauty 💅"],
-  pharmacy: ["Tablets 💊", "Syrups 🧪", "Inhalers 💨", "Supplements 🧴", "Devices 🩺", "First Aid 🩹"],
-  manufacturing: ["Raw Materials 🪵", "Finished Goods 📦", "Spare Parts ⚙️", "Packaging 🏷️", "Chemicals 🧪"],
-  textile: ["Fabrics 🧵", "Threads 🪡", "Buttons 🔘", "Yarn 🧶", "Dyes 🎨", "Tools ✂️"],
-  wholesale: ["FMCG 📦", "Bulk Grains 🌾", "Beverages 🥤", "Toiletries 🧻", "Packaging Materials 📦"],
-  general: ["General Goods 📦", "Office Supplies 📎", "Tools 🛠️", "Equipment 🏗️"],
+  retail: ["Clothing", "Electronics", "Groceries", "Cosmetics", "Home Decor", "Toys"],
+  restaurant: ["Beverages", "Appetizers", "Main Course", "Desserts", "Sides", "Breakfast"],
+  agriculture: ["Grains", "Vegetables", "Fruits", "Seeds", "Fertilizers", "Livestock"],
+  online_vendor: ["Clothing", "Shoes", "Accessories", "Handbags", "Electronics", "Beauty"],
+  pharmacy: ["Tablets", "Syrups", "Inhalers", "Supplements", "Devices", "First Aid"],
+  manufacturing: ["Raw Materials", "Finished Goods", "Spare Parts", "Packaging", "Chemicals"],
+  textile: ["Fabrics", "Threads", "Buttons", "Yarn", "Dyes", "Tools"],
+  wholesale: ["FMCG", "Bulk Grains", "Beverages", "Toiletries", "Packaging Materials"],
+  general: ["General Goods", "Office Supplies", "Tools", "Equipment"],
 };
 
 export interface QuickProductInput {
@@ -449,7 +450,6 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
                           <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-primary bg-primary/10`} style={{ color: primaryColor.hex, backgroundColor: `${primaryColor.hex}15` }}>
                             <Icon className="h-4.5 w-4.5" />
                           </div>
-                          <span className="text-lg">{sector.emoji}</span>
                         </div>
                         <span className="text-[11px] font-black uppercase tracking-tight text-foreground block mt-1">{sector.label}</span>
                         <p className="text-[9px] text-muted-foreground leading-normal font-medium">{sector.desc}</p>

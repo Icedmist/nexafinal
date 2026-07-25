@@ -22,8 +22,8 @@ export function PriceModeSelector({ value, onValueChange, className, label }: Pr
             : "bg-background text-foreground border-border/60 shadow-sm"
         )}
       >
-        <option value="retail">🏪 Retail Price</option>
-        <option value="wholesale">📦 Wholesale Price</option>
+        <option value="retail">Retail Price</option>
+        <option value="wholesale">Wholesale Price</option>
       </select>
     </div>
   );

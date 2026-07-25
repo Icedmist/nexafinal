@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
 import type { StockMovement, SaleTransaction } from "@/types/inventory";
 
 export interface HistoryEntry {
@@ -20,11 +21,19 @@ export interface HistoryEntry {
 export function useItemHistory(itemId: string) {
   const { user, claimsReady } = useAuth();
   const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [sales, setSales] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemo) {
+      setMovements([]);
+      setSales([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !itemId || !claimsReady) return;
 
     const mQuery = query(
@@ -54,7 +63,7 @@ export function useItemHistory(itemId: string) {
       unsubM();
       unsubS();
     };
-  }, [user, storeId, itemId, claimsReady]);
+  }, [isDemo, user, storeId, itemId, claimsReady]);
 
   const history = useMemo(() => {
     const entries: HistoryEntry[] = [];

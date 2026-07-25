@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, addDoc, deleteDoc, doc }
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useDemo } from "@/hooks/useDemo";
 import { Expense } from "@/types/finance";
 import { isAdminRole } from "@/lib/roles";
 
@@ -15,11 +16,18 @@ interface QueryResult<T> {
 export function useExpenses(): QueryResult<Expense[]> {
   const { user, claims, claimsReady } = useAuth();
   const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) {
         setData([]);
@@ -59,7 +67,7 @@ export function useExpenses(): QueryResult<Expense[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims?.branchId]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
 
   return { data, isLoading, error };
 }

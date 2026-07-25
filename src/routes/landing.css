@@ -13,7 +13,7 @@
 
   background: var(--paper);
   color: var(--ink);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter Variable', 'Inter', sans-serif;
   line-height: 1.65;
   min-height: 100vh;
   position: relative;
@@ -45,7 +45,7 @@
 #nexa-landing .nav-brand{display:flex;align-items:center;gap:11px;text-decoration:none;cursor:pointer}
 #nexa-landing .nav-logo-box{width:38px;height:38px;border-radius:11px;background:var(--blue);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(43,91,255,.35)}
 #nexa-landing .nav-logo-box svg{width:22px;height:22px}
-#nexa-landing .nav-brand-name{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.3px}
+#nexa-landing .nav-brand-name{font-family:'Inter Variable', 'Inter', sans-serif;font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.3px}
 #nexa-landing .nav-brand-name span{color:var(--blue)}
 #nexa-landing .nav-menu{display:flex;align-items:center;gap:4px;list-style:none}
 #nexa-landing .nav-menu li a{display:block;padding:8px 14px;border-radius:50px;font-size:13.5px;font-weight:500;color:var(--ink3);text-decoration:none;transition:all .18s;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif}
@@ -74,9 +74,9 @@
 #nexa-landing .ey-violet{background:rgba(110,64,201,.1);color:var(--violet)}
 #nexa-landing .ey-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-#nexa-landing .display-xl{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(44px,6.5vw,84px);font-weight:800;line-height:.98;letter-spacing:-3px}
-#nexa-landing .display-lg{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(34px,4.5vw,58px);font-weight:800;line-height:1.05;letter-spacing:-1.5px}
-#nexa-landing .display-md{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(24px,3vw,38px);font-weight:700;line-height:1.1;letter-spacing:-.8px}
+#nexa-landing .display-xl{font-family:'Inter Variable', 'Inter', sans-serif;font-size:clamp(44px,6.5vw,84px);font-weight:800;line-height:.98;letter-spacing:-3px}
+#nexa-landing .display-lg{font-family:'Inter Variable', 'Inter', sans-serif;font-size:clamp(34px,4.5vw,58px);font-weight:800;line-height:1.05;letter-spacing:-1.5px}
+#nexa-landing .display-md{font-family:'Inter Variable', 'Inter', sans-serif;font-size:clamp(24px,3vw,38px);font-weight:700;line-height:1.1;letter-spacing:-.8px}
 #nexa-landing .body-lg{font-size:18px;color:var(--ink3);line-height:1.75}
 #nexa-landing .body-md{font-size:15px;color:var(--ink3);line-height:1.75}
 #nexa-landing .grad-blue{background:linear-gradient(130deg,var(--blue),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -127,7 +127,7 @@
 #nexa-landing .browser-url{flex:1;text-align:center;padding:5px 16px;border-radius:8px;background:rgba(255,255,255,.6);font-size:11.5px;color:var(--ink3)}
 #nexa-landing .browser-body{display:grid;grid-template-columns:200px 1fr}
 #nexa-landing .browser-sidebar{background:rgba(248,250,255,.85);border-right:1px solid var(--divider);padding:16px 12px}
-#nexa-landing .bs-logo{font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:800;color:var(--ink);padding:0 8px;margin-bottom:18px}
+#nexa-landing .bs-logo{font-family:'Inter Variable', 'Inter', sans-serif;font-size:13px;font-weight:800;color:var(--ink);padding:0 8px;margin-bottom:18px}
 #nexa-landing .bs-logo span{color:var(--blue)}
 #nexa-landing .bs-nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;font-size:11.5px;font-weight:500;color:var(--ink3);margin-bottom:2px;cursor:pointer}
 #nexa-landing .bs-nav-item.on{background:rgba(43,91,255,.08);color:var(--blue);font-weight:600}
@@ -135,12 +135,12 @@
 #nexa-landing .dot-blue{background:rgba(43,91,255,.15);color:var(--blue)}#nexa-landing .dot-green{background:rgba(18,209,118,.15);color:#0A8A4E}#nexa-landing .dot-teal{background:rgba(0,196,207,.15);color:#007E85}#nexa-landing .dot-amber{background:rgba(245,166,35,.15);color:#A0620A}#nexa-landing .dot-violet{background:rgba(110,64,201,.15);color:var(--violet)}
 #nexa-landing .browser-main{padding:22px 24px;overflow:hidden}
 #nexa-landing .bm-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
-#nexa-landing .bm-welcome{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:700}
+#nexa-landing .bm-welcome{font-family:'Inter Variable', 'Inter', sans-serif;font-size:17px;font-weight:700}
 #nexa-landing .bm-date{font-size:11px;color:var(--ink3)}
 #nexa-landing .bm-tag{padding:4px 10px;border-radius:50px;background:rgba(18,209,118,.1);color:#0A8A4E;font-size:10px;font-weight:700}
 #nexa-landing .metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:16px}
 #nexa-landing .metric{padding:12px 10px;border-radius:13px;background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.9)}
-#nexa-landing .metric-val{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:800;line-height:1;margin-bottom:3px}
+#nexa-landing .metric-val{font-family:'Inter Variable', 'Inter', sans-serif;font-size:17px;font-weight:800;line-height:1;margin-bottom:3px}
 #nexa-landing .metric-label{font-size:9px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
 #nexa-landing .metric-delta{display:inline-block;font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:50px;margin-top:3px}
 #nexa-landing .up{background:#DCFCE7;color:#15803D}
@@ -169,7 +169,7 @@
 #nexa-landing .proof-band{padding:28px 5%;position:relative;z-index:1;border-top:1px solid var(--divider);border-bottom:1px solid var(--divider);background:rgba(255,255,255,.45)}
 #nexa-landing .proof-inner{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap}
 #nexa-landing .proof-item{text-align:center}
-#nexa-landing .proof-num{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;font-weight:800;color:var(--ink);line-height:1}
+#nexa-landing .proof-num{font-family:'Inter Variable', 'Inter', sans-serif;font-size:28px;font-weight:800;color:var(--ink);line-height:1}
 #nexa-landing .proof-label{font-size:12px;color:var(--ink3);margin-top:3px;font-weight:500}
 #nexa-landing .proof-sep{width:1px;height:36px;background:var(--divider)}
 
@@ -183,7 +183,7 @@
 #nexa-landing .cmp-arrow{color:var(--ink3);font-size:12px}
 #nexa-landing .cmp-vs-new{padding:4px 12px;border-radius:50px;background:var(--blue-xl);color:var(--blue);font-size:10px;font-weight:700}
 #nexa-landing .cmp-icon{font-size:30px;margin-bottom:8px}
-#nexa-landing .cmp-title{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:700}
+#nexa-landing .cmp-title{font-family:'Inter Variable', 'Inter', sans-serif;font-size:17px;font-weight:700}
 #nexa-landing .cmp-body{padding:18px 22px}
 #nexa-landing .cmp-row{display:flex;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--divider)}
 #nexa-landing .cmp-row:last-child{border:none;margin:0;padding:0}
@@ -203,7 +203,7 @@
 #nexa-landing .phone-notch{width:80px;height:22px;background:#0C1025;border-radius:0 0 16px 16px;margin:0 auto;position:relative;z-index:1}
 #nexa-landing .phone-screen{padding:0 10px 10px}
 #nexa-landing .ps-topbar{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;margin-bottom:10px}
-#nexa-landing .ps-logo{font-family:'Bricolage Grotesque',sans-serif;font-size:11px;font-weight:800;color:#fff}
+#nexa-landing .ps-logo{font-family:'Inter Variable', 'Inter', sans-serif;font-size:11px;font-weight:800;color:#fff}
 #nexa-landing .ps-logo span{color:#00C4CF}
 #nexa-landing .ps-time{font-size:9px;color:rgba(255,255,255,.5)}
 #nexa-landing .ps-name{font-size:14px;font-weight:800;color:#fff;margin-bottom:1px}
@@ -214,7 +214,7 @@
 #nexa-landing .ps-card-label{font-size:7px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
 #nexa-landing .ps-metric{background:rgba(43,91,255,.15);border:1px solid rgba(43,91,255,.25);border-radius:11px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 #nexa-landing .ps-m-label{font-size:8px;color:rgba(255,255,255,.5)}
-#nexa-landing .ps-m-val{font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:800;color:#00C4CF}
+#nexa-landing .ps-m-val{font-family:'Inter Variable', 'Inter', sans-serif;font-size:13px;font-weight:800;color:#00C4CF}
 #nexa-landing .ps-bar{display:flex;justify-content:space-around;padding:8px 0;border-top:1px solid rgba(255,255,255,.07);margin-top:4px}
 #nexa-landing .ps-bar-item{text-align:center;font-size:7px;color:rgba(255,255,255,.35)}
 #nexa-landing .ps-bar-item.on{color:#2B5BFF}
@@ -249,7 +249,7 @@
 #nexa-landing .pc-plan{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px}
 #nexa-landing .pc-price{display:flex;align-items:baseline;gap:3px;margin:18px 0 4px}
 #nexa-landing .pc-cur{font-size:20px;font-weight:700;color:var(--ink3)}
-#nexa-landing .pc-num{font-family:'Bricolage Grotesque',sans-serif;font-size:68px;font-weight:800;letter-spacing:-4px;line-height:1;color:var(--ink)}
+#nexa-landing .pc-num{font-family:'Inter Variable', 'Inter', sans-serif;font-size:68px;font-weight:800;letter-spacing:-4px;line-height:1;color:var(--ink)}
 #nexa-landing .pc-per{font-size:16px;color:var(--ink3)}
 #nexa-landing .pc-strike{font-size:13px;color:var(--rose);text-decoration:line-through;margin-bottom:28px;font-weight:500}
 #nexa-landing .pc-list{list-style:none;margin-bottom:32px}
@@ -283,7 +283,7 @@
 #nexa-landing .cc-icon-gh{background:#1B1F2322}
 #nexa-landing .cc-icon-tw{background:rgba(29,161,242,.12)}
 #nexa-landing .cc-icon-tg{background:rgba(0,136,204,.12)}
-#nexa-landing .cc-title{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:800;margin-bottom:6px}
+#nexa-landing .cc-title{font-family:'Inter Variable', 'Inter', sans-serif;font-size:19px;font-weight:800;margin-bottom:6px}
 #nexa-landing .cc-desc{font-size:13px;color:var(--ink3);line-height:1.6}
 
 /* CTA STRIP */
@@ -323,7 +323,7 @@
 #nexa-landing .steps-timeline::before{content:'';position:absolute;left:28px;top:0;bottom:0;width:1px;background:linear-gradient(180deg,var(--blue),var(--teal),transparent)}
 #nexa-landing .step-item{display:flex;gap:24px;margin-bottom:40px;position:relative;z-index:1}
 #nexa-landing .step-item:last-child{margin:0}
-#nexa-landing .step-circle{width:56px;height:56px;border-radius:50%;flex-shrink:0;background:#fff;border:2px solid rgba(43,91,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-size:18px;font-weight:800;color:var(--blue);box-shadow:0 4px 16px rgba(43,91,255,.12)}
+#nexa-landing .step-circle{width:56px;height:56px;border-radius:50%;flex-shrink:0;background:#fff;border:2px solid rgba(43,91,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Inter Variable', 'Inter', sans-serif;font-size:18px;font-weight:800;color:var(--blue);box-shadow:0 4px 16px rgba(43,91,255,.12)}
 #nexa-landing .step-content{background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:var(--r);padding:22px 26px;flex:1;transition:all .3s;box-shadow:0 2px 10px rgba(0,0,0,.04)}
 #nexa-landing .step-content:hover{box-shadow:0 8px 32px rgba(43,91,255,.1);border-color:rgba(43,91,255,.12)}
 #nexa-landing .step-title{font-size:16px;font-weight:700;margin-bottom:7px}
@@ -341,7 +341,7 @@
 #nexa-landing .ceo-photo{position:relative;height:340px;overflow:hidden;background:linear-gradient(135deg,#1535C8,#00C4CF)}
 #nexa-landing .ceo-photo-overlay{position:absolute;bottom:0;left:0;right:0;height:130px;background:linear-gradient(transparent,rgba(8,9,26,.75))}
 #nexa-landing .ceo-details{padding:24px 28px}
-#nexa-landing .ceo-name{font-family:'Bricolage Grotesque',sans-serif;font-size:21px;font-weight:800;margin-bottom:4px}
+#nexa-landing .ceo-name{font-family:'Inter Variable', 'Inter', sans-serif;font-size:21px;font-weight:800;margin-bottom:4px}
 #nexa-landing .ceo-title-badge{font-size:12px;color:var(--blue);font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:18px}
 #nexa-landing .ceo-contacts{display:flex;flex-direction:column;gap:8px}
 #nexa-landing .cc-link{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:11px;background:rgba(43,91,255,.05);border:1px solid rgba(43,91,255,.1);font-size:13px;color:var(--ink2);text-decoration:none;transition:all .2s}
@@ -370,7 +370,7 @@
 #nexa-landing .ci-m-val{font-size:14px;font-weight:700;color:var(--ink)}
 #nexa-landing .ci-note{margin-top:20px;padding:14px 16px;border-radius:12px;background:var(--blue-xl);font-size:12.5px;color:var(--ink2);line-height:1.6}
 #nexa-landing .contact-form-wrap{background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:var(--r2);padding:36px;box-shadow:0 8px 32px rgba(0,0,0,.07)}
-#nexa-landing .cf-title{font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px}
+#nexa-landing .cf-title{font-family:'Inter Variable', 'Inter', sans-serif;font-size:22px;font-weight:800;margin-bottom:6px}
 #nexa-landing .cf-sub{font-size:13px;color:var(--ink3);margin-bottom:26px}
 #nexa-landing .form-row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 #nexa-landing .fg{margin-bottom:15px}
@@ -392,7 +392,7 @@
 #nexa-landing .footer-grid{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:48px;padding-bottom:48px;border-bottom:1px solid rgba(255,255,255,.08)}
 #nexa-landing .footer-brand-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 #nexa-landing .f-brand-icon{width:36px;height:36px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center}
-#nexa-landing .f-brand-name{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:800;color:#fff}
+#nexa-landing .f-brand-name{font-family:'Inter Variable', 'Inter', sans-serif;font-size:17px;font-weight:800;color:#fff}
 #nexa-landing .f-brand-name span{color:var(--blue)}
 #nexa-landing .footer-brand-text{font-size:13.5px;color:rgba(255,255,255,.5);line-height:1.75;margin-bottom:22px;max-width:260px}
 #nexa-landing .footer-socials{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}

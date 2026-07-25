@@ -3,6 +3,7 @@ import { useAuth } from './FirebaseAuthContext';
 import { doc, onSnapshot, updateDoc, query, collection, where, limit, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useTenant } from './TenantContext';
+import { useDemo } from '@/hooks/useDemo';
 import { isAdminRole } from '@/lib/roles';
 
 export interface BusinessProfile {
@@ -66,6 +67,7 @@ const loadCachedBusinessState = (): { profile: BusinessProfile; ownerId: string 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, claims, claimsReady } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
+  const { isDemo, onboarding: demoOnboarding } = useDemo();
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [ownerId, setOwnerId] = useState<string | null>(null);
@@ -116,6 +118,34 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setNeedsOnboarding(false);
         setLoadingProfile(false);
       }
+      return;
+    }
+
+    // DEMO MODE: Skip all Firestore reads — provide a mock profile from demo onboarding
+    if (isDemo) {
+      const demoProfile: BusinessProfile = {
+        id: `demo-store-${Date.now()}`,
+        storeDetails: {
+          name: demoOnboarding.storeName,
+          phone: demoOnboarding.storePhone,
+          address: demoOnboarding.storeAddress,
+          receiptFooter: demoOnboarding.receiptFooter,
+          taxRate: demoOnboarding.taxRate,
+          slug: demoOnboarding.storeName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          isPublic: false,
+        },
+        businessType: demoOnboarding.businessType || "retail",
+        categories: demoOnboarding.categories,
+        complexityLevel: "basic",
+        branding: { primaryColor: demoOnboarding.brandColor },
+        settings: {},
+        ownerId: user.uid,
+      };
+      setProfile(demoProfile);
+      setOwnerId(user.uid);
+      setStoreId(demoProfile.id);
+      setNeedsOnboarding(false);
+      setLoadingProfile(false);
       return;
     }
 

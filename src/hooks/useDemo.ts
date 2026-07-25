@@ -1,10 +1,34 @@
 import { useContext } from "react";
-import { DemoContext } from "@/contexts/DemoContext";
+import { DemoContext, type DemoContextValue } from "@/contexts/DemoContext";
 
-export function useDemo() {
+const DEFAULT_CONTEXT: DemoContextValue = {
+  isDemo: false,
+  demoStore: null,
+  enterDemoMode: () => {},
+  exitDemoMode: () => {},
+  resetDemoData: () => {},
+  bumpVersion: () => {},
+  version: 0,
+  onboarding: {
+    businessType: null,
+    categories: [],
+    storeName: "My Store",
+    storePhone: "",
+    storeAddress: "",
+    receiptFooter: "Thank you for your patronage!",
+    taxRate: 0,
+    currency: "NGN",
+    country: "Nigeria",
+    state: "",
+    lga: "",
+  },
+  updateOnboarding: () => {},
+};
+
+export function useDemo(): DemoContextValue {
   const context = useContext(DemoContext);
   if (!context) {
-    throw new Error("useDemo must be used within a DemoProvider");
+    return DEFAULT_CONTEXT;
   }
   return context;
 }

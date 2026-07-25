@@ -103,7 +103,7 @@ export function ManufacturingDashboard() {
                 <div key={item.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-muted/20 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-purple-100/50 flex items-center justify-center text-xl shadow-xs border border-purple-200/30">
-                      {item.emoji || "🏭"}
+                      {item.emoji || <Factory className="h-5 w-5" />}
                     </div>
                     <div>
                       <p className="text-sm font-bold leading-none mb-1">{item.name}</p>

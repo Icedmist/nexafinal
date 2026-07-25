@@ -21,6 +21,9 @@ import {
   MessageSquare,
   Bookmark,
   Percent,
+  Building2,
+  User,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -615,7 +618,7 @@ function AdminTrackerPage() {
                 <SelectValue placeholder="All Store Branches" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">🏢 Current Branch</SelectItem>
+                <SelectItem value="all"><Building2 className="inline h-3.5 w-3.5 mr-1" /> Current Branch</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -628,10 +631,10 @@ function AdminTrackerPage() {
                 <SelectValue placeholder="All Staff Members" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">👥 All Staff / Users</SelectItem>
+                <SelectItem value="all"><Users className="inline h-3.5 w-3.5 mr-1" /> All Staff / Users</SelectItem>
                 {users.map((usr) => (
                   <SelectItem key={usr.id} value={usr.id}>
-                    👤 {usr.name || usr.email} ({usr.role})
+                    <User className="inline h-3.5 w-3.5 mr-1" /> {usr.name || usr.email} ({usr.role})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -646,12 +649,12 @@ function AdminTrackerPage() {
                 <SelectValue placeholder="All Time" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">📅 All Time Records</SelectItem>
-                <SelectItem value="today">📅 Today</SelectItem>
-                <SelectItem value="yesterday">📅 Yesterday</SelectItem>
-                <SelectItem value="7days">📅 Last 7 Days</SelectItem>
-                <SelectItem value="30days">📅 Last 30 Days</SelectItem>
-                <SelectItem value="thismonth">📅 This Month</SelectItem>
+                <SelectItem value="all"><Calendar className="inline h-3.5 w-3.5 mr-1" /> All Time Records</SelectItem>
+                <SelectItem value="today"><Calendar className="inline h-3.5 w-3.5 mr-1" /> Today</SelectItem>
+                <SelectItem value="yesterday"><Calendar className="inline h-3.5 w-3.5 mr-1" /> Yesterday</SelectItem>
+                <SelectItem value="7days"><Calendar className="inline h-3.5 w-3.5 mr-1" /> Last 7 Days</SelectItem>
+                <SelectItem value="30days"><Calendar className="inline h-3.5 w-3.5 mr-1" /> Last 30 Days</SelectItem>
+                <SelectItem value="thismonth"><Calendar className="inline h-3.5 w-3.5 mr-1" /> This Month</SelectItem>
               </SelectContent>
             </Select>
           </div>

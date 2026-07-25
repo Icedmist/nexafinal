@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, doc, writeBatch, increme
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useDemo } from "@/hooks/useDemo";
 import type { Refund } from "@/types/finance";
 import { isAdminRole } from "@/lib/roles";
 import { notifyActivity } from "@/lib/notification-service";
@@ -16,11 +17,18 @@ interface QueryResult<T> {
 export function useRefunds(): QueryResult<Refund[]> {
   const { user, claims, claimsReady } = useAuth();
   const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<Refund[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) {
         setData([]);
@@ -60,7 +68,7 @@ export function useRefunds(): QueryResult<Refund[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims?.branchId, claims?.role]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId, claims?.role]);
 
   return { data, isLoading, error };
 }

@@ -3,6 +3,7 @@ import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDo
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
 import type { Notification } from "@/types/inventory";
 import { useEffect, useState } from "react";
 
@@ -15,11 +16,18 @@ interface QueryResult<T> {
 export function useNotifications(): QueryResult<Notification[]> {
   const { user } = useAuth();
   const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId) {
       setData([]);
       setIsLoading(false);
@@ -45,7 +53,7 @@ export function useNotifications(): QueryResult<Notification[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId]);
+  }, [isDemo, user, storeId]);
 
   return { data, isLoading, error };
 }

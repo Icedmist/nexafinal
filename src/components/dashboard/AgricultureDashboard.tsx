@@ -71,8 +71,8 @@ export function AgricultureDashboard() {
                     <div key={item.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-muted/20 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-xl shadow-xs border border-border/30">
-                          {item.emoji || "🌱"}
-                        </div>
+                           {item.emoji || <Sprout className="h-5 w-5" />}
+                         </div>
                         <div>
                           <p className="text-sm font-bold">{item.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
@@ -130,7 +130,7 @@ export function AgricultureDashboard() {
                       )}
                     >
                       {crop ? (
-                        <span className="animate-in zoom-in-50 duration-300">{crop.emoji || "🌱"}</span>
+                        <span className="animate-in zoom-in-50 duration-300">{crop.emoji || <Sprout className="h-4 w-4" />}</span>
                       ) : (
                         <Plus className="h-2 w-2 text-muted-foreground/30" />
                       )}

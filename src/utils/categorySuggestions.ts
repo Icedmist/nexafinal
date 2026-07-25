@@ -43,16 +43,16 @@ export const CATEGORY_PRESETS: Record<string, { units: string[] }> = {
 
 export function getBuiltInProductSuggestions(): BuiltInProduct[] {
   return [
-    { name: "Coca-Cola 50cl", categoryName: "Drinks", defaultUnit: "bottle", estimatedPrice: 300, emoji: "🥤" },
-    { name: "Indomie Noodles", categoryName: "Groceries", defaultUnit: "pack", estimatedPrice: 200, emoji: "🍜" },
-    { name: "Peak Milk 500g", categoryName: "Groceries", defaultUnit: "tin", estimatedPrice: 900, emoji: "🥛" },
-    { name: "Dangote Sugar 1kg", categoryName: "Groceries", defaultUnit: "pack", estimatedPrice: 1100, emoji: "🍬" },
-    { name: "Pure Water Sachet", categoryName: "Drinks", defaultUnit: "bag", estimatedPrice: 300, emoji: "💧" },
-    { name: "Palm Oil 1L", categoryName: "Groceries", defaultUnit: "bottle", estimatedPrice: 2500, emoji: "🫒" },
-    { name: "Rice 50kg Bag", categoryName: "Grains", defaultUnit: "bag", estimatedPrice: 75000, emoji: "🍚" },
-    { name: "Chicken Wings 1kg", categoryName: "Proteins", defaultUnit: "kg", estimatedPrice: 3500, emoji: "🍗" },
-    { name: "Garri 1kg", categoryName: "Grains", defaultUnit: "kg", estimatedPrice: 800, emoji: "🥔" },
-    { name: "Tomato Paste", categoryName: "Groceries", defaultUnit: "tin", estimatedPrice: 500, emoji: "🍅" },
+    { name: "Coca-Cola 50cl", categoryName: "Drinks", defaultUnit: "bottle", estimatedPrice: 300, emoji: "Cup" },
+    { name: "Indomie Noodles", categoryName: "Groceries", defaultUnit: "pack", estimatedPrice: 200, emoji: "Utensils" },
+    { name: "Peak Milk 500g", categoryName: "Groceries", defaultUnit: "tin", estimatedPrice: 900, emoji: "Cup" },
+    { name: "Dangote Sugar 1kg", categoryName: "Groceries", defaultUnit: "pack", estimatedPrice: 1100, emoji: "Package" },
+    { name: "Pure Water Sachet", categoryName: "Drinks", defaultUnit: "bag", estimatedPrice: 300, emoji: "Cup" },
+    { name: "Palm Oil 1L", categoryName: "Groceries", defaultUnit: "bottle", estimatedPrice: 2500, emoji: "FlaskConical" },
+    { name: "Rice 50kg Bag", categoryName: "Grains", defaultUnit: "bag", estimatedPrice: 75000, emoji: "Utensils" },
+    { name: "Chicken Wings 1kg", categoryName: "Proteins", defaultUnit: "kg", estimatedPrice: 3500, emoji: "Beef" },
+    { name: "Garri 1kg", categoryName: "Grains", defaultUnit: "kg", estimatedPrice: 800, emoji: "Apple" },
+    { name: "Tomato Paste", categoryName: "Groceries", defaultUnit: "tin", estimatedPrice: 500, emoji: "Flame" },
   ];
 }
 

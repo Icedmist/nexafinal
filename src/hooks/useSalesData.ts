@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocFromCache, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDemo } from "@/hooks/useDemo";
 import type { SaleTransaction, DebtPayment } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
@@ -17,11 +18,18 @@ interface QueryResult<T> {
 export function useSales(): QueryResult<SaleTransaction[]> {
   const { user, claims, claimsReady } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     // Wait for claims to ensure we filter correctly for branch-assigned staff
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) {
@@ -61,7 +69,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims?.branchId]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
 
   return { data, isLoading, error };
 }
@@ -69,11 +77,18 @@ export function useSales(): QueryResult<SaleTransaction[]> {
 export function useDebtPayments(): QueryResult<DebtPayment[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const { isDemo } = useDemo();
   const [data, setData] = useState<DebtPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!user || !storeId || !claimsReady) {
       if (!claimsReady || !user) {
         setData([]);
@@ -112,7 +127,7 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, claimsReady, claims?.branchId]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
 
   return { data, isLoading, error };
 }

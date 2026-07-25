@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, query, orderBy, limit, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useDemo } from "@/hooks/useDemo";
 import { isAdminRole } from "@/lib/roles";
 import { useBusiness } from "@/contexts/BusinessContext";
 
@@ -19,10 +20,17 @@ export interface ActivityLog {
 export function useActivityLogs(count = 10) {
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemo) {
+      setLogs([]);
+      setLoading(false);
+      return;
+    }
+
     if (!user || !storeId) {
       setLogs([]);
       setLoading(false);
@@ -57,7 +65,7 @@ export function useActivityLogs(count = 10) {
     });
 
     return () => unsubscribe();
-  }, [user, storeId, count, claims]);
+  }, [isDemo, user, storeId, count, claims]);
 
   return { logs, loading };
 }

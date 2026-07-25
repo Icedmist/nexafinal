@@ -58,7 +58,28 @@ import {
   Lock,
   BookOpen,
   ExternalLink,
-  Share2
+  Share2,
+  Rocket,
+  User as UserIcon,
+  BarChart3,
+  Link,
+  ClipboardList,
+  Banknote,
+  Calendar,
+  Gift,
+  Zap,
+  RefreshCw,
+  Landmark,
+  Shield,
+  FileEdit,
+  Store,
+  Handshake,
+  Ban,
+  GraduationCap,
+  X,
+  Smartphone,
+  CheckCircle,
+  MessageCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -469,7 +490,7 @@ export function AgentsPage() {
           createdAt: new Date().toISOString()
         });
 
-        const welcomeMsg = `Welcome, ${nameInput.trim()}! 🎉 Your application for the NexaStoreOS Growth Partner Program in ${stateInput} (${lgaInput.trim()}) has been received and registered. Your assigned Agent ID is ${agentId}. Your State Lead will reach out to you at ${phoneInput.trim()} within 48 hours to complete orientation and dispatch your ₦10,000 logistics allowance. Welcome to the team! — Nexa Agent Operations Team, Jalingo, Taraba State.`;
+        const welcomeMsg = `Welcome, ${nameInput.trim()}! Your application for the NexaStoreOS Growth Partner Program in ${stateInput} (${lgaInput.trim()}) has been received and registered. Your assigned Agent ID is ${agentId}. Your State Lead will reach out to you at ${phoneInput.trim()} within 48 hours to complete orientation and dispatch your ₦10,000 logistics allowance. Welcome to the team! — Nexa Agent Operations Team, Jalingo, Taraba State.`;
 
         setAppSubmittedSuccess({
           agentId,
@@ -741,7 +762,7 @@ export function AgentsPage() {
 
             <div className="hero-btns flex flex-wrap justify-center gap-4 mb-20">
               <button className="btn btn-green cursor-pointer" onClick={() => scrollToSection("#apply")}>
-                <span>🚀</span>Apply as Field Agent
+                <Rocket className="h-4 w-4 inline" />Apply as Field Agent
               </button>
               <button className="btn btn-ghost cursor-pointer" onClick={() => scrollToSection("#income")}>
                 See Income Potential →
@@ -768,7 +789,7 @@ export function AgentsPage() {
                     {/* SIDEBAR */}
                     <div className="wf-side bg-white/[0.018] border-r border-white/10 p-5 flex flex-col gap-3">
                       <div className="wfs-agent p-3.5 rounded-xl bg-gradient-to-br from-[#2B5BFF]/15 to-[#00C4CF]/5 border border-[#2B5BFF]/20">
-                        <div className="wfs-avatar w-9 h-9 rounded-full bg-gradient-to-br from-[#2B5BFF] to-[#00C4CF] flex items-center justify-center text-base mb-2">👤</div>
+                        <div className="wfs-avatar w-9 h-9 rounded-full bg-gradient-to-br from-[#2B5BFF] to-[#00C4CF] flex items-center justify-center text-base mb-2"><UserIcon className="h-4 w-4" /></div>
                         <div className="wfs-name font-bold text-white text-sm">Aminu Lawal</div>
                         <div className="wfs-id font-mono text-[10px] text-[#00C4CF] tracking-wider">ID: LAGOSDEALS-2024</div>
                         <div className="wfs-state text-[10px] text-slate-400 mt-0.5">Taraba State · Field Agent</div>
@@ -779,16 +800,16 @@ export function AgentsPage() {
                           <span className="wfn-ico wi-g font-bold">₦</span>Earnings
                         </div>
                         <div className="wfn flex items-center gap-2 p-2.5 rounded-lg text-slate-300 hover:bg-white/5">
-                          <span className="wfn-ico wi-b">👥</span>My Merchants
+                          <Users className="h-4 w-4" />My Merchants
                         </div>
                         <div className="wfn flex items-center gap-2 p-2.5 rounded-lg text-slate-300 hover:bg-white/5">
-                          <span className="wfn-ico wi-t">📊</span>Performance
+                          <BarChart3 className="h-4 w-4" />Performance
                         </div>
                         <div className="wfn flex items-center gap-2 p-2.5 rounded-lg text-slate-300 hover:bg-white/5">
-                          <span className="wfn-ico wi-a">🔗</span>Referral Link
+                          <Link className="h-4 w-4" />Referral Link
                         </div>
                         <div className="wfn flex items-center gap-2 p-2.5 rounded-lg text-slate-300 hover:bg-white/5">
-                          <span className="wfn-ico wi-v">📋</span>Disbursements
+                          <ClipboardList className="h-4 w-4" />Disbursements
                         </div>
                       </div>
                     </div>
@@ -825,7 +846,7 @@ export function AgentsPage() {
                         <div className="ic bg-white/[0.04] border border-white/10 rounded-xl p-3">
                           <div className="ic-lbl text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Field Allowance</div>
                           <div className="ic-val font-mono text-base font-bold text-white">₦10,000</div>
-                          <span className="ic-delta neutral text-[9px] font-bold bg-blue-500/10 text-[#7B9FFF] px-1.5 py-0.5 rounded-full">Paid ✓</span>
+                          <span className="ic-delta neutral text-[9px] font-bold bg-blue-500/10 text-[#7B9FFF] px-1.5 py-0.5 rounded-full">Paid <Check className="h-3 w-3 inline" /></span>
                         </div>
                       </div>
 
@@ -871,24 +892,24 @@ export function AgentsPage() {
 
               {/* FLOATING NOTIFS */}
               <div className="wf-notif wn1 hidden lg:flex">
-                <span className="wno-ico">💰</span>
+                <Banknote className="h-4 w-4" />
                 <div>
                   <div className="wno-txt text-[10px] text-slate-400">Bonus credited</div>
                   <div className="wno-val wno-green font-mono font-bold text-xs text-[#4DE89A]">+₦1,500 onboarding</div>
                 </div>
               </div>
               <div className="wf-notif wn2 hidden lg:flex">
-                <span className="wno-ico">📅</span>
+                <Calendar className="h-4 w-4" />
                 <div>
                   <div className="wno-txt text-[10px] text-slate-400">Monthly settlement</div>
                   <div className="wno-val font-mono font-bold text-xs text-white">₦22,000 — Aug 1st</div>
                 </div>
               </div>
               <div className="wf-notif wn3 hidden lg:flex">
-                <span className="wno-ico">🆕</span>
+                <Sparkles className="h-4 w-4" />
                 <div>
                   <div className="wno-txt text-[10px] text-slate-400">New merchant onboarded</div>
-                  <div className="wno-val wno-blue font-mono font-bold text-xs text-[#7B9FFF]">Fatima's Store ✓</div>
+                  <div className="wno-val wno-blue font-mono font-bold text-xs text-[#7B9FFF]">Fatima's Store <Check className="h-3 w-3 inline" /></div>
                 </div>
               </div>
             </div>
@@ -1037,19 +1058,19 @@ export function AgentsPage() {
 
                     <div className="ip-rows space-y-2 text-xs">
                       <div className="ip-row flex justify-between items-center p-2.5 rounded-lg bg-white/5 border border-white/5">
-                        <span className="ip-row-lbl text-slate-300">🎁 Field Logistics Allowance</span>
+                        <span className="ip-row-lbl text-slate-300"><Gift className="h-4 w-4 inline mr-1" />Field Logistics Allowance</span>
                         <span className="ip-row-val green font-mono font-bold text-[#4DE89A]">₦10,000</span>
                       </div>
                       <div className="ip-row flex justify-between items-center p-2.5 rounded-lg bg-white/5 border border-white/5">
-                        <span className="ip-row-lbl text-slate-300">⚡ One-time Onboarding Bonuses</span>
+                        <span className="ip-row-lbl text-slate-300"><Zap className="h-4 w-4 inline mr-1" />One-time Onboarding Bonuses</span>
                         <span className="ip-row-val font-mono font-bold text-white">₦{calculatedIncome.bonus.toLocaleString()}</span>
                       </div>
                       <div className="ip-row flex justify-between items-center p-2.5 rounded-lg bg-white/5 border border-white/5">
-                        <span className="ip-row-lbl text-slate-300">🔄 Monthly Residual Income</span>
+                        <span className="ip-row-lbl text-slate-300"><RefreshCw className="h-4 w-4 inline mr-1" />Monthly Residual Income</span>
                         <span className="ip-row-val green font-mono font-bold text-[#4DE89A]">₦{calculatedIncome.residual.toLocaleString()}</span>
                       </div>
                       <div className="ip-row flex justify-between items-center p-2.5 rounded-lg bg-white/5 border border-white/5">
-                        <span className="ip-row-lbl text-slate-300">📅 Settlement Date</span>
+                        <span className="ip-row-lbl text-slate-300"><Calendar className="h-4 w-4 inline mr-1" />Settlement Date</span>
                         <span className="ip-row-val font-mono font-bold text-white">1st of every month</span>
                       </div>
                     </div>
@@ -1136,11 +1157,11 @@ export function AgentsPage() {
                     <div className="ac-val font-mono text-5xl font-bold text-[#7B9FFF] mb-1">₦10,000</div>
                     <div className="ac-label text-xs font-bold text-slate-400 uppercase tracking-wider mb-6">Fixed Field Logistics Allowance</div>
                     <div className="ac-list space-y-3 text-sm text-slate-300">
-                      <div className="ac-item flex items-center gap-3"><span className="ac-check text-[#7B9FFF] font-extrabold">✓</span>Paid upon successful field profile verification by your State Lead</div>
-                      <div className="ac-item flex items-center gap-3"><span className="ac-check text-[#7B9FFF] font-extrabold">✓</span>Covers transportation costs to merchant locations</div>
-                      <div className="ac-item flex items-center gap-3"><span className="ac-check text-[#7B9FFF] font-extrabold">✓</span>Covers printing of promotional materials &amp; brochures</div>
-                      <div className="ac-item flex items-center gap-3"><span className="ac-check text-[#7B9FFF] font-extrabold">✓</span>Covers mobile data subscriptions for demo sessions</div>
-                      <div className="ac-item flex items-center gap-3"><span className="ac-check text-[#7B9FFF] font-extrabold">✓</span>One-time disbursement — separate from commissions</div>
+                      <div className="ac-item flex items-center gap-3"><CheckCircle className="h-4 w-4 inline text-[#7B9FFF]" />Paid upon successful field profile verification by your State Lead</div>
+                      <div className="ac-item flex items-center gap-3"><CheckCircle className="h-4 w-4 inline text-[#7B9FFF]" />Covers transportation costs to merchant locations</div>
+                      <div className="ac-item flex items-center gap-3"><CheckCircle className="h-4 w-4 inline text-[#7B9FFF]" />Covers printing of promotional materials &amp; brochures</div>
+                      <div className="ac-item flex items-center gap-3"><CheckCircle className="h-4 w-4 inline text-[#7B9FFF]" />Covers mobile data subscriptions for demo sessions</div>
+                      <div className="ac-item flex items-center gap-3"><CheckCircle className="h-4 w-4 inline text-[#7B9FFF]" />One-time disbursement — separate from commissions</div>
                     </div>
                   </div>
 
@@ -1160,25 +1181,25 @@ export function AgentsPage() {
               {/* TIMELINE CARDS */}
               <div className="disburse-timeline grid sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="dt-card bg-[#141528] border border-white/10 rounded-2xl p-6 text-center space-y-3">
-                  <div className="dt-ico text-3xl">🏦</div>
+                  <div className="dt-ico text-3xl"><Landmark className="h-8 w-8" /></div>
                   <div className="dt-title font-bold text-white text-sm">Bank Transfer</div>
                   <div className="dt-body text-xs text-slate-400">Direct electronic bank transfer to your verified Nigerian bank account. No cash. No delays.</div>
                   <div className="dt-date font-mono text-xs text-[#4DE89A] font-bold">Secure &amp; Instant</div>
                 </div>
                 <div className="dt-card bg-[#141528] border border-white/10 rounded-2xl p-6 text-center space-y-3">
-                  <div className="dt-ico text-3xl">📅</div>
+                  <div className="dt-ico text-3xl"><Calendar className="h-8 w-8" /></div>
                   <div className="dt-title font-bold text-white text-sm">Monthly Settlement</div>
                   <div className="dt-body text-xs text-slate-400">All monthly residuals and pending bonuses are settled on the 1st day of every month.</div>
                   <div className="dt-date font-mono text-xs text-[#4DE89A] font-bold">1st of Every Month</div>
                 </div>
                 <div className="dt-card bg-[#141528] border border-white/10 rounded-2xl p-6 text-center space-y-3">
-                  <div className="dt-ico text-3xl">⚡</div>
+                  <div className="dt-ico text-3xl"><Zap className="h-8 w-8" /></div>
                   <div className="dt-title font-bold text-white text-sm">Instant Bonuses</div>
                   <div className="dt-body text-xs text-slate-400">Onboarding bonuses (₦1,500 / ₦5,000) are queued immediately upon merchant verification.</div>
                   <div className="dt-date font-mono text-xs text-[#4DE89A] font-bold">Within 24–48 Hours</div>
                 </div>
                 <div className="dt-card bg-[#141528] border border-white/10 rounded-2xl p-6 text-center space-y-3">
-                  <div className="dt-ico text-3xl">🛡️</div>
+                  <div className="dt-ico text-3xl"><Shield className="h-8 w-8" /></div>
                   <div className="dt-title font-bold text-white text-sm">Verified Accounts Only</div>
                   <div className="dt-body text-xs text-slate-400">Bank details verified by State Lead before first disbursement. NIN + account number required.</div>
                   <div className="dt-date font-mono text-xs text-[#4DE89A] font-bold">Secure &amp; Compliant</div>
@@ -1203,12 +1224,12 @@ export function AgentsPage() {
 
               <div className="steps-row grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-6 text-center mb-16">
                 <div className="step space-y-3">
-                  <div className="step-circle s-1 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#2B5BFF]/20">📝</div>
+                  <div className="step-circle s-1 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#2B5BFF]/20"><FileEdit className="h-6 w-6" /></div>
                   <div className="step-title font-bold text-white text-sm">1. Apply Online</div>
                   <div className="step-body text-xs text-slate-400">Fill in the agent application form with NIN, bank details, and state.</div>
                 </div>
                 <div className="step space-y-3">
-                  <div className="step-circle s-2 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#00C4CF]/20">✅</div>
+                  <div className="step-circle s-2 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#00C4CF]/20"><CheckCircle className="h-6 w-6" /></div>
                   <div className="step-title font-bold text-white text-sm">2. State Lead Verifies</div>
                   <div className="step-body text-xs text-slate-400">State Lead reviews application &amp; conducts orientation within 48 hours.</div>
                 </div>
@@ -1218,12 +1239,12 @@ export function AgentsPage() {
                   <div className="step-body text-xs text-slate-400">₦10,000 field logistics allowance transferred to your account in 3–5 days.</div>
                 </div>
                 <div className="step space-y-3">
-                  <div className="step-circle s-4 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#F5A623]/20">🏪</div>
+                  <div className="step-circle s-4 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#F5A623]/20"><Store className="h-6 w-6" /></div>
                   <div className="step-title font-bold text-white text-sm">4. Onboard Merchants</div>
                   <div className="step-body text-xs text-slate-400">Visit retailers, demo NexaStoreOS, and help them subscribe.</div>
                 </div>
                 <div className="step space-y-3">
-                  <div className="step-circle s-5 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#12D176]/30">🔄</div>
+                  <div className="step-circle s-5 w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl border border-white/10 bg-[#12D176]/30"><RefreshCw className="h-6 w-6" /></div>
                   <div className="step-title font-bold text-white text-sm">5. Earn Every Month</div>
                   <div className="step-body text-xs text-slate-400">Earn ₦500–₦1,000 per merchant every month. Automatically. Forever.</div>
                 </div>
@@ -1238,32 +1259,32 @@ export function AgentsPage() {
 
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="bg-[#141528] border border-white/10 rounded-2xl p-6 space-y-3">
-                    <div className="text-3xl">🤝</div>
+                    <Handshake className="h-8 w-8" />
                     <div className="sm tw font-bold text-white text-base">Honest Representation</div>
                     <p className="body-s text-xs text-slate-400 leading-relaxed">Always represent NexaStoreOS accurately. Do not make income claims or promises not contained in official materials.</p>
                   </div>
                   <div className="bg-[#141528] border border-white/10 rounded-2xl p-6 space-y-3">
-                    <div className="text-3xl">📊</div>
+                    <BarChart3 className="h-8 w-8" />
                     <div className="sm tw font-bold text-white text-base">Active Field Engagement</div>
                     <p className="body-s text-xs text-slate-400 leading-relaxed">Conduct at least 4 merchant visits per week and maintain active WhatsApp communication with your State Lead.</p>
                   </div>
                   <div className="bg-[#141528] border border-white/10 rounded-2xl p-6 space-y-3">
-                    <div className="text-3xl">🔐</div>
+                    <Lock className="h-8 w-8" />
                     <div className="sm tw font-bold text-white text-base">Data Confidentiality</div>
                     <p className="body-s text-xs text-slate-400 leading-relaxed">All merchant information and Nexa business data shared with agents is strictly confidential.</p>
                   </div>
                   <div className="bg-[#141528] border border-white/10 rounded-2xl p-6 space-y-3">
-                    <div className="text-3xl">📱</div>
+                    <Smartphone className="h-8 w-8" />
                     <div className="sm tw font-bold text-white text-base">Merchant Onboarding Support</div>
                     <p className="body-s text-xs text-slate-400 leading-relaxed">Assist each onboarded merchant through their first login, basic product setup, and first sales entry.</p>
                   </div>
                   <div className="bg-[#141528] border border-white/10 rounded-2xl p-6 space-y-3">
-                    <div className="text-3xl">🚫</div>
+                    <Ban className="h-8 w-8" />
                     <div className="sm tw font-bold text-white text-base">No Unauthorized Sub-Agents</div>
                     <p className="body-s text-xs text-slate-400 leading-relaxed">Agents may not recruit or pay sub-agents without explicit written authorization from a Regional Manager.</p>
                   </div>
                   <div className="bg-[#141528] border border-white/10 rounded-2xl p-6 space-y-3">
-                    <div className="text-3xl">📋</div>
+                    <ClipboardList className="h-8 w-8" />
                     <div className="sm tw font-bold text-white text-base">Weekly Activity Reporting</div>
                     <p className="body-s text-xs text-slate-400 leading-relaxed">Submit a weekly field activity report via the agent portal every Friday before 6 PM.</p>
                   </div>
@@ -1424,7 +1445,7 @@ export function AgentsPage() {
                 
                 {appSubmittedSuccess ? (
                   <div className="text-center space-y-6 py-8">
-                    <div className="text-6xl animate-bounce">🎉</div>
+                    <div className="animate-bounce"><Sparkles className="h-16 w-16 text-[#4DE89A]" /></div>
                     <h3 className="text-2xl font-extrabold text-[#4DE89A] font-['Bricolage_Grotesque']">Application Submitted!</h3>
                     <p className="text-sm text-slate-300 leading-relaxed max-w-xl mx-auto">
                       {appSubmittedSuccess.message}
@@ -1576,7 +1597,7 @@ export function AgentsPage() {
                       disabled={submitting}
                       className="btn btn-green w-full py-4 text-base font-bold cursor-pointer shadow-lg shadow-emerald-500/20"
                     >
-                      {submitting ? "Processing Application..." : "🚀 Submit Application — Join for Free"}
+                      {submitting ? "Processing Application..." : "Submit Application — Join for Free"}
                     </button>
 
                   </form>
@@ -1781,7 +1802,7 @@ export function AgentsPage() {
                 activeTab === "academy" ? "border-[#00C4CF] text-[#00C4CF]" : "border-transparent text-slate-400 hover:text-white"
               }`}
             >
-              <span>🎓</span> Marketing &amp; Course Academy
+              <GraduationCap className="h-4 w-4 inline" /> Marketing &amp; Course Academy
             </button>
             <button 
               onClick={() => setActiveTab("settings")}
@@ -2036,7 +2057,7 @@ export function AgentsPage() {
                           className="h-8 w-8 p-0 text-slate-400 hover:text-white"
                           onClick={() => setAgentVideoUrl(null)}
                         >
-                          ✕
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
 
@@ -2126,9 +2147,9 @@ export function AgentsPage() {
                 Official NexaStoreOS Growth Partner Agent Portal. Operated by Nexa Digital Solutions LTD, Jalingo, Taraba State, Nigeria.
               </p>
               <div className="space-y-1 text-slate-300">
-                <div>📞 090-380-26109</div>
-                <div>💬 081-323-21056 (WhatsApp)</div>
-                <div>📍 Lamurde St, Barade, Jalingo, Taraba</div>
+                <div><Phone className="h-4 w-4 inline" /> 090-380-26109</div>
+                <div><MessageCircle className="h-4 w-4 inline" /> 081-323-21056 (WhatsApp)</div>
+                <div><MapPin className="h-4 w-4 inline" /> Lamurde St, Barade, Jalingo, Taraba</div>
               </div>
             </div>
 
