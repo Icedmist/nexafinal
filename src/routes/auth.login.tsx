@@ -168,7 +168,10 @@ function LoginPage() {
       }
 
       toast.success("Welcome back!");
-      navigate("/app/dashboard" );
+      // Route system admins to their panel, regular users to store dashboard
+      const finalTokenResult = await cred.user.getIdTokenResult();
+      const finalRole = finalTokenResult.claims.role;
+      navigate(finalRole === "system_admin" ? "/system-admin/dashboard" : "/app/dashboard");
     } catch (err: any) {
       const message = getAuthErrorMessage(err?.code, err?.message || "Invalid credentials");
       toast.error(message);

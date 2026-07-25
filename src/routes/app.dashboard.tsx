@@ -21,10 +21,8 @@ import { useSales, useDebtPayments, useSalesMutations } from "@/hooks/useSalesDa
 import { useExpenses } from "@/hooks/useExpensesData";
 import { useRefunds } from "@/hooks/useRefundsData";
 import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";
-import { useOfflineMode } from "@/hooks/useOfflineMode";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
-import { OfflineStatusIndicator } from "@/components/shared/OfflineStatusIndicator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,7 +112,6 @@ function DashboardPage() {
   const { profile } = useBusiness();
   const businessType = isDemo ? onboarding.businessType : (profile?.businessType || null);
   const { user } = useAuth();
-  const { cacheData } = useOfflineMode();
   const { data: customers = [] } = useCustomers();
   // useAlertGenerator(); // Disabled for production
 
@@ -133,17 +130,6 @@ function DashboardPage() {
   const tour = useOnboarding("dashboard");
   const [openSection, setOpenSection] = useState<string | null>("metrics");
   const [searchParams] = useSearchParams();
-
-  // Cache data to offline storage when it loads
-  useEffect(() => {
-    if (sales.length > 0 || payments.length > 0) {
-      cacheData({
-        sales,
-        debtPayments: payments,
-        lastSync: new Date().toISOString(),
-      }).catch((err) => console.warn('Offline cache update failed:', err));
-    }
-  }, [sales, payments, cacheData]);
 
   // Auto-start tour if coming from onboarding
   useEffect(() => {
@@ -302,9 +288,6 @@ function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4">
-      {/* Offline Status Indicator */}
-      <OfflineStatusIndicator />
-
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-0.5">

@@ -55,8 +55,8 @@ export const STORE_TYPE_OPTIONS: StoreTypeOption[] = [
 ];
 
 export function useStoreType() {
-  const { isDemo, onboarding, updateOnboarding } = useDemo();
-  const { profile, updateProfile } = useBusiness();
+  const { isDemo, onboarding } = useDemo();
+  const { profile } = useBusiness();
 
   const activeBusinessType = isDemo ? onboarding?.businessType : profile?.businessType;
 
@@ -80,19 +80,10 @@ export function useStoreType() {
       if (typeof window !== "undefined") {
         localStorage.setItem(LOCAL_STORAGE_KEY, type);
       }
-      
-      // Sync with businessType if appropriate
-      const mappedBusinessType = type === "wholesaler" ? "wholesale" : type === "supermarket" ? "retail" : "retail";
-      if (isDemo) {
-        updateOnboarding({ businessType: mappedBusinessType });
-      } else if (updateProfile) {
-        updateProfile({ businessType: mappedBusinessType });
-      }
-
       // Dispatch custom event for real-time reactivity across components
       window.dispatchEvent(new CustomEvent("nexa-storetype-changed", { detail: type }));
     },
-    [isDemo, updateOnboarding, updateProfile]
+    []
   );
 
   useEffect(() => {
