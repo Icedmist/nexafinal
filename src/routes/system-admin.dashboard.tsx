@@ -27,6 +27,7 @@ import { db, functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
 import { ProvisionStoreDialog } from "@/components/system-admin/ProvisionStoreDialog";
 import { SystemActivityFeed } from "@/components/system-admin/SystemActivityFeed";
+import { PlatformSalesMonitor } from "@/components/system-admin/PlatformSalesMonitor";
 import { cn } from "@/lib/utils";
 
 const data = [
@@ -174,6 +175,9 @@ export default function SystemDashboard() {
           <SystemActivityFeed />
         </div>
       </div>
+
+      {/* Platform Sales Monitor */}
+      <PlatformSalesMonitor />
 
       {/* Recent Businesses Table */}
       <div className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden">

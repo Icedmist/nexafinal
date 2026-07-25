@@ -316,7 +316,17 @@ export default function SystemUsers() {
                     <td className="px-8 py-5">
                        <div className="flex flex-col">
                          <span className="text-[10px] font-black text-slate-600 uppercase tracking-tighter">Last Login</span>
-                         <span className="text-xs font-bold text-slate-400">Just now</span>
+                         <span className="text-xs font-bold text-slate-400">
+                           {user.lastLogin ? (() => {
+                             const d = new Date(user.lastLogin);
+                             const diff = Date.now() - d.getTime();
+                             if (diff < 60000) return "Just now";
+                             if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+                             if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+                             if (diff < 604800000) return `${Math.floor(diff/86400000)}d ago`;
+                             return d.toLocaleDateString();
+                           })() : "Never"}
+                         </span>
                        </div>
                     </td>
                     <td className="px-8 py-5 text-right">

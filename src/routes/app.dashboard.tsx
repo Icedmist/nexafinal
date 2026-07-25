@@ -109,7 +109,7 @@ function DashboardPage() {
   const { isAdmin, isManager } = useRole();
   const { storeType, isWholesaler, isRetailer, isSupermarket } = useStoreType();
   const { isDemo, onboarding } = useDemo();
-  const { profile } = useBusiness();
+  const { profile, loadingProfile } = useBusiness();
   const businessType = isDemo ? onboarding.businessType : (profile?.businessType || null);
   const { user } = useAuth();
   const { data: customers = [] } = useCustomers();
@@ -125,7 +125,7 @@ function DashboardPage() {
   const [paymentNotes, setPaymentNotes] = useState("");
   const [isPaying, setIsPaying] = useState(false);
 
-  const isLoading = salesLoading || expensesLoading || refundsLoading || paymentsLoading;
+  const isLoading = salesLoading || expensesLoading || refundsLoading || paymentsLoading || loadingProfile;
 
   const tour = useOnboarding("dashboard");
   const [openSection, setOpenSection] = useState<string | null>("metrics");

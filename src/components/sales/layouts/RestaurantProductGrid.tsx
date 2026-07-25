@@ -282,23 +282,21 @@ function DishCard({
     >
       {/* ─── Image / Emoji Area ─── */}
       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-emerald-950/20 to-stone-900/40 flex items-center justify-center">
-        {item.imageUrl ? (
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-5xl drop-shadow-lg select-none" aria-hidden>
+            {getFoodEmoji(item.name)}
+          </span>
+        </div>
+        {item.imageUrl && (
           <img
             src={item.imageUrl}
             alt={item.name}
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
             loading="lazy"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = "";
-              (e.target as HTMLImageElement).className = "hidden";
+              (e.target as HTMLImageElement).style.display = "none";
             }}
           />
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-1">
-            <span className="text-5xl drop-shadow-lg select-none" aria-hidden>
-              {getFoodEmoji(item.name)}
-            </span>
-          </div>
         )}
 
         {/* Cart counter */}

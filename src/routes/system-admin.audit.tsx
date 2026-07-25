@@ -131,7 +131,26 @@ export default function SystemAudit() {
           <p className="text-slate-400 font-medium">Immutable ledger of platform-wide administrative actions.</p>
         </div>
         
-        <button className="flex items-center gap-2 rounded-2xl bg-slate-900 border border-slate-800 px-5 py-3 text-xs font-black text-white uppercase tracking-widest transition-all hover:bg-slate-800">
+        <button 
+          onClick={() => {
+            const headers = ["Timestamp","Type","Actor","Message","Store ID"];
+            const rows = filteredLogs.map(l => [
+              l.timestamp?.toDate?.() ? new Date(l.timestamp.toDate()).toISOString() : l.timestamp || "",
+              l.type || "",
+              l.userEmail || "",
+              l.message || "",
+              l.storeId || ""
+            ]);
+            const csv = [headers,...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = "audit-log.csv"; a.click();
+            URL.revokeObjectURL(url);
+            toast.success(`Exported ${filteredLogs.length} audit entries`);
+          }}
+          className="flex items-center gap-2 rounded-2xl bg-slate-900 border border-slate-800 px-5 py-3 text-xs font-black text-white uppercase tracking-widest transition-all hover:bg-slate-800"
+        >
           <Download className="h-4 w-4" />
           Export Audit Data
         </button>

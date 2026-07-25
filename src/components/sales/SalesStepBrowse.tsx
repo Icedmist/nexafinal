@@ -452,7 +452,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                     {/* Fallback icon */}
                     <div className={cn(
                       "absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-muted/30 to-muted/10 text-muted-foreground/20 transition-opacity duration-300",
-                      item.imageUrl ? "opacity-0 group-hover:opacity-10" : "opacity-100"
+                      "opacity-100"
                     )}>
                       <Package className="h-10 w-10 stroke-[1.5]" />
                       <span className="text-[10px] font-black tracking-[0.2em] opacity-50 uppercase">No Image</span>

@@ -280,7 +280,7 @@ function TextileProductCard({
         <div
           className={cn(
             "absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-primary/5 to-primary/10 text-primary/30 transition-opacity duration-300",
-            item.imageUrl ? "opacity-0 group-hover:opacity-100" : "opacity-100"
+            "opacity-100"
           )}
         >
           <Package className="h-8 w-8 stroke-[1.2]" />

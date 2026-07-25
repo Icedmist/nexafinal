@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Building2, 
   Search, 
@@ -60,6 +60,8 @@ export default function SystemBusinesses() {
   const [salesCount, setSalesCount] = useState<number | null>(null);
   const [productsCount, setProductsCount] = useState<number | null>(null);
   const [provisionOpen, setProvisionOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     fetchBusinesses();
@@ -171,10 +173,14 @@ export default function SystemBusinesses() {
     }
   };
 
-  const filteredBusinesses = businesses.filter(b => 
+  const filteredBusinesses = useMemo(() => businesses.filter(b => 
     b.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     b.slug?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ), [businesses, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBusinesses.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedBusinesses = filteredBusinesses.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
     <div className="space-y-8">
@@ -186,7 +192,20 @@ export default function SystemBusinesses() {
         </div>
         
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs font-bold text-slate-400 transition-all hover:text-white">
+          <button 
+            onClick={() => {
+              const headers = ["Name","Slug","Status","Type","Created","Branches"];
+              const rows = filteredBusinesses.map(b => [b.name,b.slug,b.status,b.businessType||"",b.createdAt?.seconds ? new Date(b.createdAt.seconds*1000).toLocaleDateString() : "N/A",String(b.branchCount||1)]);
+              const csv = [headers,...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = "businesses.csv"; a.click();
+              URL.revokeObjectURL(url);
+              toast.success(`Exported ${filteredBusinesses.length} businesses`);
+            }}
+            className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs font-bold text-slate-400 transition-all hover:text-white"
+          >
             <Download className="h-4 w-4" />
             Export CSV
           </button>
@@ -208,7 +227,7 @@ export default function SystemBusinesses() {
             placeholder="Search by name or slug..."
             className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 py-3 pl-12 pr-4 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
           />
         </div>
         
@@ -217,7 +236,7 @@ export default function SystemBusinesses() {
             {["all", "active", "suspended"].map((filter) => (
               <button
                 key={filter}
-                onClick={() => setStatusFilter(filter)}
+                onClick={() => { setStatusFilter(filter); setPage(1); }}
                 className={cn(
                   "rounded-xl px-4 py-2 text-xs font-bold capitalize transition-all",
                   statusFilter === filter 
@@ -263,7 +282,7 @@ export default function SystemBusinesses() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-900">
-                {filteredBusinesses.map((biz) => (
+                {paginatedBusinesses.map((biz) => (
                   <tr 
                     key={biz.id} 
                     onClick={() => {
@@ -353,15 +372,36 @@ export default function SystemBusinesses() {
           </div>
         )}
         
-        {/* Pagination (Simplified Mock) */}
+        {/* Pagination */}
         <div className="flex items-center justify-between border-t border-slate-900 bg-slate-950/50 px-8 py-4">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Showing {filteredBusinesses.length} Organizations</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">
+            Showing {paginatedBusinesses.length} of {filteredBusinesses.length} Organizations — Page {safePage} of {totalPages}
+          </span>
           <div className="flex items-center gap-2">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 text-slate-600 hover:text-white disabled:opacity-30" disabled>
+            <button 
+              onClick={() => setPage(p => Math.max(1, p - 1))} 
+              disabled={safePage <= 1}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 text-slate-600 hover:text-white disabled:opacity-30"
+            >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 font-bold text-white text-xs">1</div>
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 text-slate-600 hover:text-white disabled:opacity-30" disabled>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-xl border text-xs font-bold transition-all",
+                  p === safePage ? "bg-blue-600 border-blue-600 text-white" : "border-slate-800 text-slate-600 hover:text-white"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+            <button 
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+              disabled={safePage >= totalPages}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 text-slate-600 hover:text-white disabled:opacity-30"
+            >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>

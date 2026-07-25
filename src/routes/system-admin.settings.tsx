@@ -368,8 +368,54 @@ export default function GlobalSettings() {
                 )}
 
                 {activeTab === "appearance" && (
-                  <div className="flex items-center justify-center py-20 text-slate-600 italic text-sm">
-                    Appearance customization module coming soon...
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-1">Platform Branding</h3>
+                      <p className="text-xs text-slate-500">Customize the look and feel of the system admin dashboard.</p>
+                    </div>
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Primary Color</label>
+                        <div className="flex items-center gap-3">
+                          <input type="color" defaultValue="#3b82f6" className="h-10 w-10 rounded-lg border border-slate-800 bg-transparent cursor-pointer" />
+                          <span className="text-xs font-bold text-slate-400">#3B82F6 (Blue)</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Accent Color</label>
+                        <div className="flex items-center gap-3">
+                          <input type="color" defaultValue="#8b5cf6" className="h-10 w-10 rounded-lg border border-slate-800 bg-transparent cursor-pointer" />
+                          <span className="text-xs font-bold text-slate-400">#8B5CF6 (Violet)</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Platform Name</label>
+                      <input 
+                        type="text" 
+                        defaultValue="NexaOS" 
+                        className="w-full rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Support Email</label>
+                      <input 
+                        type="email" 
+                        defaultValue="support@nexa.os" 
+                        className="w-full rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Login Background</label>
+                      <div className="flex gap-3">
+                        {["dark", "gradient", "mesh"].map((bg) => (
+                          <button key={bg} className="flex h-16 w-24 items-center justify-center rounded-xl border-2 border-slate-800 bg-slate-900 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:border-blue-500/50 hover:text-white transition-all capitalize">
+                            {bg}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-600 italic">Appearance settings are saved locally. Full theme engine coming in v2.</p>
                   </div>
                 )}
               </>

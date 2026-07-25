@@ -24,6 +24,7 @@ export default function SystemHealth() {
     functions: "checking",
     storage: "checking",
   });
+  const [platformStats, setPlatformStats] = useState({ totalStores: 0, totalUsers: 0 });
 
   const checkHealth = async () => {
     setLoading(true);
@@ -33,8 +34,10 @@ export default function SystemHealth() {
     
     // 2. Check Database (Firestore)
     let dbStatus = "operational";
+    let totalStores = 0;
     try {
-      await getDocs(query(collection(db, "stores"), limit(1)));
+      const storesSnap = await getDocs(query(collection(db, "stores"), limit(1000)));
+      totalStores = storesSnap.size;
     } catch (e) {
       console.error("Health check DB error:", e);
       dbStatus = "degraded";
@@ -42,16 +45,20 @@ export default function SystemHealth() {
 
     // 3. Check Functions (Ping getplatformstats)
     let funcStatus = "operational";
+    let totalUsers = 0;
     try {
       const getStats = httpsCallable(functions, 'getplatformstats');
-      await getStats();
+      const result = await getStats();
+      const data = result.data as any;
+      totalUsers = data?.totalUsers || 0;
     } catch (e) {
       console.error("Health check Functions error:", e);
       funcStatus = "degraded";
     }
 
+    setPlatformStats({ totalStores, totalUsers });
     setStatus({
-      api: "operational", // Assuming the web server is up since we're here
+      api: "operational",
       database: dbStatus,
       auth: authStatus,
       functions: funcStatus,
@@ -65,10 +72,10 @@ export default function SystemHealth() {
   }, []);
 
   const metrics = [
-    { label: "Uptime", value: "99.98%", icon: Clock, color: "emerald" },
-    { label: "Avg Response", value: "245ms", icon: Activity, color: "blue" },
-    { label: "Storage Used", value: "1.2 TB", icon: HardDrive, color: "amber" },
-    { label: "Active Nodes", value: "12", icon: Server, color: "indigo" },
+    { label: "Total Stores", value: platformStats.totalStores.toLocaleString(), icon: Database, color: "emerald" },
+    { label: "Total Users", value: platformStats.totalUsers.toLocaleString(), icon: Activity, color: "blue" },
+    { label: "System Status", value: Object.values(status).every(s => s === "operational") ? "All OK" : "Degraded", icon: CheckCircle2, color: Object.values(status).every(s => s === "operational") ? "emerald" : "amber" },
+    { label: "Services", value: `${Object.values(status).filter(s => s === "operational").length}/${Object.keys(status).length}`, icon: Server, color: "indigo" },
   ];
 
   const services = [
@@ -89,8 +96,9 @@ export default function SystemHealth() {
         </div>
         
         <button 
-          onClick={() => setLoading(true)}
-          className="flex items-center gap-2 rounded-xl bg-slate-900 border border-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-all"
+          onClick={() => checkHealth()}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-xl bg-slate-900 border border-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-all disabled:opacity-50"
         >
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           Refresh Status

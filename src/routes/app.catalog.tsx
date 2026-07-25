@@ -172,10 +172,14 @@ function CatalogPage() {
         locationId: data.locationId ?? null,
         branchId: data.branchId ?? null,
         supplierId: data.supplierId ?? null,
-        imageUrl: null,
+        imageUrl: data.imageUrl || null,
         customFields: {},
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        // Pass through variant and menu item config
+        ...(data.variantAttributes && { variantAttributes: data.variantAttributes }),
+        ...(data.variants && { variants: data.variants }),
+        ...(data.menuItemConfig && { menuItemConfig: data.menuItemConfig }),
       };
       createItem.mutate(newItem, {
         onSuccess: () => {
