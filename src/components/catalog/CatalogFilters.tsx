@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Filter, X, QrCode } from "lucide-react";
+import { Filter, X, QrCode, List, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -20,6 +20,8 @@ interface CatalogFiltersProps {
   categories: Category[];
   suppliers: Supplier[];
   locations: Location[];
+  view?: "list" | "grid";
+  onViewChange?: (v: "list" | "grid") => void;
 }
 
 const STATUS_OPTIONS = [
@@ -29,7 +31,7 @@ const STATUS_OPTIONS = [
   { value: "out-of-stock", label: "Out of Stock" },
 ];
 
-export function CatalogFilters({ filters, onChange, categories, suppliers, locations }: CatalogFiltersProps) {
+export function CatalogFilters({ filters, onChange, categories, suppliers, locations, view = "list", onViewChange }: CatalogFiltersProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
@@ -60,6 +62,26 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
         >
           <QrCode className="h-4 w-4" />
         </Button>
+        {onViewChange && (
+          <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => onViewChange("list")}
+              className={`flex items-center justify-center h-full px-2 transition-colors ${view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="List view"
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewChange("grid")}
+              className={`flex items-center justify-center h-full px-2 transition-colors ${view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="Grid view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       <Select value={filters.categoryId ?? "all"} onValueChange={(v) => update({ categoryId: v === "all" ? undefined : v })}>
@@ -124,7 +146,30 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetContent side="bottom" className="max-h-[80vh]">
             <SheetTitle>Filters</SheetTitle>
-            <div className="mt-4">{filterControls}</div>
+            <div className="mt-4 space-y-3">
+              {onViewChange && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium">View:</span>
+                  <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => onViewChange("list")}
+                      className={`flex items-center gap-1.5 h-full px-3 text-xs font-medium transition-colors ${view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                    >
+                      <List className="h-3.5 w-3.5" /> List
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onViewChange("grid")}
+                      className={`flex items-center gap-1.5 h-full px-3 text-xs font-medium transition-colors ${view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" /> Grid
+                    </button>
+                  </div>
+                </div>
+              )}
+              {filterControls}
+            </div>
           </SheetContent>
         </Sheet>
       </div>

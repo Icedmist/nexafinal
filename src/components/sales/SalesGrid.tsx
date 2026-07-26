@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ShoppingCart, ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ShoppingCart, ArrowLeft, ArrowRight, Check, Scan } from "lucide-react";
 import { type SalePriceMode, buildCartKey, parseCartKey, getItemPriceForMode } from "./price-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { SalesStepBrowse } from "./SalesStepBrowse";
 import { SalesStepCart, type CartItem } from "./SalesStepCart";
 import { SalesStepCheckout } from "./SalesStepCheckout";
+import { SalesQuickScanCheckout } from "./SalesQuickScanCheckout";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 const NAIRA = "₦";
@@ -60,6 +61,7 @@ export function SalesGrid() {
   const [cart, setCart] = useState<Map<string, number>>(new Map());
   const [step, setStep] = useState<StepId>("browse");
   const [defaultSaleType, setDefaultSaleType] = useState<SalePriceMode>("retail");
+  const [posMode, setPosMode] = useState<"standard" | "quickscan">("standard");
 
   const goToCart = useCallback(() => setStep("cart"), []);
 
@@ -158,100 +160,124 @@ export function SalesGrid() {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Step indicator header */}
+      {/* Header with mode toggle */}
       <div className="border-b border-border bg-card px-4 py-3">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-semibold text-foreground">Point of Sale</h1>
-          {totalItems > 0 && step === "browse" && (
-            <Button
-              size="sm"
-              className={cn("gap-2", businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700 text-white")}
-              onClick={goToCart}
-            >
-              <ShoppingCart className="h-4 w-4" />
-              Cart
-              <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 rounded-full px-1 text-[10px]">
-                {totalItems}
-              </Badge>
-            </Button>
-          )}
-        </div>
-
-        {/* Step tabs */}
-        <div className="flex items-center gap-1">
-          {STEPS.map((s, i) => (
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-xl border border-border/40">
             <button
-              key={s.id}
               type="button"
-              onClick={() => {
-                if (s.id === "checkout" && cartItems.length === 0) return;
-                if (s.id === "cart" || s.id === "browse") setStep(s.id);
-                if (s.id === "checkout" && cartItems.length > 0) setStep(s.id);
-              }}
+              onClick={() => setPosMode("standard")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
-                step === s.id
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                posMode === "standard"
                   ? (businessType === "restaurant" ? "bg-emerald-600 text-white shadow-sm" : "bg-primary text-primary-foreground shadow-sm")
-                  : i < stepIdx
-                    ? (businessType === "restaurant" ? "bg-emerald-600/10 text-emerald-600" : "bg-primary/10 text-primary")
-                    : "bg-muted text-muted-foreground",
-                s.id === "checkout" && cartItems.length === 0 && "opacity-40 cursor-not-allowed"
+                  : "text-muted-foreground hover:bg-muted-foreground/10"
               )}
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-bold">
-                {i + 1}
-              </span>
-              <span className="hidden sm:inline">{s.label}</span>
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Catalogue
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setPosMode("quickscan")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                posMode === "quickscan"
+                  ? (businessType === "restaurant" ? "bg-emerald-600 text-white shadow-sm" : "bg-primary text-primary-foreground shadow-sm")
+                  : "text-muted-foreground hover:bg-muted-foreground/10"
+              )}
+            >
+              <Scan className="h-3.5 w-3.5" />
+              Quick Scan
+            </button>
+          </div>
         </div>
+
+        {/* Step tabs (standard mode only) */}
+        {posMode === "standard" && (
+          <div className="flex items-center gap-1">
+            {STEPS.map((s, i) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  if (s.id === "checkout" && cartItems.length === 0) return;
+                  if (s.id === "cart" || s.id === "browse") setStep(s.id);
+                  if (s.id === "checkout" && cartItems.length > 0) setStep(s.id);
+                }}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                  step === s.id
+                    ? (businessType === "restaurant" ? "bg-emerald-600 text-white shadow-sm" : "bg-primary text-primary-foreground shadow-sm")
+                    : i < stepIdx
+                      ? (businessType === "restaurant" ? "bg-emerald-600/10 text-emerald-600" : "bg-primary/10 text-primary")
+                      : "bg-muted text-muted-foreground",
+                  s.id === "checkout" && cartItems.length === 0 && "opacity-40 cursor-not-allowed"
+                )}
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-bold">
+                  {i + 1}
+                </span>
+                <span className="hidden sm:inline">{s.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Step content */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {step === "browse" && (
-          <SalesStepBrowse 
-            cart={cart} 
-            onAdd={addToCart} 
-            onRemove={removeFromCart} 
-            onSetQuantity={setQuantityInCart} 
-            defaultSaleType={defaultSaleType}
-            onDefaultSaleTypeChange={setDefaultSaleType}
-          />
-        )}
-        {step === "cart" && (
-          <SalesStepCart
-            items={cartItems}
-            onAdd={addToCart}
-            onRemove={removeFromCart}
-            onSetQuantity={setQuantityInCart}
-            onClear={() => setCart(new Map())}
-            onNext={() => setStep("checkout")}
-          />
-        )}
-        {step === "checkout" && (
-          <SalesStepCheckout items={cartItems} onComplete={handleComplete} defaultSaleType={defaultSaleType} />
-        )}
-      </div>
+      {/* Content */}
+      {posMode === "quickscan" ? (
+        <SalesQuickScanCheckout />
+      ) : (
+        <>
+          {/* Step content */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {step === "browse" && (
+              <SalesStepBrowse 
+                cart={cart} 
+                onAdd={addToCart} 
+                onRemove={removeFromCart} 
+                onSetQuantity={setQuantityInCart} 
+                defaultSaleType={defaultSaleType}
+                onDefaultSaleTypeChange={setDefaultSaleType}
+              />
+            )}
+            {step === "cart" && (
+              <SalesStepCart
+                items={cartItems}
+                onAdd={addToCart}
+                onRemove={removeFromCart}
+                onSetQuantity={setQuantityInCart}
+                onClear={() => setCart(new Map())}
+                onNext={() => setStep("checkout")}
+              />
+            )}
+            {step === "checkout" && (
+              <SalesStepCheckout items={cartItems} onComplete={handleComplete} defaultSaleType={defaultSaleType} />
+            )}
+          </div>
 
-      {/* Bottom navigation between steps */}
-      {step !== "browse" && (
-        <div className="border-t border-border bg-card px-4 py-3 flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setStep(step === "checkout" ? "cart" : "browse")}
-            className="gap-1.5"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back
-          </Button>
-          {step === "cart" && (
-            <div className="ml-auto text-sm font-mono font-bold">
-              {NAIRA}{totalNaira.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+          {/* Bottom navigation between steps */}
+          {step !== "browse" && (
+            <div className="border-t border-border bg-card px-4 py-3 flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStep(step === "checkout" ? "cart" : "browse")}
+                className="gap-1.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back
+              </Button>
+              {step === "cart" && (
+                <div className="ml-auto text-sm font-mono font-bold">
+                  {NAIRA}{totalNaira.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

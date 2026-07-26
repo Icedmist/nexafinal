@@ -1,12 +1,15 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Upload, QrCode } from "lucide-react";
+import { Plus, Upload, QrCode, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButton";
 import { CSVImportSheet, type ImportField } from "@/components/data/CSVImportSheet";
+import { CSVImportGuideModal } from "@/components/data/CSVImportGuideModal";
+import { QuickEntryModal } from "@/components/catalog/QuickEntryModal";
+import { InStoreQRGeneratorModal } from "@/components/catalog/InStoreQRGeneratorModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CatalogTable, type SortState } from "@/components/catalog/CatalogTable";
+import { CatalogGrid } from "@/components/catalog/CatalogGrid";
 import { CatalogFilters } from "@/components/catalog/CatalogFilters";
 import { ItemFormSheet } from "@/components/catalog/ItemFormSheet";
 import { BulkActionBar } from "@/components/catalog/BulkActionBar";
@@ -56,6 +60,23 @@ function CatalogPage() {
     }
   }, [newItem]);
 
+  // Hook into onboarding triggers (Scanner & CSV import auto-open)
+  useEffect(() => {
+    const triggerScanner = sessionStorage.getItem("nexa_open_scanner_after_onboarding");
+    if (triggerScanner === "true") {
+      sessionStorage.removeItem("nexa_open_scanner_after_onboarding");
+      setIsQuickEntryOpen(true);
+      toast.success("Welcome! Scan your packaged goods using the camera.");
+    }
+
+    const triggerImport = sessionStorage.getItem("nexa_open_import_after_onboarding");
+    if (triggerImport === "true") {
+      sessionStorage.removeItem("nexa_open_import_after_onboarding");
+      setImportOpen(true);
+      toast.success("Welcome! Choose your spreadsheet to match and import.");
+    }
+  }, []);
+
   const handleSheetOpenChange = useCallback((open: boolean) => {
     setSheetOpen(open);
     if (!open) {
@@ -79,6 +100,17 @@ function CatalogPage() {
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [movementItemId, setMovementItemId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
+  const [isInStoreQRGeneratorOpen, setIsInStoreQRGeneratorOpen] = useState(false);
+  const [view, setView] = useState<"list" | "grid">(() => {
+    return (localStorage.getItem("nexa_catalog_view") as "list" | "grid") || "list";
+  });
+
+  const handleViewChange = (v: "list" | "grid") => {
+    setView(v);
+    localStorage.setItem("nexa_catalog_view", v);
+  };
 
   const importFields = useMemo<ImportField[]>(() => [
     { key: "name", label: "Name", required: true },
@@ -259,6 +291,27 @@ function CatalogPage() {
             </Button>
           </PermissionGate>
           <PermissionGate permission="create_item">
+            <Button variant="outline" size="sm"
+              className="hidden gap-1.5 sm:inline-flex border-emerald-500/30 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold h-8 sm:h-9 text-[10px] sm:text-xs"
+              onClick={() => setGuideOpen(true)}>
+              <HelpCircle className="h-3.5 w-3.5" />CSV & AI Guide
+            </Button>
+          </PermissionGate>
+          <PermissionGate permission="create_item">
+            <Button variant="outline"
+              onClick={() => setIsInStoreQRGeneratorOpen(true)}
+              className="hidden gap-1.5 sm:inline-flex border-blue-200 hover:border-blue-400 bg-blue-500/5 hover:bg-blue-500/10 text-blue-700 font-semibold h-8 sm:h-9 text-[10px] sm:text-xs">
+              <QrCode className="h-3.5 w-3.5" />In-Store QR
+            </Button>
+          </PermissionGate>
+          <PermissionGate permission="create_item">
+            <Button variant="outline"
+              onClick={() => setIsQuickEntryOpen(true)}
+              className="hidden gap-1.5 sm:inline-flex border-amber-200 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/10 text-amber-700 font-semibold h-8 sm:h-9 text-[10px] sm:text-xs">
+              <QrCode className="h-3.5 w-3.5" />Quick Entry
+            </Button>
+          </PermissionGate>
+          <PermissionGate permission="create_item">
             <Button onClick={openCreate} className="flex gap-1 items-center h-8 sm:h-9 text-[10px] sm:text-xs">
               <Plus className="h-3.5 w-3.5" />New Item
             </Button>
@@ -267,7 +320,7 @@ function CatalogPage() {
       </div>
 
       <Card className="p-4">
-        <CatalogFilters filters={filters} onChange={setFilters} categories={categories} suppliers={suppliers} locations={locations} />
+        <CatalogFilters filters={filters} onChange={setFilters} categories={categories} suppliers={suppliers} locations={locations} view={view} onViewChange={handleViewChange} />
       </Card>
 
       <ErrorBoundary>
@@ -279,7 +332,7 @@ function CatalogPage() {
           actionLabel={can("create_item") ? "Add First Item" : undefined}
           onAction={can("create_item") ? openCreate : undefined}
         />
-      ) : (
+      ) : view === "list" ? (
         <CatalogTable
           items={items}
           categories={categories}
@@ -291,6 +344,16 @@ function CatalogPage() {
           onSelectedChange={setSelected}
           onRowClick={(item) => openDetail(item)}
           actionRenderer={actionRenderer}
+          showCheckboxes={can("edit_item")}
+        />
+      ) : (
+        <CatalogGrid
+          items={items}
+          categories={categories}
+          onRowClick={(item) => openDetail(item)}
+          actionRenderer={actionRenderer}
+          selected={selected}
+          onSelectedChange={setSelected}
           showCheckboxes={can("edit_item")}
         />
       )}
@@ -424,6 +487,10 @@ function CatalogPage() {
           return { created, failed };
         }}
       />
+
+      <QuickEntryModal open={isQuickEntryOpen} onOpenChange={setIsQuickEntryOpen} />
+      <InStoreQRGeneratorModal open={isInStoreQRGeneratorOpen} onOpenChange={setIsInStoreQRGeneratorOpen} />
+      <CSVImportGuideModal open={guideOpen} onOpenChange={setGuideOpen} />
     </div>
   );
 }
