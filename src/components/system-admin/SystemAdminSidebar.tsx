@@ -9,7 +9,15 @@ import {
   UserCheck,
   CreditCard,
   Mail,
-  Headphones
+  Headphones,
+  Radio,
+  Bot,
+  MessageSquare,
+  Pill,
+  PieChart,
+  MapPin,
+  Globe,
+  Map
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -32,6 +40,14 @@ const systemAdminLinks: NavItem[] = [
   { label: "Subscriptions", href: "/system-admin/subscriptions", icon: CreditCard },
   { label: "Retention", href: "/system-admin/retention", icon: Mail },
   { label: "Support Tickets", href: "/system-admin/support", icon: Headphones },
+  { label: "Updates & Broadcasts", href: "/system-admin/updates", icon: Radio },
+  { label: "AI Agents", href: "/system-admin/agents", icon: Bot },
+  { label: "Live Chats", href: "/system-admin/chats", icon: MessageSquare },
+  { label: "Drug Library", href: "/system-admin/drug-library", icon: Pill },
+  { label: "Categories", href: "/system-admin/categories", icon: PieChart },
+  { label: "Attribution", href: "/system-admin/attribution", icon: Globe },
+  { label: "Operations", href: "/system-admin/operations", icon: MapPin },
+  { label: "Store Map", href: "/system-admin/map", icon: Map },
 ];
 
 export function SystemAdminSidebar() {

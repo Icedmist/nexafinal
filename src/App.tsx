@@ -53,6 +53,14 @@ const SystemAgentsNetworkPage = lazy(() => import('./routes/system-admin.agents-
 const SystemSubscriptionsPage = lazy(() => import('./routes/system-admin.subscriptions'));
 const SystemRetentionPage = lazy(() => import('./routes/system-admin.retention'));
 const SystemSupportPage = lazy(() => import('./routes/system-admin.support'));
+const SystemUpdatesPage = lazy(() => import('./routes/system-admin.updates'));
+const SystemAgentsAIPage = lazy(() => import('./routes/system-admin.agents'));
+const SystemChatsPage = lazy(() => import('./routes/system-admin.chats'));
+const SystemDrugLibraryPage = lazy(() => import('./routes/system-admin.drug-library'));
+const SystemCategoriesPage = lazy(() => import('./routes/system-admin.categories'));
+const SystemAttributionPage = lazy(() => import('./routes/system-admin.attribution'));
+const SystemOperationsPage = lazy(() => import('./routes/system-admin.operations'));
+const SystemMapPage = lazy(() => import('./routes/system-admin.map'));
 
 
 import { LogoutOverlay } from './components/shared/LogoutOverlay';
@@ -134,6 +142,14 @@ function App() {
               <Route path="subscriptions" element={<SystemSubscriptionsPage />} />
               <Route path="retention" element={<SystemRetentionPage />} />
               <Route path="support" element={<SystemSupportPage />} />
+              <Route path="updates" element={<SystemUpdatesPage />} />
+              <Route path="agents" element={<SystemAgentsAIPage />} />
+              <Route path="chats" element={<SystemChatsPage />} />
+              <Route path="drug-library" element={<SystemDrugLibraryPage />} />
+              <Route path="categories" element={<SystemCategoriesPage />} />
+              <Route path="attribution" element={<SystemAttributionPage />} />
+              <Route path="operations" element={<SystemOperationsPage />} />
+              <Route path="map" element={<SystemMapPage />} />
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>
 

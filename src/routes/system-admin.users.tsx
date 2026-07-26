@@ -12,7 +12,9 @@ import {
   ArrowUpDown,
   Lock,
   UserCheck,
-  Ban
+  Ban,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { collection, query, getDocs, orderBy, limit, where } from "firebase/firestore";
 import { db, functions } from "@/lib/firebase";
