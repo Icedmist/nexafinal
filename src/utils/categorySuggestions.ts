@@ -135,3 +135,175 @@ export function predictCategoryAndUnit(
 
   return null;
 }
+
+export interface DistributorPreset {
+  id: string;
+  name: string;
+  category: string;
+  categoryName: string;
+  contactPerson: string;
+  contactPhone: string;
+  contactEmail: string;
+  state: string;
+  minOrderValueNgn: number;
+  deliveryLeadDays: number;
+  verified: boolean;
+  brands: string[];
+}
+
+export const DISTRIBUTOR_PRESETS: DistributorPreset[] = [
+  {
+    id: "dist-nb",
+    name: "Nigerian Breweries Plc Depot",
+    category: "beverages",
+    categoryName: "Beverages & Drinks",
+    contactPerson: "Chidi Opara (Sales Mgr)",
+    contactPhone: "+234 803 111 2233",
+    contactEmail: "orders@nbplc.com",
+    state: "Lagos",
+    minOrderValueNgn: 150000,
+    deliveryLeadDays: 1,
+    verified: true,
+    brands: ["Heineken", "Goldberg", "Star Radler", "Maltina", "Amstel Malta", "Fayrouz", "Legend"]
+  },
+  {
+    id: "dist-nbc",
+    name: "Nigerian Bottling Company (Coca-Cola NBC)",
+    category: "beverages",
+    categoryName: "Beverages & Drinks",
+    contactPerson: "Bisi Adebayo (Distribution Lead)",
+    contactPhone: "+234 802 999 8877",
+    contactEmail: "supply@cchellenic-nbc.com",
+    state: "Lagos",
+    minOrderValueNgn: 100000,
+    deliveryLeadDays: 1,
+    verified: true,
+    brands: ["Coca-Cola", "Fanta", "Sprite", "Eva Water", "Monster Energy", "Schweppes", "Limca"]
+  },
+  {
+    id: "dist-7up",
+    name: "Seven-Up Bottling Company (SBC)",
+    category: "beverages",
+    categoryName: "Beverages & Drinks",
+    contactPerson: "Tunde Ednut (Key Accounts)",
+    contactPhone: "+234 805 444 3322",
+    contactEmail: "orders@sevenup.org",
+    state: "Lagos",
+    minOrderValueNgn: 80000,
+    deliveryLeadDays: 2,
+    verified: true,
+    brands: ["7Up", "Pepsi", "Mirinda", "Aquafina Water", "Teem", "Lipton Ice Tea", "Rockstar"]
+  },
+  {
+    id: "dist-guinness",
+    name: "Guinness Nigeria Wholesale Depot",
+    category: "beverages",
+    categoryName: "Beverages & Drinks",
+    contactPerson: "Emeka Ike (Wholesale Officer)",
+    contactPhone: "+234 809 222 1100",
+    contactEmail: "direct@guinness.com",
+    state: "Lagos",
+    minOrderValueNgn: 200000,
+    deliveryLeadDays: 1,
+    verified: true,
+    brands: ["Guinness Stout", "Malta Guinness", "Orijin", "Smirnoff", "Johnnie Walker", "Baileys"]
+  },
+  {
+    id: "dist-chi",
+    name: "Chi Limited / CCBA Distribution Hub",
+    category: "beverages",
+    categoryName: "Beverages & Drinks",
+    contactPerson: "Fatima Alhassan (FMCG Mgr)",
+    contactPhone: "+234 806 777 5544",
+    contactEmail: "sales@chiltd.com",
+    state: "Ogun",
+    minOrderValueNgn: 120000,
+    deliveryLeadDays: 2,
+    verified: true,
+    brands: ["Chivita 100%", "Chi Exotic", "Hollandia Yoghurt", "Capri-Sun", "SuperBite"]
+  },
+  {
+    id: "dist-rite",
+    name: "Rite Foods Depot (Bigi)",
+    category: "beverages",
+    categoryName: "Beverages & Drinks",
+    contactPerson: "Sola Bakare",
+    contactPhone: "+234 811 333 4455",
+    contactEmail: "orders@ritefoodsltd.com",
+    state: "Ogun",
+    minOrderValueNgn: 90000,
+    deliveryLeadDays: 2,
+    verified: true,
+    brands: ["Bigi Cola", "Bigi Apple", "Bigi Orange", "Fearless Energy", "Bigi Water"]
+  },
+  {
+    id: "dist-maybaker",
+    name: "May & Baker Nigeria Plc",
+    category: "pharmacy",
+    categoryName: "Pharmaceuticals & Medicines",
+    contactPerson: "Dr. Kemi Lawson (Pharma Lead)",
+    contactPhone: "+234 803 888 7766",
+    contactEmail: "orders@may-baker.com",
+    state: "Lagos",
+    minOrderValueNgn: 150000,
+    deliveryLeadDays: 2,
+    verified: true,
+    brands: ["Paracetamol", "M&B Cough Syrup", "Antimalarials", "Antibiotics"]
+  },
+  {
+    id: "dist-fidson",
+    name: "Fidson Healthcare Plc Hub",
+    category: "pharmacy",
+    categoryName: "Pharmaceuticals & Medicines",
+    contactPerson: "Pharm. Austin Chukwu",
+    contactPhone: "+234 802 555 6677",
+    contactEmail: "supply@fidson.com",
+    state: "Lagos",
+    minOrderValueNgn: 200000,
+    deliveryLeadDays: 1,
+    verified: true,
+    brands: ["Astyfer", "Ciprotab", "Triple Action Cream", "Trikacide"]
+  },
+  {
+    id: "dist-friesland",
+    name: "FrieslandCampina WAMCO Nigeria",
+    category: "groceries",
+    categoryName: "Groceries & FMCG",
+    contactPerson: "Mrs. Nkechi Nwosu",
+    contactPhone: "+234 805 123 4567",
+    contactEmail: "orders@frieslandcampina.com",
+    state: "Lagos",
+    minOrderValueNgn: 250000,
+    deliveryLeadDays: 2,
+    verified: true,
+    brands: ["Peak Milk", "Three Crowns Milk", "Friso Gold"]
+  },
+  {
+    id: "dist-fmn",
+    name: "Flour Mills of Nigeria (Golden Penny)",
+    category: "groceries",
+    categoryName: "Groceries & FMCG",
+    contactPerson: "Alhaji Ibrahim Danjuma",
+    contactPhone: "+234 807 987 6543",
+    contactEmail: "sales@fmnplc.com",
+    state: "Lagos",
+    minOrderValueNgn: 300000,
+    deliveryLeadDays: 2,
+    verified: true,
+    brands: ["Golden Penny Rice", "Golden Penny Flour", "Golden Penny Sugar", "Golden Penny Noodles", "Semovita"]
+  }
+];
+
+export function getCategoryDistributors(categoryNameOrId?: string): DistributorPreset[] {
+  if (!categoryNameOrId || categoryNameOrId === "all") {
+    return DISTRIBUTOR_PRESETS;
+  }
+
+  const query = categoryNameOrId.toLowerCase();
+  return DISTRIBUTOR_PRESETS.filter(
+    (d) =>
+      d.category === query ||
+      d.categoryName.toLowerCase().includes(query) ||
+      query.includes(d.category)
+  );
+}

@@ -79,7 +79,13 @@ import {
   X,
   Smartphone,
   CheckCircle,
-  MessageCircle
+  MessageCircle,
+  FileSpreadsheet,
+  Plus,
+  Wallet,
+  QrCode,
+  Search,
+  MessageSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -93,6 +99,16 @@ import "@/styles/landing.css";
 import { INITIAL_COURSE_MODULES, CourseModule } from "@/lib/course-data";
 import { ProtectedTourGuideViewer } from "@/components/shared/ProtectedTourGuideViewer";
 import { DemoPassGeneratorModal } from "@/components/shared/DemoPassGeneratorModal";
+import { CSVImportGuideContent } from "@/components/data/CSVImportGuideModal";
+import { AgentSidebar, type AgentTabType } from "@/components/agents/AgentSidebar";
+import { AgentHeader } from "@/components/agents/AgentHeader";
+import { AgentResourcesView } from "@/components/agents/AgentResourcesView";
+import { AgentVideoAcademyView } from "@/components/agents/AgentVideoAcademyView";
+import { OnboardMerchantModal } from "@/components/agents/OnboardMerchantModal";
+import { ClaimPayoutModal } from "@/components/agents/ClaimPayoutModal";
+import { FieldPitchPlaybook } from "@/components/agents/FieldPitchPlaybook";
+import { AgentQrFlyerModal } from "@/components/agents/AgentQrFlyerModal";
+import { LogVisitModal } from "@/components/agents/LogVisitModal";
 
 interface AgentProfile {
   agentId: string;
@@ -100,6 +116,9 @@ interface AgentProfile {
   email: string;
   phone?: string;
   region?: string;
+  bank?: string;
+  accountNumber?: string;
+  accountName?: string;
   referralCode: string;
   referralLink: string;
   status: "pending" | "approved" | "suspended";
@@ -122,6 +141,9 @@ interface ReferralRecord {
   churnedAt?: string;
   storeName?: string;
   planName?: string;
+  ownerName?: string;
+  ownerPhone?: string;
+  location?: string;
 }
 
 interface EarningRecord {
@@ -196,7 +218,21 @@ export function AgentsPage() {
   const [settingsPhone, setSettingsPhone] = useState("");
   const [settingsRegion, setSettingsRegion] = useState("");
   const [settingsRefCode, setSettingsRefCode] = useState("");
-  const [activeTab, setActiveTab] = useState<"performance" | "referrals" | "earnings" | "settings" | "academy">("performance");
+  const [activeTab, setActiveTab] = useState<AgentTabType>("performance");
+  const [sidebarMinimized, setSidebarMinimized] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // New Action Modals State
+  const [showOnboardModal, setShowOnboardModal] = useState(false);
+  const [showClaimPayoutModal, setShowClaimPayoutModal] = useState(false);
+  const [showQrFlyerModal, setShowQrFlyerModal] = useState(false);
+  const [selectedVisitStore, setSelectedVisitStore] = useState<{ id: string; name: string } | null>(null);
+
+  // Search & Filters State
+  const [merchantSearch, setMerchantSearch] = useState("");
+  const [merchantStatusFilter, setMerchantStatusFilter] = useState<"all" | "converted" | "pending">("all");
+  const [payoutSearch, setPayoutSearch] = useState("");
+  const [payoutTypeFilter, setPayoutTypeFilter] = useState<"all" | "onboarding_bonus" | "recurring_residual">("all");
 
   // Academy & Demo Pass Modal State
   const [showAgentDemoModal, setShowAgentDemoModal] = useState(false);
@@ -1689,443 +1725,607 @@ export function AgentsPage() {
       ) : agentProfile && agentProfile.status === "approved" ? (
         
         /* APPROVED AGENT WORKSPACE / DASHBOARD */
-        <div className="max-w-6xl mx-auto px-6 py-10 space-y-8 relative z-10">
-          
-          <div className="bg-[#141528] border border-white/10 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-extrabold text-white font-['Bricolage_Grotesque']">Agent Workspace: {agentProfile.fullName}</h2>
-                <Badge className="bg-emerald-500/20 text-[#4DE89A] font-bold border-none px-2.5 py-0.5 text-[10px] rounded-full uppercase tracking-wider">
-                  Active Partner
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-400">Share your exclusive partner link to begin onboarding merchants in your territory.</p>
-            </div>
+        <div className="min-h-screen bg-[#0B0C1E] text-white flex relative w-full">
+          {/* DESKTOP SIDEBAR */}
+          <div className="hidden md:block">
+            <AgentSidebar
+              activeTab={activeTab}
+              setActiveTab={(tab) => {
+                setActiveTab(tab);
+                setMobileMenuOpen(false);
+              }}
+              referralsCount={referrals.length}
+              earningsCount={earnings.length}
+              isMinimized={sidebarMinimized}
+              setIsMinimized={setSidebarMinimized}
+              onLogout={handleLogout}
+              agentName={agentProfile.fullName}
+              agentCode={agentProfile.referralCode}
+            />
+          </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 text-xs text-slate-300 font-mono">
-                <span>Code: {agentProfile.referralCode}</span>
-                <button onClick={copyReferralCode} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
-                  {copiedCode ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
+          {/* MOBILE DRAWER */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <div className="fixed inset-0 z-50 md:hidden flex">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+                />
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "-100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                  className="relative z-10 w-72 h-full bg-[#0B0C1E] border-r border-white/10"
+                >
+                  <AgentSidebar
+                    activeTab={activeTab}
+                    setActiveTab={(tab) => {
+                      setActiveTab(tab);
+                      setMobileMenuOpen(false);
+                    }}
+                    referralsCount={referrals.length}
+                    earningsCount={earnings.length}
+                    isMinimized={false}
+                    setIsMinimized={() => {}}
+                    onLogout={handleLogout}
+                    agentName={agentProfile.fullName}
+                    agentCode={agentProfile.referralCode}
+                  />
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* MAIN CONTENT AREA */}
+          <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+            sidebarMinimized ? "md:ml-20" : "md:ml-64"
+          }`}>
+            <AgentHeader
+              onOpenMobileMenu={() => setMobileMenuOpen(true)}
+              onOpenDemoPassModal={() => setShowAgentDemoModal(true)}
+              onOpenAuthModal={() => setShowAuthModal(true)}
+              onOpenOnboardModal={() => setShowOnboardModal(true)}
+              onOpenPayoutModal={() => setShowClaimPayoutModal(true)}
+              onOpenQrModal={() => setShowQrFlyerModal(true)}
+              isAuthenticated={!!currentUser}
+              agentName={agentProfile.fullName}
+              agentEmail={agentProfile.email}
+              onLogout={handleLogout}
+              activeTabTitle={
+                activeTab === "performance" ? "Performance Analytics & Growth Overview" :
+                activeTab === "referrals" ? "Onboarded Retail Merchants" :
+                activeTab === "earnings" ? "Payout History & Commission Ledger" :
+                activeTab === "resources" ? "File Resource & Marketing Collateral Center" :
+                activeTab === "video-academy" ? "Field Agent Video Training Academy" :
+                activeTab === "csv-guide" ? "Stock CSV Migration & AI Prompt Converter" :
+                "Agent Territory & Profile Settings"
+              }
+            />
+
+            <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6">
+              {/* TOP PROFILE & LINK BAR */}
+              <div className="bg-[#141528] border border-white/10 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl md:text-2xl font-extrabold text-white font-['Bricolage_Grotesque']">
+                      Welcome, {agentProfile.fullName}
+                    </h2>
+                    <Badge className="bg-emerald-500/20 text-[#4DE89A] font-bold border-none px-2.5 py-0.5 text-[10px] rounded-full uppercase tracking-wider">
+                      Active Partner
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-400">Share your referral link or scan QR flyer to onboard stores in your territory.</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-2xl border border-white/10 text-xs text-slate-300 font-mono">
+                    <span>Code: {agentProfile.referralCode}</span>
+                    <button onClick={copyReferralCode} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
+                      {copiedCode ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-2xl border border-white/10 text-xs text-slate-300 font-mono">
+                    <span className="truncate max-w-[180px]">{agentProfile.referralLink}</span>
+                    <button onClick={copyReferralLink} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
+                      {copiedLink ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* FIELD QUICK ACTIONS HUB */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <button
+                  onClick={() => setShowOnboardModal(true)}
+                  className="p-4 bg-gradient-to-br from-[#2B5BFF]/20 to-[#00C4CF]/10 border border-[#2B5BFF]/30 hover:border-[#2B5BFF]/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-[#2B5BFF] text-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Onboard Retail Store</span>
+                    <span className="text-[10px] text-slate-400 block">Log store & earn ₦10k + ₦1.5k bonus</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setShowClaimPayoutModal(true)}
+                  className="p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Claim Payout</span>
+                    <span className="text-[10px] text-slate-400 block">Withdraw earnings or field allowance</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setShowQrFlyerModal(true)}
+                  className="p-4 bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-amber-500 text-slate-950 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <QrCode className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Digital QR Flyer</span>
+                    <span className="text-[10px] text-slate-400 block">Show or print field agent QR badge</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setShowAgentDemoModal(true)}
+                  className="p-4 bg-gradient-to-br from-purple-500/20 to-indigo-500/10 border border-purple-500/30 hover:border-purple-500/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-purple-500 text-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">12h Demo Link</span>
+                    <span className="text-[10px] text-slate-400 block">Generate free trial pass for store</span>
+                  </div>
                 </button>
               </div>
 
-              <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 text-xs text-slate-300 font-mono">
-                <span className="truncate max-w-[180px]">{agentProfile.referralLink}</span>
-                <button onClick={copyReferralLink} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
-                  {copiedLink ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* KPI CARDS */}
-          <div className="grid gap-4 md:grid-cols-4 sm:grid-cols-2">
-            <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
-              <div className="space-y-1">
-                <span className="text-xs text-slate-400 font-semibold uppercase block">Total Referrals</span>
-                <p className="text-2xl font-black text-white">{referrals.length}</p>
-                <span className="text-[10px] text-slate-400">Stores on tracking list</span>
-              </div>
-              <div className="h-10 w-10 bg-[#2B5BFF]/20 rounded-xl flex items-center justify-center text-[#7B9FFF]">
-                <Users className="h-5 w-5" />
-              </div>
-            </Card>
-
-            <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
-              <div className="space-y-1">
-                <span className="text-xs text-slate-400 font-semibold uppercase block">Conversions</span>
-                <p className="text-2xl font-black text-white">{referrals.filter(r => r.status === "converted").length}</p>
-                <span className="text-[10px] text-[#4DE89A] font-bold block">
-                  {referrals.length > 0 
-                    ? Math.round((referrals.filter(r => r.status === "converted").length / referrals.length) * 100)
-                    : 0}% Onboarding rate
-                </span>
-              </div>
-              <div className="h-10 w-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-[#4DE89A]">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-            </Card>
-
-            <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
-              <div className="space-y-1">
-                <span className="text-xs text-slate-400 font-semibold uppercase block">Pending Clearance</span>
-                <p className="text-2xl font-black text-amber-400 font-sans">₦{(agentProfile.earnings?.pending || 0).toLocaleString()}</p>
-                <span className="text-[10px] text-slate-400 block">Payouts in 30-day clearing</span>
-              </div>
-              <div className="h-10 w-10 bg-amber-500/20 rounded-xl flex items-center justify-center text-amber-400">
-                <Clock className="h-5 w-5" />
-              </div>
-            </Card>
-
-            <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
-              <div className="space-y-1">
-                <span className="text-xs text-slate-400 font-semibold uppercase block">Settled Earnings</span>
-                <p className="text-2xl font-black text-[#4DE89A] font-sans">₦{(agentProfile.earnings?.paid || 0).toLocaleString()}</p>
-                <span className="text-[10px] text-slate-400 block">Directly dispatched to bank</span>
-              </div>
-              <div className="h-10 w-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-[#4DE89A]">
-                <DollarSign className="h-5 w-5" />
-              </div>
-            </Card>
-          </div>
-
-          {/* DASHBOARD TABS */}
-          <div className="border-b border-white/10 flex items-center gap-5">
-            <button 
-              onClick={() => setActiveTab("performance")}
-              className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-                activeTab === "performance" ? "border-[#00C4CF] text-[#00C4CF]" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              Overview &amp; Analytics
-            </button>
-            <button 
-              onClick={() => setActiveTab("referrals")}
-              className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-                activeTab === "referrals" ? "border-[#00C4CF] text-[#00C4CF]" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              Onboarded Stores ({referrals.length})
-            </button>
-            <button 
-              onClick={() => setActiveTab("earnings")}
-              className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-                activeTab === "earnings" ? "border-[#00C4CF] text-[#00C4CF]" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              Payout Records ({earnings.length})
-            </button>
-            <button 
-              onClick={() => setActiveTab("academy")}
-              className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === "academy" ? "border-[#00C4CF] text-[#00C4CF]" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              <GraduationCap className="h-4 w-4 inline" /> Marketing &amp; Course Academy
-            </button>
-            <button 
-              onClick={() => setActiveTab("settings")}
-              className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-                activeTab === "settings" ? "border-[#00C4CF] text-[#00C4CF]" : "border-transparent text-slate-400 hover:text-white"
-              }`}
-            >
-              Territory Profile
-            </button>
-          </div>
-
-          {/* ACTIVE TAB CONTENT */}
-          <div className="space-y-6">
-            {activeTab === "performance" && (
-              <div className="grid md:grid-cols-3 gap-6">
-                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-1 space-y-4">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <Award className="h-4 w-4 text-[#00C4CF]" /> Active Rates
+              {/* PAYSTACK AGENT SETTLEMENT STATUS BAR */}
+              <div className="bg-gradient-to-r from-emerald-950/80 via-[#141528] to-indigo-950/80 border border-emerald-500/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/20 text-[#4DE89A] rounded-xl shrink-0">
+                    <Building2 className="h-5 w-5" />
                   </div>
-                  <div className="space-y-3 text-xs divide-y divide-white/10">
-                    <div className="flex justify-between pt-2">
-                      <span className="text-slate-400">Logistics Allowance:</span>
-                      <span className="font-bold text-white">₦10,000</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-sm">Paystack Agent Direct Payout & Deposit Settlement Engine</span>
+                      <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] font-mono uppercase">
+                        Paystack Active
+                      </Badge>
                     </div>
-                    <div className="flex justify-between pt-2">
-                      <span className="text-slate-400">Pro Bonus:</span>
-                      <span className="font-bold text-white">₦1,500 (+₦500/mo)</span>
-                    </div>
-                    <div className="flex justify-between pt-2">
-                      <span className="text-slate-400">Enterprise Bonus:</span>
-                      <span className="font-bold text-white">₦5,000 (+₦1,000/mo)</span>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-2 space-y-4">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-[#4DE89A]" /> Regular Settlement Run
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    All accrued onboarding bonuses and recurring residual commissions are aggregated and paid automatically on the 1st day of every calendar month via direct electronic bank transfer.
-                  </p>
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs flex justify-between items-center">
-                    <span className="text-slate-400">Next Scheduled Payout Run:</span>
-                    <span className="font-mono font-bold text-[#4DE89A]">August 1, 2026</span>
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {activeTab === "referrals" && (
-              <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
-                {referrals.length === 0 ? (
-                  <div className="text-center py-12 space-y-2">
-                    <Users className="h-8 w-8 text-slate-500 mx-auto" />
-                    <p className="text-sm font-bold text-slate-300">No active referred stores found.</p>
-                    <p className="text-xs text-slate-400">Share your referral link with store owners to begin onboarding.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 text-slate-400 uppercase">
-                          <th className="p-3">Store Name</th>
-                          <th className="p-3">Signup Date</th>
-                          <th className="p-3">Active Plan</th>
-                          <th className="p-3">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {referrals.map((r) => (
-                          <tr key={r.id}>
-                            <td className="p-3 font-bold text-white">{r.storeName}</td>
-                            <td className="p-3 text-slate-400">{new Date(r.createdAt).toLocaleDateString()}</td>
-                            <td className="p-3 uppercase font-bold text-[#00C4CF]">{r.planName}</td>
-                            <td className="p-3">
-                              <Badge className="bg-emerald-500/20 text-[#4DE89A] border-none text-[10px]">
-                                {r.status}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
-            )}
-
-            {activeTab === "earnings" && (
-              <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
-                {earnings.length === 0 ? (
-                  <div className="text-center py-12 space-y-2">
-                    <ArrowRightLeft className="h-8 w-8 text-slate-500 mx-auto" />
-                    <p className="text-sm font-bold text-slate-300">Your ledger is currently empty.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 text-slate-400 uppercase">
-                          <th className="p-3">Date</th>
-                          <th className="p-3">Store</th>
-                          <th className="p-3">Type</th>
-                          <th className="p-3">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {earnings.map((e) => (
-                          <tr key={e.id}>
-                            <td className="p-3 text-slate-400">{new Date(e.timestamp).toLocaleDateString()}</td>
-                            <td className="p-3 font-bold text-white">{e.storeName}</td>
-                            <td className="p-3 text-slate-300">{e.commissionType}</td>
-                            <td className="p-3 font-mono font-bold text-[#4DE89A]">₦{e.amount.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
-            )}
-
-            {activeTab === "academy" && (
-              <div className="space-y-6">
-                {/* Header Banner */}
-                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-[#00C4CF]/20 text-[#00C4CF] border-none text-[10px] uppercase font-bold">
-                          Field Agent Hub
-                        </Badge>
-                        <span className="text-xs text-slate-400 font-mono">
-                          {INITIAL_COURSE_MODULES.length} Course Modules
-                        </span>
-                      </div>
-                      <h2 className="text-xl font-bold font-['Bricolage_Grotesque'] text-white">
-                        Agent Marketing &amp; Course Training Academy
-                      </h2>
-                      <p className="text-xs text-slate-400 max-w-2xl">
-                        Access high-converting field pitch scripts, watch step-by-step video tutorials, share protected PDF tour guides, and generate 12-hour device-locked demo links for prospective merchants.
-                      </p>
-                    </div>
-
-                    <Button
-                      className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs h-10 gap-2 shrink-0 rounded-xl"
-                      onClick={() => setShowAgentDemoModal(true)}
-                    >
-                      <Lock className="h-4 w-4 text-amber-900" /> Generate 12h Demo Link
-                    </Button>
-                  </div>
-                </Card>
-
-                {/* Course Modules Grid */}
-                <div className="grid gap-6 md:grid-cols-3">
-                  {/* Sidebar list */}
-                  <div className="space-y-2 md:col-span-1">
-                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 block mb-2">
-                      Training Modules
-                    </span>
-                    {INITIAL_COURSE_MODULES.map((mod) => (
-                      <div
-                        key={mod.id}
-                        onClick={() => setSelectedAcademyCourse(mod)}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
-                          selectedAcademyCourse.id === mod.id
-                            ? "bg-[#2B5BFF]/20 border-[#2B5BFF] text-white"
-                            : "bg-[#141528] border-white/10 hover:bg-white/5 text-slate-400"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="text-[9px] uppercase border-white/20 text-slate-300">
-                            {mod.category}
-                          </Badge>
-                          <span className="text-[10px] font-mono text-slate-400">{mod.duration}</span>
-                        </div>
-                        <h3 className="text-xs font-bold text-white line-clamp-2">{mod.title}</h3>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Active Course Detail & Tour Guide */}
-                  <div className="space-y-4 md:col-span-2">
-                    <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 space-y-4">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                        <div>
-                          <Badge className="bg-rose-500/20 text-rose-400 border-none text-[10px] uppercase font-bold mb-1">
-                            <Video className="h-3 w-3 mr-1" /> Training Video
-                          </Badge>
-                          <h3 className="text-base font-bold text-white">{selectedAcademyCourse.title}</h3>
-                        </div>
-                        <span className="text-xs font-mono text-slate-400 bg-white/5 px-2 py-1 rounded">
-                          {selectedAcademyCourse.duration}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {selectedAcademyCourse.description}
-                      </p>
-
-                      <div className="aspect-video bg-black/80 rounded-xl flex flex-col items-center justify-center p-6 text-center space-y-3 border border-white/10">
-                        <Video className="h-10 w-10 text-rose-500 animate-pulse" />
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-white">Video Lesson Link</p>
-                          <p className="text-[11px] text-slate-400 font-mono max-w-sm truncate">
-                            {selectedAcademyCourse.videoUrl}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-2"
-                          onClick={() => setAgentVideoUrl(selectedAcademyCourse.videoUrl)}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Watch Video Tutorial
-                        </Button>
-                      </div>
-
-                      {selectedAcademyCourse.pitchScript && (
-                        <div className="p-3.5 bg-[#2B5BFF]/10 rounded-xl border border-[#2B5BFF]/20 space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-[#7B9FFF] block">
-                            Recommended Pitch Script:
-                          </span>
-                          <p className="italic text-xs text-slate-200">
-                            "{selectedAcademyCourse.pitchScript}"
-                          </p>
-                        </div>
-                      )}
-                    </Card>
-
-                    {/* Protected Tour Guide Component */}
-                    <ProtectedTourGuideViewer
-                      module={selectedAcademyCourse}
-                      agentName={agentProfile.fullName}
-                      onOpenVideo={(url) => setAgentVideoUrl(url)}
-                    />
+                    <p className="text-slate-300 text-[11px] mt-0.5">
+                      Your growth partner account is tied to Paystack Automated Transfers. Commissions and field logistics allowances auto-disburse directly to your bank account via Paystack.
+                    </p>
                   </div>
                 </div>
 
-                {/* Video Modal Player */}
-                {agentVideoUrl && (
-                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#141528] border border-white/20 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative text-white">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                        <div className="flex items-center gap-2">
-                          <Video className="h-5 w-5 text-rose-500" />
-                          <h3 className="font-bold text-sm text-white">Stackwise Agent Video Tutorial</h3>
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                  <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
+                    Bank Ref: Paystack-Direct-Active
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowClaimPayoutModal(true)}
+                    className="h-8 text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[#4DE89A] border-emerald-500/40 gap-1.5"
+                  >
+                    <Wallet className="h-3.5 w-3.5" /> Payout Settings
+                  </Button>
+                </div>
+              </div>
+
+              {/* KPI CARDS */}
+              <div className="grid gap-4 md:grid-cols-4 sm:grid-cols-2">
+                <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-400 font-semibold uppercase block">Total Referrals</span>
+                    <p className="text-2xl font-black text-white">{referrals.length}</p>
+                    <span className="text-[10px] text-slate-400">Stores on tracking list</span>
+                  </div>
+                  <div className="h-10 w-10 bg-[#2B5BFF]/20 rounded-xl flex items-center justify-center text-[#7B9FFF]">
+                    <Users className="h-5 w-5" />
+                  </div>
+                </Card>
+
+                <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-400 font-semibold uppercase block">Conversions</span>
+                    <p className="text-2xl font-black text-white">{referrals.filter(r => r.status === "converted").length}</p>
+                    <span className="text-[10px] text-[#4DE89A] font-bold block">
+                      {referrals.length > 0 
+                        ? Math.round((referrals.filter(r => r.status === "converted").length / referrals.length) * 100)
+                        : 0}% Onboarding rate
+                    </span>
+                  </div>
+                  <div className="h-10 w-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-[#4DE89A]">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                </Card>
+
+                <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-400 font-semibold uppercase block">Pending Clearance</span>
+                    <p className="text-2xl font-black text-amber-400 font-sans">₦{(agentProfile.earnings?.pending || 0).toLocaleString()}</p>
+                    <span className="text-[10px] text-slate-400 block">Payouts in 30-day clearing</span>
+                  </div>
+                  <div className="h-10 w-10 bg-amber-500/20 rounded-xl flex items-center justify-center text-amber-400">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                </Card>
+
+                <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-400 font-semibold uppercase block">Settled Earnings</span>
+                    <p className="text-2xl font-black text-[#4DE89A] font-sans">₦{(agentProfile.earnings?.paid || 0).toLocaleString()}</p>
+                    <span className="text-[10px] text-slate-400 block">Directly dispatched to bank</span>
+                  </div>
+                  <div className="h-10 w-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-[#4DE89A]">
+                    <DollarSign className="h-5 w-5" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* ACTIVE TAB CONTENT */}
+              <div className="space-y-6">
+                {activeTab === "performance" && (
+                  <div className="space-y-6">
+                    <div className="grid md:grid-cols-3 gap-6">
+                      <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-1 space-y-4">
+                        <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                          <Award className="h-4 w-4 text-[#00C4CF]" /> Active Commission Rates
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-slate-400 hover:text-white"
-                          onClick={() => setAgentVideoUrl(null)}
+                        <div className="space-y-3 text-xs divide-y divide-white/10">
+                          <div className="flex justify-between pt-2">
+                            <span className="text-slate-400">Logistics Allowance:</span>
+                            <span className="font-bold text-amber-300">₦10,000 / store</span>
+                          </div>
+                          <div className="flex justify-between pt-2">
+                            <span className="text-slate-400">Pro Signup Bonus:</span>
+                            <span className="font-bold text-[#4DE89A]">₦1,500 (+₦500/mo)</span>
+                          </div>
+                          <div className="flex justify-between pt-2">
+                            <span className="text-slate-400">Enterprise Bonus:</span>
+                            <span className="font-bold text-[#00C4CF]">₦5,000 (+₦1,000/mo)</span>
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-2 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-[#4DE89A]" /> Settlement & Bank Disbursal SLA
+                          </div>
+                          <Badge className="bg-emerald-500/20 text-[#4DE89A] border-none text-[9px]">24h - 48h SLA</Badge>
+                        </div>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          Field allowances and verified onboarding bonuses can be requested on-demand via the <span className="text-[#00C4CF] font-bold">Claim Payout</span> tool. Scheduled monthly residual payouts are automatically processed on the 1st day of every month.
+                        </p>
+                        <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">REGISTERED BANK DISBURSAL DESTINATION</span>
+                            <span className="font-mono font-bold text-white">
+                              {agentProfile.bank || "Not Set"} — {agentProfile.accountNumber || "No Account"} ({agentProfile.accountName || agentProfile.fullName})
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => setShowClaimPayoutModal(true)}
+                            className="bg-[#2B5BFF] hover:bg-[#1A4AEE] text-white text-xs font-bold rounded-xl h-8 shrink-0"
+                          >
+                            Request Disbursal
+                          </Button>
+                        </div>
+                      </Card>
+                    </div>
+
+                    <FieldPitchPlaybook referralCode={agentProfile.referralCode} />
+                  </div>
+                )}
+
+                {activeTab === "referrals" && (
+                  <div className="space-y-4">
+                    <div className="bg-[#141528] border border-white/10 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
+                        <div className="relative flex-1 max-w-md">
+                          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                          <Input
+                            value={merchantSearch}
+                            onChange={(e) => setMerchantSearch(e.target.value)}
+                            placeholder="Search store name, owner, phone or location..."
+                            className="pl-9 bg-white/5 border-white/10 text-white rounded-xl text-xs h-9"
+                          />
+                        </div>
+
+                        <select
+                          value={merchantStatusFilter}
+                          onChange={(e) => setMerchantStatusFilter(e.target.value as "all" | "converted" | "pending")}
+                          className="bg-[#0F1020] border border-white/10 text-white rounded-xl h-9 px-3 text-xs outline-none focus:border-[#2B5BFF]"
                         >
-                          <X className="h-4 w-4" />
-                        </Button>
+                          <option value="all">All Statuses ({referrals.length})</option>
+                          <option value="converted">Active / Converted ({referrals.filter(r => r.status === "converted").length})</option>
+                          <option value="pending">Pending Onboarding ({referrals.filter(r => r.status === "pending").length})</option>
+                        </select>
                       </div>
 
-                      <div className="aspect-video bg-black rounded-xl flex flex-col items-center justify-center p-6 text-center space-y-3 border border-white/10">
-                        <Video className="h-12 w-12 text-rose-500 animate-pulse" />
-                        <div className="space-y-1">
-                          <p className="text-sm font-bold text-white">Module Video Lesson</p>
-                          <p className="text-xs text-slate-400 font-mono truncate max-w-sm">{agentVideoUrl}</p>
+                      <Button
+                        onClick={() => setShowOnboardModal(true)}
+                        className="bg-[#2B5BFF] hover:bg-[#1A4AEE] text-white font-bold text-xs h-9 gap-1.5 rounded-xl shrink-0 w-full sm:w-auto"
+                      >
+                        <Plus className="h-4 w-4" /> Onboard Retail Merchant
+                      </Button>
+                    </div>
+
+                    <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
+                      {(() => {
+                        const filtered = referrals.filter((r) => {
+                          const matchQuery = 
+                            (r.storeName || "").toLowerCase().includes(merchantSearch.toLowerCase()) ||
+                            (r.ownerName || "").toLowerCase().includes(merchantSearch.toLowerCase()) ||
+                            (r.ownerPhone || "").includes(merchantSearch) ||
+                            (r.location || "").toLowerCase().includes(merchantSearch.toLowerCase());
+                          const matchStatus = merchantStatusFilter === "all" || r.status === merchantStatusFilter;
+                          return matchQuery && matchStatus;
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="text-center py-12 space-y-3">
+                              <Users className="h-10 w-10 text-slate-500 mx-auto" />
+                              <p className="text-sm font-bold text-slate-300">No matching store records found.</p>
+                              <p className="text-xs text-slate-400">Click "Onboard Retail Merchant" to register store visits in your territory.</p>
+                              <Button
+                                onClick={() => setShowOnboardModal(true)}
+                                className="bg-gradient-to-r from-[#2B5BFF] to-[#00C4CF] text-white font-bold text-xs rounded-xl h-9 gap-1.5 px-5"
+                              >
+                                <Plus className="h-4 w-4" /> Onboard First Store
+                              </Button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
+                                  <th className="p-3">Store Details</th>
+                                  <th className="p-3">Owner Contact</th>
+                                  <th className="p-3">Plan</th>
+                                  <th className="p-3">Onboarded</th>
+                                  <th className="p-3">Status</th>
+                                  <th className="p-3 text-right">Field Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                {filtered.map((r) => (
+                                  <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
+                                    <td className="p-3">
+                                      <span className="font-bold text-white block text-sm">{r.storeName || "Nexa Store"}</span>
+                                      <span className="text-[10px] text-slate-400 block font-mono">ID: {r.storeId.slice(0, 8)}</span>
+                                    </td>
+                                    <td className="p-3 space-y-0.5">
+                                      <span className="text-slate-200 font-semibold block">{r.ownerName || "Merchant"}</span>
+                                      <span className="text-slate-400 font-mono text-[11px] block">{r.ownerPhone || "No Phone"}</span>
+                                    </td>
+                                    <td className="p-3">
+                                      <Badge className="bg-[#00C4CF]/20 text-[#00C4CF] border-none text-[10px] uppercase font-bold">
+                                        {r.planName || "Pro Plan"}
+                                      </Badge>
+                                    </td>
+                                    <td className="p-3 text-slate-400 font-mono">
+                                      {new Date(r.createdAt).toLocaleDateString()}
+                                    </td>
+                                    <td className="p-3">
+                                      <Badge className={
+                                        r.status === "converted"
+                                          ? "bg-emerald-500/20 text-[#4DE89A] border-none text-[10px] font-bold"
+                                          : "bg-amber-500/20 text-amber-300 border-none text-[10px] font-bold"
+                                      }>
+                                        {r.status === "converted" ? "Active / Converted" : "Pending Onboarding"}
+                                      </Badge>
+                                    </td>
+                                    <td className="p-3 text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => setSelectedVisitStore({ id: r.storeId, name: r.storeName || "Store" })}
+                                          className="h-8 text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl text-[11px] gap-1 px-2.5"
+                                          title="Log Visit Note"
+                                        >
+                                          <MapPin className="h-3.5 w-3.5 text-[#00C4CF]" />
+                                          <span>Log Visit</span>
+                                        </Button>
+
+                                        {r.ownerPhone && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => {
+                                              const cleanPhone = r.ownerPhone?.replace(/\D/g, "");
+                                              const phoneWithCountry = cleanPhone?.startsWith("234") ? cleanPhone : `234${cleanPhone?.replace(/^0/, "")}`;
+                                              const msg = `Hello ${r.ownerName || "Merchant"}! I am your NexaStoreOS Growth Agent following up on your store ${r.storeName}. Need help with POS setup?`;
+                                              window.open(`https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`, "_blank");
+                                            }}
+                                            className="h-8 text-[#25D366] hover:bg-[#25D366]/10 rounded-xl text-[11px] gap-1 px-2.5"
+                                          >
+                                            <MessageSquare className="h-3.5 w-3.5" />
+                                            <span>WhatsApp</span>
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()}
+                    </Card>
+                  </div>
+                )}
+
+                {activeTab === "earnings" && (
+                  <div className="space-y-4">
+                    <div className="grid sm:grid-cols-3 gap-4">
+                      <Card className="bg-[#141528] border border-white/10 p-5 rounded-2xl text-white">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Cleared Paid Earnings</span>
+                        <p className="text-2xl font-black text-[#4DE89A] font-mono mt-1">₦{(agentProfile.earnings?.paid || 0).toLocaleString()}</p>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Dispatched to bank</span>
+                      </Card>
+
+                      <Card className="bg-[#141528] border border-white/10 p-5 rounded-2xl text-white">
+                        <span className="text-[10px] text-amber-300 font-bold uppercase block">Pending Clearance</span>
+                        <p className="text-2xl font-black text-amber-400 font-mono mt-1">₦{(agentProfile.earnings?.pending || 0).toLocaleString()}</p>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Clearing (30-day window)</span>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-[#2B5BFF]/20 to-[#00C4CF]/10 border border-[#2B5BFF]/30 p-5 rounded-2xl text-white flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] text-[#00C4CF] font-bold uppercase block">Direct Bank Transfer</span>
+                          <span className="text-xs text-slate-300 block font-semibold">Request Logistics or Residual Payout</span>
                         </div>
                         <Button
-                          size="sm"
-                          className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-2"
-                          onClick={() => window.open(agentVideoUrl, "_blank", "noopener,noreferrer")}
+                          onClick={() => setShowClaimPayoutModal(true)}
+                          className="bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs rounded-xl h-8 gap-1.5 mt-2"
                         >
-                          <ExternalLink className="h-3.5 w-3.5" /> Open in Full Player
+                          <Wallet className="h-4 w-4" /> Claim Payout
                         </Button>
+                      </Card>
+                    </div>
+
+                    <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
+                      {earnings.length === 0 ? (
+                        <div className="text-center py-12 space-y-2">
+                          <ArrowRightLeft className="h-8 w-8 text-slate-500 mx-auto" />
+                          <p className="text-sm font-bold text-slate-300">Your commission ledger is currently empty.</p>
+                          <p className="text-xs text-slate-400">Onboard retail merchants to accumulate field allowances and monthly residuals.</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
+                                <th className="p-3">Transaction Date</th>
+                                <th className="p-3">Store Name</th>
+                                <th className="p-3">Commission Type</th>
+                                <th className="p-3">Amount (₦)</th>
+                                <th className="p-3">Settlement Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {earnings.map((e) => (
+                                <tr key={e.id} className="hover:bg-white/[0.02]">
+                                  <td className="p-3 text-slate-400 font-mono">{new Date(e.timestamp).toLocaleDateString()}</td>
+                                  <td className="p-3 font-bold text-white">{e.storeName || "Nexa Store"}</td>
+                                  <td className="p-3 text-slate-300">
+                                    <Badge className="bg-white/5 text-slate-300 border border-white/10 text-[10px]">
+                                      {e.commissionType}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-3 font-mono font-bold text-[#4DE89A]">₦{e.amount.toLocaleString()}</td>
+                                  <td className="p-3">
+                                    <Badge className={
+                                      e.status === "paid" 
+                                        ? "bg-emerald-500/20 text-[#4DE89A] border-none text-[10px]"
+                                        : "bg-amber-500/20 text-amber-300 border-none text-[10px]"
+                                    }>
+                                      {e.status === "paid" ? "Paid to Bank" : "Pending Clearance"}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                )}
+
+                {activeTab === "resources" && (
+                  <AgentResourcesView />
+                )}
+
+                {activeTab === "video-academy" && (
+                  <AgentVideoAcademyView />
+                )}
+
+                {activeTab === "csv-guide" && (
+                  <div className="space-y-6">
+                    <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-[#4DE89A]/20 text-[#4DE89A] border-none text-[10px] uppercase font-bold">
+                            Field Agent Migration Suite
+                          </Badge>
+                        </div>
+                        <h2 className="text-xl font-bold font-['Bricolage_Grotesque'] text-white">
+                          Merchant CSV Inventory Import & AI Format Converter
+                        </h2>
+                        <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
+                          Use this tool when helping new retail merchants migrate their stock registers, Excel lists, paper logs, or legacy software data into NexaStoreOS. Download standard CSV templates, view required header fields, or copy our prompt to transform messy merchant sheets with AI.
+                        </p>
                       </div>
+                    </Card>
+
+                    <div className="p-6 bg-[#141528] border border-white/10 rounded-2xl text-slate-100">
+                      <CSVImportGuideContent />
                     </div>
                   </div>
                 )}
 
-                {/* 12-Hour Device Demo Generator Pass Modal */}
-                {showAgentDemoModal && (
-                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <DemoPassGeneratorModal
-                      defaultAgentName={agentProfile.fullName}
-                      onClose={() => setShowAgentDemoModal(false)}
-                    />
-                  </div>
+                {activeTab === "settings" && (
+                  <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 max-w-xl">
+                    <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
+                      <div className="space-y-1">
+                        <Label className="text-slate-400">Full Name</Label>
+                        <Input 
+                          value={settingsName} 
+                          onChange={(e) => setSettingsName(e.target.value)} 
+                          className="bg-white/5 border-white/10 text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-slate-400">Phone</Label>
+                        <Input 
+                          value={settingsPhone} 
+                          onChange={(e) => setSettingsPhone(e.target.value)} 
+                          className="bg-white/5 border-white/10 text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-slate-400">Operating Territory</Label>
+                        <Input 
+                          value={settingsRegion} 
+                          onChange={(e) => setSettingsRegion(e.target.value)} 
+                          className="bg-white/5 border-white/10 text-white"
+                        />
+                      </div>
+                      <Button type="submit" className="bg-[#2B5BFF] hover:bg-[#1A4AEE] text-white rounded-full">
+                        Save Territory Settings
+                      </Button>
+                    </form>
+                  </Card>
                 )}
               </div>
-            )}
-
-            {activeTab === "settings" && (
-              <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 max-w-xl">
-                <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
-                  <div className="space-y-1">
-                    <Label className="text-slate-400">Full Name</Label>
-                    <Input 
-                      value={settingsName} 
-                      onChange={(e) => setSettingsName(e.target.value)} 
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-slate-400">Phone</Label>
-                    <Input 
-                      value={settingsPhone} 
-                      onChange={(e) => setSettingsPhone(e.target.value)} 
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-slate-400">Operating Territory</Label>
-                    <Input 
-                      value={settingsRegion} 
-                      onChange={(e) => setSettingsRegion(e.target.value)} 
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                  <Button type="submit" className="bg-[#2B5BFF] hover:bg-[#1A4AEE] text-white rounded-full">
-                    Save Territory Settings
-                  </Button>
-                </form>
-              </Card>
-            )}
+            </main>
           </div>
-
         </div>
       ) : null}
 
@@ -2393,6 +2593,86 @@ export function AgentsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* AGENT FUNCTIONAL MODALS */}
+      {(() => {
+        const effectiveAgent = agentProfile || {
+          agentId: "NEXA-DEMO-AGENT",
+          fullName: "Nexa Growth Partner",
+          email: currentUser?.email || "agent.demo@nexa.ng",
+          phone: "090-380-26109",
+          region: "Taraba State (Jalingo)",
+          referralCode: "NEXADEMO",
+          referralLink: `${window.location.origin}/?ref=NEXADEMO`,
+          status: "approved",
+          commissionRulesApplied: "default_v1",
+          earnings: { pending: 15000, paid: 45000, reversed: 0 },
+          createdAt: new Date().toISOString()
+        };
+
+        return (
+          <>
+            <OnboardMerchantModal
+              isOpen={showOnboardModal}
+              onClose={() => setShowOnboardModal(false)}
+              agentId={effectiveAgent.agentId}
+              agentUid={currentUser?.uid || "demo-uid"}
+              referralCode={effectiveAgent.referralCode}
+              agentCode={effectiveAgent.referralCode}
+              agentName={effectiveAgent.fullName}
+            />
+
+            <ClaimPayoutModal
+              isOpen={showClaimPayoutModal}
+              onClose={() => setShowClaimPayoutModal(false)}
+              agentUid={currentUser?.uid || "demo-uid"}
+              agentId={effectiveAgent.agentId}
+              agentName={effectiveAgent.fullName}
+              bankName={effectiveAgent.bank || "Access Bank"}
+              accountNumber={effectiveAgent.accountNumber || "0123456789"}
+              accountName={effectiveAgent.accountName || effectiveAgent.fullName}
+              pendingBalance={effectiveAgent.earnings?.pending || 15000}
+            />
+
+            <AgentQrFlyerModal
+              isOpen={showQrFlyerModal}
+              onClose={() => setShowQrFlyerModal(false)}
+              agentName={effectiveAgent.fullName}
+              agentCode={effectiveAgent.referralCode}
+              agentPhone={effectiveAgent.phone || "090-380-26109"}
+              agentRegion={effectiveAgent.region || "Taraba State"}
+              referralLink={effectiveAgent.referralLink}
+            />
+
+            <LogVisitModal
+              isOpen={!!selectedVisitStore}
+              onClose={() => setSelectedVisitStore(null)}
+              agentUid={currentUser?.uid || "demo-uid"}
+              agentId={effectiveAgent.agentId}
+              agentName={effectiveAgent.fullName}
+              store={selectedVisitStore}
+            />
+
+            <AnimatePresence>
+              {showAgentDemoModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="w-full max-w-xl my-8 relative z-10"
+                  >
+                    <DemoPassGeneratorModal
+                      defaultAgentName={effectiveAgent.fullName}
+                      onClose={() => setShowAgentDemoModal(false)}
+                    />
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+          </>
+        );
+      })()}
 
     </div>
   );

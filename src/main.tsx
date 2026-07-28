@@ -6,6 +6,7 @@ import { FirebaseAuthProvider } from './contexts/FirebaseAuthContext';
 import { BusinessProvider } from './contexts/BusinessContext';
 import { TenantProvider } from './contexts/TenantContext';
 import { RoleProvider } from './contexts/RoleContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import './styles.css';
 
 const container = document.getElementById('root');
@@ -16,13 +17,15 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <FirebaseAuthProvider>
-        <BusinessProvider>
-          <TenantProvider>
-            <RoleProvider>
-              <App />
-            </RoleProvider>
-          </TenantProvider>
-        </BusinessProvider>
+        <ThemeProvider>
+          <BusinessProvider>
+            <TenantProvider>
+              <RoleProvider>
+                <App />
+              </RoleProvider>
+            </TenantProvider>
+          </BusinessProvider>
+        </ThemeProvider>
       </FirebaseAuthProvider>
     </BrowserRouter>
   </React.StrictMode>

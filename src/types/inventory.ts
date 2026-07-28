@@ -202,6 +202,19 @@ export interface RestaurantOrder {
   lines: RestaurantOrderLine[];
 }
 
+export interface UnitConversion {
+  unitId: string;
+  multiplier: number;
+  priceNgn?: number;
+}
+
+export interface PricingTiers {
+  retail?: number;
+  wholesale?: number;
+  distributor?: number;
+  tierEnabled?: boolean;
+}
+
 export interface CustomFieldDefinition {
 
   id: string;
@@ -235,6 +248,14 @@ export interface Item {
   customFields: Record<string, string | number | boolean>;
   createdAt: string;
   updatedAt: string;
+  // Tiered pricing
+  pricingTiers?: PricingTiers;
+  // Unit conversions (bulk to small units)
+  unitConversions?: UnitConversion[];
+  // Legacy variant fields
+  color?: string;
+  sizes?: string;
+  fineTunedVariants?: Record<string, { price: number; stock: number }>;
   // Variant support (textile, footwear, etc.)
   variantAttributes?: string[]; // e.g., ["Colour", "Size", "Material"]
   variants?: ProductVariant[];

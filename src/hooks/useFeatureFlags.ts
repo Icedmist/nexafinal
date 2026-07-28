@@ -44,12 +44,12 @@ const PLAN_FLAGS: Record<string, Partial<FeatureFlags>> = {
 export function useFeatureFlags(): { flags: FeatureFlags } {
   const { profile } = useBusiness();
   const { isDemo } = useDemo();
-  const { config: sectorConfig } = useSector();
+  const sectorConfig = useSector();
 
   const flags = useMemo(() => {
-    const planId = isDemo ? "professional" : (profile?.settings?.planId || profile?.subscriptionTier || "starter");
-    const planName = isDemo ? "Pro Plan" : (profile?.settings?.planName || profile?.subscriptionTier || "Starter");
-    const status = isDemo ? "active" : (profile?.settings?.subscriptionStatus || profile?.subscriptionStatus || "active");
+    const planId = isDemo ? "professional" : (profile?.settings?.planId || "starter");
+    const planName = isDemo ? "Pro Plan" : (profile?.settings?.planName || "Starter");
+    const status = isDemo ? "active" : (profile?.settings?.subscriptionStatus || "active");
 
     const planOverrides = PLAN_FLAGS[planId] || PLAN_FLAGS.starter;
 

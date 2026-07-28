@@ -25,7 +25,7 @@ interface ProtectedTourGuideViewerProps {
   onOpenVideo?: (videoUrl: string) => void;
 }
 
-export function ProtectedTourGuideViewer({ module, agentName = "Stackwise Agent", onOpenVideo }: ProtectedTourGuideViewerProps) {
+export function ProtectedTourGuideViewer({ module, agentName = "NexaStoreOS Agent", onOpenVideo }: ProtectedTourGuideViewerProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
 
@@ -67,7 +67,7 @@ export function ProtectedTourGuideViewer({ module, agentName = "Stackwise Agent"
                 size="sm"
                 className="text-xs h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10 font-bold"
                 onClick={() => {
-                  if (onOpenVideo) onOpenVideo(module.videoUrl);
+                  if (onOpenVideo && module.videoUrl) onOpenVideo(module.videoUrl);
                   else setShowVideoModal(true);
                 }}
               >

@@ -207,7 +207,7 @@ interface UnrecognizedScanData {
 export function SalesQuickScanCheckout() {
   const { data: items } = useItems();
   const { addSale } = useSalesMutations();
-  const { createItem } = useCreateItem();
+  const createItem = useCreateItem();
   const updateItem = useUpdateItem();
   const { user } = useAuth();
 
@@ -1275,7 +1275,7 @@ export function SalesQuickScanCheckout() {
                           }
                         }, {
                           onSuccess: () => resolve(),
-                          onError: (err) => reject(err)
+          onError: (err: Error) => reject(err)
                         });
                       });
                       toast.success(`Restocked "${restockItem.name}" successfully!`);
