@@ -6,6 +6,7 @@ import type { Item } from "@/types/inventory";
 import type { SalePriceMode } from "./price-utils";
 import { getItemPriceForMode } from "./price-utils";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useRole } from "@/hooks/useRole";
 import { cn } from "@/lib/utils";
 
 const NAIRA = "₦";
@@ -21,6 +22,7 @@ export interface CartItem {
   selectedUnit: string;
   cartKey: string;
   saleType?: SalePriceMode;
+  customPrice?: number;
 }
 
 interface SalesStepCartProps {
@@ -28,6 +30,7 @@ interface SalesStepCartProps {
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
   onSetQuantity?: (cartKey: string, qty: number) => void;
+  onUpdateCustomPrice?: (cartKey: string, price: number | null) => void;
   onClear: () => void;
   onNext: () => void;
 }
@@ -50,33 +53,53 @@ function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartI
     const variantInCart = allCartItems
       .filter((ci) => ci.item.id === item.id && ci.selectedUnit === selectedUnitName)
       .reduce((sum, ci) => sum + ci.quantity, 0);
-    return Math.max(0, variant.stock - variantInCart);
+
+    const available = (variant.stock ?? 0) - variantInCart;
+    return Math.max(0, available);
   }
 
-  const baseUnitsInCart = allCartItems
-    .filter((ci) => ci.item.id === item.id && !ci.item.variants?.some(v => v.id === ci.selectedUnit))
-    .reduce((sum, ci) => sum + ci.quantity * getUnitConversionFactor(ci.item, ci.selectedUnit), 0);
-  
-  const remainingBaseStock = Math.max(0, item.currentStock - baseUnitsInCart);
-  const conversionFactor = getUnitConversionFactor(item, selectedUnitName);
-  return Math.floor(remainingBaseStock / conversionFactor);
+  const baseUnitStock = item.currentStock ?? 0;
+  const totalBaseUnitsInCart = allCartItems
+    .filter((ci) => ci.item.id === item.id)
+    .reduce((sum, ci) => {
+      const factor = getUnitConversionFactor(ci.item, ci.selectedUnit);
+      return sum + ci.quantity * factor;
+    }, 0);
+
+  const availableBaseUnits = baseUnitStock - totalBaseUnitsInCart;
+  const currentConversionFactor = getUnitConversionFactor(item, selectedUnitName);
+
+  if (currentConversionFactor <= 0) return 0;
+  return Math.max(0, Math.floor(availableBaseUnits / currentConversionFactor));
 }
 
-export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onClear, onNext }: SalesStepCartProps) {
+export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateCustomPrice, onClear, onNext }: SalesStepCartProps) {
   const { profile } = useBusiness();
+  const { isAdmin } = useRole();
   const businessType = profile?.businessType || "retail";
-  const total = items.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail") * ci.quantity, 0);
-  const totalQty = items.reduce((s, ci) => s + ci.quantity, 0);
+
+  const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? false;
+  const canEditPrice = !isPriceEditingLocked || isAdmin;
+
   const [editingCartKey, setEditingCartKey] = useState<string | null>(null);
-  const [editingQtyValue, setEditingQtyValue] = useState("");
+  const [editingQtyValue, setEditingQtyValue] = useState<string>("");
+
+  const [editingPriceCartKey, setEditingPriceCartKey] = useState<string | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+
+  const total = items.reduce(
+    (sum, ci) =>
+      sum +
+      (ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail")) *
+        ci.quantity,
+    0
+  );
+  const totalQty = items.reduce((sum, ci) => sum + ci.quantity, 0);
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
-        <div className="rounded-full bg-muted p-5">
-          <Trash2 className="h-7 w-7" />
-        </div>
-        <p className="text-sm font-medium">Cart is empty</p>
+      <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground">
+        <p className="text-base font-semibold">Your cart is empty</p>
         <p className="text-xs">Go back and add some products</p>
       </div>
     );
@@ -86,7 +109,8 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onClear, 
     <div className="flex flex-1 flex-col">
       <div className="flex-1 overflow-y-auto px-4 py-3 pb-28 space-y-2">
         {items.map((ci) => {
-          const unitPrice = getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail");
+          const baseUnitPrice = getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail");
+          const effectiveUnitPrice = ci.customPrice ?? baseUnitPrice;
           const isAddDisabled = getAvailableStockForUnit(ci.item, ci.selectedUnit, items) <= 0;
 
           return (
@@ -110,9 +134,70 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onClear, 
                   return (
                     <>
                       <p className="text-sm font-medium truncate" title={displayLabel}>{displayLabel}</p>
-                      <p className="text-xs text-muted-foreground">{fmtNgn(unitPrice)} per {hasVariants ? "unit" : ci.selectedUnit}</p>
                       
-                      {/* Custom Fields (only for non-variant products) */}
+                      {editingPriceCartKey === ci.cartKey ? (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-xs text-muted-foreground">{NAIRA}</span>
+                          <input
+                            type="number"
+                            autoFocus
+                            min={0}
+                            step="any"
+                            value={editingPriceValue}
+                            onChange={(e) => setEditingPriceValue(e.target.value)}
+                            onBlur={() => {
+                              const parsed = parseFloat(editingPriceValue);
+                              if (!isNaN(parsed) && parsed >= 0 && parsed !== baseUnitPrice) {
+                                onUpdateCustomPrice?.(ci.cartKey, parsed);
+                              } else {
+                                onUpdateCustomPrice?.(ci.cartKey, null);
+                              }
+                              setEditingPriceCartKey(null);
+                              setEditingPriceValue("");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const parsed = parseFloat(editingPriceValue);
+                                if (!isNaN(parsed) && parsed >= 0 && parsed !== baseUnitPrice) {
+                                  onUpdateCustomPrice?.(ci.cartKey, parsed);
+                                } else {
+                                  onUpdateCustomPrice?.(ci.cartKey, null);
+                                }
+                                setEditingPriceCartKey(null);
+                                setEditingPriceValue("");
+                              } else if (e.key === "Escape") {
+                                setEditingPriceCartKey(null);
+                                setEditingPriceValue("");
+                              }
+                            }}
+                            className="w-24 h-7 text-xs font-semibold font-mono bg-background border border-primary/40 rounded-md px-2 outline-none focus:ring-1 focus:ring-primary/30"
+                          />
+                          <span className="text-xs text-muted-foreground">per {hasVariants ? "unit" : ci.selectedUnit}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                          <span>{fmtNgn(effectiveUnitPrice)} per {hasVariants ? "unit" : ci.selectedUnit}</span>
+                          {ci.customPrice !== undefined && ci.customPrice !== baseUnitPrice && (
+                            <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                              Custom
+                            </span>
+                          )}
+                          {canEditPrice && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPriceCartKey(ci.cartKey);
+                                setEditingPriceValue(String(effectiveUnitPrice));
+                              }}
+                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="Edit item price"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
                       {!hasVariants && ci.item.customFields && Object.keys(ci.item.customFields).length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {Object.entries(ci.item.customFields).map(([k, v]) => (
@@ -194,7 +279,7 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onClear, 
                 </button>
               </div>
 
-              <p className="min-w-16 text-right text-sm font-semibold font-mono">{fmtNgn(unitPrice, ci.quantity)}</p>
+              <p className="min-w-16 text-right text-sm font-semibold font-mono">{fmtNgn(effectiveUnitPrice, ci.quantity)}</p>
             </div>
           );
         })}

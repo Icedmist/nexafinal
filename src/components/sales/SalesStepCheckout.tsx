@@ -28,6 +28,7 @@ export interface CheckoutItem {
   selectedUnit: string;
   cartKey: string;
   saleType?: SalePriceMode;
+  customPrice?: number;
 }
 
 function getCartItemUnitPrice(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
@@ -57,7 +58,7 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
   const [amountPaid, setAmountPaid] = useState<string>("");
   // Get current price for an item based on its selected unit and sale type
   const getItemPrice = (ci: CheckoutItem) => {
-    return getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
+    return ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
   };
 
   const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0);
@@ -190,7 +191,7 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
       items: items.map((ci) => {
         const unit = ci.item.units?.find(u => u.name === ci.selectedUnit);
         const itemSaleType = ci.saleType ?? saleType;
-        const price = getCartItemUnitPrice(ci.item, ci.selectedUnit, itemSaleType);
+        const price = ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, itemSaleType);
         
         return {
           itemId: ci.item.id,
@@ -201,6 +202,7 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
           sku: ci.item.sku,
           quantity: ci.quantity,
           unitPriceNgn: price,
+          customPriceNgn: ci.customPrice,
           imageUrl: ci.item.imageUrl || null,
           selectedUnit: ci.selectedUnit,
           conversionFactor: unit?.conversionFactor || 1,
@@ -515,6 +517,11 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
                           <span className="font-medium text-foreground block truncate">{displayLabel}</span>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-muted-foreground whitespace-nowrap">Qty: {ci.quantity} {variant ? "unit" : ci.selectedUnit}</span>
+                            {ci.customPrice !== undefined && (
+                              <span className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold px-1.5 py-0.5 rounded border border-amber-500/20">
+                                Custom Price
+                              </span>
+                            )}
                           </div>
                         </>
                       );

@@ -504,8 +504,11 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                         <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-2xl border-2 border-border/40 bg-muted/5 hover:bg-muted/10 transition-colors">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-black truncate text-foreground">{li.itemName}</p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                              {li.quantity} {li.selectedUnit || "unit"}(s) @ {fmtNgn(li.unitPriceNgn)}
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
+                              <span>{li.quantity} {li.selectedUnit || "unit"}(s) @ {fmtNgn(li.unitPriceNgn)}</span>
+                              {li.customPriceNgn !== undefined && (
+                                <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 rounded border border-amber-500/20">Custom Price</span>
+                              )}
                             </p>
                           </div>
                           <span className="font-mono text-sm font-black text-foreground shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>

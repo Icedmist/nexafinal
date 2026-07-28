@@ -41,6 +41,7 @@ export interface SaleLineItem {
   selectedUnit?: string;
   conversionFactor?: number;
   salePriceMode?: "retail" | "wholesale";
+  customPriceNgn?: number;
   // Restaurant-specific fields
   size?: string;
   sizePrice?: number;

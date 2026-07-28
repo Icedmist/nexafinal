@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Store, Save, Building2, Globe } from "lucide-react";
+import { Store, Save, Building2, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,7 @@ export function StoreSettings() {
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [lockPriceAtCheckout, setLockPriceAtCheckout] = useState(false);
 
   const isOwner = !!(user && profile && user.uid === profile.ownerId);
   const isAdmin = isAdminRole(claims?.role) || isOwner;
@@ -91,6 +92,7 @@ export function StoreSettings() {
       setBankName(profile.storeDetails?.bankName || "");
       setAccountNumber(profile.storeDetails?.accountNumber || "");
       setAccountName(profile.storeDetails?.accountName || "");
+      setLockPriceAtCheckout(!!profile.settings?.lockPriceAtCheckout);
     }
   }, [profile]);
 
@@ -108,7 +110,11 @@ export function StoreSettings() {
           bankName: bankName.trim(),
           accountNumber: accountNumber.trim(),
           accountName: accountName.trim(),
-        } as any
+        } as any,
+        settings: {
+          ...profile?.settings,
+          lockPriceAtCheckout,
+        }
       });
       toast.success("Store settings saved");
     } catch (err) {
@@ -324,6 +330,40 @@ export function StoreSettings() {
           {canEditGlobal && (
             <Button onClick={handleSave} className="gap-1.5 rounded-xl font-bold">
               <Save className="h-4 w-4" /> Save Storefront Settings
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-widest text-foreground">
+            <ShoppingCart className="h-4 w-4" /> Checkout & POS Controls
+          </CardTitle>
+          <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+            Configure price editing permissions during sale checkout.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border bg-muted/20">
+            <div className="space-y-1">
+              <Label htmlFor="lock-price-checkout" className="text-sm font-bold flex items-center gap-1.5">
+                <Lock className="h-4 w-4 text-muted-foreground" /> Lock Item Price Editing at Checkout
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When enabled, cashiers cannot edit item prices during checkout. When disabled (default), staff can adjust prices on cart items.
+              </p>
+            </div>
+            <Switch 
+              id="lock-price-checkout" 
+              checked={lockPriceAtCheckout} 
+              onCheckedChange={setLockPriceAtCheckout}
+              disabled={!canEditGlobal}
+            />
+          </div>
+          {canEditGlobal && (
+            <Button onClick={handleSave} className="gap-1.5 rounded-xl font-bold">
+              <Save className="h-4 w-4" /> Save Checkout Settings
             </Button>
           )}
         </CardContent>

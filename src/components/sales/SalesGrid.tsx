@@ -59,6 +59,7 @@ export function SalesGrid() {
   const { profile } = useBusiness();
   const businessType = profile?.businessType || "retail";
   const [cart, setCart] = useState<Map<string, number>>(new Map());
+  const [customPrices, setCustomPrices] = useState<Map<string, number>>(new Map());
   const [step, setStep] = useState<StepId>("browse");
   const [defaultSaleType, setDefaultSaleType] = useState<SalePriceMode>("retail");
   const [posMode, setPosMode] = useState<"standard" | "quickscan">("standard");
@@ -71,6 +72,18 @@ export function SalesGrid() {
     window.addEventListener("pos-go-to-cart", handler);
     return () => window.removeEventListener("pos-go-to-cart", handler);
   }, [goToCart]);
+
+  const handleUpdateCustomPrice = (cartKey: string, price: number | null) => {
+    setCustomPrices((prev) => {
+      const next = new Map(prev);
+      if (price === null || price === undefined || isNaN(price) || price < 0) {
+        next.delete(cartKey);
+      } else {
+        next.set(cartKey, price);
+      }
+      return next;
+    });
+  };
 
   const addToCart = (cartKey: string) => {
     setCart((prev) => {
@@ -94,8 +107,16 @@ export function SalesGrid() {
     setCart((prev) => {
       const next = new Map(prev);
       const qty = (next.get(cartKey) ?? 0) - 1;
-      if (qty <= 0) next.delete(cartKey);
-      else next.set(cartKey, qty);
+      if (qty <= 0) {
+        next.delete(cartKey);
+        setCustomPrices((cPrev) => {
+          const cNext = new Map(cPrev);
+          cNext.delete(cartKey);
+          return cNext;
+        });
+      } else {
+        next.set(cartKey, qty);
+      }
       return next;
     });
   };
@@ -109,6 +130,11 @@ export function SalesGrid() {
 
       if (qty <= 0) {
         next.delete(cartKey);
+        setCustomPrices((cPrev) => {
+          const cNext = new Map(cPrev);
+          cNext.delete(cartKey);
+          return cNext;
+        });
         return next;
       }
 
@@ -122,6 +148,11 @@ export function SalesGrid() {
         const cappedQty = currentUnitQty + maxAddableQty;
         if (cappedQty <= 0) {
           next.delete(cartKey);
+          setCustomPrices((cPrev) => {
+            const cNext = new Map(cPrev);
+            cNext.delete(cartKey);
+            return cNext;
+          });
         } else {
           next.set(cartKey, cappedQty);
         }
@@ -143,15 +174,25 @@ export function SalesGrid() {
         selectedUnit: unitName,
         cartKey: key,
         saleType,
+        customPrice: customPrices.get(key),
       });
     }
   });
 
   const totalItems = Array.from(cart.values()).reduce((s, q) => s + q, 0);
-  const totalNaira = cartItems.reduce((s, ci) => s + getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? defaultSaleType) * ci.quantity, 0);
+  const totalNaira = cartItems.reduce((s, ci) => {
+    const unitPrice = ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? defaultSaleType);
+    return s + unitPrice * ci.quantity;
+  }, 0);
+
+  const handleClearCart = () => {
+    setCart(new Map());
+    setCustomPrices(new Map());
+  };
 
   const handleComplete = () => {
     setCart(new Map());
+    setCustomPrices(new Map());
     setDefaultSaleType("retail");
     setStep("browse");
   };
@@ -249,7 +290,8 @@ export function SalesGrid() {
                 onAdd={addToCart}
                 onRemove={removeFromCart}
                 onSetQuantity={setQuantityInCart}
-                onClear={() => setCart(new Map())}
+                onUpdateCustomPrice={handleUpdateCustomPrice}
+                onClear={handleClearCart}
                 onNext={() => setStep("checkout")}
               />
             )}
