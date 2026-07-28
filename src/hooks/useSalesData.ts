@@ -8,6 +8,7 @@ import type { SaleTransaction, DebtPayment } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 import { notifyActivity, notifyInventoryAlert } from "@/lib/notification-service";
+import { cleanFirestoreData } from "@/utils/cleanFirestoreData";
 
 interface QueryResult<T> {
   data: T;
@@ -150,7 +151,7 @@ export function useSalesMutations() {
 
       // 1. Create Sale Document
       const saleRef = doc(collection(db, "sales"));
-      const saleData = {
+      const rawSaleData = {
         ...sale,
         itemIds: sale.items.map((i) => i.itemId),
         storeId: storeId || claims?.storeId, // CRITICAL: Must include storeId for Firestore rules
@@ -162,9 +163,11 @@ export function useSalesMutations() {
         updatedAt: new Date().toISOString(),
       };
 
-      if (!saleData.storeId) {
+      if (!rawSaleData.storeId) {
         throw new Error("Unable to determine store. Please refresh the page and try again.");
       }
+
+      const saleData = cleanFirestoreData(rawSaleData);
 
       // Validate that every product belongs to the same store (pre-flight check to avoid permission-denied)
       for (const item of sale.items) {
@@ -205,7 +208,7 @@ export function useSalesMutations() {
 
         // Create movement record for history
         const movementRef = doc(collection(db, "movements"));
-        batch.set(movementRef, {
+        const movementData = cleanFirestoreData({
           itemId: item.itemId,
           type: MovementType.Shipped,
           quantity: decrementAmount,
@@ -220,6 +223,7 @@ export function useSalesMutations() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
+        batch.set(movementRef, movementData);
       });
 
       await batch.commit();
@@ -258,7 +262,7 @@ export function useSalesMutations() {
                message: `${product.name} is running low (${currentStock} ${product.unit || "units"} remaining). Reorder point is ${reorderPoint}.`,
                userId: user.uid,
                userEmail: user.email || "",
-               storeId: saleData.storeId,
+               storeId: saleData.storeId as string,
                branchId: saleData.branchId || undefined,
                metadata: { itemId: item.itemId, currentStock, reorderPoint }
              });

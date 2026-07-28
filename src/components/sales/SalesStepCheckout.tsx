@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, MessageCircle, AlertTriangle } from "lucide-react";
+import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, MessageCircle, AlertTriangle, Trash2, Plus, Minus, Lock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,10 +17,9 @@ import { useSalesMutations, useSales, useDebtPayments } from "@/hooks/useSalesDa
 import { notifyActivity } from "@/lib/notification-service";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useRole } from "@/hooks/useRole";
 
 const NAIRA = "₦";
-
-
 
 export interface CheckoutItem {
   item: Item;
@@ -39,11 +38,27 @@ interface SalesStepCheckoutProps {
   items: CheckoutItem[];
   onComplete: () => void;
   defaultSaleType?: SalePriceMode;
+  onSetQuantity?: (cartKey: string, quantity: number) => void;
+  onUpdateCustomPrice?: (cartKey: string, customPrice?: number | null) => void;
+  onRemove?: (cartKey: string) => void;
 }
 
-export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail" }: SalesStepCheckoutProps) {
+export function SalesStepCheckout({
+  items,
+  onComplete,
+  defaultSaleType = "retail",
+  onSetQuantity,
+  onUpdateCustomPrice,
+  onRemove,
+}: SalesStepCheckoutProps) {
   const { profile } = useBusiness();
+  const { isAdmin } = useRole();
   const businessType = profile?.businessType || "retail";
+
+  // Price lock setting (unlocked by default unless explicitly locked by admin)
+  const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? false;
+  const canEditPrice = !isPriceEditingLocked || isAdmin;
+
   const { addSale, recordDebtPayment } = useSalesMutations();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -56,6 +71,16 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
   const [payOnCredit, setPayOnCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
   const [amountPaid, setAmountPaid] = useState<string>("");
+
+  // Tax rate override state
+  const defaultTaxRate = profile?.storeDetails?.taxRate ?? 0;
+  const [customTaxRate, setCustomTaxRate] = useState<string>(String(defaultTaxRate));
+
+  const taxRate = useMemo(() => {
+    const parsed = parseFloat(customTaxRate);
+    return isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }, [customTaxRate]);
+
   // Get current price for an item based on its selected unit and sale type
   const getItemPrice = (ci: CheckoutItem) => {
     return ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
@@ -63,7 +88,6 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
 
   const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0);
   const [isProcessing, setIsProcessing] = useState(false);
-
 
   // Calculate discount
   const discountAmount = useMemo(() => {
@@ -84,8 +108,7 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
   const { data: payments = [] } = useDebtPayments();
   const [includeDebt, setIncludeDebt] = useState(false);
 
-  // Tax
-  const taxRate = profile?.storeDetails?.taxRate ?? 0;
+  // Tax calculation
   const taxAmount = total * (taxRate / 100);
 
   const customerDebt = useMemo(() => {
@@ -97,6 +120,23 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
   }, [customerPhone, sales, payments]);
 
   const grandTotal = total + taxAmount + (includeDebt && customerDebt > 0 ? customerDebt : 0);
+
+  // Quick cash payment options
+  const quickPayOptions = useMemo(() => {
+    if (grandTotal <= 0) return [];
+    const options = new Set<number>();
+    const roundedTotal = Math.ceil(grandTotal);
+
+    // Exact amount
+    options.add(roundedTotal);
+
+    // Common bills above grandTotal
+    [1000, 2000, 5000, 10000, 20000, 50000].forEach((amt) => {
+      if (amt >= grandTotal) options.add(amt);
+    });
+
+    return Array.from(options).sort((a, b) => a - b).slice(0, 5);
+  }, [grandTotal]);
 
   const changeGiven = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
@@ -478,7 +518,7 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
             </span>
           )}
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="amount-paid" className="text-xs">Amount Received</Label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{NAIRA}</span>
@@ -491,6 +531,38 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
               className="pl-8 h-11 font-mono text-lg font-black" 
             />
           </div>
+          {/* Quick cash shortcuts */}
+          {quickPayOptions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "h-7 text-xs font-mono font-medium border-dashed",
+                  amountPaid === String(grandTotal) && "border-primary text-primary bg-primary/10"
+                )}
+                onClick={() => setAmountPaid(String(grandTotal))}
+              >
+                Exact ({NAIRA}{grandTotal.toLocaleString("en-NG")})
+              </Button>
+              {quickPayOptions.map((opt) => (
+                <Button
+                  key={opt}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "h-7 text-xs font-mono font-medium",
+                    amountPaid === String(opt) && "border-primary text-primary bg-primary/10"
+                  )}
+                  onClick={() => setAmountPaid(String(opt))}
+                >
+                  {NAIRA}{opt.toLocaleString("en-NG")}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -498,45 +570,152 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
 
       {/* Order summary */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Order Summary</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Order Summary ({items.length})</h3>
+          {!canEditPrice && (
+            <span className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+              <Lock className="h-3 w-3" /> Price locked by admin
+            </span>
+          )}
+        </div>
+
         <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
-          {items.map((ci) => {
-            const price = getItemPrice(ci);
-            
-            return (
-              <div key={ci.cartKey} className="space-y-2">
-                <div className="flex justify-between items-start text-xs">
-                  <div className="flex-1 min-w-0 pr-4">
-                    {(() => {
-                      const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
-                      const displayLabel = variant 
-                        ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}`
-                        : ci.item.name;
-                      return (
-                        <>
-                          <span className="font-medium text-foreground block truncate">{displayLabel}</span>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-muted-foreground whitespace-nowrap">Qty: {ci.quantity} {variant ? "unit" : ci.selectedUnit}</span>
-                            {ci.customPrice !== undefined && (
-                              <span className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold px-1.5 py-0.5 rounded border border-amber-500/20">
-                                Custom Price
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
+          {items.length === 0 ? (
+            <div className="text-center py-4 text-xs text-muted-foreground">
+              No items in checkout.
+            </div>
+          ) : (
+            items.map((ci) => {
+              const basePrice = getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
+              const price = getItemPrice(ci);
+              const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
+              const displayLabel = variant 
+                ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}`
+                : ci.item.name;
+
+              return (
+                <div key={ci.cartKey} className="space-y-2 pb-2 border-b border-border/40 last:border-0 last:pb-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-xs text-foreground block truncate">{displayLabel}</span>
+                      <span className="text-[10px] text-muted-foreground">Unit: {variant ? "unit" : ci.selectedUnit}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono font-bold text-xs text-foreground shrink-0">
+                        {NAIRA}{(price * ci.quantity).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                      </span>
+                      {onRemove && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => onRemove(ci.cartKey)}
+                          title="Remove item"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-mono font-bold text-foreground shrink-0 pt-0.5">
-                    {NAIRA}{(price * ci.quantity).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
-                  </span>
+
+                  {/* Quantity & Unit Price Controls */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    {/* Quantity controls */}
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[10px] text-muted-foreground mr-1">Qty:</Label>
+                      {onSetQuantity ? (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6 rounded border-border"
+                            onClick={() => {
+                              if (ci.quantity <= 1) {
+                                onRemove?.(ci.cartKey);
+                              } else {
+                                onSetQuantity(ci.cartKey, ci.quantity - 1);
+                              }
+                            }}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={ci.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!isNaN(val) && val > 0) {
+                                onSetQuantity(ci.cartKey, val);
+                              }
+                            }}
+                            className="h-6 w-11 text-center font-mono text-xs px-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6 rounded border-border"
+                            onClick={() => onSetQuantity(ci.cartKey, ci.quantity + 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-mono font-medium">{ci.quantity}</span>
+                      )}
+                    </div>
+
+                    {/* Unit Price Field */}
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[10px] text-muted-foreground">Price/unit:</Label>
+                      {canEditPrice && onUpdateCustomPrice ? (
+                        <div className="flex items-center gap-1">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-mono">{NAIRA}</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={ci.customPrice ?? basePrice}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 0) {
+                                  onUpdateCustomPrice(ci.cartKey, val);
+                                }
+                              }}
+                              className="h-6 w-24 pl-5 text-xs font-mono px-1 font-medium"
+                              placeholder={String(basePrice)}
+                            />
+                          </div>
+                          {ci.customPrice !== undefined && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                              title="Reset price"
+                              onClick={() => onUpdateCustomPrice(ci.cartKey, undefined)}
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-mono font-semibold text-foreground">{NAIRA}{price.toLocaleString()}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
           
           {items.length > 0 && (
-            <div className="pt-2 border-t border-border/50 space-y-1">
+            <div className="pt-2 border-t border-border/50 space-y-1.5">
               <div className="flex justify-between text-[11px]">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-mono text-foreground font-medium">{NAIRA}{subtotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
@@ -547,12 +726,28 @@ export function SalesStepCheckout({ items, onComplete, defaultSaleType = "retail
                   <span className="font-mono">-{NAIRA}{discountAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
                 </div>
               )}
-              {taxAmount > 0 && (
-                <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Tax ({taxRate}%)</span>
-                  <span className="font-mono">+{NAIRA}{taxAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+
+              {/* Tax with editable rate */}
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <span>Tax Rate</span>
+                  <div className="relative flex items-center">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={customTaxRate}
+                      onChange={(e) => setCustomTaxRate(e.target.value)}
+                      className="h-5 w-14 text-center font-mono text-[11px] px-1 py-0"
+                      placeholder="0"
+                    />
+                    <span className="text-[10px] ml-0.5">%</span>
+                  </div>
                 </div>
-              )}
+                <span className="font-mono">+{NAIRA}{taxAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+              </div>
+
               {includeDebt && customerDebt > 0 && (
                 <div className="flex justify-between text-[11px] text-destructive">
                   <span>Debt Settlement</span>

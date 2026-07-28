@@ -19,6 +19,7 @@ export interface BusinessProfile {
     bankName?: string;
     accountNumber?: string;
     accountName?: string;
+    lockPriceAtCheckout?: boolean;
   };
   businessType: string;
   categories: string[];

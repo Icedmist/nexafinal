@@ -73,7 +73,7 @@ export function SalesGrid() {
     return () => window.removeEventListener("pos-go-to-cart", handler);
   }, [goToCart]);
 
-  const handleUpdateCustomPrice = (cartKey: string, price: number | null) => {
+  const handleUpdateCustomPrice = (cartKey: string, price?: number | null) => {
     setCustomPrices((prev) => {
       const next = new Map(prev);
       if (price === null || price === undefined || isNaN(price) || price < 0) {
@@ -296,7 +296,14 @@ export function SalesGrid() {
               />
             )}
             {step === "checkout" && (
-              <SalesStepCheckout items={cartItems} onComplete={handleComplete} defaultSaleType={defaultSaleType} />
+              <SalesStepCheckout
+                items={cartItems}
+                onComplete={handleComplete}
+                defaultSaleType={defaultSaleType}
+                onSetQuantity={setQuantityInCart}
+                onUpdateCustomPrice={handleUpdateCustomPrice}
+                onRemove={removeFromCart}
+              />
             )}
           </div>
 
