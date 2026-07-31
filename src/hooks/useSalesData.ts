@@ -135,7 +135,7 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
 
 export function useSalesMutations() {
   const { user, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
 
   const addSale = async (sale: Omit<SaleTransaction, "id">) => {
     if (!user || !storeId) {
@@ -144,6 +144,21 @@ export function useSalesMutations() {
 
     if (!claims?.storeId && !storeId) {
       throw new Error("Store context not loaded. Please refresh and try again.");
+    }
+
+    // Store-assignment guard: non-system-admin staff can only sell from their assigned store.
+    // The owner is exempt (they may view multiple stores), as are system admins (global).
+    const isSystemAdmin = claims?.role === "system_admin";
+    const isOwner = ownerId && user.uid === ownerId;
+    if (
+      !isSystemAdmin &&
+      !isOwner &&
+      claims?.storeId &&
+      claims.storeId !== "PLATFORM" &&
+      storeId &&
+      claims.storeId !== storeId
+    ) {
+      throw new Error("You can only record sales for your assigned store. Contact your administrator if this is incorrect.");
     }
 
     try {

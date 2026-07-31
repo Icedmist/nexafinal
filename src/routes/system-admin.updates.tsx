@@ -174,6 +174,8 @@ export default function SystemAdminUpdates() {
           targetAudience,
           targetStoreId: targetAudience === "store" ? targetStoreId : null,
           targetUserId: targetAudience === "user" ? targetUserId : null,
+          storeId: targetAudience === "store" ? targetStoreId : null,
+          branchId: null,
         };
         try {
           await addDoc(collection(db, "notifications"), notifPayload);

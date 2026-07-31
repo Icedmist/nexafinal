@@ -712,6 +712,8 @@ export default function SystemAdminSubscriptions() {
         title: "Subscription Upgrade Verified!",
         message: `Your Monnify bank transfer payment of ₦${req.amountNgn.toLocaleString()} for ${req.planName} has been verified and activated. Valid until ${new Date(periodEnd).toLocaleDateString()}.`,
         isRead: false,
+        storeId: req.storeId,
+        branchId: null,
         createdAt: new Date().toISOString()
       });
 
@@ -752,6 +754,8 @@ export default function SystemAdminSubscriptions() {
         title: "Upgrade Request Update",
         message: `Your bank transfer request for ${req.planName} was not approved. Reason: ${reason || "Transfer details unmatched"}. Please re-check account details.`,
         isRead: false,
+        storeId: req.storeId,
+        branchId: null,
         createdAt: new Date().toISOString()
       });
 
@@ -775,6 +779,8 @@ export default function SystemAdminSubscriptions() {
           title: "NexaStoreOS Free Trial Ending Soon",
           message: `Your free trial expires in ${daysLeft} day(s). Transfer to our Monnify bank account to upgrade seamlessly without interruption!`,
           isRead: false,
+          storeId: store.id,
+          branchId: null,
           createdAt: new Date().toISOString()
         });
 

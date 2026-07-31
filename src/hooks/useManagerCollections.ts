@@ -88,7 +88,9 @@ const INITIAL_DEMO_COLLECTIONS: ManagerCollection[] = [
 
 export function useManagerCollections() {
   const { isDemo } = useDemo();
-  const { storeId: currentStoreId } = useBusiness();
+  const { storeId: currentStoreId, profile } = useBusiness();
+
+  const autoDebtEnabled = profile?.settings?.autoManagerCollectionDebt ?? true;
 
   const [firebaseData, setFirebaseData] = useState<ManagerCollection[]>([]);
   const [fbLoading, setFbLoading] = useState(true);
@@ -158,8 +160,8 @@ export function useManagerCollections() {
         totalValueNgn,
         cashRemittedNgn: 0,
         returnedStockValueNgn: 0,
-        remainingDebtValueNgn: totalValueNgn,
-        status: "collected",
+        remainingDebtValueNgn: autoDebtEnabled ? totalValueNgn : 0,
+        status: autoDebtEnabled ? "has_debt" : "collected",
         debtPayments: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -175,7 +177,7 @@ export function useManagerCollections() {
         return newRecord;
       }
     },
-    [isDemo, demoCollections]
+    [isDemo, demoCollections, autoDebtEnabled]
   );
 
   const balanceUpCollection = useCallback(

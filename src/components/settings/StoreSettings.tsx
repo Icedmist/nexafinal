@@ -73,6 +73,7 @@ export function StoreSettings() {
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
   const [lockPriceAtCheckout, setLockPriceAtCheckout] = useState(false);
+  const [autoManagerCollectionDebt, setAutoManagerCollectionDebt] = useState(true);
 
   const isOwner = !!(user && profile && user.uid === profile.ownerId);
   const isAdmin = isAdminRole(claims?.role) || isOwner;
@@ -93,6 +94,7 @@ export function StoreSettings() {
       setAccountNumber(profile.storeDetails?.accountNumber || "");
       setAccountName(profile.storeDetails?.accountName || "");
       setLockPriceAtCheckout(!!profile.settings?.lockPriceAtCheckout);
+      setAutoManagerCollectionDebt(profile.settings?.autoManagerCollectionDebt ?? true);
     }
   }, [profile]);
 
@@ -114,6 +116,7 @@ export function StoreSettings() {
         settings: {
           ...profile?.settings,
           lockPriceAtCheckout,
+          autoManagerCollectionDebt,
         }
       });
       toast.success("Store settings saved");
@@ -358,6 +361,22 @@ export function StoreSettings() {
               id="lock-price-checkout" 
               checked={lockPriceAtCheckout} 
               onCheckedChange={setLockPriceAtCheckout}
+              disabled={!canEditGlobal}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border bg-muted/20">
+            <div className="space-y-1">
+              <Label htmlFor="auto-manager-debt" className="text-sm font-bold flex items-center gap-1.5">
+                <Package className="h-4 w-4 text-muted-foreground" /> Auto-record Manager Collection Debt
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When enabled, product collections issued to managers automatically record the full outstanding value as manager debt until balanced. When disabled, collections are logged without debt and only accrue debt if the Balance Up reconciliation leaves an unaccounted balance.
+              </p>
+            </div>
+            <Switch 
+              id="auto-manager-debt" 
+              checked={autoManagerCollectionDebt} 
+              onCheckedChange={setAutoManagerCollectionDebt}
               disabled={!canEditGlobal}
             />
           </div>

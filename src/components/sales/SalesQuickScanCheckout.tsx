@@ -28,6 +28,7 @@ import { useItems } from "@/hooks/useInventoryData";
 import { useSalesMutations } from "@/hooks/useSalesData";
 import { useCreateItem, useUpdateItem } from "@/hooks/useInventoryMutations";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import type { Item, SaleTransaction } from "@/types/inventory";
 import { QRCodeSVG } from "qrcode.react";
 import { Html5Qrcode } from "html5-qrcode";
@@ -210,6 +211,7 @@ export function SalesQuickScanCheckout() {
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
   const { user } = useAuth();
+  const { profile } = useBusiness();
 
   const [scanInput, setScanInput] = useState("");
   const [scannedItems, setScannedItems] = useState<Map<string, number>>(new Map());
@@ -334,7 +336,7 @@ export function SalesQuickScanCheckout() {
     return cartItems.reduce((acc, ci) => acc + ci.unitPrice * ci.quantity, 0);
   }, [cartItems]);
 
-  const taxRate = 7.5;
+  const taxRate = profile?.storeDetails?.taxRate ?? 7.5;
   const taxAmount = subtotal * (taxRate / 100);
   const totalAmount = subtotal + taxAmount;
 

@@ -276,8 +276,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [user, store, loadingTenant, claims, claimsReady, selectedStoreId]);
 
   const updateProfile = async (updates: Partial<BusinessProfile>) => {
-    if (!user || !ownerId) return;
-    
+    if (!user) throw new Error("Authentication required to update store settings.");
+    if (!storeId) throw new Error("Store context not loaded. Please refresh and try again.");
+    if (!ownerId) throw new Error("Store owner information is missing; cannot save settings.");
+
     const isManager = claims?.role === 'manager' && claims?.storeId === storeId;
     const isAdmin = isAdminRole(claims?.role);
     

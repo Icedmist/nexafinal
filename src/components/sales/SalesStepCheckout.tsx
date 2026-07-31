@@ -322,7 +322,7 @@ export function SalesStepCheckout({
         message: `A sale of ${NAIRA}${grandTotal.toLocaleString()} was recorded by ${user?.displayName || user?.email || "Staff"}.`,
         userId: user?.uid || "unknown",
         userEmail: user?.email || "unknown",
-        storeId: claims?.storeId as string,
+        storeId: (storeId || claims?.storeId) as string,
         branchId: claims?.branchId,
         metadata: { 
           saleId: sale.id, 

@@ -56,6 +56,7 @@ export function SalesHistoryPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const [saleTypeFilter, setSaleTypeFilter] = useState<"all" | "retail" | "wholesale">("all");
   const [selectedSaleIds, setSelectedSaleIds] = useState<string[]>([]);
   const { addRefund } = useRefundsMutations();
 
@@ -158,8 +159,16 @@ export function SalesHistoryPage() {
     if (selectedBranchId !== "all") {
       list = list.filter((s) => s.branchId === selectedBranchId);
     }
+    if (saleTypeFilter !== "all") {
+      list = list.filter((s) => {
+        const hasRetail = s.items.some(i => i.salePriceMode === "retail" || !i.salePriceMode);
+        const hasWholesale = s.items.some(i => i.salePriceMode === "wholesale");
+        if (saleTypeFilter === "retail") return hasRetail || s.saleType === "retail" || s.saleType === "mixed";
+        return hasWholesale || s.saleType === "wholesale" || s.saleType === "mixed";
+      });
+    }
     return list;
-  }, [sales, from, to, paymentFilter, selectedBranchId]);
+  }, [sales, from, to, paymentFilter, selectedBranchId, saleTypeFilter]);
 
   if (isLoading) {
     return (
@@ -411,6 +420,20 @@ export function SalesHistoryPage() {
               </select>
             </div>
           )}
+
+          {/* Sale type / price tier filtration */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Filter Tier:</span>
+            <select
+              value={saleTypeFilter}
+              onChange={(e) => setSaleTypeFilter(e.target.value as "all" | "retail" | "wholesale")}
+              className="h-9 px-3 rounded-xl text-xs font-black uppercase tracking-wider bg-background border border-border/60 text-foreground hover:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all select-none"
+            >
+              <option value="all">All Sales</option>
+              <option value="retail">Retail Only</option>
+              <option value="wholesale">Wholesale Only</option>
+            </select>
+          </div>
         </div>
       )}
 

@@ -19,7 +19,7 @@ export interface ActivityLog {
 
 export function useActivityLogs(count = 10) {
   const { user, claims } = useAuth();
-  const { storeId } = useBusiness();
+  const { storeId, ownerId } = useBusiness();
   const { isDemo } = useDemo();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +44,7 @@ export function useActivityLogs(count = 10) {
       limit(count)
     );
 
-    const isAdmin = user && (user.uid === storeId || isAdminRole(claims?.role));
+    const isAdmin = user && (ownerId ? user.uid === ownerId : false) || isAdminRole(claims?.role);
     const userBranchId = claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -65,7 +65,7 @@ export function useActivityLogs(count = 10) {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, storeId, count, claims]);
+  }, [isDemo, user, storeId, count, claims, ownerId]);
 
   return { logs, loading };
 }

@@ -136,6 +136,8 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
         title: "Upgrade Request Submitted",
         message: `Your bank transfer request for ${plan.name} (₦${plan.priceNgn.toLocaleString()}) has been received. Our support team is verifying your payment with reference ${refCode}.`,
         isRead: false,
+        storeId,
+        branchId: null,
         createdAt: new Date().toISOString()
       });
 

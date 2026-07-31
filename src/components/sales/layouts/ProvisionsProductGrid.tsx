@@ -97,6 +97,9 @@ export function ProvisionsProductGrid({
         const isAnimating = animatingItems.has(item.id);
         const isExpanded = expandedItemId === item.id;
 
+        // Only show the unit-selection section when the product actually has multiple units/variants
+        const hasMultipleVariants = (item.units && item.units.length > 0) || (item.variants && item.variants.length > 0);
+
         const handleAddClick = (e: React.MouseEvent) => {
           e.stopPropagation();
           if (item.currentStock > 0 && canAddActiveUnit) {
@@ -175,75 +178,77 @@ export function ProvisionsProductGrid({
               </div>
             </div>
 
-            {/* Unit Pills — Level 1: Fast selection */}
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Units
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleToggleExpand(item.id, item);
-                  }}
-                  className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 hover:underline bg-emerald-500/5 px-2 py-0.5 rounded-full"
-                >
-                  <Layers className="h-3 w-3" />
-                  <span>All units</span>
-                  {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </button>
-              </div>
-
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5 whitespace-nowrap select-none">
-                {/* Base Unit Pill */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveUnits(prev => ({ ...prev, [item.id]: item.unit }));
-                  }}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0",
-                    activeUnit === item.unit
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                      : "bg-muted hover:bg-muted/80 text-muted-foreground border-transparent"
-                  )}
-                >
-                  {item.unit}
-                  {(cart.get(`${item.id}:${item.unit}`) ?? 0) > 0 && (
-                    <span className="ml-1 text-[9px] opacity-80">
-                      ({cart.get(`${item.id}:${item.unit}`)})
-                    </span>
-                  )}
-                </button>
-
-                {/* Secondary Unit Pills */}
-                {item.units?.map((u) => (
+            {/* Unit Pills — Level 1: Fast selection (only when product has multiple units/variants) */}
+            {hasMultipleVariants && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Units
+                  </span>
                   <button
-                    key={u.name}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setActiveUnits(prev => ({ ...prev, [item.id]: u.name }));
+                      handleToggleExpand(item.id, item);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 hover:underline bg-emerald-500/5 px-2 py-0.5 rounded-full"
+                  >
+                    <Layers className="h-3 w-3" />
+                    <span>All units</span>
+                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </button>
+                </div>
+
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5 whitespace-nowrap select-none">
+                  {/* Base Unit Pill */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveUnits(prev => ({ ...prev, [item.id]: item.unit }));
                     }}
                     className={cn(
                       "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0",
-                      activeUnit === u.name
+                      activeUnit === item.unit
                         ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
                         : "bg-muted hover:bg-muted/80 text-muted-foreground border-transparent"
                     )}
                   >
-                    {u.name}
-                    {(cart.get(`${item.id}:${u.name}`) ?? 0) > 0 && (
+                    {item.unit}
+                    {(cart.get(`${item.id}:${item.unit}`) ?? 0) > 0 && (
                       <span className="ml-1 text-[9px] opacity-80">
-                        ({cart.get(`${item.id}:${u.name}`)})
+                        ({cart.get(`${item.id}:${item.unit}`)})
                       </span>
                     )}
                   </button>
-                ))}
+
+                  {/* Secondary Unit Pills */}
+                  {item.units?.map((u) => (
+                    <button
+                      key={u.name}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveUnits(prev => ({ ...prev, [item.id]: u.name }));
+                      }}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0",
+                        activeUnit === u.name
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                          : "bg-muted hover:bg-muted/80 text-muted-foreground border-transparent"
+                      )}
+                    >
+                      {u.name}
+                      {(cart.get(`${item.id}:${u.name}`) ?? 0) > 0 && (
+                        <span className="ml-1 text-[9px] opacity-80">
+                          ({cart.get(`${item.id}:${u.name}`)})
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Bottom: +/- controls for active unit */}
             <div className="mt-4 pt-3.5 border-t border-border/50 flex items-center justify-between gap-2">

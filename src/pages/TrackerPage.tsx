@@ -43,6 +43,7 @@ import { getWhatsAppUrl, buildPersonalizedReceiptText } from "@/lib/whatsapp";
 import { useRole } from "@/hooks/useRole";
 import { useDemo } from "@/hooks/useDemo";
 import { useUsers } from "@/hooks/useUsers";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import type { SaleTransaction, Item, StockMovement } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import type { Expense, Refund } from "@/types/finance";
@@ -65,6 +66,7 @@ function AdminTrackerPage() {
   const { data: refunds = [], isLoading: refundsLoading } = useRefunds();
   const { data: movements = [], isLoading: movementsLoading } = useMovements();
   const { staff: users = [], loading: usersLoading } = useUsers();
+  const { data: branches = [] } = useStoreBranches();
 
   // Mutations
   const { mutate: updateItem, isLoading: priceUpdating } = useUpdateItem();
@@ -147,6 +149,13 @@ function AdminTrackerPage() {
     return storeId;
   };
 
+  // Branch matching helper for the "Store / Branch" filter
+  const isBranchMatch = (recordBranchId?: string | null): boolean => {
+    if (selectedStoreFilter === "all") return true;
+    if (!recordBranchId) return selectedStoreFilter === "unassigned";
+    return recordBranchId === selectedStoreFilter;
+  };
+
   const getUserName = (userIdOrName?: string) => {
     if (!userIdOrName) return "System/Unknown";
     const matchedUser = users.find(
@@ -166,7 +175,8 @@ function AdminTrackerPage() {
 
       const matchesUser = selectedUserFilter === "all" || s.recordedBy === selectedUserFilter;
       const matchesDate = isDateMatch(s.createdAt, selectedDateFilter);
-      return matchesSearch && matchesUser && matchesDate;
+      const matchesStore = isBranchMatch(s.branchId);
+      return matchesSearch && matchesUser && matchesDate && matchesStore;
     });
   }, [sales, salesSearch, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
@@ -195,7 +205,8 @@ function AdminTrackerPage() {
       const matchesCategory = expenseFilter === "all" || e.category === expenseFilter;
       const matchesUser = selectedUserFilter === "all" || e.recordedBy === selectedUserFilter;
       const matchesDate = isDateMatch(e.date || e.createdAt, selectedDateFilter);
-      return matchesCategory && matchesUser && matchesDate;
+      const matchesStore = isBranchMatch(e.branchId);
+      return matchesCategory && matchesUser && matchesDate && matchesStore;
     });
   }, [expenses, expenseFilter, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
@@ -208,7 +219,8 @@ function AdminTrackerPage() {
 
       const matchesUser = selectedUserFilter === "all" || r.recordedBy === selectedUserFilter;
       const matchesDate = isDateMatch(r.createdAt, selectedDateFilter);
-      return matchesSearch && matchesUser && matchesDate;
+      const matchesStore = isBranchMatch(r.branchId);
+      return matchesSearch && matchesUser && matchesDate && matchesStore;
     });
   }, [refunds, returnSearch, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
@@ -216,8 +228,9 @@ function AdminTrackerPage() {
     return movements.filter((move) => {
       const matchesUser = selectedUserFilter === "all" || move.performedBy === selectedUserFilter;
       const matchesDate = isDateMatch(move.createdAt, selectedDateFilter);
+      const matchesStore = isBranchMatch(move.branchId);
 
-      return matchesUser && matchesDate;
+      return matchesUser && matchesDate && matchesStore;
     });
   }, [movements, selectedStoreFilter, selectedUserFilter, selectedDateFilter]);
 
@@ -618,7 +631,13 @@ function AdminTrackerPage() {
                 <SelectValue placeholder="All Store Branches" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all"><Building2 className="inline h-3.5 w-3.5 mr-1" /> Current Branch</SelectItem>
+                <SelectItem value="all"><Building2 className="inline h-3.5 w-3.5 mr-1" /> All Store Branches</SelectItem>
+                {branches.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    <Building2 className="inline h-3.5 w-3.5 mr-1" /> {b.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="unassigned"><Building2 className="inline h-3.5 w-3.5 mr-1" /> Unassigned / Main</SelectItem>
               </SelectContent>
             </Select>
           </div>
