@@ -116,6 +116,7 @@ function OnboardingPage() {
         storeId: storeRef.id,
         ownerId: user.uid,
         isActive: true,
+        onboardingCompleted: true,
         createdAt: new Date().toISOString(),
       });
 

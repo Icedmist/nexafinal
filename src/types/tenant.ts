@@ -32,5 +32,6 @@ export interface Staff {
   branchId: string;
   photoURL?: string;
   isActive: boolean;
+  onboardingCompleted?: boolean;
   createdAt: string;
 }

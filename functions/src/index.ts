@@ -318,7 +318,7 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
 
-  const { uid, email: providedEmail, password, displayName, photoURL, role, branchId, isActive } = request.data || {};
+  const { uid, email: providedEmail, password, displayName, photoURL, role, branchId, isActive, onboardingCompleted } = request.data || {};
 
   if (!uid) {
     throw new HttpsError('invalid-argument', 'User UID is required.');
@@ -429,6 +429,7 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
     if (photoURL) firestoreUpdate.photoURL = photoURL;
     if (email) firestoreUpdate.email = email;
     if (isActive !== undefined) firestoreUpdate.isActive = isActive;
+    if (onboardingCompleted !== undefined) firestoreUpdate.onboardingCompleted = onboardingCompleted;
 
     if (Object.keys(firestoreUpdate).length > 0) {
       // Use set with merge:true to handle missing documents gracefully

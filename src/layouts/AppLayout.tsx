@@ -24,6 +24,7 @@ import { DemoBanner } from "@/components/layout/DemoBanner";
 import { useDemo } from "@/hooks/useDemo";
 import { StoreTypeOnboardingOverlay } from "@/components/onboarding/StoreTypeOnboardingOverlay";
 import { MemberOnboarding } from "@/components/onboarding/MemberOnboarding";
+import { useStaff, useStaffMutations } from "@/hooks/useStaffData";
 
 
 export function AppLayout() {
@@ -38,12 +39,41 @@ export function AppLayout() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const { permission } = useDeviceNotifications();
+  const { data: staffList, isLoading: staffLoading } = useStaff();
+  const { updateStaff } = useStaffMutations();
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({ onHelpOpen: () => setHelpOpen(true) });
 
   // Browser/Device Notifications
   useDeviceNotifications();
+
+  // Member onboarding gate — mirrors V1: show welcome once for members
+  // (non-owner, non-system-admin) whose staff record isn't onboarded yet
+  const currentStaff = staffList.find((s) => s.uid === user?.uid);
+  const [memberOnboardingDone, setMemberOnboardingDone] = useState(false);
+  const showMemberOnboarding =
+    !memberOnboardingDone &&
+    !isDemo &&
+    !!user &&
+    claimsReady &&
+    !loadingProfile &&
+    !staffLoading &&
+    !needsOnboarding &&
+    !isSystemAdmin &&
+    !!currentStaff &&
+    user.uid !== profile?.ownerId &&
+    currentStaff.onboardingCompleted !== true;
+
+  const handleMemberOnboardingComplete = async () => {
+    if (!user) return;
+    setMemberOnboardingDone(true);
+    try {
+      await updateStaff(user.uid, { onboardingCompleted: true });
+    } catch (err) {
+      console.error("Failed to mark member onboarding complete:", err);
+    }
+  };
 
   // Cross-Tenant Security Check: Ensure user belongs to the current subdomain store
   useEffect(() => {
@@ -199,6 +229,13 @@ export function AppLayout() {
       <div className="flex h-screen flex-col overflow-hidden bg-background nexa-gradient-mesh">
         {isDemo && <DemoBanner />}
         <StoreTypeOnboardingOverlay />
+        {showMemberOnboarding && currentStaff && (
+          <MemberOnboarding
+            name={currentStaff.displayName || user?.displayName || "there"}
+            role={currentStaff.role}
+            onComplete={handleMemberOnboardingComplete}
+          />
+        )}
         <div className="flex flex-1 overflow-hidden relative">
           {/* Subtle background glow */}
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
