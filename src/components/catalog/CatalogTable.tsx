@@ -25,6 +25,7 @@ export interface SortState {
 }
 
 function stockStatus(item: Item) {
+  if (item.needsReview) return "needs-review" as const;
   if (item.currentStock === 0) return "out-of-stock" as const;
   if (item.currentStock <= item.reorderPoint) return "low-stock" as const;
   return "in-stock" as const;

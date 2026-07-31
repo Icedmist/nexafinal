@@ -10,6 +10,8 @@ import { SalesStepCart, type CartItem } from "./SalesStepCart";
 import { SalesStepCheckout } from "./SalesStepCheckout";
 import { SalesQuickScanCheckout } from "./SalesQuickScanCheckout";
 import { useBusiness } from "@/contexts/BusinessContext";
+import type { OrderType } from "@/types/inventory";
+import { useMemo } from "react";
 
 const NAIRA = "₦";
 
@@ -63,6 +65,8 @@ export function SalesGrid() {
   const [step, setStep] = useState<StepId>("browse");
   const [defaultSaleType, setDefaultSaleType] = useState<SalePriceMode>("retail");
   const [posMode, setPosMode] = useState<"standard" | "quickscan">("standard");
+  const [orderType, setOrderType] = useState<OrderType>("dine_in");
+  const [tableNumber, setTableNumber] = useState("");
 
   const goToCart = useCallback(() => setStep("cart"), []);
 
@@ -99,6 +103,25 @@ export function SalesGrid() {
       }
 
       next.set(cartKey, (next.get(cartKey) ?? 0) + 1);
+      return next;
+    });
+  };
+
+  const addConfiguredToCart = (itemId: string, qty: number, unitId: string, configString: string) => {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const item = (items || []).find((i) => i.id === itemId);
+      if (!item) return prev;
+      const effectiveUnit = unitId || item.unit;
+      const key = buildCartKey(itemId, effectiveUnit, defaultSaleType, configString);
+
+      const conversionFactor = getUnitConversionFactor(item, effectiveUnit);
+      const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
+      if (availableBaseStock < conversionFactor * qty) {
+        return prev;
+      }
+
+      next.set(key, (next.get(key) ?? 0) + qty);
       return next;
     });
   };
@@ -165,7 +188,7 @@ export function SalesGrid() {
 
   const cartItems: CartItem[] = [];
   cart.forEach((qty, key) => {
-    const { itemId, unitName, saleType } = parseCartKey(key);
+    const { itemId, unitName, saleType, config } = parseCartKey(key);
     const item = (items || []).find((i) => i.id === itemId);
     if (item) {
       cartItems.push({
@@ -175,6 +198,7 @@ export function SalesGrid() {
         cartKey: key,
         saleType,
         customPrice: customPrices.get(key),
+        configString: config,
       });
     }
   });
@@ -184,6 +208,20 @@ export function SalesGrid() {
     const unitPrice = ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? defaultSaleType);
     return s + unitPrice * ci.quantity;
   }, 0);
+
+  // Container packaging surcharge for takeaway/delivery restaurant orders
+  const isRestaurant = businessType === "restaurant";
+  const packagingFee = isRestaurant && (orderType === "takeaway" || orderType === "delivery") ? 500 : 0;
+
+  // Estimated ready time by summing per-item kitchen prep time
+  const estimatedReadyTime = useMemo(() => {
+    return cartItems.reduce((sum, ci) => {
+      const prep = ci.item.menuItemConfig?.prepTimeMinutes ?? 5;
+      return sum + prep * ci.quantity;
+    }, 0);
+  }, [cartItems]);
+
+  const totalNairaWithPackaging = totalNaira + packagingFee;
 
   const handleClearCart = () => {
     setCart(new Map());
@@ -282,6 +320,11 @@ export function SalesGrid() {
                 onSetQuantity={setQuantityInCart} 
                 defaultSaleType={defaultSaleType}
                 onDefaultSaleTypeChange={setDefaultSaleType}
+                onAddConfigured={addConfiguredToCart}
+                orderType={orderType}
+                tableNumber={tableNumber}
+                onOrderTypeChange={setOrderType}
+                onTableNumberChange={setTableNumber}
               />
             )}
             {step === "cart" && (
@@ -293,6 +336,8 @@ export function SalesGrid() {
                 onUpdateCustomPrice={handleUpdateCustomPrice}
                 onClear={handleClearCart}
                 onNext={() => setStep("checkout")}
+                packagingFee={packagingFee}
+                estimatedReadyTime={estimatedReadyTime}
               />
             )}
             {step === "checkout" && (
@@ -303,6 +348,10 @@ export function SalesGrid() {
                 onSetQuantity={setQuantityInCart}
                 onUpdateCustomPrice={handleUpdateCustomPrice}
                 onRemove={removeFromCart}
+                packagingFee={packagingFee}
+                estimatedReadyTime={estimatedReadyTime}
+                orderType={orderType}
+                tableNumber={tableNumber}
               />
             )}
           </div>
@@ -321,7 +370,7 @@ export function SalesGrid() {
               </Button>
               {step === "cart" && (
                 <div className="ml-auto text-sm font-mono font-bold">
-                  {NAIRA}{totalNaira.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                  {NAIRA}{totalNairaWithPackaging.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
                 </div>
               )}
             </div>

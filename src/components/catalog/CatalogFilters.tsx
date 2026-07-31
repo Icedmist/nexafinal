@@ -22,6 +22,7 @@ interface CatalogFiltersProps {
   locations: Location[];
   view?: "list" | "grid";
   onViewChange?: (v: "list" | "grid") => void;
+  needsReviewCount?: number;
 }
 
 const STATUS_OPTIONS = [
@@ -29,9 +30,10 @@ const STATUS_OPTIONS = [
   { value: "in-stock", label: "In Stock" },
   { value: "low-stock", label: "Low Stock" },
   { value: "out-of-stock", label: "Out of Stock" },
+  { value: "needs-review", label: "Needs Review" },
 ];
 
-export function CatalogFilters({ filters, onChange, categories, suppliers, locations, view = "list", onViewChange }: CatalogFiltersProps) {
+export function CatalogFilters({ filters, onChange, categories, suppliers, locations, view = "list", onViewChange, needsReviewCount = 0 }: CatalogFiltersProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
@@ -104,10 +106,24 @@ export function CatalogFilters({ filters, onChange, categories, suppliers, locat
         </SelectContent>
       </Select>
 
-      <Select value={filters.status ?? "all"} onValueChange={(v) => update({ status: v === "all" ? undefined : (v as "in_stock" | "low_stock" | "out_of_stock") })}>
+      <Select value={filters.status ?? "all"} onValueChange={(v) => update({ status: v === "all" ? undefined : (v as "in_stock" | "low_stock" | "out_of_stock" | "needs-review") })}>
         <SelectTrigger className="h-9 w-full sm:w-36"><SelectValue placeholder="Status" /></SelectTrigger>
         <SelectContent>
-          {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          {STATUS_OPTIONS.map((o) => {
+            if (o.value === "needs-review") {
+              return (
+                <SelectItem key={o.value} value={o.value}>
+                  <span className="flex items-center gap-2">
+                    {o.label}
+                    {needsReviewCount > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500/15 px-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">{needsReviewCount}</span>
+                    )}
+                  </span>
+                </SelectItem>
+              );
+            }
+            return <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>;
+          })}
         </SelectContent>
       </Select>
 

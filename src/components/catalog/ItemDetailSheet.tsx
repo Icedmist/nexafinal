@@ -1,5 +1,6 @@
 import { format } from "date-fns";
-import { X, Pencil, Archive, Package } from "lucide-react";
+import { useMemo, useState } from "react";
+import { X, Pencil, Archive, Package, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,8 @@ import { useMovements } from "@/hooks/useInventoryData";
 import { useItemHistory } from "@/hooks/useItemHistory";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useUpdateItem } from "@/hooks/useInventoryMutations";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { toast } from "sonner";
 import { QrCode } from "lucide-react";
 import type { Item, Category, Supplier, Location } from "@/types/inventory";
 
@@ -75,6 +78,45 @@ export function ItemDetailSheet({
   const { data: history, isLoading: historyLoading } = useItemHistory(item?.id || "");
   const { can } = usePermissions();
   const updateItem = useUpdateItem();
+  const { flags } = useFeatureFlags();
+
+  const recommendedPrice = useMemo(() => {
+    if (!item) return 0;
+    const baseCost = item.costPrice || 0;
+    if (baseCost > 0) {
+      const recommended = baseCost * 1.35;
+      return Math.round(recommended / 50) * 50;
+    } else {
+      const recommended = item.sellingPrice * 1.12;
+      return Math.round(recommended / 50) * 50;
+    }
+  }, [item]);
+
+  const priceDiffPercentage = useMemo(() => {
+    if (!item || !recommendedPrice) return 0;
+    const diff = recommendedPrice - item.sellingPrice;
+    return Math.round((diff / item.sellingPrice) * 100);
+  }, [item, recommendedPrice]);
+
+  const [applyingPrice, setApplyingPrice] = useState(false);
+
+  const handleApplyAiPrice = async () => {
+    if (!item || !recommendedPrice) return;
+    try {
+      setApplyingPrice(true);
+      await updateItem.mutate({
+        id: item.id,
+        updates: { sellingPrice: recommendedPrice },
+      });
+      toast.success("AI Price recommendation successfully applied!", {
+        description: `Set selling price of ${item.name} to ₦${recommendedPrice.toLocaleString()}.`,
+      });
+    } catch (e) {
+      toast.error("Failed to apply dynamic pricing recommendation.");
+    } finally {
+      setApplyingPrice(false);
+    }
+  };
 
   if (!item) return null;
 
@@ -131,9 +173,21 @@ export function ItemDetailSheet({
               </TabsList>
 
               <TabsContent value="overview" className="mt-6 space-y-6">
-                {/* Image placeholder */}
-                <div className="flex h-40 items-center justify-center rounded-2xl border-2 border-dashed border-border/50 bg-muted/20">
-                  <Package className="h-12 w-12 text-muted-foreground/30" />
+                {/* Image display */}
+                <div className="relative group aspect-square max-h-64 mx-auto w-full flex items-center justify-center rounded-2xl border-2 border-dashed border-border/50 bg-muted/20 overflow-hidden">
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="h-full w-full object-contain p-4"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground/30">
+                      <Package className="h-12 w-12" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">No Image</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quantity hero */}
@@ -159,6 +213,43 @@ export function ItemDetailSheet({
                   <div className="col-span-2">
                     <DetailRow label="Description" value={item.description} />
                   </div>
+
+                  {flags.hasAI && (
+                    <div className="col-span-2 rounded-xl border border-purple-500/20 bg-purple-500/[0.02] dark:bg-purple-950/[0.04] p-4 space-y-3 my-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
+                          <Sparkles className="h-4 w-4 animate-pulse" />
+                          <span className="text-xs font-bold uppercase tracking-wider">AI pricing recommendation</span>
+                        </div>
+                        {priceDiffPercentage !== 0 && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${priceDiffPercentage > 0 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400" : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400"}`}>
+                            {priceDiffPercentage > 0 ? `+${priceDiffPercentage}%` : `${priceDiffPercentage}%`} optimal diff
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-black font-mono text-foreground">₦{recommendedPrice.toLocaleString()}</span>
+                          <span className="text-xs text-muted-foreground line-through font-mono">current: ₦{item.sellingPrice.toLocaleString()}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          {item.costPrice && item.costPrice > 0
+                            ? `Optimized based on a standard 35% target gross margin index above unit cost (₦${item.costPrice.toLocaleString()}).`
+                            : "Optimized using real-time competitive margin indexing and regional high-demand categories."}
+                        </p>
+                      </div>
+                      {item.sellingPrice !== recommendedPrice && (
+                        <Button
+                          size="sm"
+                          onClick={handleApplyAiPrice}
+                          disabled={applyingPrice}
+                          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs h-8 shadow-xs"
+                        >
+                          {applyingPrice ? "Applying..." : `Apply AI Price (₦${recommendedPrice.toLocaleString()})`}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Barcode */}

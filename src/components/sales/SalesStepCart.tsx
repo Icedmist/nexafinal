@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { Item } from "@/types/inventory";
 import type { SalePriceMode } from "./price-utils";
-import { getItemPriceForMode } from "./price-utils";
+import { getItemPriceForMode, getConfigPrice, summarizeConfig } from "./price-utils";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useRole } from "@/hooks/useRole";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ export interface CartItem {
   cartKey: string;
   saleType?: SalePriceMode;
   customPrice?: number;
+  configString?: string;
 }
 
 interface SalesStepCartProps {
@@ -33,6 +34,8 @@ interface SalesStepCartProps {
   onUpdateCustomPrice?: (cartKey: string, price: number | null) => void;
   onClear: () => void;
   onNext: () => void;
+  packagingFee?: number;
+  estimatedReadyTime?: number;
 }
 
 function getUnitConversionFactor(item: Item, unitName: string): number {
@@ -73,7 +76,7 @@ function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartI
   return Math.max(0, Math.floor(availableBaseUnits / currentConversionFactor));
 }
 
-export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateCustomPrice, onClear, onNext }: SalesStepCartProps) {
+export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateCustomPrice, onClear, onNext, packagingFee = 0, estimatedReadyTime = 0 }: SalesStepCartProps) {
   const { profile } = useBusiness();
   const { isAdmin } = useRole();
   const businessType = profile?.businessType || "retail";
@@ -90,10 +93,10 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateC
   const total = items.reduce(
     (sum, ci) =>
       sum +
-      (ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail")) *
+      (ci.customPrice ?? (ci.configString ? getConfigPrice(ci.item, ci.configString) : getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail"))) *
         ci.quantity,
     0
-  );
+  ) + packagingFee;
   const totalQty = items.reduce((sum, ci) => sum + ci.quantity, 0);
 
   if (items.length === 0) {
@@ -109,9 +112,12 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateC
     <div className="flex flex-1 flex-col">
       <div className="flex-1 overflow-y-auto px-4 py-3 pb-28 space-y-2">
         {items.map((ci) => {
-          const baseUnitPrice = getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail");
+          const baseUnitPrice = ci.configString
+            ? getConfigPrice(ci.item, ci.configString)
+            : getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? "retail");
           const effectiveUnitPrice = ci.customPrice ?? baseUnitPrice;
           const isAddDisabled = getAvailableStockForUnit(ci.item, ci.selectedUnit, items) <= 0;
+          const configSummary = ci.configString ? summarizeConfig(ci.configString) : null;
 
           return (
             <div key={ci.cartKey} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
@@ -207,6 +213,14 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateC
                           ))}
                         </div>
                       )}
+
+                      {configSummary && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                            {configSummary}
+                          </span>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
@@ -290,8 +304,20 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateC
       <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-4 space-y-3">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{totalQty} item{totalQty !== 1 && "s"}</span>
-          <span className="font-mono">{NAIRA}{total.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+          <span className="font-mono">{NAIRA}{(total - packagingFee).toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
         </div>
+        {packagingFee > 0 && (
+          <div className="flex items-center justify-between text-xs text-primary font-bold">
+            <span>Container Packaging Surcharge</span>
+            <span className="font-mono">+{NAIRA}{packagingFee.toLocaleString("en-NG")}</span>
+          </div>
+        )}
+        {estimatedReadyTime > 0 && businessType === "restaurant" && (
+          <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-bold border-b border-border/40 pb-2">
+            <span>Expected Cooking Ready Time</span>
+            <span>~{estimatedReadyTime} minutes</span>
+          </div>
+        )}
         <div className="flex items-center justify-between text-lg font-bold">
           <span>Total</span>
           <span className="font-mono">{NAIRA}{total.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>

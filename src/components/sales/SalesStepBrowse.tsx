@@ -2,14 +2,18 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import { Plus, Minus, Package, Search, X, TrendingUp, UserCheck, ScanBarcode, QrCode, ShoppingCart, Palette, Tag, Edit3 } from "lucide-react";
 import { PriceModeSelector } from "./PriceModeSelector";
 import type { SalePriceMode } from "./price-utils";
-import { getItemPriceForMode } from "./price-utils";
+import { getItemPriceForMode, buildCartKey, parseCartKey } from "./price-utils";
+import { DishCustomizerDialog } from "./DishCustomizerDialog";
+import { VariantCustomizerDialog } from "./VariantCustomizerDialog";
+import { FoodPlate } from "@/components/catalog/FoodPlate";
 import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useItems, useCategories } from "@/hooks/useInventoryData";
+import { useSales } from "@/hooks/useSalesData";
 import { cn, extractItemIdentifier } from "@/lib/utils";
-import type { Item } from "@/types/inventory";
+import type { Item, OrderType } from "@/types/inventory";
 import { QRScannerDialog } from "../shared/QRScannerDialog";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { RestaurantProductGrid } from "./layouts/RestaurantProductGrid";
@@ -73,10 +77,16 @@ interface SalesStepBrowseProps {
   onSetQuantity: (cartKey: string, qty: number) => void;
   defaultSaleType: SalePriceMode;
   onDefaultSaleTypeChange: (value: SalePriceMode) => void;
+  onAddConfigured?: (itemId: string, qty: number, unitId: string, configString: string) => void;
+  orderType?: OrderType;
+  tableNumber?: string;
+  onOrderTypeChange?: (orderType: OrderType) => void;
+  onTableNumberChange?: (tableNumber: string) => void;
 }
 
-export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultSaleType, onDefaultSaleTypeChange }: SalesStepBrowseProps) {
+export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultSaleType, onDefaultSaleTypeChange, onAddConfigured, orderType: controlledOrderType, tableNumber: controlledTableNumber, onOrderTypeChange, onTableNumberChange }: SalesStepBrowseProps) {
   const { data: items } = useItems();
+  const { data: sales = [] } = useSales();
   const { profile } = useBusiness();
   const businessType = profile?.businessType || "retail";
   const { data: categories } = useCategories();
@@ -100,13 +110,43 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
   }, []);
 
   // Restaurant-specific state
-  const [orderType, setOrderType] = useState<"dine_in" | "takeaway" | "delivery">("dine_in");
-  const [tableNumber, setTableNumber] = useState("");
+  const [localOrderType, setLocalOrderType] = useState<OrderType>("dine_in");
+  const [localTableNumber, setLocalTableNumber] = useState("");
+  const orderType = controlledOrderType ?? localOrderType;
+  const tableNumber = controlledTableNumber ?? localTableNumber;
+  const handleOrderTypeChange: React.Dispatch<React.SetStateAction<OrderType>> = (t) => {
+    const next = typeof t === "function" ? t(localOrderType) : t;
+    setLocalOrderType(next);
+    onOrderTypeChange?.(next);
+  };
+  const handleTableNumberChange: React.Dispatch<React.SetStateAction<string>> = (t) => {
+    const next = typeof t === "function" ? t(localTableNumber) : t;
+    setLocalTableNumber(next);
+    onTableNumberChange?.(next);
+  };
   const [orderCart, setOrderCart] = useState<Map<string, any>>(new Map());
 
   const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null);
   const [isLinking, setIsLinking] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
+
+  // Configurator dialogs
+  const [configuratorOpen, setConfiguratorOpen] = useState(false);
+  const [configuratorItem, setConfiguratorItem] = useState<Item | null>(null);
+  const [variantConfigOpen, setVariantConfigOpen] = useState(false);
+  const [variantConfigItem, setVariantConfigItem] = useState<Item | null>(null);
+
+  const handleAddConfigured = useCallback((itemId: string, qty: number, unitId: string, configString: string) => {
+    if (onAddConfigured) {
+      onAddConfigured(itemId, qty, unitId, configString);
+    } else {
+      const item = (items || []).find((i) => i.id === itemId);
+      if (item) {
+        const key = buildCartKey(itemId, unitId || item.unit, defaultSaleType, configString);
+        for (let i = 0; i < qty; i++) onAdd(key);
+      }
+    }
+  }, [onAddConfigured, onAdd, items, defaultSaleType]);
 
   const navigate = useNavigate();
   const updateItem = useUpdateItem();
@@ -178,12 +218,34 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
   }, [items, handleAdd, defaultSaleType]);
 
   const topSellers = useMemo(() => {
-    return [] as Item[];
-  }, []);
+    const counts = new Map<string, number>();
+    for (const sale of sales) {
+      for (const li of sale.items) {
+        counts.set(li.itemId, (counts.get(li.itemId) ?? 0) + li.quantity);
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([id]) => (items || []).find((i) => i.id === id))
+      .filter(Boolean) as Item[];
+  }, [sales, items]);
 
   const repeatCustomers = useMemo(() => {
-    return [] as { name: string; phone: string; count: number }[];
-  }, []);
+    const map = new Map<string, { name: string; phone: string; count: number }>();
+    for (const sale of sales) {
+      if (sale.customerPhone) {
+        const key = sale.customerPhone;
+        const existing = map.get(key);
+        if (existing) existing.count++;
+        else map.set(key, { name: sale.customerName ?? "Unknown", phone: key, count: 1 });
+      }
+    }
+    return Array.from(map.values())
+      .filter((c) => c.count >= 2)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [sales]);
 
   const isSearchEmpty = !search.trim() && !activeCat;
 
@@ -197,8 +259,38 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
     return list;
   }, [items, search, activeCat]);
 
+  // Per-item quantity sums for the restaurant FoodPlate visualizer
+  const cartSumsByItem = useMemo(() => {
+    const sums = new Map<string, number>();
+    cart.forEach((qty, key) => {
+      const { itemId } = parseCartKey(key);
+      sums.set(itemId, (sums.get(itemId) ?? 0) + qty);
+    });
+    return sums;
+  }, [cart]);
+
+  const isRestaurant = businessType === "restaurant";
+
   return (
     <div className="flex h-full flex-col relative">
+      {/* Restaurant Visualizer */}
+      {isRestaurant && totalItems > 0 && cartSumsByItem.size > 0 && (
+        <div className="absolute right-4 top-16 z-20 hidden lg:block">
+          <FoodPlate
+            items={Array.from(cartSumsByItem.entries()).map(([id, qty]) => {
+              const item = (items || []).find((i) => i.id === id);
+              return {
+                id,
+                name: item?.name || id,
+                quantity: qty,
+                emoji: (item as any)?.emoji,
+              };
+            })}
+            className="scale-90 origin-top-right bg-card/40 backdrop-blur-sm rounded-full p-2 border border-border/50"
+          />
+        </div>
+      )}
+
       {/* Search bar */}
       <div className="px-4 pt-3 pb-2 flex gap-2">
         <PriceModeSelector
@@ -352,9 +444,9 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
             setAnimatingItems={setAnimatingItems}
             items={items || []}
             orderType={orderType}
-            setOrderType={setOrderType}
+            setOrderType={handleOrderTypeChange}
             tableNumber={tableNumber}
-            setTableNumber={setTableNumber}
+            setTableNumber={handleTableNumberChange}
           />
         ) : businessType === "textile" ? (
           <TextileProductGrid
@@ -401,7 +493,15 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                 <div
                   key={item.id}
                   onClick={() => {
-                    if (item.units && item.units.length > 0) {
+                    const hasMenuConfig = item.menuItemConfig && (item.menuItemConfig.sizes?.length > 0 || item.menuItemConfig.addons?.length > 0 || item.menuItemConfig.spiceLevels?.length > 0);
+                    const hasVariants = item.variants && item.variants.length > 0;
+                    if (hasMenuConfig) {
+                      setConfiguratorItem(item);
+                      setConfiguratorOpen(true);
+                    } else if (hasVariants) {
+                      setVariantConfigItem(item);
+                      setVariantConfigOpen(true);
+                    } else if (item.units && item.units.length > 0) {
                       setEditingUnitsItem(item);
                     } else {
                       setExpandedItemId(prev => {
@@ -1110,6 +1210,22 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dish configurator (restaurant menu items in non-restaurant stores) */}
+      <DishCustomizerDialog
+        open={configuratorOpen}
+        onOpenChange={setConfiguratorOpen}
+        item={configuratorItem}
+        onAddConfigured={handleAddConfigured}
+      />
+
+      {/* Variant configurator (variant items) */}
+      <VariantCustomizerDialog
+        open={variantConfigOpen}
+        onOpenChange={setVariantConfigOpen}
+        item={variantConfigItem}
+        onAddConfigured={handleAddConfigured}
+      />
     </div>
   );
 }

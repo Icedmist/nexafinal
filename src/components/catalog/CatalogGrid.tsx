@@ -27,6 +27,7 @@ export function CatalogGrid({
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
 
   const stockStatus = (item: Item) => {
+    if (item.needsReview) return { label: "Needs Review", color: "bg-amber-500/10 text-amber-600 border-amber-500/20 font-bold" };
     if (item.currentStock === 0) return { label: "Out of Stock", color: "bg-destructive/10 text-destructive border-destructive/20" };
     if (item.currentStock <= item.reorderPoint) return { label: "Low Stock", color: "bg-amber-500/10 text-amber-600 border-amber-500/20" };
     return { label: "In Stock", color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" };

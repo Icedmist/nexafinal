@@ -23,10 +23,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Item, Category, Supplier, Location, ProductVariant } from "@/types/inventory";
-import { ItemStatus } from "@/types/inventory";
+import { ItemStatus, SUPPORTED_UNITS } from "@/types/inventory";
 import type { Branch } from "@/types/tenant";
 import { useRole } from "@/hooks/useRole";
 import { useTenant } from "@/contexts/TenantContext";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { useDrugLibrary } from "@/hooks/useDrugLibrary";
+import { generateProductDescription } from "@/lib/gemini";
+import type { DrugLibraryItem } from "@/data/drugLibrary";
 import {
   VARIANT_ATTRIBUTES,
   DEFAULT_SIZE_OPTIONS,
@@ -36,6 +40,20 @@ import {
   generateVariantId,
   type VariantAttribute,
 } from "@/lib/variants";
+function generateSuggestedSku(pName: string): string {
+  if (!pName || !pName.trim()) return "";
+  const parts = pName.trim().toUpperCase().split(/\s+/);
+  let base: string;
+  if (parts.length >= 2) {
+    base = parts.slice(0, 3).map((p) => p[0]).join("");
+  } else {
+    base = parts[0].slice(0, 3);
+  }
+  base = base.replace(/[^A-Z0-9]/g, "");
+  if (!base) base = "PRD";
+  return `${base}-001`;
+}
+
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
@@ -52,6 +70,12 @@ const schema = z.object({
   costPrice: z.coerce.number().min(0, "Cost price cannot be negative"),
   sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative"),
   wholesalePrice: z.coerce.number().min(0, "Wholesale price cannot be negative"),
+  distributorPrice: z.coerce.number().min(0, "Distributor price cannot be negative").optional(),
+  // Pharmacy clinical specs
+  expiryDate: z.string().optional(),
+  batchNumber: z.string().optional(),
+  dosageForm: z.string().optional(),
+  requiresPrescription: z.boolean().optional(),
   status: z.nativeEnum(ItemStatus),
   imageUrl: z.string().nullable().optional(),
   units: z.array(z.object({
@@ -462,8 +486,14 @@ export function ItemFormSheet({
 }: ItemFormSheetProps) {
   const { isAdmin } = useRole();
   const { store } = useTenant();
+  const { profile } = useBusiness();
   const isEdit = !!item;
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isGeneratingDesc, setIsGeneratingDesc] = React.useState(false);
+
+  const businessType = profile?.businessType || "retail";
+  const isPharmacy = businessType === "pharmacy";
+  const { searchDrugs } = useDrugLibrary(isPharmacy);
 
   const { register, handleSubmit, reset, control, formState: { errors }, setError, setValue, watch } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -483,6 +513,11 @@ export function ItemFormSheet({
       costPrice: 0,
       sellingPrice: 0,
       wholesalePrice: 0,
+      distributorPrice: 0,
+      expiryDate: "",
+      batchNumber: "",
+      dosageForm: "",
+      requiresPrescription: false,
       status: ItemStatus.Active,
       imageUrl: null,
       variantAttributes: [],
@@ -492,6 +527,56 @@ export function ItemFormSheet({
       variants: [],
     },
   });
+
+  const watchedName = watch("name") || "";
+  const matchedDrugs = useMemo(() => {
+    if (!isPharmacy || isEdit || watchedName.trim().length < 2) return [];
+    return searchDrugs(watchedName);
+  }, [isPharmacy, isEdit, watchedName, searchDrugs]);
+
+  const handleMagicWrite = async () => {
+    if (!watchedName.trim()) {
+      import("sonner").then(({ toast }) => toast.error("Enter a product name first to generate a description"));
+      return;
+    }
+    try {
+      setIsGeneratingDesc(true);
+      let desc = "";
+      try {
+        const catId = watch("categoryId");
+        const catName = catId && catId !== "none" ? categories.find((c) => c.id === catId)?.name : "";
+        desc = await generateProductDescription(watchedName, catName || "");
+      } catch (e) {
+        desc = "";
+      }
+      if (!desc) {
+        desc = `${watchedName} — premium quality, competitively priced. Ideal for retail and bulk buyers.`;
+      }
+      setValue("description", desc);
+      import("sonner").then(({ toast }) => toast.success("Description generated"));
+    } catch (e) {
+      import("sonner").then(({ toast }) => toast.error("Failed to generate description"));
+    } finally {
+      setIsGeneratingDesc(false);
+    }
+  };
+
+  const handleApplyDrug = (drug: DrugLibraryItem) => {
+    setValue("name", drug.name);
+    setValue("description", drug.description || `${drug.name} ${drug.strength ? `(${drug.strength}) ` : ""}${drug.genericName}.`);
+    const catName = drug.category;
+    const matchedCat = categories.find((c) => c.name.toLowerCase() === catName.toLowerCase());
+    if (matchedCat) setValue("categoryId", matchedCat.id);
+    setValue("dosageForm", drug.dosageForm || "");
+    setValue("requiresPrescription", drug.requiresPrescription || drug.isPrescriptionOnly || false);
+  };
+
+  // Auto-suggest a SKU from the product name on new items
+  useEffect(() => {
+    if (!isEdit && watchedName.trim() && !watch("sku")) {
+      setValue("sku", generateSuggestedSku(watchedName), { shouldValidate: false });
+    }
+  }, [watchedName, isEdit, setValue, watch]);
 
   const imageUrl = watch("imageUrl");
   const watchedVariantAttrs = watch("variantAttributes") || [];
@@ -547,6 +632,11 @@ export function ItemFormSheet({
           costPrice: item.costPrice,
           sellingPrice: item.sellingPrice,
           wholesalePrice: item.wholesalePrice ?? 0,
+          distributorPrice: item.pricingTiers?.distributor ?? 0,
+          expiryDate: item.pharmacy?.expiryDate || "",
+          batchNumber: item.pharmacy?.batchNumber || "",
+          dosageForm: item.pharmacy?.dosageForm || "",
+          requiresPrescription: item.pharmacy?.requiresPrescription || false,
           status: item.status,
           imageUrl: item.imageUrl || null,
           units: item.units || [],
@@ -573,6 +663,11 @@ export function ItemFormSheet({
           costPrice: 0,
           sellingPrice: 0,
           wholesalePrice: 0,
+          distributorPrice: 0,
+          expiryDate: "",
+          batchNumber: "",
+          dosageForm: "",
+          requiresPrescription: false,
           status: ItemStatus.Active,
           imageUrl: null,
           units: [],
@@ -620,11 +715,29 @@ export function ItemFormSheet({
         sellingPrice: u.sellingPrice !== undefined && u.sellingPrice !== null ? Number(u.sellingPrice) : undefined
       })),
       wholesalePrice: cleanedData.wholesalePrice !== undefined && cleanedData.wholesalePrice !== null ? Number(cleanedData.wholesalePrice) : 0,
+      // Tiered pricing (retail/wholesale/distributor)
+      pricingTiers: (cleanedData.wholesalePrice || cleanedData.distributorPrice)
+        ? {
+            retail: cleanedData.sellingPrice,
+            wholesale: cleanedData.wholesalePrice ? Number(cleanedData.wholesalePrice) : undefined,
+            distributor: cleanedData.distributorPrice ? Number(cleanedData.distributorPrice) : undefined,
+            tierEnabled: true,
+          }
+        : undefined,
+      // Pharmacy clinical specs
+      pharmacy: isPharmacy
+        ? {
+            expiryDate: cleanedData.expiryDate || undefined,
+            batchNumber: cleanedData.batchNumber?.trim() || undefined,
+            dosageForm: cleanedData.dosageForm || undefined,
+            requiresPrescription: cleanedData.requiresPrescription || false,
+          }
+        : undefined,
       // Variant support: pass through variantAttributes and variants
       variantAttributes: cleanedData.variantAttributes || [],
       variants: cleanedData.variants || [],
     };
- 
+  
     onSave(finalData as any);
   };
 
@@ -749,13 +862,53 @@ export function ItemFormSheet({
                   <label className={labelCls}>Product Name *</label>
                   <input {...register("name")} className={`${inputCls} mt-1.5`} placeholder="e.g. Wireless Mouse" />
                   {errors.name && <p className={errCls}>{errors.name.message}</p>}
+                  {isPharmacy && matchedDrugs.length > 0 && (
+                    <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-50 dark:bg-amber-950/20 overflow-hidden">
+                      <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 bg-amber-500/10">
+                        Inbuilt NAFDAC/WHO drug suggestions
+                      </div>
+                      <ul className="max-h-40 overflow-y-auto divide-y divide-border/60">
+                        {matchedDrugs.map((drug, idx) => (
+                          <li key={idx}>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyDrug(drug)}
+                              className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-amber-500/5 transition-colors"
+                            >
+                              <span className="min-w-0">
+                                <span className="font-bold text-foreground block truncate">{drug.name} {drug.strength ? <span className="text-muted-foreground font-mono">{drug.strength}</span> : null}</span>
+                                <span className="text-muted-foreground block truncate">{drug.genericName} · {drug.dosageForm} · {drug.category}</span>
+                              </span>
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${drug.requiresPrescription || drug.isPrescriptionOnly ? "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"}`}>
+                                {(drug.requiresPrescription || drug.isPrescriptionOnly) ? "POM (Rx)" : "OTC"}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-5">
                   <div>
                     <label className={`${labelCls} flex items-center gap-1.5`}>
                       SKU * <HelpTooltip text="Unique identifier for this item. Must be different from all other items." />
                     </label>
-                    <input {...register("sku")} className={`${inputCls} mt-1.5 font-mono uppercase`} placeholder="STK-XXXX" />
+                    <div className="relative mt-1.5">
+                      <input {...register("sku")} className={`${inputCls} font-mono uppercase pr-14`} placeholder="STK-XXXX" />
+                      {!isEdit && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (watchedName.trim()) setValue("sku", generateSuggestedSku(watchedName), { shouldValidate: false });
+                          }}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 px-2 rounded-md text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                          title="Auto-generate SKU from name"
+                        >
+                          Auto
+                        </button>
+                      )}
+                    </div>
                     {errors.sku && <p className={errCls}>{errors.sku.message}</p>}
                   </div>
                   <div>
@@ -767,7 +920,20 @@ export function ItemFormSheet({
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className={labelCls}>Description (Optional)</label>
+                  <div className="flex items-center justify-between">
+                    <label className={labelCls}>Description (Optional)</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleMagicWrite}
+                      disabled={isGeneratingDesc}
+                      className="h-7 gap-1.5 text-[10px] font-black uppercase tracking-widest border-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-500/5"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {isGeneratingDesc ? "Writing..." : "Magic Write"}
+                    </Button>
+                  </div>
                   <textarea {...register("description")} rows={2} className={`${inputCls} h-auto py-2.5 mt-1.5 resize-none`} placeholder="Brief description of the product..." />
                   {errors.description && <p className={errCls}>{errors.description.message}</p>}
                 </div>
@@ -820,11 +986,9 @@ export function ItemFormSheet({
                       {store?.unitPresets?.map((p, idx) => (
                         <option key={idx} value={p.name} />
                       ))}
-                      <option value="Piece" />
-                      <option value="Yard" />
-                      <option value="Mudu" />
-                      <option value="kg" />
-                      <option value="Litre" />
+                      {SUPPORTED_UNITS.map((u) => (
+                        <option key={u.id} value={u.label} />
+                      ))}
                     </datalist>
                     {errors.unit && <p className={errCls}>{errors.unit.message}</p>}
                   </div>
@@ -989,8 +1153,55 @@ export function ItemFormSheet({
                   </div>
                   {errors.wholesalePrice && <p className={errCls}>{errors.wholesalePrice.message}</p>}
                 </div>
+                <div className="sm:col-span-2">
+                  <label className={`${labelCls} flex items-center gap-1.5`}>
+                    Distributor Selling Price <HelpTooltip text="Optional volume price for distributor/bulk customers. Falls back to wholesale then retail when not set." />
+                  </label>
+                  <div className="relative mt-1.5">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
+                    <input type="number" step="0.01" {...register("distributorPrice")} className={`${inputCls} pl-7`} placeholder="0.00" />
+                  </div>
+                  {errors.distributorPrice && <p className={errCls}>{errors.distributorPrice.message}</p>}
+                </div>
               </div>
             </div>
+
+            {isPharmacy && (
+              <div className={cardGroupCls}>
+                <div className="mb-4 flex items-center gap-2 text-primary">
+                  <Tag className="h-4 w-4" />
+                  <h3 className="font-semibold text-foreground">Pharmacy Clinical Specifications</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className={labelCls}>Dosage Form</label>
+                    <input {...register("dosageForm")} list="dosage-form-options" className={`${inputCls} mt-1.5`} placeholder="e.g. Tablet, Capsule, Syrup" />
+                    <datalist id="dosage-form-options">
+                      {["Tablet", "Capsule", "Syrup", "Injection", "Sachet", "Ointment", "Liquid", "Inhaler", "Drops", "Cream", "Suppository"].map((d) => (
+                        <option key={d} value={d} />
+                      ))}
+                    </datalist>
+                    {errors.dosageForm && <p className={errCls}>{errors.dosageForm.message}</p>}
+                  </div>
+                  <div>
+                    <label className={labelCls}>Batch Number</label>
+                    <input {...register("batchNumber")} className={`${inputCls} mt-1.5 font-mono`} placeholder="e.g. BATCH-2025-001" />
+                    {errors.batchNumber && <p className={errCls}>{errors.batchNumber.message}</p>}
+                  </div>
+                  <div>
+                    <label className={labelCls}>Expiry Date</label>
+                    <input type="date" {...register("expiryDate")} className={`${inputCls} mt-1.5`} />
+                    {errors.expiryDate && <p className={errCls}>{errors.expiryDate.message}</p>}
+                  </div>
+                  <div className="flex items-end">
+                    <label className={`${inputCls} flex h-10 cursor-pointer items-center gap-2.5 border-emerald-200 dark:border-emerald-800/50 px-3`}>
+                      <input type="checkbox" {...register("requiresPrescription")} className="h-4 w-4 rounded border-input text-primary focus:ring-primary" />
+                      <span className="text-sm font-medium text-foreground">Requires Prescription (POM)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Assignment & Status */}
             <div className={cardGroupCls}>

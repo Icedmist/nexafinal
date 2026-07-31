@@ -262,6 +262,14 @@ export interface Item {
   variants?: ProductVariant[];
   // Restaurant menu item config
   menuItemConfig?: MenuItemConfig;
+  needsReview?: boolean;
+  // Pharmacy clinical specs
+  pharmacy?: {
+    expiryDate?: string;
+    batchNumber?: string;
+    requiresPrescription?: boolean;
+    dosageForm?: string;
+  };
 }
 
 
@@ -397,7 +405,7 @@ export interface ItemFilters {
   categoryId?: string;
   supplierId?: string;
   locationId?: string;
-  status?: "in_stock" | "low_stock" | "out_of_stock";
+  status?: "in_stock" | "low_stock" | "out_of_stock" | "needs-review";
   search?: string;
 }
 

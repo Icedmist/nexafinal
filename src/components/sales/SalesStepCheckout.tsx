@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { PriceModeSelector } from "./PriceModeSelector";
 import type { SalePriceMode } from "./price-utils";
-import { getItemPriceForMode } from "./price-utils";
+import { getItemPriceForMode, getConfigPrice, parseConfigString, summarizeConfig } from "./price-utils";
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
 import { useSalesMutations, useSales, useDebtPayments } from "@/hooks/useSalesData";
 import { notifyActivity } from "@/lib/notification-service";
+import { validatePromo, usePromo } from "@/lib/promos";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useRole } from "@/hooks/useRole";
@@ -28,6 +29,7 @@ export interface CheckoutItem {
   cartKey: string;
   saleType?: SalePriceMode;
   customPrice?: number;
+  configString?: string;
 }
 
 function getCartItemUnitPrice(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
@@ -41,6 +43,10 @@ interface SalesStepCheckoutProps {
   onSetQuantity?: (cartKey: string, quantity: number) => void;
   onUpdateCustomPrice?: (cartKey: string, customPrice?: number | null) => void;
   onRemove?: (cartKey: string) => void;
+  packagingFee?: number;
+  estimatedReadyTime?: number;
+  orderType?: "dine_in" | "takeaway" | "delivery";
+  tableNumber?: string;
 }
 
 export function SalesStepCheckout({
@@ -50,6 +56,10 @@ export function SalesStepCheckout({
   onSetQuantity,
   onUpdateCustomPrice,
   onRemove,
+  packagingFee = 0,
+  estimatedReadyTime = 0,
+  orderType = "dine_in",
+  tableNumber = "",
 }: SalesStepCheckoutProps) {
   const { profile } = useBusiness();
   const { isAdmin } = useRole();
@@ -83,10 +93,11 @@ export function SalesStepCheckout({
 
   // Get current price for an item based on its selected unit and sale type
   const getItemPrice = (ci: CheckoutItem) => {
+    if (ci.configString) return getConfigPrice(ci.item, ci.configString);
     return ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
   };
 
-  const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0);
+  const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0) + packagingFee;
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Calculate discount
@@ -205,7 +216,18 @@ export function SalesStepCheckout({
   };
 
   const handleApplyPromo = () => {
-    toast.error("Promos are currently disabled during migration");
+    if (!promoCode.trim()) {
+      toast.error("Enter a promo code to apply");
+      return;
+    }
+    const promo = validatePromo(promoCode);
+    if (promo) {
+      setPromoApplied({ type: promo.discountType, value: promo.discountValue });
+      toast.success(`Promo "${promo.code}" applied!`);
+    } else {
+      setPromoApplied(null);
+      toast.error("Invalid or expired promo code");
+    }
   };
 
   const { user, claims } = useAuth();
@@ -231,13 +253,18 @@ export function SalesStepCheckout({
       items: items.map((ci) => {
         const unit = ci.item.units?.find(u => u.name === ci.selectedUnit);
         const itemSaleType = ci.saleType ?? saleType;
-        const price = ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, itemSaleType);
-        
+        const price = ci.configString
+          ? getConfigPrice(ci.item, ci.configString)
+          : (ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, itemSaleType));
+        const config = ci.configString ? parseConfigString(ci.configString) : null;
+
         return {
           itemId: ci.item.id,
           itemName: (() => {
             const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
-            return variant ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}` : ci.item.name;
+            const base = variant ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}` : ci.item.name;
+            const summary = ci.configString ? summarizeConfig(ci.configString) : null;
+            return summary ? `${base} (${summary})` : base;
           })(),
           sku: ci.item.sku,
           quantity: ci.quantity,
@@ -247,6 +274,11 @@ export function SalesStepCheckout({
           selectedUnit: ci.selectedUnit,
           conversionFactor: unit?.conversionFactor || 1,
           salePriceMode: itemSaleType,
+          size: config?.size?.name,
+          addons: config?.addons,
+          spiceLevel: config?.spiceLevel,
+          kitchenNote: config?.note,
+          configString: ci.configString,
         };
       }),
 
@@ -263,12 +295,15 @@ export function SalesStepCheckout({
       recordedByName: recordedBy,
       saleType: saleType,
       createdAt: new Date().toISOString(),
+      notes: businessType === "restaurant" ? `${orderType === "dine_in" ? `Dine-in (Table ${tableNumber})` : orderType === "takeaway" ? "Takeaway Order" : "Delivery Order"}${estimatedReadyTime > 0 ? ` - Cooking Ready: ~${estimatedReadyTime}m` : ""}${packagingFee > 0 ? ` (Packaging ₦${packagingFee})` : ""}` : undefined,
     };
 
     try {
       const docRef = await addSale(saleData);
       const sale = { id: docRef?.id || `sale-${Date.now()}`, ...saleData };
       setLastSale(sale);
+
+      if (promoApplied && promoCode) usePromo(promoCode);
 
       if (includeDebt && customerDebt > 0) {
         await recordDebtPayment({
@@ -586,12 +621,15 @@ export function SalesStepCheckout({
             </div>
           ) : (
             items.map((ci) => {
-              const basePrice = getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
+              const basePrice = ci.configString
+                ? getConfigPrice(ci.item, ci.configString)
+                : getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
               const price = getItemPrice(ci);
               const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
               const displayLabel = variant 
                 ? `${ci.item.name} - ${Object.values(variant.attributes).join(" / ")}`
                 : ci.item.name;
+              const configSummary = ci.configString ? summarizeConfig(ci.configString) : null;
 
               return (
                 <div key={ci.cartKey} className="space-y-2 pb-2 border-b border-border/40 last:border-0 last:pb-0">
@@ -599,6 +637,9 @@ export function SalesStepCheckout({
                     <div className="flex-1 min-w-0">
                       <span className="font-semibold text-xs text-foreground block truncate">{displayLabel}</span>
                       <span className="text-[10px] text-muted-foreground">Unit: {variant ? "unit" : ci.selectedUnit}</span>
+                      {configSummary && (
+                        <span className="block text-[10px] font-medium text-amber-600 dark:text-amber-400 mt-0.5 truncate">{configSummary}</span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -718,8 +759,26 @@ export function SalesStepCheckout({
             <div className="pt-2 border-t border-border/50 space-y-1.5">
               <div className="flex justify-between text-[11px]">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-mono text-foreground font-medium">{NAIRA}{subtotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+                <span className="font-mono text-foreground font-medium">{NAIRA}{(subtotal - packagingFee).toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
               </div>
+              {packagingFee > 0 && (
+                <div className="flex justify-between text-[11px] text-primary font-semibold">
+                  <span>Container Packaging Surcharge</span>
+                  <span className="font-mono">+{NAIRA}{packagingFee.toLocaleString("en-NG")}</span>
+                </div>
+              )}
+              {businessType === "restaurant" && (
+                <div className="flex justify-between text-[10px] uppercase font-bold tracking-wider text-muted-foreground pt-1 border-t border-border/40">
+                  <span>Dining Context</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{orderType === "dine_in" ? `Dine-in (Table ${tableNumber || "—"})` : orderType === "takeaway" ? "Takeaway" : "Delivery"}</span>
+                </div>
+              )}
+              {estimatedReadyTime > 0 && businessType === "restaurant" && (
+                <div className="flex justify-between text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+                  <span>Est. Prep Time</span>
+                  <span>~{estimatedReadyTime} mins</span>
+                </div>
+              )}
               {discountAmount > 0 && (
                 <div className={cn("flex justify-between text-[11px]", businessType === "restaurant" ? "text-emerald-600" : "text-primary")}>
                   <span>Discount</span>

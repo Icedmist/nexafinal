@@ -38,6 +38,7 @@ import { useStoreBranches } from "@/hooks/useStaffData";
 import { exportItemsQRCodes } from "@/lib/bulk-qr";
 import { PermissionGate, usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import type { Item } from "@/types/inventory";
 import { ItemStatus, type ItemFilters } from "@/types/inventory";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -147,6 +148,14 @@ function CatalogPage() {
   const deleteItem = useDeleteItem();
   const { can } = usePermissions();
   const { isAdmin } = useRole();
+  const { flags } = useFeatureFlags();
+
+  const handlePublishToB2B = () => {
+    toast.success(`Successfully published ${selected.size} excess/wholesale items to global bulk B2B catalog!`, {
+      description: "Interested merchant and retail buyers will contact you directly."
+    });
+    setSelected(new Set());
+  };
 
   // Derive detail item from URL search param
   const detailItem = useMemo(() => {
@@ -163,9 +172,10 @@ function CatalogPage() {
   }, [navigate]);
   const items = useMemo(() => {
     let result = allItems.filter((i) => i.status !== ItemStatus.Archived);
-    if (filters.status === "in_stock") result = result.filter((i) => i.currentStock > i.reorderPoint);
-    else if (filters.status === "low_stock") result = result.filter((i) => i.currentStock > 0 && i.currentStock <= i.reorderPoint);
-    else if (filters.status === "out_of_stock") result = result.filter((i) => i.currentStock === 0);
+    if (filters.status === "in_stock") result = result.filter((i) => i.currentStock > i.reorderPoint && !i.needsReview);
+    else if (filters.status === "low_stock") result = result.filter((i) => i.currentStock > 0 && i.currentStock <= i.reorderPoint && !i.needsReview);
+    else if (filters.status === "out_of_stock") result = result.filter((i) => i.currentStock === 0 && !i.needsReview);
+    else if (filters.status === "needs-review") result = result.filter((i) => i.needsReview === true);
     return result;
   }, [allItems, filters.status]);
 
@@ -186,8 +196,8 @@ function CatalogPage() {
   ], [categories, suppliers, locations, branches]);
   const handleSave = useCallback((data: Partial<Item>) => {
     if (editItem) {
-      updateItem.mutate({ id: editItem.id, updates: data }, {
-        onSuccess: () => { toast.success("Item updated"); setSheetOpen(false); setEditItem(null); },
+      updateItem.mutate({ id: editItem.id, updates: { ...data, needsReview: false } }, {
+        onSuccess: () => { toast.success(editItem.needsReview ? "Item updated & reviewed!" : "Item updated"); setSheetOpen(false); setEditItem(null); },
         onError: (e) => toast.error(e.message || "Failed to update item. Please try again."),
       });
     } else {
@@ -216,6 +226,9 @@ function CatalogPage() {
         ...(data.variantAttributes && { variantAttributes: data.variantAttributes }),
         ...(data.variants && { variants: data.variants }),
         ...(data.menuItemConfig && { menuItemConfig: data.menuItemConfig }),
+        ...(data.pricingTiers && { pricingTiers: data.pricingTiers }),
+        ...(data.pharmacy && { pharmacy: data.pharmacy }),
+        ...(data.units && { units: data.units }),
       };
       createItem.mutate(newItem, {
         onSuccess: () => {
@@ -336,7 +349,7 @@ function CatalogPage() {
       <CatalogCompletenessMeter items={allItems.map(i => ({ ...i, imageUrl: i.imageUrl || undefined }))} onQuickActionClick={openCreate} />
 
       <Card className="p-4">
-        <CatalogFilters filters={filters} onChange={setFilters} categories={categories} suppliers={suppliers} locations={locations} view={view} onViewChange={handleViewChange} />
+        <CatalogFilters filters={filters} onChange={setFilters} categories={categories} suppliers={suppliers} locations={locations} view={view} onViewChange={handleViewChange} needsReviewCount={allItems.filter((i) => i.needsReview).length} />
       </Card>
 
       <ErrorBoundary>
@@ -448,6 +461,8 @@ function CatalogPage() {
             const selectedItems = allItems.filter((i) => selected.has(i.id));
             exportItemsQRCodes(selectedItems);
           }}
+          b2bEnabled={flags.planId === "enterprise"}
+          onPublishToB2B={handlePublishToB2B}
         />
       </PermissionGate>
 

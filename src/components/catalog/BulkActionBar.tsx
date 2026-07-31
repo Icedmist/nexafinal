@@ -1,5 +1,6 @@
-import { X, Printer, QrCode } from "lucide-react";
+import { X, Printer, QrCode, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,8 @@ interface BulkActionBarProps {
   onDeselectAll: () => void;
   onPrintLabels?: () => void;
   onExportQRCodes?: () => void;
+  b2bEnabled?: boolean;
+  onPublishToB2B?: () => void;
 }
 
 const STATUS_OPTIONS = [
@@ -42,8 +45,20 @@ export function BulkActionBar({
   onDeselectAll,
   onPrintLabels,
   onExportQRCodes,
+  b2bEnabled,
+  onPublishToB2B,
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null;
+
+  const handleB2BClick = () => {
+    if (!b2bEnabled) {
+      toast.error("B2B Marketplace Sync Required", {
+        description: "Publishing excess stock to the global trade marketplace requires an Enterprise plan and the B2B Sync feature enabled in settings."
+      });
+    } else {
+      onPublishToB2B?.();
+    }
+  };
 
   return (
     <div
@@ -115,6 +130,18 @@ export function BulkActionBar({
           <Button variant="outline" size="sm" onClick={onExportQRCodes} className="h-8 gap-1 text-xs">
             <QrCode className="h-3 w-3" />
             Export QRs
+          </Button>
+        )}
+
+        {onPublishToB2B && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleB2BClick}
+            className="h-8 gap-1.5 text-xs border-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-500/5 font-semibold"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+            Publish to B2B
           </Button>
         )}
 
