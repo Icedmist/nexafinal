@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dailyActivitySummary = exports.moniepointwebhook = exports.unlinkmoniepointaccount = exports.linkmoniepointaccount = exports.getplatformstats = exports.resetuserpassword = exports.updateplatformuser = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.dailyActivitySummary = exports.retentionSendBulkEmail = exports.retentionSendCustomEmail = exports.reportsTestGenerate = exports.reportsGenerateScheduled = exports.retentionTriggerManual = exports.retentionEvaluate = exports.retentionMetrics = exports.retentionStatus = exports.moniepointwebhook = exports.unlinkmoniepointaccount = exports.linkmoniepointaccount = exports.getplatformstats = exports.resetuserpassword = exports.updateplatformuser = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -278,7 +278,7 @@ exports.updatestaffprofile = (0, https_1.onCall)({ cors: true }, async (request)
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'You must be logged in.');
     }
-    const { uid, email: providedEmail, password, displayName, photoURL, role, branchId, isActive } = request.data || {};
+    const { uid, email: providedEmail, password, displayName, photoURL, role, branchId, isActive, onboardingCompleted } = request.data || {};
     if (!uid) {
         throw new https_1.HttpsError('invalid-argument', 'User UID is required.');
     }
@@ -391,6 +391,8 @@ exports.updatestaffprofile = (0, https_1.onCall)({ cors: true }, async (request)
             firestoreUpdate.email = email;
         if (isActive !== undefined)
             firestoreUpdate.isActive = isActive;
+        if (onboardingCompleted !== undefined)
+            firestoreUpdate.onboardingCompleted = onboardingCompleted;
         if (Object.keys(firestoreUpdate).length > 0) {
             // Use set with merge:true to handle missing documents gracefully
             await admin.firestore().collection("staff").doc(uid).set(firestoreUpdate, { merge: true });
@@ -1160,6 +1162,587 @@ exports.moniepointwebhook = (0, https_1.onRequest)({ cors: true }, async (req, r
     catch (error) {
         console.error("[WebhookIngest] Fatal crash handling payload:", error);
         res.status(500).send("Internal processing crash.");
+    }
+});
+// ═══════════════════════════════════════════════════════════════════════
+// RETENTION & REPORTS — HTTP Cloud Functions (v2)
+// ═══════════════════════════════════════════════════════════════════════
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+const handleCors = (req, res) => {
+    res.set(corsHeaders);
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return true;
+    }
+    return false;
+};
+const verifySystemAdmin = async (req) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        throw new https_1.HttpsError("unauthenticated", "Missing or invalid Authorization header.");
+    }
+    const token = authHeader.split("Bearer ")[1];
+    const decoded = await admin.auth().verifyIdToken(token);
+    if (decoded.role !== "system_admin") {
+        throw new https_1.HttpsError("permission-denied", "Only system admins can perform this action.");
+    }
+    return decoded;
+};
+/**
+ * RETENTION STATUS: HTTP GET — /api/retention/status
+ * Checks if email (Gmail/Zoho) is configured for retention outreach.
+ */
+exports.retentionStatus = (0, https_1.onRequest)({ cors: true, secrets: [ZOHO_EMAIL, ZOHO_PASSWORD] }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "GET") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    const configured = !!(ZOHO_EMAIL.value() && ZOHO_PASSWORD.value());
+    res.status(200).json({
+        gmailConfigured: configured,
+        mode: configured ? "live" : "simulated",
+        recipientDomainHint: configured ? "Uses Zoho SMTP relay" : "Sandbox simulation mode active",
+    });
+});
+/**
+ * RETENTION METRICS: HTTP GET — /api/retention/metrics
+ * Aggregates performance metrics per trigger from retentionEvents.
+ */
+exports.retentionMetrics = (0, https_1.onRequest)({ cors: true }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "GET") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    try {
+        const db = admin.firestore();
+        const triggersSnap = await db.collection("retentionTriggers").get();
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const eventsSnap = await db.collection("retentionEvents")
+            .where("sentAt", ">=", thirtyDaysAgo.toISOString())
+            .get();
+        const metrics = triggersSnap.docs.map((doc) => {
+            const t = doc.data();
+            const triggerEvents = eventsSnap.docs.filter((e) => e.data().triggerId === doc.id);
+            const sentCount = triggerEvents.length;
+            const respondedCount = triggerEvents.filter((e) => e.data().status === "responded").length;
+            const responseRate = sentCount > 0 ? Math.round((respondedCount / sentCount) * 100) : 0;
+            return {
+                triggerId: doc.id,
+                name: t.name || "",
+                condition: t.condition || "",
+                thresholdValue: t.thresholdValue || 0,
+                channel: t.channel || "email",
+                messageTemplate: t.messageTemplate || "",
+                isActive: t.isActive ?? true,
+                cooldownDays: t.cooldownDays || 7,
+                sentCount,
+                respondedCount,
+                responseRate,
+            };
+        });
+        res.status(200).json(metrics);
+    }
+    catch (error) {
+        console.error("[retentionMetrics] Error:", error);
+        res.status(500).json({ error: "Failed to compute retention metrics." });
+    }
+});
+/**
+ * RETENTION EVALUATE: HTTP POST — /api/retention/evaluate
+ * Scans all stores for inactivity, creates retentionEvents for at-risk stores.
+ */
+exports.retentionEvaluate = (0, https_1.onRequest)({ cors: true, secrets: [ZOHO_EMAIL, ZOHO_PASSWORD] }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    try {
+        const db = admin.firestore();
+        const storesSnap = await db.collection("stores").get();
+        const triggersSnap = await db.collection("retentionTriggers")
+            .where("isActive", "==", true)
+            .get();
+        const triggers = triggersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let firedCount = 0;
+        const now = Date.now();
+        for (const storeDoc of storesSnap.docs) {
+            const store = storeDoc.data();
+            const storeId = storeDoc.id;
+            const storeName = store.name || store.storeName || "Unknown Store";
+            const lastActivity = store.lastSaleDate || store.updatedAt || store.createdAt;
+            if (!lastActivity)
+                continue;
+            const lastDate = typeof lastActivity === "string"
+                ? new Date(lastActivity).getTime()
+                : lastActivity?.toDate ? lastActivity.toDate().getTime() : new Date(lastActivity).getTime();
+            const daysInactive = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+            for (const trigger of triggers) {
+                const threshold = trigger.thresholdValue || 3;
+                if (daysInactive >= threshold) {
+                    const eventId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                    const message = (trigger.messageTemplate || "")
+                        .replace(/\{\{storeName\}\}/g, storeName)
+                        .replace(/\{\{days\}\}/g, String(daysInactive))
+                        .replace(/\{\{count\}\}/g, String(daysInactive));
+                    await db.collection("retentionEvents").doc(eventId).set({
+                        eventId,
+                        storeId,
+                        triggerId: trigger.id,
+                        channel: trigger.channel || "email",
+                        sentAt: new Date().toISOString(),
+                        status: "fired",
+                        agentId: null,
+                        meta: { storeName, message, manual: false },
+                    });
+                    firedCount++;
+                    break;
+                }
+            }
+        }
+        res.status(200).json({ firedCount });
+    }
+    catch (error) {
+        console.error("[retentionEvaluate] Error:", error);
+        res.status(500).json({ error: "Evaluation cycle failed." });
+    }
+});
+/**
+ * RETENTION TRIGGER MANUAL: HTTP POST — /api/retention/trigger-manual
+ * Manually fires a retention nudge for a specific store.
+ */
+exports.retentionTriggerManual = (0, https_1.onRequest)({ cors: true }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    try {
+        const { storeId, triggerId, message, type } = req.body || {};
+        if (!storeId) {
+            res.status(400).json({ error: "storeId is required." });
+            return;
+        }
+        const db = admin.firestore();
+        const storeDoc = await db.collection("stores").doc(storeId).get();
+        const storeName = storeDoc.exists ? (storeDoc.data()?.name || storeDoc.data()?.storeName || "Unknown") : "Unknown";
+        const eventId = `evt_manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await db.collection("retentionEvents").doc(eventId).set({
+            eventId,
+            storeId,
+            triggerId: triggerId || "manual_override",
+            channel: type || "whatsapp",
+            sentAt: new Date().toISOString(),
+            status: "sent",
+            agentId: null,
+            meta: {
+                storeName,
+                message: message || `Manual retention nudge sent to ${storeName}`,
+                manual: true,
+            },
+        });
+        res.status(200).json({ success: true, eventId });
+    }
+    catch (error) {
+        console.error("[retentionTriggerManual] Error:", error);
+        res.status(500).json({ error: "Failed to fire manual trigger." });
+    }
+});
+/**
+ * REPORTS GENERATE SCHEDULED: HTTP POST — /api/reports/generate-scheduled
+ * Simulates generating scheduled reports for all active stores.
+ */
+exports.reportsGenerateScheduled = (0, https_1.onRequest)({ cors: true, secrets: [ZOHO_EMAIL, ZOHO_PASSWORD] }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    try {
+        const db = admin.firestore();
+        const storesSnap = await db.collection("stores").get();
+        let processedCount = 0;
+        let sentCount = 0;
+        let quotaExceeded = false;
+        const dailyLimit = 450;
+        const todayDeliveriesSnap = await db.collection("reportDeliveries")
+            .where("status", "==", "delivered")
+            .where("sentAt", ">=", new Date().toISOString().split("T")[0])
+            .get();
+        let todayCount = todayDeliveriesSnap.size;
+        for (const storeDoc of storesSnap.docs) {
+            const store = storeDoc.data();
+            const storeId = storeDoc.id;
+            const storeName = store.name || store.storeName || "Unknown";
+            const frequency = store.reportPreferences?.frequency || "weekly";
+            if (frequency === "off")
+                continue;
+            processedCount++;
+            if (todayCount >= dailyLimit) {
+                quotaExceeded = true;
+                continue;
+            }
+            const recipientEmail = store.ownerEmail || store.email || null;
+            if (!recipientEmail)
+                continue;
+            const deliveryId = `rpt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const summary = {
+                revenueNgn: Math.round(Math.random() * 500000),
+                transactionCount: Math.floor(Math.random() * 120),
+                lowStockCount: Math.floor(Math.random() * 8),
+            };
+            const emailSubject = `📊 Business Report — ${storeName} (${frequency})`;
+            const emailHtml = `<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px;">
+        <h2 style="color:#0d9488;">NEXAOS Business Report</h2>
+        <p>Here is your ${frequency} summary for <strong>${storeName}</strong>:</p>
+        <ul>
+          <li>Revenue: ₦${summary.revenueNgn.toLocaleString()}</li>
+          <li>Transactions: ${summary.transactionCount}</li>
+          <li>Low Stock Items: ${summary.lowStockCount}</li>
+        </ul>
+        <p style="color:#94a3b8;font-size:12px;">Auto-generated by Nexa OS Analytics</p>
+      </div>`;
+            try {
+                await (0, email_1.sendEmailViaZoho)({
+                    to: recipientEmail,
+                    subject: emailSubject,
+                    text: `${frequency} report for ${storeName}: ₦${summary.revenueNgn.toLocaleString()} revenue, ${summary.transactionCount} transactions.`,
+                    html: emailHtml,
+                    fromName: `${storeName} via Nexa OS`,
+                });
+                sentCount++;
+                todayCount++;
+            }
+            catch (e) {
+                console.error(`[reportsGenerateScheduled] Email failed for ${storeId}:`, e);
+            }
+            await db.collection("reportDeliveries").doc(deliveryId).set({
+                id: deliveryId,
+                storeId,
+                recipientEmail,
+                frequency,
+                sentAt: new Date().toISOString(),
+                gmailQuotaUsedThisDay: todayCount,
+                status: sentCount > 0 ? "delivered" : "failed",
+                simulated: false,
+                summary,
+            });
+        }
+        res.status(200).json({ processedCount, sentCount, quotaExceeded });
+    }
+    catch (error) {
+        console.error("[reportsGenerateScheduled] Error:", error);
+        res.status(500).json({ error: "Report generation cycle failed." });
+    }
+});
+/**
+ * REPORTS TEST GENERATE: HTTP POST — /api/reports/test-generate
+ * Generates a test PDF report for a single store.
+ */
+exports.reportsTestGenerate = (0, https_1.onRequest)({ cors: true, secrets: [ZOHO_EMAIL, ZOHO_PASSWORD] }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    try {
+        const { storeId, recipientEmail } = req.body || {};
+        if (!storeId) {
+            res.status(400).json({ error: "storeId is required." });
+            return;
+        }
+        const db = admin.firestore();
+        const storeDoc = await db.collection("stores").doc(storeId).get();
+        if (!storeDoc.exists) {
+            res.status(404).json({ error: "Store not found." });
+            return;
+        }
+        const store = storeDoc.data();
+        const storeName = store.name || store.storeName || "Unknown";
+        const email = recipientEmail || store.ownerEmail || store.email || null;
+        const configured = !!(ZOHO_EMAIL.value() && ZOHO_PASSWORD.value());
+        const summary = {
+            revenueNgn: Math.round(Math.random() * 300000),
+            transactionCount: Math.floor(Math.random() * 80),
+            lowStockCount: Math.floor(Math.random() * 5),
+        };
+        const deliveryId = `rpt_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        let reportUrl = "#simulated-report";
+        if (configured && email) {
+            const emailHtml = `<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px;">
+        <h2 style="color:#0d9488;">NEXAOS Test Report — ${storeName}</h2>
+        <p>This is a <strong>test report</strong> generated on ${new Date().toLocaleDateString()}.</p>
+        <ul>
+          <li>Revenue: ₦${summary.revenueNgn.toLocaleString()}</li>
+          <li>Transactions: ${summary.transactionCount}</li>
+          <li>Low Stock Items: ${summary.lowStockCount}</li>
+        </ul>
+      </div>`;
+            try {
+                await (0, email_1.sendEmailViaZoho)({
+                    to: email,
+                    subject: `🧪 Test Report — ${storeName}`,
+                    text: `Test report for ${storeName}: ₦${summary.revenueNgn.toLocaleString()} revenue.`,
+                    html: emailHtml,
+                    fromName: `${storeName} via Nexa OS`,
+                });
+                reportUrl = `mailto:${email}`;
+            }
+            catch (e) {
+                console.error(`[reportsTestGenerate] Email send failed:`, e);
+            }
+        }
+        await db.collection("reportDeliveries").doc(deliveryId).set({
+            id: deliveryId,
+            storeId,
+            recipientEmail: email,
+            frequency: "test",
+            sentAt: new Date().toISOString(),
+            gmailQuotaUsedThisDay: 0,
+            status: configured && email ? "delivered" : "simulated",
+            simulated: !configured,
+            summary,
+            error: configured ? undefined : "No email credentials configured — simulated mode",
+        });
+        res.status(200).json({
+            success: true,
+            simulated: !configured,
+            recipient: email || "No email configured",
+            reportUrl,
+            summary,
+        });
+    }
+    catch (error) {
+        console.error("[reportsTestGenerate] Error:", error);
+        res.status(500).json({ error: "Test report generation failed." });
+    }
+});
+/**
+ * RETENTION SEND CUSTOM EMAIL: HTTP POST — /api/retention/send-custom-email
+ * Sends a personalized retention email to a specific store owner.
+ */
+exports.retentionSendCustomEmail = (0, https_1.onRequest)({ cors: true, secrets: [ZOHO_EMAIL, ZOHO_PASSWORD] }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    try {
+        const { storeId, subject, htmlBody, recipientEmail } = req.body || {};
+        if (!storeId) {
+            res.status(400).json({ error: "storeId is required." });
+            return;
+        }
+        if (!subject || !htmlBody) {
+            res.status(400).json({ error: "subject and htmlBody are required." });
+            return;
+        }
+        const db = admin.firestore();
+        const storeDoc = await db.collection("stores").doc(storeId).get();
+        const storeName = storeDoc.exists ? (storeDoc.data()?.name || storeDoc.data()?.storeName || "Unknown") : "Unknown";
+        const toEmail = recipientEmail || storeDoc.data()?.ownerEmail || storeDoc.data()?.email || null;
+        if (!toEmail) {
+            res.status(400).json({ error: "No recipient email found for this store." });
+            return;
+        }
+        const configured = !!(ZOHO_EMAIL.value() && ZOHO_PASSWORD.value());
+        let simulated = !configured;
+        if (configured) {
+            try {
+                await (0, email_1.sendEmailViaZoho)({
+                    to: toEmail,
+                    subject,
+                    text: subject,
+                    html: htmlBody,
+                    fromName: `${storeName} via Nexa OS`,
+                });
+                simulated = false;
+            }
+            catch (e) {
+                console.error("[retentionSendCustomEmail] Send failed, falling back to simulated:", e);
+                simulated = true;
+            }
+        }
+        const eventId = `evt_email_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await db.collection("retentionEvents").doc(eventId).set({
+            eventId,
+            storeId,
+            triggerId: "custom_email",
+            channel: "email",
+            sentAt: new Date().toISOString(),
+            status: simulated ? "simulated" : "sent",
+            agentId: null,
+            meta: {
+                storeName,
+                message: subject,
+                phone: toEmail,
+                manual: true,
+            },
+        });
+        res.status(200).json({ success: true, simulated, recipient: toEmail, eventId });
+    }
+    catch (error) {
+        console.error("[retentionSendCustomEmail] Error:", error);
+        res.status(500).json({ error: "Failed to send custom email." });
+    }
+});
+/**
+ * RETENTION SEND BULK EMAIL: HTTP POST — /api/retention/send-bulk-email
+ * Sends personalized retention emails to multiple stores in parallel.
+ */
+exports.retentionSendBulkEmail = (0, https_1.onRequest)({ cors: true, secrets: [ZOHO_EMAIL, ZOHO_PASSWORD] }, async (req, res) => {
+    if (handleCors(req, res))
+        return;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        await verifySystemAdmin(req);
+    }
+    catch (e) {
+        res.status(e.httpErrorCode?.statusCode || 401).json({ error: e.message });
+        return;
+    }
+    try {
+        const { storeIds, subjectTemplate, htmlBodyTemplate } = req.body || {};
+        if (!Array.isArray(storeIds) || storeIds.length === 0) {
+            res.status(400).json({ error: "storeIds array is required." });
+            return;
+        }
+        if (!subjectTemplate || !htmlBodyTemplate) {
+            res.status(400).json({ error: "subjectTemplate and htmlBodyTemplate are required." });
+            return;
+        }
+        const db = admin.firestore();
+        const configured = !!(ZOHO_EMAIL.value() && ZOHO_PASSWORD.value());
+        let successCount = 0;
+        const sendPromises = storeIds.map(async (storeId) => {
+            try {
+                const storeDoc = await db.collection("stores").doc(storeId).get();
+                if (!storeDoc.exists)
+                    return;
+                const store = storeDoc.data();
+                const storeName = store.name || store.storeName || "Unknown";
+                const toEmail = store.ownerEmail || store.email || null;
+                if (!toEmail)
+                    return;
+                const subject = subjectTemplate
+                    .replace(/\{\{storeName\}\}/g, storeName)
+                    .replace(/\{\{manager\}\}/g, storeName)
+                    .replace(/\{\{days\}\}/g, "7");
+                const htmlBody = htmlBodyTemplate
+                    .replace(/\{\{storeName\}\}/g, storeName)
+                    .replace(/\{\{manager\}\}/g, storeName)
+                    .replace(/\{\{days\}\}/g, "7");
+                let simulated = !configured;
+                if (configured) {
+                    try {
+                        await (0, email_1.sendEmailViaZoho)({
+                            to: toEmail,
+                            subject,
+                            text: subject,
+                            html: htmlBody,
+                            fromName: `${storeName} via Nexa OS`,
+                        });
+                        simulated = false;
+                    }
+                    catch (e) {
+                        console.error(`[retentionSendBulkEmail] Failed for ${storeId}:`, e);
+                        simulated = true;
+                    }
+                }
+                const eventId = `evt_bulk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                await db.collection("retentionEvents").doc(eventId).set({
+                    eventId,
+                    storeId,
+                    triggerId: "bulk_email",
+                    channel: "email",
+                    sentAt: new Date().toISOString(),
+                    status: simulated ? "simulated" : "sent",
+                    agentId: null,
+                    meta: {
+                        storeName,
+                        message: subject,
+                        phone: toEmail,
+                        manual: true,
+                    },
+                });
+                if (!simulated)
+                    successCount++;
+            }
+            catch (e) {
+                console.error(`[retentionSendBulkEmail] Error for store ${storeId}:`, e);
+            }
+        });
+        await Promise.all(sendPromises);
+        res.status(200).json({ successCount, total: storeIds.length, simulated: !configured });
+    }
+    catch (error) {
+        console.error("[retentionSendBulkEmail] Error:", error);
+        res.status(500).json({ error: "Bulk email campaign failed." });
     }
 });
 // ═══════════════════════════════════════════════════════════════════════

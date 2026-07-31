@@ -167,7 +167,7 @@ export function MovementFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
+      <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border-none bg-transparent shadow-none">
         <div className="nexa-card bg-card p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
