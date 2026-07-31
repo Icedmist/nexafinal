@@ -14,6 +14,7 @@ import {
 import { auth } from '../lib/firebase';
 import { notifyActivity } from '@/lib/notification-service';
 import { toast } from "sonner";
+import { CompanyPreloader } from '@/components/shared/CompanyPreloader';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +22,9 @@ interface AuthContextType {
   loading: boolean;
   isLoggingOut: boolean; // NEW: Indicates if the logout process is active
   claimsReady: boolean; // NEW: Indicates if claims have been synced for the current user
+  isPreloading: boolean;
+  preloaderMessage: string;
+  triggerPreloader: (message?: string, durationMs?: number) => Promise<void>;
   login: (email: string, pass: string) => Promise<UserCredential>;
   signup: (email: string, pass: string, displayName?: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
@@ -34,6 +38,9 @@ const AuthContext = React.createContext<AuthContextType>({
   loading: true,
   isLoggingOut: false,
   claimsReady: false,
+  isPreloading: false,
+  preloaderMessage: "Welcome to Nexa OS",
+  triggerPreloader: async () => {},
   login: async () => ({} as UserCredential),
   signup: async () => ({} as UserCredential),
   logout: async () => {},
@@ -49,6 +56,19 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [loading, setLoading] = React.useState(true);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [claimsReady, setClaimsReady] = React.useState(false);
+  const [isPreloading, setIsPreloading] = React.useState(false);
+  const [preloaderMessage, setPreloaderMessage] = React.useState("Welcome to Nexa OS");
+
+  const triggerPreloader = (message = "Welcome to Nexa OS", durationMs = 1200): Promise<void> => {
+    setPreloaderMessage(message);
+    setIsPreloading(true);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setIsPreloading(false);
+        resolve();
+      }, durationMs);
+    });
+  };
 
   const refreshClaims = async () => {
     if (auth.currentUser) {
@@ -317,7 +337,11 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, claims, loading, isLoggingOut, claimsReady, login, signup, logout, refreshClaims, resetPassword }}>
+    <AuthContext.Provider value={{ user, claims, loading, isLoggingOut, claimsReady, isPreloading, preloaderMessage, triggerPreloader, login, signup, logout, refreshClaims, resetPassword }}>
+      <CompanyPreloader
+        show={isPreloading}
+        message={preloaderMessage}
+      />
       {children}
     </AuthContext.Provider>
   );

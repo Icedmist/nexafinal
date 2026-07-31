@@ -17,8 +17,9 @@ import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { StoreAccessGuard } from "@/components/shared/StoreAccessGuard";
-import { useDeviceNotifications } from "@/hooks/useDeviceNotifications";
+import { useDeviceNotifications, NOTIFICATION_PERMISSION_KEY } from "@/hooks/useDeviceNotifications";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
+import { AIAssistantWidget } from "@/components/layout/AIAssistantWidget";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import { useDemo } from "@/hooks/useDemo";
 import { StoreTypeOnboardingOverlay } from "@/components/onboarding/StoreTypeOnboardingOverlay";
@@ -158,12 +159,12 @@ export function AppLayout() {
   // Auto-trigger notification prompt for new sessions if permission is default
   useEffect(() => {
     if (user && !loading && claimsReady && permission === "default") {
-      const hasShownPrompt = sessionStorage.getItem("nexa_notif_prompt_shown");
+      const hasShownPrompt = sessionStorage.getItem(NOTIFICATION_PERMISSION_KEY);
       if (!hasShownPrompt) {
         // Delay slightly for better UX
         const timer = setTimeout(() => {
           setShowNotifPrompt(true);
-          sessionStorage.setItem("nexa_notif_prompt_shown", "true");
+          sessionStorage.setItem(NOTIFICATION_PERMISSION_KEY, "true");
         }, 3000);
         return () => clearTimeout(timer);
       }
@@ -230,6 +231,7 @@ export function AppLayout() {
         <BottomNav />
         <ShortcutsHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
         <NotificationPermissionPrompt open={showNotifPrompt} onOpenChange={setShowNotifPrompt} />
+        <AIAssistantWidget />
       </div>
     </StoreAccessGuard>
   );

@@ -11,6 +11,8 @@ import {
   PlusCircle, 
   MapPin, 
   Check, 
+  Copy, 
+  ExternalLink,
   Locate, 
   FileText,
   BadgeAlert,
@@ -20,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCategories, useLocations } from "@/hooks/useInventoryData";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -36,15 +40,20 @@ interface InStoreQRGeneratorModalProps {
 export function InStoreQRGeneratorModal({ open, onOpenChange }: InStoreQRGeneratorModalProps) {
   const { data: categories } = useCategories();
   const { data: locations } = useLocations();
+  const { profile } = useBusiness();
 
-  const storeSlug = getCleanStoreSlug("my-store", "My Store");
-  const storeName = "My Store";
+  const storeSlug = getCleanStoreSlug(profile?.storeDetails?.slug, profile?.storeDetails?.name);
+  const storeName = profile?.storeDetails?.name || "Nexa OS Store";
+  const logoUrl = profile?.branding?.logo;
+  const bankName = profile?.storeDetails?.bankName;
+  const accountNumber = profile?.storeDetails?.accountNumber;
 
   const [sector, setSector] = useState<"restaurant" | "supermarket" | "pharmacy" | "vet" | "retail">("restaurant");
   const [label, setLabel] = useState("Table 1");
   const [targetCategory, setTargetCategory] = useState<string>("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("main");
   const [coordinates, setCoordinates] = useState({ lat: "6.5244", lng: "3.3792" }); // Lagos default
+  const [copied, setCopied] = useState(false);
 
   const isDevUrl = window.location.origin.includes("ais-dev-");
 
@@ -107,6 +116,13 @@ export function InStoreQRGeneratorModal({ open, onOpenChange }: InStoreQRGenerat
       downloadLink.click();
     };
     img.src = "data:image/svg+xml;base64," + btoa(svgData);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(generatedUrl);
+    setCopied(true);
+    toast.success("In-store QR catalog link copied!");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const printQR = () => {
@@ -385,7 +401,15 @@ export function InStoreQRGeneratorModal({ open, onOpenChange }: InStoreQRGenerat
               <div className="absolute top-0 right-0 left-0 h-1.5 bg-amber-500 animate-pulse" />
               
               <p className="text-[13px] font-black text-amber-500 leading-none uppercase tracking-wide">⭐ SCAN & ORDER HERE</p>
-              <h4 className="text-[11px] text-muted-foreground font-semibold mt-1 mb-4 truncate w-full">{storeName}</h4>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={storeName}
+                  className="h-8 w-auto mx-auto object-contain mt-1 mb-3"
+                />
+              ) : (
+                <h4 className="text-[11px] text-muted-foreground font-semibold mt-1 mb-4 truncate w-full">{storeName}</h4>
+              )}
               
               <div id="instore-qr-svg-container" className="p-3 bg-white border border-neutral-100 rounded-xl shadow-inner inline-block">
                 <QRCodeSVG
@@ -403,10 +427,23 @@ export function InStoreQRGeneratorModal({ open, onOpenChange }: InStoreQRGenerat
                 <div className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 text-[9px] font-bold px-2 py-0.5 mt-1 rounded-full uppercase">
                   <MapPin className="h-2 w-2" /> Geo-fenced Active
                 </div>
+                {(bankName || accountNumber) && (
+                  <p className="mt-2 text-[9px] text-muted-foreground font-mono truncate w-full">
+                    Pay to: {bankName || "Moniepoint MFB"}{accountNumber ? ` (${accountNumber})` : ""}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="w-full space-y-2 mt-6">
+              <Button
+                variant="outline"
+                className="w-full justify-between h-10 text-xs font-bold rounded-xl"
+                onClick={handleCopyLink}
+              >
+                <span className="truncate max-w-[240px] text-muted-foreground font-mono">{generatedUrl}</span>
+                {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4 text-primary" />}
+              </Button>
               <div className="text-[11px] text-muted-foreground text-center truncate max-w-full px-2">
                 URL encoded: <span className="font-mono bg-muted p-1 rounded max-w-full inline-block truncate">{generatedUrl}</span>
               </div>
@@ -418,6 +455,15 @@ export function InStoreQRGeneratorModal({ open, onOpenChange }: InStoreQRGenerat
                   <Printer className="h-4 w-4" /> Print Sticker
                 </Button>
               </div>
+              <Button
+                variant="outline"
+                asChild
+                className="w-full h-11 text-xs font-bold gap-1.5 rounded-xl border-primary/30 text-primary"
+              >
+                <a href={generatedUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" /> Test Link
+                </a>
+              </Button>
             </div>
           </div>
         </div>

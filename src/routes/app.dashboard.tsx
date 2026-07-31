@@ -39,6 +39,10 @@ import { ManufacturingDashboard } from "@/components/dashboard/ManufacturingDash
 import { SocialCommerceDashboard } from "@/components/dashboard/SocialCommerceDashboard";
 import { TextileDashboard } from "@/components/dashboard/TextileDashboard";
 import { WholesalerDashboardWidget, RetailerDashboardWidget, SupermarketDashboardWidget } from "@/components/dashboard/StoreTypeDashboards";
+import { useEngagementStreaks } from "@/hooks/useEngagementStreaks";
+import { StreakCardWidget } from "@/components/engagement/StreakCardWidget";
+import { CelebratoryMilestoneToast } from "@/components/engagement/CelebratoryMilestoneToast";
+import { WeeklyRecapHeadlineCard } from "@/components/analytics/WeeklyRecapHeadlineCard";
 
 const NAIRA = "₦";
 
@@ -109,7 +113,12 @@ function DashboardPage() {
   const { isAdmin, isManager } = useRole();
   const { storeType, isWholesaler, isRetailer, isSupermarket } = useStoreType();
   const { isDemo, onboarding } = useDemo();
-  const { profile, loadingProfile } = useBusiness();
+  const { profile, loadingProfile, storeId } = useBusiness();
+
+  const { streak, achievements, unacknowledged, milestones, markAcknowledged } = useEngagementStreaks(
+    storeId || "default_store",
+    "store"
+  );
   const businessType = isDemo ? onboarding.businessType : (profile?.businessType || null);
   const { user } = useAuth();
   const { data: customers = [] } = useCustomers();
@@ -466,11 +475,22 @@ function DashboardPage() {
       {isAdmin && (
         <>
           <AccordionSection id="metrics" title="Business Overview" openSection={openSection} onToggle={toggleSection} dataTour="metrics">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={Banknote} /></button>
-              <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Net Profit" value={`${NAIRA}${netProfit.toLocaleString("en-NG")}`} accentColor={netProfit >= 0 ? "healthy" : "danger"} icon={netProfit >= 0 ? TrendingUp : TrendingDown} /></button>
-              <button type="button" onClick={() => navigate("/app/expenses" )} className="text-left"><MetricCard label="Expenses" value={`${NAIRA}${totalExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
-              <button type="button" data-tour="customers" onClick={() => navigate("/app/customers?tab=debtors" )} className="text-left"><MetricCard label="Outstanding Debt" value={`${NAIRA}${totalOutstandingDebt.toLocaleString("en-NG")}`} accentColor="danger" icon={AlertTriangle} /></button>
+            <div className="space-y-3">
+              <WeeklyRecapHeadlineCard sales={sales.map(s => ({ id: s.id, total: s.totalNgn, createdAt: s.createdAt }))} currencySymbol={NAIRA} />
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={Banknote} /></button>
+                <button type="button" onClick={() => navigate("/app/sales-analytics" )} className="text-left"><MetricCard label="Net Profit" value={`${NAIRA}${netProfit.toLocaleString("en-NG")}`} accentColor={netProfit >= 0 ? "healthy" : "danger"} icon={netProfit >= 0 ? TrendingUp : TrendingDown} /></button>
+                <button type="button" onClick={() => navigate("/app/expenses" )} className="text-left"><MetricCard label="Expenses" value={`${NAIRA}${totalExpenses.toLocaleString("en-NG")}`} accentColor="warning" icon={Receipt} /></button>
+                <button type="button" data-tour="customers" onClick={() => navigate("/app/customers?tab=debtors" )} className="text-left"><MetricCard label="Outstanding Debt" value={`${NAIRA}${totalOutstandingDebt.toLocaleString("en-NG")}`} accentColor="danger" icon={AlertTriangle} /></button>
+                <div>
+                  <StreakCardWidget
+                    streak={streak}
+                    achievements={achievements}
+                    milestones={milestones}
+                    onAcknowledgeBadge={markAcknowledged}
+                  />
+                </div>
+              </div>
             </div>
           </AccordionSection>
 
@@ -818,6 +838,8 @@ function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CelebratoryMilestoneToast unacknowledged={unacknowledged} onAcknowledge={markAcknowledged} />
     </div>
   );
 }

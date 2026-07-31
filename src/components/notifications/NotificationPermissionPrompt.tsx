@@ -24,10 +24,23 @@ export function NotificationPermissionPrompt({
   const handleEnable = async () => {
     const result = await requestPermission();
     if (result === "granted") {
-      toast.success("Device notifications enabled!");
+      toast.success("Notifications authorized!", {
+        description: "You'll now receive real-time alerts on your device.",
+      });
+      // Test notification
+      try {
+        new Notification("Nexa StoreOS Enabled", {
+          body: "Push alerts for sales, expenses, and low stock are now active.",
+          icon: "/nexastoreos-logo.svg",
+        });
+      } catch (err) {
+        console.error("Failed to trigger test notification:", err);
+      }
       onOpenChange(false);
     } else if (result === "denied") {
-      toast.error("Permission denied. Please enable notifications in your browser settings.");
+      toast.warning("Notifications blocked", {
+        description: "Please enable notification permissions in your browser settings to receive alerts.",
+      });
       onOpenChange(false);
     }
   };

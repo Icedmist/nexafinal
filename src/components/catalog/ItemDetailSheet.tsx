@@ -11,13 +11,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { MovementTimeline } from "@/components/catalog/MovementTimeline";
 import { BarcodeDisplay } from "@/components/catalog/BarcodeDisplay";
-import { QRCodeGenerator } from "@/components/catalog/QRCodeGenerator";
+import { QRCodeDialog } from "@/components/catalog/QRCodeDialog";
 import { CustomFieldsTab } from "@/components/catalog/CustomFieldsTab";
 import { useMovements } from "@/hooks/useInventoryData";
 import { useItemHistory } from "@/hooks/useItemHistory";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useUpdateItem } from "@/hooks/useInventoryMutations";
-import { useState } from "react";
 import { QrCode } from "lucide-react";
 import type { Item, Category, Supplier, Location } from "@/types/inventory";
 
@@ -76,7 +75,6 @@ export function ItemDetailSheet({
   const { data: history, isLoading: historyLoading } = useItemHistory(item?.id || "");
   const { can } = usePermissions();
   const updateItem = useUpdateItem();
-  const [qrOpen, setQrOpen] = useState(false);
 
   if (!item) return null;
 
@@ -101,9 +99,14 @@ export function ItemDetailSheet({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <PermissionGate permission="edit_item">
-                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => setQrOpen(true)} title="Generate QR Code">
-                    <QrCode className="h-4 w-4" />
-                  </Button>
+                  <QRCodeDialog
+                    item={item}
+                    trigger={
+                      <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" title="Generate QR Code">
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
                   <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => onEdit?.(item)} aria-label="Edit">
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -193,11 +196,6 @@ export function ItemDetailSheet({
           </div>
         </div>
       </DialogContent>
-      <QRCodeGenerator
-        item={item}
-        open={qrOpen}
-        onOpenChange={setQrOpen}
-      />
     </Dialog>
   );
 }

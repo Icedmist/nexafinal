@@ -24,8 +24,10 @@ import {
   Eye,
   Trash2,
   Users,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ResourceManagementConsole } from "@/components/super-admin/ResourceManagementConsole";
 
 interface AutonomousAgent {
   id: string;
@@ -107,6 +109,8 @@ export default function SystemAdminAgents() {
   const [systemPrompt, setSystemPrompt] = useState<string>(
     "You are Nexa Root System AI Coordinator. Monitor and balance stock movements, audits, and WhatsApp marketing configurations. Ensure Peak performance across all tenant stores."
   );
+
+  const [activeTab, setActiveTab] = useState<"services" | "resources">("services");
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     {
@@ -287,11 +291,32 @@ export default function SystemAdminAgents() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 border-b border-muted-foreground/15 pb-2">
-        <div className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow flex items-center gap-2">
-          <Bot className="h-4 w-4" /> Autonomous Workers & AI Auditor
-        </div>
+        <button
+          onClick={() => setActiveTab("services")}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === "services"
+              ? "bg-primary text-primary-foreground shadow"
+              : "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
+        >
+          <Bot className="h-4 w-4" /> Autonomous Workers &amp; AI Auditor
+        </button>
+        <button
+          onClick={() => setActiveTab("resources")}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === "resources"
+              ? "bg-primary text-primary-foreground shadow"
+              : "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
+        >
+          <BookOpen className="h-4 w-4" /> 🎓 Field Marketing &amp; Resource Console
+        </button>
       </div>
 
+      {activeTab === "resources" ? (
+        <ResourceManagementConsole />
+      ) : (
+        <>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
@@ -632,6 +657,8 @@ export default function SystemAdminAgents() {
           )}
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </div>
   );
 }

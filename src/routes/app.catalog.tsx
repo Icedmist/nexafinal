@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Upload, QrCode, HelpCircle } from "lucide-react";
+import { Plus, Upload, QrCode, HelpCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,10 @@ import { Card } from "@/components/ui/card";
 import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButton";
 import { CSVImportSheet, type ImportField } from "@/components/data/CSVImportSheet";
 import { CSVImportGuideModal } from "@/components/data/CSVImportGuideModal";
+import { CSVProcessorStudio } from "@/components/data/CSVProcessorStudio";
 import { QuickEntryModal } from "@/components/catalog/QuickEntryModal";
+import { CatalogCompletenessMeter } from "@/components/catalog/CatalogCompletenessMeter";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { InStoreQRGeneratorModal } from "@/components/catalog/InStoreQRGeneratorModal";
 import {
   AlertDialog,
@@ -100,6 +103,7 @@ function CatalogPage() {
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [movementItemId, setMovementItemId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [isCsvStudioOpen, setIsCsvStudioOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [isInStoreQRGeneratorOpen, setIsInStoreQRGeneratorOpen] = useState(false);
@@ -291,6 +295,16 @@ function CatalogPage() {
             </Button>
           </PermissionGate>
           <PermissionGate permission="create_item">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCsvStudioOpen(true)}
+              className="hidden gap-1.5 sm:inline-flex border-purple-500/30 hover:border-purple-500 bg-purple-500/5 hover:bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold h-8 sm:h-9 text-[10px] sm:text-xs"
+            >
+              <Sparkles className="h-3.5 w-3.5" />CSV & AI Studio
+            </Button>
+          </PermissionGate>
+          <PermissionGate permission="create_item">
             <Button variant="outline" size="sm"
               className="hidden gap-1.5 sm:inline-flex border-emerald-500/30 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold h-8 sm:h-9 text-[10px] sm:text-xs"
               onClick={() => setGuideOpen(true)}>
@@ -318,6 +332,8 @@ function CatalogPage() {
           </PermissionGate>
         </div>
       </div>
+
+      <CatalogCompletenessMeter items={allItems.map(i => ({ ...i, imageUrl: i.imageUrl || undefined }))} onQuickActionClick={openCreate} />
 
       <Card className="p-4">
         <CatalogFilters filters={filters} onChange={setFilters} categories={categories} suppliers={suppliers} locations={locations} view={view} onViewChange={handleViewChange} />
@@ -491,6 +507,12 @@ function CatalogPage() {
       <QuickEntryModal open={isQuickEntryOpen} onOpenChange={setIsQuickEntryOpen} />
       <InStoreQRGeneratorModal open={isInStoreQRGeneratorOpen} onOpenChange={setIsInStoreQRGeneratorOpen} />
       <CSVImportGuideModal open={guideOpen} onOpenChange={setGuideOpen} />
+
+      <Dialog open={isCsvStudioOpen} onOpenChange={setIsCsvStudioOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-6">
+          <CSVProcessorStudio onClose={() => setIsCsvStudioOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

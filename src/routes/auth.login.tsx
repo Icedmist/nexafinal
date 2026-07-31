@@ -17,7 +17,7 @@ export default LoginPage;
 
 function LoginPage() {
   const { store, loading: tenantLoading } = useTenant();
-  const { login, logout, resetPassword } = useAuth();
+  const { login, logout, resetPassword, triggerPreloader } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -173,6 +173,7 @@ function LoginPage() {
       // Route system admins to their panel, regular users to store dashboard
       const finalTokenResult = await cred.user.getIdTokenResult();
       const finalRole = finalTokenResult.claims.role;
+      await triggerPreloader("Welcome back to Nexa OS", 1200);
       navigate(finalRole === "system_admin" ? "/system-admin/dashboard" : "/app/dashboard");
     } catch (err: any) {
       const message = getAuthErrorMessage(err?.code, err?.message || "Invalid credentials");

@@ -420,3 +420,45 @@ export interface DebtPayment {
   createdAt: string;
   notes?: string;
 }
+
+export interface ManagerCollectionItem {
+  itemId: string;
+  itemName: string;
+  sku: string;
+  quantityCollected: number;
+  unitPriceNgn: number;
+  quantitySold?: number;
+  quantityReturned?: number;
+  remainingDebtQty?: number;
+  remainingDebtValueNgn?: number;
+}
+
+export interface ManagerCollectionDebtPayment {
+  id: string;
+  amountNgn: number;
+  paymentDate: string;
+  notes?: string;
+  recordedBy: string;
+}
+
+export interface ManagerCollection {
+  id: string;
+  collectionNumber: string;
+  managerId: string;
+  managerName: string;
+  storeId: string;
+  storeName?: string;
+  items: ManagerCollectionItem[];
+  totalValueNgn: number;
+  cashRemittedNgn: number;
+  returnedStockValueNgn: number;
+  remainingDebtValueNgn: number;
+  status: "collected" | "partially_balanced" | "fully_balanced" | "has_debt" | "debt_cleared";
+  collectionDate: string;
+  balancedAt?: string;
+  balancedBy?: string;
+  notes?: string;
+  debtPayments?: ManagerCollectionDebtPayment[];
+  createdAt: string;
+  updatedAt: string;
+}

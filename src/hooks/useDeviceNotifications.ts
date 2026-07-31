@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import type { Notification as InAppNotification } from "@/types/inventory";
 
+export const NOTIFICATION_PERMISSION_KEY = "nexa_notif_prompt_shown";
+
 export function useDeviceNotifications() {
   const { user } = useAuth();
   const { storeId } = useBusiness();
