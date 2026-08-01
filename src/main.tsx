@@ -9,6 +9,14 @@ import { RoleProvider } from './contexts/RoleContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import './styles.css';
 
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.error('Service worker registration failed:', err);
+    });
+  });
+}
+
 const container = document.getElementById('root');
 if (!container) throw new Error('Failed to find the root element');
 
