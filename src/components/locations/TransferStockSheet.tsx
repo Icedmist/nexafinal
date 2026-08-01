@@ -5,6 +5,18 @@ import { z } from "zod";
 import { ArrowRightLeft, X, Box, MapPin, Package, BadgeDollarSign, HandCoins, User } from "lucide-react";
 import { toast } from "sonner";
 import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  increment,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -33,7 +45,7 @@ import { useCreateMovement } from "@/hooks/useInventoryMutations";
 import { useSalesMutations } from "@/hooks/useSalesData";
 import { useManagerCollections } from "@/hooks/useManagerCollections";
 import { useStaff } from "@/hooks/useStaffData";
-import { MovementType } from "@/types/inventory";
+import { MovementType, ItemStatus } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -246,7 +258,58 @@ export function TransferStockSheet({
           createdAt: new Date().toISOString(),
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            // 4. Sync catalog: deduct stock from source, add to destination.
+            try {
+              // Deduct from source item
+              const sourceRef = doc(db, "products", values.itemId);
+              await updateDoc(sourceRef, {
+                currentStock: increment(-values.quantity),
+                updatedAt: new Date().toISOString(),
+              });
+
+              // Check if the item already exists at the destination location
+              const destQuery = query(
+                collection(db, "products"),
+                where("storeId", "==", storeId ?? ""),
+                where("locationId", "==", values.toLocationId),
+                where("sku", "==", selectedItem!.sku),
+              );
+              const destSnap = await getDocs(destQuery);
+
+              if (!destSnap.empty) {
+                // Item exists at destination — just increment stock
+                const existingRef = destSnap.docs[0].ref;
+                await updateDoc(existingRef, {
+                  currentStock: increment(values.quantity),
+                  updatedAt: new Date().toISOString(),
+                });
+              } else {
+                // Item doesn't exist at destination — clone it with destination locationId
+                const newItemRef = doc(collection(db, "products"));
+                const now = new Date().toISOString();
+                const cloned: Record<string, unknown> = {
+                  ...selectedItem,
+                  id: newItemRef.id,
+                  locationId: values.toLocationId,
+                  branchId: toLoc.branchId ?? null,
+                  currentStock: values.quantity,
+                  storeId: storeId ?? "",
+                  ownerId: user?.uid ?? "",
+                  createdAt: now,
+                  updatedAt: now,
+                };
+                // Remove undefined values to keep Firestore happy
+                Object.keys(cloned).forEach((k) => {
+                  if (cloned[k] === undefined) delete cloned[k];
+                });
+                await setDoc(newItemRef, cloned);
+              }
+            } catch (syncErr) {
+              console.error("Catalog sync failed:", syncErr);
+              toast.warning("Stock moved but catalog sync failed — please check manually.");
+            }
+
             setIsSubmitting(false);
             toast.success(
               isIncomplete

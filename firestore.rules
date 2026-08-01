@@ -62,7 +62,13 @@ service cloud.firestore {
     
     // STAFF: Global lookup for claims sync and fallback
     match /staff/{staffId} {
-      allow read: if isAuth();
+      // Scoped to the same store (or self), so managers can only view their
+      // own store's team. Admins may view any staff record.
+      allow read: if isAuth() && (
+        request.auth.uid == staffId ||
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        isAdmin()
+      );
       allow write: if isAuth() && (
         request.resource.data.ownerId == request.auth.uid ||
         resource.data.ownerId == request.auth.uid ||

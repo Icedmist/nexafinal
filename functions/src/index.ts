@@ -154,7 +154,21 @@ export const provisionstaff = onCall({
     throw new HttpsError('unauthenticated', 'You must be logged in.');
   }
 
+  const callerRole = request.auth.token?.role;
+  const callerStoreId = request.auth.token?.storeId;
+  const isCallerAdmin = ['admin', 'owner', 'system_admin'].includes(callerRole);
+
   const { email, password, displayName, role, storeId, branchId } = request.data || {};
+
+  // Only admins (admin/owner/system_admin) can provision new staff. Managers
+  // cannot create accounts — and only admins can create other admins.
+  if (!isCallerAdmin) {
+    throw new HttpsError('permission-denied', 'Only store admins can add team members.');
+  }
+
+  if (callerRole !== 'system_admin' && callerStoreId && storeId && callerStoreId !== storeId) {
+    throw new HttpsError('permission-denied', 'You can only add team members to your own store.');
+  }
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     throw new HttpsError('invalid-argument', 'A valid email address is required.');
@@ -324,6 +338,28 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
     throw new HttpsError('invalid-argument', 'User UID is required.');
   }
 
+  // Authorization: Role changes (and managing other users) are admin-only.
+  // Managers can update their own profile but cannot change anyone's role or
+  // promote others to admin.
+  const callerRole = request.auth.token?.role;
+  const callerStoreId = request.auth.token?.storeId;
+  const isCallerAdmin = ['admin', 'owner', 'system_admin'].includes(callerRole);
+  const isSelfUpdate = uid === request.auth.uid;
+  const roleChangeRequested = !!role || isActive !== undefined;
+
+  if (roleChangeRequested && !isCallerAdmin) {
+    throw new HttpsError('permission-denied', 'Only admins can change roles or activation status.');
+  }
+
+  // Only admins can set the admin role; managers can never promote anyone.
+  if (role === 'admin' && !isCallerAdmin) {
+    throw new HttpsError('permission-denied', 'Only admins can assign the admin role.');
+  }
+
+  if (!isSelfUpdate && !isCallerAdmin) {
+    throw new HttpsError('permission-denied', 'Only admins can manage other team members.');
+  }
+
   // Input Validation
   if (password && password.length < 6) {
     throw new HttpsError('invalid-argument', 'Password must be at least 6 characters long.');
@@ -400,6 +436,12 @@ export const updatestaffprofile = onCall({ cors: true }, async (request) => {
         
         if (!storeId) {
           console.warn(`Warning: storeId missing from custom claims for user ${targetUid}. Attempting recovery from Firestore.`);
+        }
+
+        // Cross-store guard: a store admin can only change roles/branches within
+        // their own store. System admins are exempt (global).
+        if (callerRole !== 'system_admin' && callerStoreId && storeId && callerStoreId !== storeId) {
+          throw new HttpsError('permission-denied', 'You can only manage team members in your own store.');
         }
 
         let resolvedRole = role || currentClaims.role;

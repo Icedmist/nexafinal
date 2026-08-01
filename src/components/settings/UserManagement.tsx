@@ -41,6 +41,7 @@ export function UserManagement() {
   const { user: currentUser } = useAuth();
   const { role: currentRole } = useRole();
   const { data: staff, isLoading: staffLoading } = useStaff();
+  const canManageUsers = isAdminRole(currentRole);
   const { data: locations } = useAllLocations();
   const { addStaff, updateStaff } = useStaffMutations();
 
@@ -176,7 +177,7 @@ export function UserManagement() {
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search staff…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-white" />
         </div>
-        <Button size="sm" onClick={() => setInviteOpen(true)}>
+        <Button size="sm" onClick={() => setInviteOpen(true)} disabled={!canManageUsers} title={canManageUsers ? undefined : "Only admins can invite staff"}>
           <Plus className="mr-1.5 h-3.5 w-3.5" /> Invite Staff
         </Button>
       </div>
@@ -202,7 +203,7 @@ export function UserManagement() {
                 <TableCell className="font-medium">{staffMember.displayName}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{staffMember.email}</TableCell>
                 <TableCell>
-                  <RoleDropdown user={staffMember} currentUserId={currentUser?.uid || ""} adminCount={adminCount} isLastAdmin={isLastAdmin(staffMember)} currentRole={currentRole}
+                  <RoleDropdown user={staffMember} currentUserId={currentUser?.uid || ""} adminCount={adminCount} isLastAdmin={isLastAdmin(staffMember)} currentRole={currentRole} canManageUsers={canManageUsers}
                     onChangeRole={(newRole) => setRoleChange({ user: staffMember, newRole })} />
                 </TableCell>
                 <TableCell>
@@ -220,9 +221,13 @@ export function UserManagement() {
                   {staffMember.createdAt ? format(new Date(staffMember.createdAt), "MMM d, yyyy") : "N/A"}
                 </TableCell>
                 <TableCell>
-                  <UserActions user={staffMember} currentUserId={currentUser?.uid || ""} isLastAdmin={isLastAdmin(staffMember)}
-                    onEdit={() => handleEditClick(staffMember)}
-                    onDeactivate={() => setDeactivateTarget(staffMember)} onReactivate={() => handleReactivate(staffMember)} />
+                  {canManageUsers ? (
+                    <UserActions user={staffMember} currentUserId={currentUser?.uid || ""} isLastAdmin={isLastAdmin(staffMember)}
+                      onEdit={() => handleEditClick(staffMember)}
+                      onDeactivate={() => setDeactivateTarget(staffMember)} onReactivate={() => handleReactivate(staffMember)} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -254,7 +259,7 @@ export function UserManagement() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {currentRole === "system_admin" && <SelectItem value="owner">Store Owner</SelectItem>}
-                    <SelectItem value="admin">Admin</SelectItem>
+                    {canManageUsers && <SelectItem value="admin">Admin</SelectItem>}
                     <SelectItem value="manager">Inventory Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                     {currentRole === "system_admin" && <SelectItem value="system_admin">System Admin</SelectItem>}
@@ -338,7 +343,7 @@ export function UserManagement() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {currentRole === "system_admin" && <SelectItem value="owner">Store Owner</SelectItem>}
-                    <SelectItem value="admin">Admin</SelectItem>
+                    {canManageUsers && <SelectItem value="admin">Admin</SelectItem>}
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                     {currentRole === "system_admin" && <SelectItem value="system_admin">System Admin</SelectItem>}
@@ -373,9 +378,9 @@ export function UserManagement() {
   );
 }
 
-function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, currentRole, onChangeRole }: {
+function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, currentRole, onChangeRole, canManageUsers }: {
   user: Staff; currentUserId: string; adminCount: number; isLastAdmin: boolean; currentRole: string;
-  onChangeRole: (role: RoleType) => void;
+  onChangeRole: (role: RoleType) => void; canManageUsers?: boolean;
 }) {
   const isSelf = user.uid === currentUserId;
 
@@ -387,6 +392,19 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, currentRol
             <Badge className={cn("text-[10px] cursor-default font-black uppercase tracking-wider", ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</Badge>
           </TooltipTrigger>
           <TooltipContent>Cannot change your own role</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  if (!canManageUsers) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge className={cn("text-[10px] cursor-default font-black uppercase tracking-wider", ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</Badge>
+          </TooltipTrigger>
+          <TooltipContent>Only admins can change roles</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
@@ -416,9 +434,11 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, currentRol
             <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Store Owner</div>
           </SelectItem>
         )}
-        <SelectItem value="admin">
-          <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Admin</div>
-        </SelectItem>
+        {canManageUsers && (
+          <SelectItem value="admin">
+            <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Admin</div>
+          </SelectItem>
+        )}
         <SelectItem value="manager">
           <div className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" />Inventory Manager</div>
         </SelectItem>

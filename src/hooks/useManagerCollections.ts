@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import type { ManagerCollection, ManagerCollectionItem, ManagerCollectionDebtPayment } from "@/types/inventory";
 import { useDemo } from "@/hooks/useDemo";
 import { db } from "@/lib/firebase";
-import { collection, doc, setDoc, updateDoc, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, query, orderBy, onSnapshot, where } from "firebase/firestore";
 import { toast } from "sonner";
 import { useBusiness } from "@/contexts/BusinessContext";
 
@@ -102,7 +102,11 @@ export function useManagerCollections() {
       return;
     }
 
-    const q = query(collection(db, "managerCollections"), orderBy("createdAt", "desc"));
+    const q = query(
+      collection(db, "managerCollections"),
+      ...(currentStoreId ? [where("storeId", "==", currentStoreId)] : []),
+      orderBy("createdAt", "desc"),
+    );
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -120,7 +124,7 @@ export function useManagerCollections() {
     );
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, [isDemo, currentStoreId]);
 
   const [demoCollections, setDemoCollections] = useState<ManagerCollection[]>(() => {
     try {

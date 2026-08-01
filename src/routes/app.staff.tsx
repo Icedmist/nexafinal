@@ -318,7 +318,7 @@ function StaffPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="admin" className="font-bold uppercase text-[10px]">Admin</SelectItem>
+                  {isAdmin && <SelectItem value="admin" className="font-bold uppercase text-[10px]">Admin</SelectItem>}
                   <SelectItem value="manager" className="font-bold uppercase text-[10px]">Manager</SelectItem>
                   <SelectItem value="staff" className="font-bold uppercase text-[10px]">Staff</SelectItem>
                   {isSystemAdmin && <SelectItem value="system_admin" className="font-bold uppercase text-[10px]">System Admin</SelectItem>}
