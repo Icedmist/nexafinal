@@ -393,7 +393,7 @@ export function CSVImportSheet({
         else if (!isImporting) onOpenChange(v);
       }}
     >
-      <DialogContent className="sm:max-w-[640px] max-h-[90vh] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none flex flex-col items-center justify-center">
+      <DialogContent className="sm:max-w-[640px] max-h-[90vh] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
         <div className="nexa-card bg-card p-6 flex flex-col overflow-hidden max-h-full flex-1">
           <div className="flex items-start justify-between mb-6">
             <div>
