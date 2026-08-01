@@ -28,6 +28,7 @@ import type { Branch } from "@/types/tenant";
 import { useRole } from "@/hooks/useRole";
 import { useTenant } from "@/contexts/TenantContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { cleanFirestoreData } from "@/utils/cleanFirestoreData";
 import { useDrugLibrary } from "@/hooks/useDrugLibrary";
 import { generateProductDescription } from "@/lib/gemini";
 import type { DrugLibraryItem } from "@/data/drugLibrary";
@@ -706,8 +707,8 @@ export function ItemFormSheet({
     // Stock is managed manually as requested, even for variant products
     // (Bypassed automatic variant stock calculation)
 
-    // Ensure numeric fields are numbers
-    const finalData = {
+    // Ensure numeric fields are numbers and clean undefined properties for Firestore compatibility
+    const rawFinalData = {
       ...cleanedData,
       currentStock: hasActiveVariants ? variantStockTotal : cleanedData.currentStock,
       units: cleanedData.units?.map(u => ({
@@ -739,6 +740,7 @@ export function ItemFormSheet({
       variants: cleanedData.variants || [],
     };
   
+    const finalData = cleanFirestoreData(rawFinalData);
     onSave(finalData as any);
   };
 

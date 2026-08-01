@@ -11,7 +11,16 @@ export function cleanFirestoreData<T>(data: T): T {
     return data.map((item) => cleanFirestoreData(item)) as unknown as T;
   }
 
-  if (typeof data === "object" && !(data instanceof Date)) {
+  if (typeof data === "object") {
+    // Keep special objects (Date, FieldValue, etc.) untouched
+    const isPlainObject =
+      Object.prototype.toString.call(data) === "[object Object]" &&
+      (data.constructor === Object || !data.constructor);
+
+    if (!isPlainObject) {
+      return data;
+    }
+
     const cleaned: any = {};
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {

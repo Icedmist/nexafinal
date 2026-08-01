@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { notifyActivity } from "@/lib/notification-service";
+import { cleanFirestoreData } from "@/utils/cleanFirestoreData";
 import type { Item, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest, Category } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import type { Refund } from "@/types/finance";
@@ -32,7 +33,8 @@ function useFirestoreMutation<TData>(
       setIsLoading(true);
       setError(null);
       try {
-        await mutationFn(storeId, data, user, claims);
+        const cleanedData = cleanFirestoreData(data);
+        await mutationFn(storeId, cleanedData, user, claims);
         opts?.onSuccess?.();
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
@@ -53,7 +55,7 @@ export function useCreateItem() {
   return useFirestoreMutation<Item>(async (storeId, data, user, claims) => {
     // Use setDoc with the pre-generated ID to ensure consistency between POS and Catalog
     const docRef = doc(db, "products", data.id);
-    await setDoc(docRef, {
+    const cleaned = cleanFirestoreData({
       ...data,
       storeId,
       branchId: data.branchId !== undefined ? data.branchId : (claims?.branchId || null),
@@ -61,6 +63,7 @@ export function useCreateItem() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+    await setDoc(docRef, cleaned);
 
     await notifyActivity({
       type: "movement",
@@ -81,10 +84,11 @@ export function useUpdateItem() {
   return useFirestoreMutation<{ id: string; updates: Partial<Item> }>(async (storeId, { id, updates }, user, claims) => {
     try {
       const docRef = doc(db, "products", id);
-      await updateDoc(docRef, {
+      const cleanedUpdates = cleanFirestoreData({
         ...updates,
         updatedAt: new Date().toISOString(),
       });
+      await updateDoc(docRef, cleanedUpdates);
 
       await notifyActivity({
         type: "item_update",

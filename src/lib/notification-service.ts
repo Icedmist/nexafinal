@@ -80,25 +80,11 @@ export const notifyActivity = async (options: {
 
     const docRef = await addDoc(collection(db, "activity_logs"), logData);
     
-    // Mirror to 'notifications' for in-app visibility and device alerts
-    // We only mirror certain types or categories if needed, but for now we mirror all as requested
-    await addDoc(collection(db, "notifications"), {
-      type: type === "login" ? "login" : 
-            type === "low_stock_alert" ? "low_stock" : 
-            type === "movement" && title.includes("Added") ? "sale" : // Mapping sale movement to 'sale' type
-            type.includes("sale") ? "sale" : 
-            type.includes("request") ? "inventory_request" : "system",
-      title,
-      message,
-      isRead: false,
-      link: actionUrl || null,
-      referenceId: docRef.id,
-      storeId,
-      branchId,
-      createdAt: serverTimestamp(),
-    });
+    // NOTE: In-app notifications are created server-side by the `onactivitycreated`
+    // trigger (functions/src/index.ts), scoped to the activity's storeId. We do NOT
+    // mirror here anymore to avoid duplicate in-app notifications per activity.
     
-    console.log(`[Notification Engine] Activity logged and mirrored: ${category}/${type} (${severity}) - ID: ${docRef.id}`);
+    console.log(`[Notification Engine] Activity logged: ${category}/${type} (${severity}) - ID: ${docRef.id}`);
     
     return docRef.id;
   } catch (err) {
