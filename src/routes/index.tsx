@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { collection, query, limit, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
+import { useOnboardingNavigation, type OnboardingEntryMethod } from "@/hooks/useOnboardingNavigation";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { LegalModal } from "@/components/legal/LegalModal";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -215,6 +216,7 @@ export default function LandingPage() {
   const { enterDemoMode } = useDemo();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { handleOptionRoute } = useOnboardingNavigation();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isOnboardingDemo, setIsOnboardingDemo] = useState(false);
   const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
@@ -600,6 +602,7 @@ export default function LandingPage() {
     country?: string;
     state?: string;
     lga?: string;
+    entryMethod?: OnboardingEntryMethod;
   }) => {
     if (isOnboardingDemo) {
       enterDemoMode({ 
@@ -629,7 +632,7 @@ export default function LandingPage() {
       });
       localStorage.setItem("stackwise-onboarding-done", "true");
       setShowOnboarding(false);
-      navigate("/app/dashboard");
+      handleOptionRoute(data.entryMethod);
     }
   };
 
@@ -638,7 +641,7 @@ export default function LandingPage() {
       enterDemoMode();
       localStorage.setItem("stackwise-onboarding-done", "true");
       setShowOnboarding(false);
-      navigate("/app/dashboard");
+      handleOptionRoute("skip");
     }
   };
 

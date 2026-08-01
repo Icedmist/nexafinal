@@ -30,6 +30,7 @@ export interface PendingProduct {
   id: string;
   name: string;
   price: string;
+  costPrice?: string;
   stock: string;
   unit: string;
   categoryId?: string;

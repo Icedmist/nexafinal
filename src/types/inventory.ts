@@ -66,6 +66,7 @@ export interface SaleTransaction {
   changeGivenNgn?: number;
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
+  paymentStatus?: "paid" | "incomplete";
   saleType?: "retail" | "wholesale" | "mixed";
   branchId?: string | null;
   recordedBy?: string;

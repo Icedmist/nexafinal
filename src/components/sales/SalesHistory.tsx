@@ -555,6 +555,11 @@ export function SalesHistoryPage() {
                      {!sale.isCreditSale && (
                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{(sale as SaleWithPayment).paymentMethod || "Cash"}</span>
                      )}
+                     {sale.paymentStatus === "incomplete" && (
+                       <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" /> Incomplete Payment
+                       </span>
+                     )}
                      {sale.hasRefund && (
                        <span className="text-[10px] font-black text-destructive uppercase tracking-widest flex items-center gap-1 ml-2">
                          <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" /> Refunded
@@ -606,6 +611,10 @@ export function SalesHistoryPage() {
                   {selectedSale.hasRefund ? (
                     <span className="text-[10px] font-black uppercase tracking-wider bg-destructive/10 text-destructive px-2 py-0.5 rounded-full flex items-center gap-1">
                       <RotateCcw className="h-2.5 w-2.5" /> Refunded
+                    </span>
+                  ) : selectedSale.paymentStatus === "incomplete" ? (
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5" /> Incomplete Payment
                     </span>
                   ) : selectedSale.status === "pending_pickup" ? (
                     <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full flex items-center gap-1">

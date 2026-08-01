@@ -1,18 +1,18 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs, limit, getDoc, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, limit, getDoc, doc, setDoc, writeBatch } from "firebase/firestore";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
-import { SetupWizard, type SetupWizardData } from "@/components/onboarding/SetupWizard";
+import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
+import { useOnboardingNavigation } from "@/hooks/useOnboardingNavigation";
 import { DEFAULT_PLANS } from "@/utils/subscriptionUtils";
 
 export default OnboardingPage;
 
 function OnboardingPage() {
   const { user, claims } = useAuth();
-  const navigate = useNavigate();
+  const { handleOptionRoute } = useOnboardingNavigation();
   const [loading, setLoading] = React.useState(false);
 
   // Check if store already exists for the user on mount
@@ -68,13 +68,38 @@ function OnboardingPage() {
     checkExisting();
   }, [user, claims]);
 
-  const handleCreateStore = async (data: SetupWizardData) => {
+  const handleCreateStore = async (data: {
+    businessType: string;
+    categories: string[];
+    storeName: string;
+    brandColor: string;
+    moniepointKey?: string;
+    storeSlug?: string;
+    initialItems?: Array<{
+      name: string;
+      price: string;
+      costPrice?: string;
+      stock: string;
+      unit: string;
+      categoryId?: string;
+    }>;
+    country?: string;
+    state?: string;
+    lga?: string;
+    selectedPlan?: "starter" | "professional" | "enterprise";
+    entryMethod?: "camera" | "manual" | "skip" | "excel";
+  }) => {
     if (!user) return;
     setLoading(true);
 
+    const storeName = data.storeName || "My Store";
+    const slug =
+      data.storeSlug ||
+      storeName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+
     try {
       // 1. Check if slug exists to prevent collision
-      const q = query(collection(db, "stores"), where("slug", "==", data.slug), limit(1));
+      const q = query(collection(db, "stores"), where("slug", "==", slug), limit(1));
       const snap = await getDocs(q);
       if (!snap.empty) {
         toast.error("This store URL slug is already taken. Please choose a different name.");
@@ -84,17 +109,17 @@ function OnboardingPage() {
 
       // 2. Create store document
       const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-      const chosenPlan = DEFAULT_PLANS.find(p => p.planId === data.planId) || DEFAULT_PLANS[0];
+      const chosenPlan = DEFAULT_PLANS.find(p => p.planId === (data.selectedPlan || "starter")) || DEFAULT_PLANS[0];
       const storeRef = await addDoc(collection(db, "stores"), {
-        name: data.storeName,
-        slug: data.slug,
+        name: storeName,
+        slug,
         ownerId: user.uid,
         createdAt: new Date().toISOString(),
-        businessType: data.sector,
+        businessType: data.businessType,
         complexityLevel: "advanced",
         setupComplete: true,
         branding: {
-          primaryColor: data.primaryColor,
+          primaryColor: data.brandColor,
         },
         // Subscription tier assignment: new stores pick a plan at onboarding
         // and begin a 14-day trial before they need to make a payment.
@@ -111,11 +136,15 @@ function OnboardingPage() {
           trialEndsAt,
         },
         storeDetails: {
-          name: data.storeName,
+          name: storeName,
           address: "",
           phone: "",
           receiptFooter: "Thank you for your patronage!",
-          taxRate: 0
+          taxRate: 0,
+          slug,
+          country: data.country || "Nigeria",
+          state: data.state || "",
+          lga: data.lga || "",
         },
         // Write categories array to store document for BusinessContext
         categories: data.categories,
@@ -139,7 +168,7 @@ function OnboardingPage() {
         await setDoc(doc(db, "moniepoint_accounts", storeRef.id), {
           apiKey: data.moniepointKey,
           storeId: storeRef.id,
-          businessName: data.storeName,
+          businessName: storeName,
           linkedAt: new Date().toISOString(),
         });
       }
@@ -159,61 +188,60 @@ function OnboardingPage() {
         categoryMap.set(catName, catRef.id);
       }
 
-      // 6. Create quick products catalog in Firestore
-      for (const prod of data.products) {
-        // Attempt to find a matching category from the ones selected
-        let matchedCatId: string | null = null;
-        for (const [catName, catId] of categoryMap.entries()) {
-          if (prod.name.toLowerCase().includes(catName.toLowerCase()) || catName.toLowerCase().includes(prod.name.toLowerCase())) {
-            matchedCatId = catId;
-            break;
+      // 6. Create initial products catalog in Firestore (bulk batch write)
+      const initialItems = data.initialItems?.filter(item => item.name.trim() !== "") || [];
+      if (initialItems.length > 0) {
+        const batch = writeBatch(db);
+        for (const prod of initialItems) {
+          // Attempt to find a matching category from the ones selected
+          let matchedCatId: string | null = null;
+          for (const [catName, catId] of categoryMap.entries()) {
+            if (prod.categoryId && prod.categoryId === catName) {
+              matchedCatId = catId;
+              break;
+            }
           }
-        }
-        
-        // If not matched, default to the first created category or null
-        if (!matchedCatId && data.categories.length > 0) {
-          matchedCatId = categoryMap.get(data.categories[0]) || null;
-        }
+          if (!matchedCatId) {
+            const fallback = prod.categoryId || (data.categories && data.categories[0]) || "misc";
+            matchedCatId = categoryMap.get(fallback) || null;
+          }
 
-        const productRef = doc(collection(db, "products"));
-        await setDoc(productRef, {
-          id: productRef.id,
-          sku: `SKU-${prod.name.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}-${Date.now().toString().slice(-4)}`,
-          barcode: null,
-          name: prod.name,
-          description: "Initial stock load from setup",
-          categoryId: matchedCatId,
-          status: "active",
-          unit: prod.unit || "Piece",
-          currentStock: Number(prod.stock) || 0,
-          reorderPoint: 5,
-          reorderQuantity: 10,
-          costPrice: Number(prod.costPrice) || 0,
-          sellingPrice: Number(prod.price) || 0,
-          locationId: null,
-          supplierId: null,
-          imageUrl: null,
-          customFields: {},
-          storeId: storeRef.id,
-          ownerId: user.uid,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
+          const sellP = (prod.price && !isNaN(Number(prod.price))) ? Number(prod.price) : 0;
+          const costP = (prod.costPrice && !isNaN(Number(prod.costPrice))) ? Number(prod.costPrice) : Math.round(sellP * 0.7);
+          const stockV = (prod.stock && !isNaN(Number(prod.stock))) ? Number(prod.stock) : 0;
+
+          const productRef = doc(collection(db, "products"));
+          batch.set(productRef, {
+            id: productRef.id,
+            sku: `SKU-${prod.name.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}-${Date.now().toString().slice(-4)}`,
+            barcode: null,
+            name: prod.name,
+            description: "Initial stock load from setup",
+            categoryId: matchedCatId,
+            status: "active",
+            unit: prod.unit || "Piece",
+            currentStock: stockV,
+            reorderPoint: 5,
+            reorderQuantity: 10,
+            costPrice: costP,
+            sellingPrice: sellP,
+            locationId: null,
+            supplierId: null,
+            imageUrl: null,
+            customFields: {},
+            storeId: storeRef.id,
+            ownerId: user.uid,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+        await batch.commit();
       }
 
-      toast.success("Nexa store fully initialized! Loading dashboard...");
+      toast.success("Nexa store fully initialized! Loading your dashboard...");
 
-      // 7. Perform routing redirect to setup tenant subdomain context
-      const host = window.location.host;
-      const protocol = window.location.protocol;
-      const isLocalhost = host.includes("localhost");
-
-      if (isLocalhost) {
-        window.location.href = `${protocol}//${host}/app/dashboard?s=${data.slug}&tour=true`;
-      } else {
-        const baseDomain = host.split(".").slice(-2).join(".");
-        window.location.href = `${protocol}//${data.slug}.${baseDomain}/app/dashboard?tour=true`;
-      }
+      // 7. Route to the app by the chosen entry method
+      handleOptionRoute(data.entryMethod);
     } catch (err: any) {
       toast.error(err.message || "Failed to create store");
       setLoading(false);
@@ -221,24 +249,18 @@ function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 selection:bg-primary/30 relative">
-      {/* Dynamic ambient backgrounds */}
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/5 blur-[120px]" />
-        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/5 blur-[150px]" />
-      </div>
+    <div className="min-h-screen bg-background selection:bg-primary/30">
+      <BusinessOnboarding onComplete={handleCreateStore} onSkip={() => handleOptionRoute("skip")} />
 
-      <div className="w-full max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 flex flex-col items-center">
-        <div className="text-center space-y-2">
-          <div className="mx-auto h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 flex text-primary shadow-inner ring-8 ring-primary/5">
-             <Sparkles className="h-7 w-7" />
+      {loading && (
+        <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Initializing your Nexa store…
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Setup Nexa Merchant OS</h1>
-          <p className="text-xs text-muted-foreground max-w-sm">Powering smart point-of-sale and live bank transfers mirrors.</p>
         </div>
-
-        <SetupWizard onComplete={handleCreateStore} loading={loading} />
-      </div>
+      )}
     </div>
   );
 }

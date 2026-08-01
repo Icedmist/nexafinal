@@ -309,6 +309,7 @@ export function MovementFormSheet({
                 </Label>
                 <p className="text-[10px] text-muted-foreground">
                   Transfers are recorded as sales from one store manager to another.
+                  The total is auto-calculated from the unit price × quantity.
                 </p>
                 <Input
                   type="number"
@@ -320,6 +321,19 @@ export function MovementFormSheet({
                   onChange={(e) => setUnitPrice(e.target.value)}
                 />
                 {errors.unitPrice && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.unitPrice}</p>}
+                <div className="flex items-center justify-between rounded-xl bg-background px-4 py-3 border-2 border-dashed border-primary/20">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      Total Transfer Value
+                    </span>
+                    <span className="text-[9px] text-muted-foreground/60">
+                      Auto-calculated as quantity changes
+                    </span>
+                  </div>
+                  <span className="font-mono font-black text-lg text-primary">
+                    ₦{((Number(unitPrice) || 0) * (Number(quantity) || 0)).toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
             )}
 

@@ -187,6 +187,7 @@ export function TransferStockSheet({
         paymentMethod: "transfer",
         saleType: "wholesale",
         isCreditSale: values.recordAsDebt,
+        paymentStatus: values.recordAsDebt ? "incomplete" : "paid",
         amountPaidNgn: values.recordAsDebt ? 0 : transferValue,
         createdAt: new Date().toISOString(),
       });
@@ -464,12 +465,25 @@ export function TransferStockSheet({
                     )}
                   />
                   <div className="flex items-center justify-between rounded-xl bg-background px-4 py-3 border-2 border-dashed border-primary/20">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      Total Transfer Value
-                    </span>
-                    <span className="font-mono font-black text-lg text-primary">
-                      {NAIRA}{totalValue.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Total Transfer Value
+                      </span>
+                      <span className="text-[9px] text-muted-foreground/60">
+                        Auto-calculated as quantity changes
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="font-mono font-black text-lg text-primary">
+                        {NAIRA}{totalValue.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                      </span>
+                      {recordAsDebt && totalValue > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600">
+                          <HandCoins className="h-2.5 w-2.5" />
+                          Incomplete payment · {NAIRA}{totalValue.toLocaleString("en-NG", { minimumFractionDigits: 2 })} outstanding
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -488,8 +502,9 @@ export function TransferStockSheet({
                     />
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    The receiving manager owes the full transfer value until it is
-                    remitted. This appears in the manager debt tracking section.
+                    Mark this transfer as an incomplete payment. The receiving manager
+                    owes the full transfer value until it is remitted — this is tracked
+                    automatically as manager debt and flagged as an outstanding payment.
                   </p>
                   {recordAsDebt && (
                     <FormField

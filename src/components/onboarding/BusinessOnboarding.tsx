@@ -196,6 +196,11 @@ interface BusinessOnboardingProps {
     brandColor: string;
     moniepointKey?: string;
     storeSlug?: string;
+    paystackPublicKey?: string;
+    paystackSecretKey?: string;
+    paystackAccountNumber?: string;
+    paystackAccountName?: string;
+    paystackBankName?: string;
     electronicsMainType?: "devices" | "accessories" | "both";
     textilePrimarilySellsBy?: "yard" | "roll" | "both";
     textileSubcategories?: { id: string; label: string; emoji: string; supportedUnits?: string[] }[];
@@ -205,6 +210,7 @@ interface BusinessOnboardingProps {
     state?: string;
     lga?: string;
     selectedPlan?: "starter" | "professional" | "enterprise";
+    entryMethod?: "camera" | "manual" | "skip" | "excel";
   }) => void;
   onSkip: () => void;
 }
@@ -215,6 +221,11 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "professional" | "enterprise">("starter");
   const [moniepointKey, setMoniepointKey] = useState("");
   const [showMoniepointKey, setShowMoniepointKey] = useState(false);
+  const [paystackSecretKey, setPaystackSecretKey] = useState("");
+  const [paystackPublicKey, setPaystackPublicKey] = useState("");
+  const [showPaystackSecretKey, setShowPaystackSecretKey] = useState(false);
+  const [paystackAccountNumber, setPaystackAccountNumber] = useState("5028910423");
+  const [paystackAccountName, setPaystackAccountName] = useState("");
   const [storeSlug, setStoreSlug] = useState("");
   const [brandColor, setBrandColor] = useState("#0d9488");
   const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
@@ -313,6 +324,28 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
       setPendingProducts(templates);
       setStep(3.5);
     } else if (step === 3 && selectedCategories.size > 0) {
+      if (pendingProducts.length <= 1 && (!pendingProducts[0] || !pendingProducts[0].name.trim())) {
+        if (selectedBusiness === "restaurant") {
+          setPendingProducts([
+            { id: "1", name: "Party Jollof Rice & Chicken", price: "3500", costPrice: "2000", stock: "50", unit: "plate", categoryId: "grains" },
+            { id: "2", name: "Grilled Peppered Tilapia Fish", price: "6500", costPrice: "4000", stock: "20", unit: "pcs", categoryId: "proteins" },
+            { id: "3", name: "Beef Suya Skewer", price: "1500", costPrice: "800", stock: "100", unit: "portion", categoryId: "proteins" },
+            { id: "4", name: "Fresh Fruit Smoothie", price: "1800", costPrice: "900", stock: "40", unit: "cup", categoryId: "drinks" },
+          ]);
+        } else if (selectedBusiness === "pharmacy") {
+          setPendingProducts([
+            { id: "1", name: "Paracetamol 500mg Tablets", price: "500", costPrice: "300", stock: "100", unit: "pack", categoryId: "pills" },
+            { id: "2", name: "Amoxicillin 500mg Capsules", price: "1500", costPrice: "900", stock: "50", unit: "pack", categoryId: "pills" },
+            { id: "3", name: "Vitamin C 100mg Tablets", price: "1000", costPrice: "600", stock: "60", unit: "bottle", categoryId: "pills" },
+          ]);
+        } else if (selectedBusiness === "electronics") {
+          setPendingProducts([
+            { id: "1", name: "Fast Charging USB-C Cable", price: "3500", costPrice: "1800", stock: "50", unit: "pcs", categoryId: "chargers" },
+            { id: "2", name: "Wireless Bluetooth Earbuds", price: "18500", costPrice: "11000", stock: "25", unit: "pcs", categoryId: "audio" },
+            { id: "3", name: "20,000mAh Power Bank", price: "14500", costPrice: "9000", stock: "30", unit: "pcs", categoryId: "powerbanks" },
+          ]);
+        }
+      }
       setStep(3.5);
     } else if (step === 3.5) {
       if (entryMethod === "camera") {
@@ -347,6 +380,11 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
         brandColor,
         moniepointKey,
         storeSlug,
+        paystackPublicKey,
+        paystackSecretKey,
+        paystackAccountNumber: paystackAccountNumber || "5028910423",
+        paystackAccountName: paystackAccountName || `${storeName.trim() || "My Store"} Operations`,
+        paystackBankName: "Wema Bank / Titan Paystack",
         selectedPlan,
         electronicsMainType: selectedBusiness === "electronics" ? electronicsMainType : undefined,
         textilePrimarilySellsBy: selectedBusiness === "textile" ? textilePrimarilySellsBy : undefined,
@@ -360,7 +398,8 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
           })),
         country,
         state,
-        lga
+        lga,
+        entryMethod
       });
     }
   };
@@ -624,6 +663,49 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
                       className="h-9 px-2"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Paystack Account Number</Label>
+                    <Input 
+                      value={paystackAccountNumber}
+                      onChange={e => setPaystackAccountNumber(e.target.value)}
+                      placeholder="5028910423"
+                      className="h-9 font-mono font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Account Beneficiary Name</Label>
+                    <Input 
+                      value={paystackAccountName || `${storeName || "My Store"} Operations`}
+                      onChange={e => setPaystackAccountName(e.target.value)}
+                      placeholder="e.g. Store Operations"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                   <Label className="text-sm font-medium">Paystack Secret Key (Optional)</Label>
+                   <div className="relative">
+                     <Input 
+                        type={showPaystackSecretKey ? "text" : "password"}
+                        value={paystackSecretKey}
+                        onChange={e => setPaystackSecretKey(e.target.value)}
+                        placeholder="sk_live_..."
+                        className="h-10 pr-10"
+                     />
+                     <button
+                       type="button"
+                       onClick={() => setShowPaystackSecretKey(!showPaystackSecretKey)}
+                       className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                       aria-label={showPaystackSecretKey ? "Hide API key" : "Show API key"}
+                     >
+                       {showPaystackSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                     </button>
+                   </div>
+                   <p className="text-[11px] text-muted-foreground italic">Your customers will transfer or pay directly using Paystack at checkout.</p>
                 </div>
 
                 <div className="space-y-2">
