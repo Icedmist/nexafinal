@@ -62,13 +62,14 @@ export function SalesStepCheckout({
   tableNumber = "",
 }: SalesStepCheckoutProps) {
   const { profile } = useBusiness();
-  const { isAdmin } = useRole();
+  const { isAdmin, isManager } = useRole();
   const businessType = profile?.businessType || "retail";
 
   // Price editing at checkout requires platform admin approval.
   // Locked by default — only unlocked when a system admin enables it for this store.
+  // Admins and managers may edit prices; regular staff only when unlocked.
   const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true;
-  const canEditPrice = !isPriceEditingLocked || isAdmin;
+  const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
 
   const { addSale, recordDebtPayment } = useSalesMutations();
   const [customerName, setCustomerName] = useState("");
@@ -92,10 +93,12 @@ export function SalesStepCheckout({
     return isNaN(parsed) ? 0 : Math.max(0, parsed);
   }, [customTaxRate]);
 
-  // Get current price for an item based on its selected unit and sale type
+  // Get current price for an item based on its selected unit and sale type.
+  // The checkout-level saleType always overrides the baked-in per-item type so
+  // switching wholesale/retail at checkout re-prices all items immediately.
   const getItemPrice = (ci: CheckoutItem) => {
     if (ci.configString) return getConfigPrice(ci.item, ci.configString);
-    return ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
+    return ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, saleType);
   };
 
   const subtotal = items.reduce((s, ci) => s + getItemPrice(ci) * ci.quantity, 0) + packagingFee;
@@ -253,10 +256,9 @@ export function SalesStepCheckout({
       customerEmail: customerEmail.trim() || null,
       items: items.map((ci) => {
         const unit = ci.item.units?.find(u => u.name === ci.selectedUnit);
-        const itemSaleType = ci.saleType ?? saleType;
         const price = ci.configString
           ? getConfigPrice(ci.item, ci.configString)
-          : (ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, itemSaleType));
+          : (ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, saleType));
         const config = ci.configString ? parseConfigString(ci.configString) : null;
 
         return {
@@ -274,7 +276,7 @@ export function SalesStepCheckout({
           imageUrl: ci.item.imageUrl || null,
           selectedUnit: ci.selectedUnit,
           conversionFactor: unit?.conversionFactor || 1,
-          salePriceMode: itemSaleType,
+          salePriceMode: saleType,
           size: config?.size?.name,
           addons: config?.addons,
           spiceLevel: config?.spiceLevel,
@@ -624,7 +626,7 @@ export function SalesStepCheckout({
             items.map((ci) => {
               const basePrice = ci.configString
                 ? getConfigPrice(ci.item, ci.configString)
-                : getCartItemUnitPrice(ci.item, ci.selectedUnit, ci.saleType ?? saleType);
+                : getCartItemUnitPrice(ci.item, ci.selectedUnit, saleType);
               const price = getItemPrice(ci);
               const variant = ci.item.variants?.find(v => v.id === ci.selectedUnit);
               const displayLabel = variant 

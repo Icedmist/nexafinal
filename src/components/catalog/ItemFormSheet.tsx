@@ -632,7 +632,8 @@ export function ItemFormSheet({
           costPrice: item.costPrice,
           sellingPrice: item.sellingPrice,
           wholesalePrice: item.wholesalePrice ?? 0,
-          distributorPrice: item.pricingTiers?.distributor ?? 0,
+          // If no distinct distributor tier is stored, treat it as equal to wholesale
+          distributorPrice: item.pricingTiers?.distributor ?? item.wholesalePrice ?? 0,
           expiryDate: item.pharmacy?.expiryDate || "",
           batchNumber: item.pharmacy?.batchNumber || "",
           dosageForm: item.pharmacy?.dosageForm || "",

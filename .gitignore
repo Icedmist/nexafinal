@@ -9,6 +9,8 @@ lerna-debug.log*
 
 node_modules
 _imports
+_import/
+test-results/
 dist
 dist-ssr
 .output

@@ -78,12 +78,13 @@ function getAvailableStockForUnit(item: Item, selectedUnitName: string, allCartI
 
 export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateCustomPrice, onClear, onNext, packagingFee = 0, estimatedReadyTime = 0 }: SalesStepCartProps) {
   const { profile } = useBusiness();
-  const { isAdmin } = useRole();
+  const { isAdmin, isManager } = useRole();
   const businessType = profile?.businessType || "retail";
 
   // Price editing at checkout requires platform admin approval (locked by default).
+  // Admins and managers may edit prices; regular staff only when unlocked.
   const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true;
-  const canEditPrice = !isPriceEditingLocked || isAdmin;
+  const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
 
   const [editingCartKey, setEditingCartKey] = useState<string | null>(null);
   const [editingQtyValue, setEditingQtyValue] = useState<string>("");
