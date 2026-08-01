@@ -719,18 +719,18 @@ export function ItemFormSheet({
       // Tiered pricing (retail/wholesale/distributor)
       pricingTiers: (cleanedData.wholesalePrice || cleanedData.distributorPrice)
         ? {
-            retail: cleanedData.sellingPrice,
-            wholesale: cleanedData.wholesalePrice ? Number(cleanedData.wholesalePrice) : undefined,
-            distributor: cleanedData.distributorPrice ? Number(cleanedData.distributorPrice) : undefined,
+            retail: cleanedData.sellingPrice ?? 0,
+            ...(cleanedData.wholesalePrice ? { wholesale: Number(cleanedData.wholesalePrice) } : {}),
+            ...(cleanedData.distributorPrice ? { distributor: Number(cleanedData.distributorPrice) } : {}),
             tierEnabled: true,
           }
         : undefined,
       // Pharmacy clinical specs
       pharmacy: isPharmacy
         ? {
-            expiryDate: cleanedData.expiryDate || undefined,
-            batchNumber: cleanedData.batchNumber?.trim() || undefined,
-            dosageForm: cleanedData.dosageForm || undefined,
+            ...(cleanedData.expiryDate ? { expiryDate: cleanedData.expiryDate } : {}),
+            ...(cleanedData.batchNumber?.trim() ? { batchNumber: cleanedData.batchNumber.trim() } : {}),
+            ...(cleanedData.dosageForm ? { dosageForm: cleanedData.dosageForm } : {}),
             requiresPrescription: cleanedData.requiresPrescription || false,
           }
         : undefined,
