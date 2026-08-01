@@ -442,12 +442,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   return (
     <>
       <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-md p-4 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
+        <DialogContent className="max-w-md p-2 sm:p-3 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
 
           {sale && (
             <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-[96vw] sm:w-full mx-auto shadow-2xl">
                <ScrollArea className="flex-1 w-full overflow-y-auto">
-                <div className="p-4 sm:p-8 space-y-6">
+                <div className="p-3 sm:p-4 space-y-3">
                    {/* Decorative background element */}
                    <div className={cn(
                      "absolute -top-24 -right-24 h-48 w-48 rounded-full blur-3xl -z-10",
@@ -463,27 +463,27 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                         <Receipt className="h-5 w-5" />
                       </div>
                       <div>
-                        <DialogTitle className="text-2xl font-black tracking-tight text-foreground uppercase">Receipt</DialogTitle>
-                        {address && <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{address}</p>}
+                        <DialogTitle className="text-lg font-black tracking-tight text-foreground uppercase">Receipt</DialogTitle>
+                        {address && <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{address}</p>}
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border-2 border-border bg-muted/20 p-5 space-y-3 relative overflow-hidden">
+                  <div className="rounded-2xl border border-border bg-muted/20 p-3 space-y-2 relative overflow-hidden">
                     <div className={cn(
                       "absolute top-0 left-0 h-1 w-full",
                       businessType === "restaurant" ? "bg-emerald-600" : "bg-primary"
                     )} />
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Transaction ID</span>
-                      <span className="font-mono font-black text-sm text-foreground bg-background px-2 py-1 rounded-lg border">#{sale.id.slice(-8).toUpperCase()}</span>
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Transaction ID</span>
+                      <span className="font-mono font-black text-xs text-foreground bg-background px-2 py-1 rounded-lg border">#{sale.id.slice(-8).toUpperCase()}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Timestamp</span>
-                      <span className="font-bold text-xs text-foreground">{format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Timestamp</span>
+                      <span className="font-bold text-[11px] text-foreground">{format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                     </div>
-                    <div className="flex justify-between items-center pt-3 border-t border-border/50">
-                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
+                    <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
                       <Badge variant="outline" className={cn(
                         "capitalize font-black text-[10px] tracking-wider px-3",
                         businessType === "restaurant" ? "bg-emerald-600/5 border-emerald-600/20 text-emerald-600" : "bg-primary/5 border-primary/20 text-primary"
@@ -491,8 +491,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                         {(sale as any).paymentMethod || "cash"}
                       </Badge>
                     </div>
-                    <div className="flex justify-between items-center pt-3 border-t border-border/50">
-                      <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
+                    <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
                       <div className="flex items-center gap-1.5">
                         <UserCircle className={cn("h-3.5 w-3.5", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
                         <span className="font-black text-xs text-foreground uppercase tracking-tight">
@@ -504,8 +504,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                   </div>
 
                   {sale.customerName && (
-                    <div className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-sm">
-                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Customer</p>
+                    <div className="rounded-xl border border-border bg-card p-3 space-y-2 shadow-sm">
+                      <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Customer</p>
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-black">{sale.customerName}</span>
                         <div className="flex flex-col items-end">
@@ -520,14 +520,14 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     </div>
                   )}
 
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Line Items</h4>
+                  <div className="space-y-3">
+                    <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest px-1">Line Items</h4>
                     <div className="space-y-2">
                       {sale.items.map((li, idx) => (
-                        <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-2xl border-2 border-border/40 bg-muted/5 hover:bg-muted/10 transition-colors">
+                        <div key={idx} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40 bg-muted/5 hover:bg-muted/10 transition-colors">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-black truncate text-foreground">{li.itemName}</p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
                               <span>{li.quantity} {li.selectedUnit || "unit"}(s) @ {fmtNgn(li.unitPriceNgn)}</span>
                               {li.customPriceNgn !== undefined && (
                                 <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 rounded border border-amber-500/20">Custom Price</span>
@@ -540,9 +540,9 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     </div>
                   </div>
 
-                  <div className="space-y-3 px-1">
+                  <div className="space-y-2 px-1">
                     {sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn) && (
-                      <div className="rounded-2xl border border-border/50 bg-muted/5 p-4 space-y-2">
+                      <div className="rounded-xl border border-border/50 bg-muted/5 p-3 space-y-2">
                         <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
                           <span>Subtotal</span>
                           <span className="font-mono text-foreground">{fmtNgn(sale.subtotalNgn)}</span>
@@ -566,17 +566,17 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     )}
 
                     <div className={cn(
-                      "rounded-3xl p-6 shadow-xl space-y-4",
+                      "rounded-2xl p-4 shadow-lg space-y-3",
                       businessType === "restaurant"
                         ? "bg-emerald-600 text-white shadow-emerald-500/20"
                         : "bg-primary text-primary-foreground shadow-primary/20"
                     )}>
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Amount Due</p>
-                          <p className="text-[8px] font-bold opacity-60 italic uppercase tracking-tighter">VAT inclusive (if applicable)</p>
+                          <p className="text-[9px] font-black uppercase tracking-widest opacity-80">Total Amount Due</p>
+                          <p className="text-[7px] font-bold opacity-60 italic uppercase tracking-tighter">VAT inclusive (if applicable)</p>
                         </div>
-                        <span className="text-3xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
+                        <span className="text-2xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
                       </div>
 
                       {sale.amountPaidNgn && (
@@ -589,12 +589,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                             <span className="font-mono">{fmtNgn(sale.amountPaidNgn)}</span>
                           </div>
                           {(sale as any).remainingBalanceNgn > 0 ? (
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest bg-white/10 rounded-lg px-2 py-1.5">
+                            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest bg-white/10 rounded-lg px-2 py-1.5">
                               <span className="flex items-center gap-1">⚠️ Balance Due (Debt)</span>
                               <span className="font-mono">{fmtNgn((sale as any).remainingBalanceNgn)}</span>
                             </div>
                           ) : (
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
+                            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest opacity-90">
                               <span>Change Given</span>
                               <span className="font-mono">{fmtNgn(sale.changeGivenNgn || 0)}</span>
                             </div>
@@ -610,24 +610,24 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     </p>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3 pt-2 pb-4">
+                  <div className="grid grid-cols-2 gap-2 pt-2 pb-2">
                     <Button 
                       variant="outline"
-                      className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
+                      className="gap-2 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest border hover:bg-muted/50"
                       onClick={handlePrint}
                     >
                       <Printer className="h-5 w-5" /> Print
                     </Button>
                     <Button 
                       variant="outline"
-                      className="gap-2 rounded-2xl h-14 font-black uppercase text-xs tracking-widest border-2 hover:bg-muted/50"
+                      className="gap-2 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest border hover:bg-muted/50"
                       onClick={handleDownloadPDF}
                       disabled={downloading}
                     >
                       <Download className="h-5 w-5" /> PDF
                     </Button>
                     <Button 
-                      className="col-span-2 gap-3 rounded-2xl h-14 font-black uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+                      className="col-span-2 gap-2 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
                       onClick={handleWhatsAppText}
                     >
                       <MessageCircle className="h-5 w-5" /> Send to WhatsApp

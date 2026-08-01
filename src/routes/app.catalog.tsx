@@ -566,7 +566,7 @@ function CatalogPage() {
       <CSVImportGuideModal open={guideOpen} onOpenChange={setGuideOpen} />
 
       <Dialog open={isCsvStudioOpen} onOpenChange={setIsCsvStudioOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-6">
+        <DialogContent className="max-w-5xl max-h-[90vh] w-[95vw] sm:w-[90vw] overflow-y-auto p-4 sm:p-6 mx-auto">
           <CSVProcessorStudio onClose={() => setIsCsvStudioOpen(false)} />
         </DialogContent>
       </Dialog>

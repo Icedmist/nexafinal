@@ -167,9 +167,13 @@ function AdminTrackerPage() {
   // --- Filtering computations ---
   const filteredSales = useMemo(() => {
     return sales.filter((s) => {
-      const query = salesSearch.toLowerCase();
-      const matchesSearch = !query || 
-        s.id.toLowerCase().includes(query) ||
+      const query = salesSearch.trim().toLowerCase();
+      const receiptLikeId = [s.id, s.collectionCode, s.customerPhone, s.customerEmail]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .join(" ");
+      const matchesSearch = !query ||
+        receiptLikeId.includes(query) ||
         (s.customerName && s.customerName.toLowerCase().includes(query)) ||
         (s.customerPhone && s.customerPhone.includes(query));
 
@@ -760,7 +764,7 @@ function AdminTrackerPage() {
               <div className="relative w-full md:w-72">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by ID, Customer Name..."
+                  placeholder="Search by receipt ID, transaction ID, or customer..."
                   className="pl-8 bg-background text-sm h-9"
                   value={salesSearch}
                   onChange={(e) => setSalesSearch(e.target.value)}
