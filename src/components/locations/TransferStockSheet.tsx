@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowRightLeft, X, Box, MapPin, Package, AlertCircle } from "lucide-react";
+import { ArrowRightLeft, X, Box, MapPin, Package, BadgeDollarSign, HandCoins, User } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -27,18 +27,28 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useItems, useLocations } from "@/hooks/useInventoryData";
 import { useCreateMovement } from "@/hooks/useInventoryMutations";
+import { useSalesMutations } from "@/hooks/useSalesData";
+import { useManagerCollections } from "@/hooks/useManagerCollections";
+import { useStaff } from "@/hooks/useStaffData";
 import { MovementType } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
+
+const NAIRA = "₦";
 
 const schema = z.object({
   itemId: z.string().min(1, "Select an item"),
   fromLocationId: z.string().min(1, "Select source location"),
   toLocationId: z.string().min(1, "Select destination location"),
   quantity: z.coerce.number().int().min(1, "Minimum 1"),
+  priceMode: z.enum(["predefined", "custom"]),
+  unitPrice: z.coerce.number().min(0, "Enter a valid transfer price"),
+  recordAsDebt: z.boolean(),
+  receiverManagerId: z.string(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -57,6 +67,26 @@ export function TransferStockSheet({
   const { data: items } = useItems();
   const { data: locations } = useLocations();
   const createMovement = useCreateMovement();
+  const { addSale } = useSalesMutations();
+  const { createCollection } = useManagerCollections();
+  const { data: staffMembers } = useStaff();
+  const { storeId, profile } = useBusiness();
+  const { user } = useAuth();
+
+  const availableManagers = useMemo(() => {
+    if (staffMembers && staffMembers.length > 0) {
+      return staffMembers.map((m) => ({
+        id: m.uid,
+        name: m.displayName || m.email,
+        role: m.role,
+      }));
+    }
+    return [
+      { id: "u2", name: "Sarah Manager", role: "manager" as const },
+      { id: "u5", name: "Alice Clerk", role: "manager" as const },
+      { id: "u3", name: "Dave Staff", role: "manager" as const },
+    ];
+  }, [staffMembers]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -65,16 +95,34 @@ export function TransferStockSheet({
       fromLocationId: "",
       toLocationId: "",
       quantity: 1,
+      priceMode: "predefined",
+      unitPrice: 0,
+      recordAsDebt: true,
+      receiverManagerId: "",
     },
   });
 
   const selectedItemId = form.watch("itemId");
   const fromLocationId = form.watch("fromLocationId");
+  const quantity = form.watch("quantity");
+  const priceMode = form.watch("priceMode");
+  const recordAsDebt = form.watch("recordAsDebt");
 
   const selectedItem = useMemo(
     () => items.find((i) => i.id === selectedItemId),
     [items, selectedItemId],
   );
+
+  const predefinedPrice = useMemo(() => {
+    if (!selectedItem) return 0;
+    return Number(
+      selectedItem.sellingPrice ?? selectedItem.wholesalePrice ?? selectedItem.costPrice ?? 0,
+    );
+  }, [selectedItem]);
+
+  const effectiveUnitPrice =
+    priceMode === "predefined" ? predefinedPrice : Number(form.watch("unitPrice")) || 0;
+  const totalValue = effectiveUnitPrice * Number(quantity || 0);
 
   // Items that have a location assigned
   const assignedItems = useMemo(
@@ -84,7 +132,9 @@ export function TransferStockSheet({
 
   const maxQty = selectedItem?.currentStock ?? 0;
 
-  function onSubmit(values: FormValues) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function onSubmit(values: FormValues) {
     if (values.fromLocationId === values.toLocationId) {
       form.setError("toLocationId", {
         message: "Destination must differ from source",
@@ -99,31 +149,110 @@ export function TransferStockSheet({
       return;
     }
 
+    if (values.recordAsDebt && !values.receiverManagerId) {
+      form.setError("receiverManagerId", {
+        message: "Select the receiving manager",
+      });
+      return;
+    }
+
     const fromLoc = locations.find((l) => l.id === values.fromLocationId);
     const toLoc = locations.find((l) => l.id === values.toLocationId);
+    if (!selectedItem || !fromLoc || !toLoc) return;
 
-    const { user } = useAuth();
+    const unitPriceValue =
+      values.priceMode === "predefined" ? predefinedPrice : Number(values.unitPrice) || 0;
+    const transferValue = unitPriceValue * values.quantity;
+    setIsSubmitting(true);
 
-    createMovement.mutate(
-      {
-        itemId: values.itemId,
-        type: MovementType.Transferred,
-        quantity: values.quantity,
-        fromLocationId: values.fromLocationId,
-        toLocationId: values.toLocationId,
-        reference: `Transfer: ${fromLoc?.name ?? ""} → ${toLoc?.name ?? ""}`,
-        notes: "",
-        performedBy: user?.email || "System",
+    try {
+      // 1. Record the transfer as a manager-to-manager sale: the source manager
+      // sells the goods to the destination manager's branch. When recorded as a
+      // debt, the sale is a credit sale (the destination manager still owes).
+      await addSale({
+        customerName: `${toLoc.name} (Manager Transfer)`,
+        customerPhone: "",
+        items: [
+          {
+            itemId: values.itemId,
+            itemName: selectedItem.name,
+            sku: selectedItem.sku || "",
+            quantity: values.quantity,
+            unitPriceNgn: unitPriceValue,
+            selectedUnit: "unit",
+          },
+        ],
+        totalNgn: transferValue,
+        subtotalNgn: transferValue,
+        paymentMethod: "transfer",
+        saleType: "wholesale",
+        isCreditSale: values.recordAsDebt,
+        amountPaidNgn: values.recordAsDebt ? 0 : transferValue,
         createdAt: new Date().toISOString(),
-      },
-      {
-        onSuccess: () => {
-          toast.success("Stock transferred successfully");
-          form.reset();
-          onOpenChange(false);
+      });
+
+      // 2. When recorded as debt, log the destination manager's collection so
+      // the outstanding value shows up in the manager debt tracking system.
+      if (values.recordAsDebt) {
+        const receiver = availableManagers.find((m) => m.id === values.receiverManagerId);
+        if (receiver) {
+          await createCollection({
+            managerId: receiver.id,
+            managerName: receiver.name,
+            storeId: storeId ?? "",
+            storeName: profile?.storeDetails?.name,
+            items: [
+              {
+                itemId: values.itemId,
+                itemName: selectedItem.name,
+                sku: selectedItem.sku || "",
+                quantityCollected: values.quantity,
+                unitPriceNgn: unitPriceValue,
+              },
+            ],
+            collectionDate: new Date().toISOString(),
+            notes: `Stock transfer: ${fromLoc.name} → ${toLoc.name}`,
+            debtPayments: [],
+          });
+        }
+      }
+
+      // 3. Log the inter-location transfer movement with its price.
+      createMovement.mutate(
+        {
+          itemId: values.itemId,
+          type: MovementType.Transferred,
+          quantity: values.quantity,
+          fromLocationId: values.fromLocationId,
+          toLocationId: values.toLocationId,
+          unitPrice: unitPriceValue,
+          value: transferValue,
+          reference: `Transfer: ${fromLoc.name ?? ""} → ${toLoc.name ?? ""}`,
+          notes: `Manager-to-manager sale · ${values.quantity} × ${NAIRA}${unitPriceValue.toLocaleString("en-NG")}`,
+          performedBy: user?.email || "System",
+          createdAt: new Date().toISOString(),
         },
-      },
-    );
+        {
+          onSuccess: () => {
+            setIsSubmitting(false);
+            toast.success(
+              values.recordAsDebt
+                ? "Stock transferred and recorded as manager debt"
+                : "Stock transferred and recorded as a sale",
+            );
+            form.reset();
+            onOpenChange(false);
+          },
+          onError: (e) => {
+            setIsSubmitting(false);
+            toast.error(e.message || "Transfer recorded, but movement log failed");
+          },
+        },
+      );
+    } catch (err) {
+      setIsSubmitting(false);
+      toast.error(err instanceof Error ? err.message : "Failed to record transfer");
+    }
   }
 
   return (
@@ -169,6 +298,12 @@ export function TransferStockSheet({
                           if (item?.locationId) {
                             form.setValue("fromLocationId", item.locationId);
                           }
+                          // Default the transfer price to the product's predefined price
+                          const predefined = Number(
+                            item?.sellingPrice ?? item?.wholesalePrice ?? item?.costPrice ?? 0,
+                          );
+                          form.setValue("unitPrice", predefined);
+                          form.setValue("priceMode", "predefined");
                         }}
                         value={field.value}
                       >
@@ -281,9 +416,117 @@ export function TransferStockSheet({
                   )}
                 />
 
+                {/* Prices — transfers are sales between managers */}
+                <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <BadgeDollarSign className="h-3 w-3 text-primary" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      Transfer Price
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-bold text-muted-foreground">Use predefined price</p>
+                      <p className="text-[10px] text-muted-foreground/70">
+                        {selectedItem ? `${NAIRA}${predefinedPrice.toLocaleString("en-NG")} per unit` : "Select a product first"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={priceMode === "predefined"}
+                      onCheckedChange={(checked) => {
+                        form.setValue("priceMode", checked ? "predefined" : "custom");
+                        if (checked) form.setValue("unitPrice", predefinedPrice);
+                      }}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="unitPrice"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[10px] font-bold text-muted-foreground">
+                          Unit Price ({NAIRA})
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            disabled={priceMode === "predefined"}
+                            {...field}
+                            className="h-11 rounded-xl border-2 font-mono font-black disabled:opacity-60"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex items-center justify-between rounded-xl bg-background px-4 py-3 border-2 border-dashed border-primary/20">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      Total Transfer Value
+                    </span>
+                    <span className="font-mono font-black text-lg text-primary">
+                      {NAIRA}{totalValue.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Debt */}
+                <div className="rounded-2xl border-2 border-muted bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <HandCoins className="h-3 w-3 text-amber-500" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Record as Manager Debt
+                      </span>
+                    </div>
+                    <Switch
+                      checked={recordAsDebt}
+                      onCheckedChange={(checked) => form.setValue("recordAsDebt", checked)}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    The receiving manager owes the full transfer value until it is
+                    remitted. This appears in the manager debt tracking section.
+                  </p>
+                  {recordAsDebt && (
+                    <FormField
+                      control={form.control}
+                      name="receiverManagerId"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <div className="flex items-center gap-2 ml-1">
+                            <User className="h-3 w-3 text-muted-foreground" />
+                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                              Receiving Manager
+                            </FormLabel>
+                          </div>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-11 rounded-xl border-2 font-bold">
+                                <SelectValue placeholder="Select manager" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-xl">
+                              {availableManagers.map((m) => (
+                                <SelectItem key={m.id} value={m.id} className="font-bold">
+                                  {m.name} <span className="ml-2 text-[10px] opacity-60 uppercase">({m.role})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+
                 <div className="flex flex-col gap-3 pt-4 px-1">
-                  <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20" disabled={createMovement.isLoading}>
-                    {createMovement.isLoading ? "Processing..." : "Confirm Stock Transfer"}
+                  <Button type="submit" className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20" disabled={createMovement.isLoading || isSubmitting}>
+                    {createMovement.isLoading || isSubmitting ? "Processing..." : "Confirm Stock Transfer"}
                   </Button>
                   <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full h-11 rounded-xl font-bold text-muted-foreground">
                     Cancel

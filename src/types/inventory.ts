@@ -316,6 +316,8 @@ export interface StockMovement {
   performedBy: string;
   performedByName?: string;
   branchId?: string | null;
+  unitPrice?: number;
+  value?: number;
   createdAt: string;
 }
 

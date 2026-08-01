@@ -63,6 +63,7 @@ export function MovementFormSheet({
   const [reference, setReference] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
   const [toLocationId, setToLocationId] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Reset form when opening
@@ -75,6 +76,7 @@ export function MovementFormSheet({
       setReference("");
       setFromLocationId("");
       setToLocationId("");
+      setUnitPrice("");
       setErrors({});
     }
   }, [open, preSelectedItemId]);
@@ -123,6 +125,11 @@ export function MovementFormSheet({
       if (fromLocationId && toLocationId && fromLocationId === toLocationId) {
         errs.toLocationId = "Source and destination must differ";
       }
+      // Transfers are sales between managers: a transfer price is required
+      const price = Number(unitPrice);
+      if (!unitPrice || isNaN(price) || price < 0) {
+        errs.unitPrice = "Enter a valid transfer price";
+      }
     }
 
     setErrors(errs);
@@ -135,6 +142,7 @@ export function MovementFormSheet({
     const qty = parseInt(quantity, 10);
     const selectedItem = items.find((i) => i.id === itemId);
     const signedQty = direction === "in" ? qty : -qty;
+    const unitPriceValue = type === MovementType.Transferred ? Number(unitPrice) || 0 : 0;
 
     const movement: StockMovement = {
       id: crypto.randomUUID(),
@@ -146,6 +154,8 @@ export function MovementFormSheet({
       reference,
       notes: reference,
       performedBy: user?.email || "System",
+      unitPrice: unitPriceValue,
+      value: unitPriceValue * qty,
       createdAt: new Date().toISOString(),
     };
 
@@ -187,7 +197,13 @@ export function MovementFormSheet({
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Item *</Label>
               <Select
                 value={itemId || "__none__"}
-                onValueChange={(v) => setItemId(v === "__none__" ? "" : v)}
+                onValueChange={(v) => {
+                  setItemId(v === "__none__" ? "" : v);
+                  const item = items.find((i) => i.id === v);
+                  if (item?.sellingPrice != null) {
+                    setUnitPrice(String(item.sellingPrice));
+                  }
+                }}
                 disabled={!!preSelectedItemId}
               >
                 <SelectTrigger className="h-11 rounded-xl border-2 transition-all focus:ring-primary/20">
@@ -282,6 +298,28 @@ export function MovementFormSheet({
                   </Select>
                   {errors.toLocationId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.toLocationId}</p>}
                 </div>
+              </div>
+            )}
+
+            {/* Prices — transfers are sales between managers */}
+            {isTransfer && (
+              <div className="space-y-2 p-4 rounded-2xl border-2 border-primary/20 bg-primary/5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Transfer Price
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Transfers are recorded as sales from one store manager to another.
+                </p>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="h-11 rounded-xl border-2 font-mono font-bold"
+                  placeholder="0.00"
+                  value={unitPrice}
+                  onChange={(e) => setUnitPrice(e.target.value)}
+                />
+                {errors.unitPrice && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.unitPrice}</p>}
               </div>
             )}
 

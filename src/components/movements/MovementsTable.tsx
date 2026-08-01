@@ -170,6 +170,9 @@ export function MovementsTable({ movements, itemNameMap, locationNameMap }: Move
                       <TableCell className="font-medium">{itemNameMap.get(m.itemId) ?? <span className="italic text-muted-foreground/60 line-through">[Item Deleted]</span>}</TableCell>
                       <TableCell>
                         <span className={`font-mono text-sm font-medium ${dir === "in" ? "text-emerald-600" : "text-red-500"}`}>{dir === "in" ? "+" : "−"}{absQty}</span>
+                        {m.type === MovementType.Transferred && m.value != null && (
+                          <span className="ml-2 font-mono text-xs font-bold text-primary">₦{m.value.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${dir === "in" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"}`}>{dir}</span>
@@ -225,6 +228,9 @@ function MovementDetail({ movement, itemName, fromLocation, toLocation }: Moveme
       )}
       {isTransfer && (fromLocation || toLocation) && (
         <div><span className="font-medium text-foreground">Transfer: </span><span className="text-muted-foreground">{fromLocation ?? "—"} → {toLocation ?? "—"}</span></div>
+      )}
+      {isTransfer && movement.value != null && (
+        <div><span className="font-medium text-foreground">Value: </span><span className="text-muted-foreground font-mono">₦{movement.value.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span></div>
       )}
       <div>
         <a href={`/app/catalog?item=${movement.itemId}`} className="inline-flex items-center gap-1 text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
