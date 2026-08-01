@@ -973,7 +973,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                   const unitName = editingUnitsItem.unit;
                     const cartKey = `${editingUnitsItem.id}:${unitName}:${defaultSaleType}`;
                     const qty = cart.get(cartKey) ?? 0;
-                    const price = defaultSaleType === "wholesale" ? (editingUnitsItem.wholesalePrice ?? editingUnitsItem.sellingPrice) : editingUnitsItem.sellingPrice;
+                    const price = getItemPriceForMode(editingUnitsItem, unitName, defaultSaleType);
                   const conversionFactor = 1;
                   const availableBaseStock = getAvailableStockInBaseUnits(editingUnitsItem.id, cart, items || []);
                   const maxAddable = Math.floor(availableBaseStock / conversionFactor);
@@ -1022,7 +1022,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                   const unitName = u.name;
                   const cartKey = `${editingUnitsItem.id}:${unitName}:${defaultSaleType}`;
                   const qty = cart.get(cartKey) ?? 0;
-                  const basePrice = defaultSaleType === "wholesale" ? (editingUnitsItem.wholesalePrice ?? editingUnitsItem.sellingPrice) : editingUnitsItem.sellingPrice;
+                  const basePrice = getItemPriceForMode(editingUnitsItem, editingUnitsItem.unit, defaultSaleType);
                   const price = u.sellingPrice ?? (basePrice * u.conversionFactor);
                   const conversionFactor = u.conversionFactor;
                   const availableBaseStock = getAvailableStockInBaseUnits(editingUnitsItem.id, cart, items || []);

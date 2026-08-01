@@ -92,9 +92,17 @@ export function summarizeConfig(configString?: string | null): string | null {
 }
 
 export function getItemPriceForMode(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
-  const basePrice = saleType === "wholesale"
-    ? (item.wholesalePrice ?? item.sellingPrice)
-    : item.sellingPrice;
+  let basePrice: number;
+
+  if (saleType === "wholesale") {
+    // Resolution order: pricingTiers.wholesale → pricingTiers.distributor → item.wholesalePrice → item.sellingPrice
+    const tieredWholesale = item.pricingTiers?.tierEnabled
+      ? (item.pricingTiers.wholesale ?? item.pricingTiers.distributor)
+      : undefined;
+    basePrice = tieredWholesale ?? item.wholesalePrice ?? item.sellingPrice;
+  } else {
+    basePrice = item.sellingPrice;
+  }
 
   if (unitName === item.unit) {
     return basePrice;

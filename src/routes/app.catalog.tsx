@@ -130,7 +130,8 @@ function CatalogPage() {
     { key: "reorderPoint", label: "Reorder Point", numeric: true },
     { key: "unit", label: "Unit" },
     { key: "costPrice", label: "Unit Cost", numeric: true },
-    { key: "sellingPrice", label: "Price", numeric: true },
+    { key: "sellingPrice", label: "Retail Price", numeric: true },
+    { key: "wholesalePrice", label: "Wholesale Price", numeric: true },
     { key: "barcode", label: "Barcode" },
   ], []);
 
@@ -504,31 +505,45 @@ function CatalogPage() {
         knownSuppliers={suppliers.map((s) => s.name)}
         onImport={async (rows) => {
           // Build item objects — one per valid row
-          const items = rows.map((row) => ({
-            id: crypto.randomUUID(),
-            sku: row.sku ?? "",
-            barcode: row.barcode ?? null,
-            name: row.name ?? "",
-            description: row.description ?? "",
-            categoryId:
-              categories.find((c) => c.name.toLowerCase() === row.category?.toLowerCase())?.id ?? null,
-            status: ItemStatus.Active,
-            unit: row.unit || "each",
-            currentStock: Number(row.quantity) || 0,
-            reorderPoint: Number(row.reorderPoint) || 0,
-            reorderQuantity: 0,
-            costPrice: Number(row.costPrice) || 0,
-            sellingPrice: Number(row.sellingPrice) || 0,
-            locationId:
-              locations.find((l) => l.name.toLowerCase() === row.location?.toLowerCase())?.id ?? null,
-            supplierId:
-              suppliers.find((s) => s.name.toLowerCase() === row.supplier?.toLowerCase())?.id ?? null,
-            branchId: claims?.branchId ?? null,
-            imageUrl: null,
-            customFields: {},
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          } as any));
+          const items = rows.map((row) => {
+            const retailPrice = Number(row.sellingPrice) || 0;
+            const wholesalePrice = row.wholesalePrice ? Number(row.wholesalePrice) : undefined;
+
+            return {
+              id: crypto.randomUUID(),
+              sku: row.sku ?? "",
+              barcode: row.barcode ?? null,
+              name: row.name ?? "",
+              description: row.description ?? "",
+              categoryId:
+                categories.find((c) => c.name.toLowerCase() === row.category?.toLowerCase())?.id ?? null,
+              status: ItemStatus.Active,
+              unit: row.unit || "each",
+              currentStock: Number(row.quantity) || 0,
+              reorderPoint: Number(row.reorderPoint) || 0,
+              reorderQuantity: 0,
+              costPrice: Number(row.costPrice) || 0,
+              sellingPrice: retailPrice,
+              wholesalePrice: wholesalePrice ?? null,
+              pricingTiers: {
+                retail: retailPrice,
+                ...(wholesalePrice !== undefined && {
+                  wholesale: wholesalePrice,
+                  distributor: wholesalePrice,
+                }),
+                tierEnabled: wholesalePrice !== undefined,
+              },
+              locationId:
+                locations.find((l) => l.name.toLowerCase() === row.location?.toLowerCase())?.id ?? null,
+              supplierId:
+                suppliers.find((s) => s.name.toLowerCase() === row.supplier?.toLowerCase())?.id ?? null,
+              branchId: claims?.branchId ?? null,
+              imageUrl: null,
+              customFields: {},
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as any;
+          });
 
           try {
             const { created, failed } = await batchCreate(items);

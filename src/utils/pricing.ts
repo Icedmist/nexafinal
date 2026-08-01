@@ -32,6 +32,10 @@ export function resolvePrice(
       if (wholesale !== undefined && wholesale !== null && !isNaN(wholesale) && wholesale > 0) {
         return wholesale;
       }
+      // Fall back to distributor price when wholesale is not set
+      if (distributor !== undefined && distributor !== null && !isNaN(distributor) && distributor > 0) {
+        return distributor;
+      }
       if (retail !== undefined && retail !== null && !isNaN(retail) && retail > 0) {
         return retail;
       }

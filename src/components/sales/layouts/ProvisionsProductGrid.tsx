@@ -12,6 +12,7 @@ import {
   getAvailableStockInBaseUnits
 } from "../SalesStepBrowse";
 
+import { getItemPriceForMode } from "../price-utils";
 import type { SalePriceMode } from "../price-utils";
 
 interface ProvisionsProductGridProps {
@@ -506,7 +507,7 @@ export function ProvisionsProductGrid({
                       <div className="min-w-0">
                         <p className="text-xs font-bold truncate">{item.unit} <span className="text-[9px] font-normal text-muted-foreground">(Base)</span></p>
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
-                          {formatNaira(expandedItemSaleType === "wholesale" ? (item.wholesalePrice ?? item.sellingPrice) : item.sellingPrice)}
+                          {formatNaira(getItemPriceForMode(item, item.unit, expandedItemSaleType))}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -544,7 +545,7 @@ export function ProvisionsProductGrid({
 
                     {/* Secondary Units Manager */}
                     {item.units?.map((u) => {
-                      const basePrice = expandedItemSaleType === "wholesale" ? (item.wholesalePrice ?? item.sellingPrice) : item.sellingPrice;
+                      const basePrice = getItemPriceForMode(item, item.unit, expandedItemSaleType);
                       const secondaryPrice = u.sellingPrice ?? (basePrice * u.conversionFactor);
 
                       const key = `${item.id}:${u.name}:${expandedItemSaleType}`;

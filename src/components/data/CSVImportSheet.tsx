@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, type DragEvent } from "react";
-import { Upload, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, X } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, X, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -116,6 +116,38 @@ function parseCSV(text: string): ParsedCSV {
   const rows = lines.slice(1).map(splitRow).filter((r) => r.some((c) => c.length > 0));
 
   return { headers, rows };
+}
+
+// ─── Sample CSV Download ─────────────────────────────────
+
+function downloadSampleCSV(fields: ImportField[]) {
+  const headers = fields.map((f) => f.label);
+  // Build one example row that reflects each field type
+  const exampleRow = fields.map((f) => {
+    if (f.key === "name") return "Sample Product";
+    if (f.key === "sku") return "SKU-001";
+    if (f.key === "description") return "A sample product description";
+    if (f.key === "category") return "General";
+    if (f.key === "supplier") return "Main Supplier";
+    if (f.key === "location") return "Warehouse A";
+    if (f.key === "unit") return "pcs";
+    if (f.key === "barcode") return "1234567890";
+    if (f.numeric) return "0";
+    return "";
+  });
+
+  const csvContent = [
+    headers.join(","),
+    exampleRow.map((v) => (v.includes(",") ? `"${v}"` : v)).join(","),
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "nexa_import_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Auto-mapping ────────────────────────────────────────
@@ -424,6 +456,16 @@ export function CSVImportSheet({
                     {fileError}
                   </div>
                 )}
+
+                {/* Sample download */}
+                <button
+                  type="button"
+                  onClick={() => downloadSampleCSV(fields)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/40 py-3 text-xs font-black uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:text-primary transition-all"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download Sample CSV Template
+                </button>
               </div>
             )}
 
