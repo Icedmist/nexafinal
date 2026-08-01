@@ -56,7 +56,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 
-export function Header() {
+export function Header({ sidebarCollapsed = false, onToggleSidebar }: { sidebarCollapsed?: boolean; onToggleSidebar?: () => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -176,6 +176,19 @@ export function Header() {
         <Menu className="h-5 w-5" />
       </Button>
 
+      {onToggleSidebar && (
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="hidden md:inline-flex rounded-xl hover:bg-primary/5 active:scale-95 transition-all" 
+          onClick={onToggleSidebar} 
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      )}
+
       <div className="flex flex-col md:hidden">
         <span className="text-xs font-black tracking-widest text-primary/70 uppercase">{storeName}</span>
       </div>
@@ -288,7 +301,7 @@ export function Header() {
                 key={s.id}
                 onClick={() => {
                   if (switchStore) {
-                    localStorage.setItem("system_admin_selected_store_slug", s.slug);
+                    localStorage.setItem("nexa_system_admin_selected_store_slug", s.slug);
                     switchStore(s.id);
                     toast.success(`Switched store context to: ${s.name}`);
                     navigate(`/app/dashboard?s=${s.slug}`);

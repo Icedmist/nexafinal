@@ -27,6 +27,9 @@ export interface BusinessProfile {
   branding?: { logo?: string; primaryColor?: string; };
   settings?: Record<string, any>;
   ownerId?: string; // The root owner's UID
+  subscriptionTier?: string;
+  subscriptionStatus?: string;
+  trialEndsAt?: string | null;
 }
 
 interface BusinessContextType {
@@ -51,16 +54,17 @@ const BusinessContext = createContext<BusinessContextType>({
 
 export const useBusiness = () => useContext(BusinessContext);
 
-// Cache key for offline resilience
-const BUSINESS_CACHE_KEY = "nexa_business_profile";
+// Cache key for offline resilience — scoped per user so switching accounts
+// never surfaces another user's cached store/role state.
+const getBusinessCacheKey = (uid: string | null) => `nexa_business_profile_${uid ?? "anonymous"}`;
 
-const cacheBusinessState = (p: BusinessProfile, oId: string | null, sId: string | null) => {
-  try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ profile: p, ownerId: oId, storeId: sId })); } catch (_) {}
+const cacheBusinessState = (p: BusinessProfile, oId: string | null, sId: string | null, uid: string | null) => {
+  try { localStorage.setItem(getBusinessCacheKey(uid), JSON.stringify({ profile: p, ownerId: oId, storeId: sId })); } catch (_) {}
 };
 
-const loadCachedBusinessState = (): { profile: BusinessProfile; ownerId: string | null; storeId: string | null } | null => {
+const loadCachedBusinessState = (uid: string | null): { profile: BusinessProfile; ownerId: string | null; storeId: string | null } | null => {
   try {
-    const c = localStorage.getItem(BUSINESS_CACHE_KEY);
+    const c = localStorage.getItem(getBusinessCacheKey(uid));
     return c ? JSON.parse(c) : null;
   } catch (_) { return null; }
 };
@@ -76,7 +80,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     try {
-      return localStorage.getItem("system_admin_selected_store_id");
+      return localStorage.getItem("nexa_system_admin_selected_store_id");
     } catch (_) {
       return null;
     }
@@ -90,10 +94,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSelectedStoreId(id);
     try {
       if (id) {
-        localStorage.setItem("system_admin_selected_store_id", id);
+        localStorage.setItem("nexa_system_admin_selected_store_id", id);
       } else {
-        localStorage.removeItem("system_admin_selected_store_id");
-        localStorage.removeItem("system_admin_selected_store_slug");
+        localStorage.removeItem("nexa_system_admin_selected_store_id");
+        localStorage.removeItem("nexa_system_admin_selected_store_slug");
         sessionStorage.removeItem("nexa_active_slug");
       }
     } catch (_) {}
@@ -101,13 +105,13 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Load cached business profile immediately for offline resilience
   useEffect(() => {
-    const cached = loadCachedBusinessState();
+    const cached = loadCachedBusinessState(user?.uid ?? null);
     if (cached && cached.profile && !profile) {
       setProfile(cached.profile);
       setOwnerId(cached.ownerId);
       setStoreId(cached.storeId);
     }
-  }, []);
+  }, [user?.uid]);
 
   useEffect(() => {
     // Wait for auth state, tenant info AND claims to be ready before proceeding
@@ -188,7 +192,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
           } catch (lookupErr) {
             console.warn("Store lookup failed (may be offline), using cache:", lookupErr);
-            const cached = loadCachedBusinessState();
+            const cached = loadCachedBusinessState(user?.uid ?? null);
             if (cached && cached.storeId) {
               activeStoreId = cached.storeId;
               activeOwnerId = cached.ownerId || undefined;
@@ -197,7 +201,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           if (!activeStoreId) {
             if (mounted) {
-              const cached = loadCachedBusinessState();
+              const cached = loadCachedBusinessState(user?.uid ?? null);
               if (cached && cached.profile) {
                 setProfile(cached.profile);
                 setOwnerId(cached.ownerId);
@@ -247,10 +251,13 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 branding: data.branding || {},
                 settings: data.settings || {},
                 ownerId: data.ownerId,
+                subscriptionTier: data.subscriptionTier,
+                subscriptionStatus: data.subscriptionStatus,
+                trialEndsAt: data.trialEndsAt ?? null,
               };
               setProfile(newProfile);
               setOwnerId(data.ownerId || null);
-              cacheBusinessState(newProfile, data.ownerId || null, activeStoreId || null);
+              cacheBusinessState(newProfile, data.ownerId || null, activeStoreId || null, user?.uid ?? null);
             } else {
               setProfile(null);
               setNeedsOnboarding(true);

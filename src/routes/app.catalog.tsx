@@ -38,6 +38,7 @@ import { useStoreBranches } from "@/hooks/useStaffData";
 import { exportItemsQRCodes } from "@/lib/bulk-qr";
 import { PermissionGate, usePermissions } from "@/hooks/usePermissions";
 import { useRole } from "@/hooks/useRole";
+import { useSector } from "@/hooks/useSector";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import type { Item } from "@/types/inventory";
 import { ItemStatus, type ItemFilters } from "@/types/inventory";
@@ -148,7 +149,23 @@ function CatalogPage() {
   const deleteItem = useDeleteItem();
   const { can } = usePermissions();
   const { isAdmin } = useRole();
+  const sector = useSector();
   const { flags } = useFeatureFlags();
+
+  const filteredCategories = useMemo(() => {
+    if (sector.type !== "pharmacy") {
+      return categories.filter((c) => {
+        const norm = (c.name || "").toLowerCase() + " " + (c.id || "").toLowerCase();
+        return (
+          !norm.includes("pharmacy") &&
+          !norm.includes("medicine") &&
+          !norm.includes("pharmaceutical") &&
+          !norm.includes("prescription")
+        );
+      });
+    }
+    return categories;
+  }, [categories, sector.type]);
 
   const handlePublishToB2B = () => {
     toast.success(`Successfully published ${selected.size} excess/wholesale items to global bulk B2B catalog!`, {
@@ -285,8 +302,8 @@ function CatalogPage() {
     <div className="mx-auto max-w-[1400px] space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Product Catalog</h1>
-          <p className="text-sm text-muted-foreground">{items.length} items</p>
+          <h1 className="text-2xl font-semibold text-foreground">{sector.t("catalog")}</h1>
+          <p className="text-sm text-muted-foreground">{items.length} {sector.t("item").toLowerCase()}s</p>
         </div>
         <div className="flex items-center gap-2">
           <CSVExportButton
@@ -340,7 +357,7 @@ function CatalogPage() {
           </PermissionGate>
           <PermissionGate permission="create_item">
             <Button onClick={openCreate} className="flex gap-1 items-center h-8 sm:h-9 text-[10px] sm:text-xs">
-              <Plus className="h-3.5 w-3.5" />New Item
+              <Plus className="h-3.5 w-3.5" />{sector.primaryAction || "New Item"}
             </Button>
           </PermissionGate>
         </div>
@@ -349,7 +366,7 @@ function CatalogPage() {
       <CatalogCompletenessMeter items={allItems.map(i => ({ ...i, imageUrl: i.imageUrl || undefined }))} onQuickActionClick={openCreate} />
 
       <Card className="p-4">
-        <CatalogFilters filters={filters} onChange={setFilters} categories={categories} suppliers={suppliers} locations={locations} view={view} onViewChange={handleViewChange} needsReviewCount={allItems.filter((i) => i.needsReview).length} />
+        <CatalogFilters filters={filters} onChange={setFilters} categories={filteredCategories} suppliers={suppliers} locations={locations} view={view} onViewChange={handleViewChange} needsReviewCount={allItems.filter((i) => i.needsReview).length} />
       </Card>
 
       <ErrorBoundary>
@@ -364,7 +381,7 @@ function CatalogPage() {
       ) : view === "list" ? (
         <CatalogTable
           items={items}
-          categories={categories}
+          categories={filteredCategories}
           suppliers={suppliers}
           locations={locations}
           sort={sort}
@@ -378,7 +395,7 @@ function CatalogPage() {
       ) : (
         <CatalogGrid
           items={items}
-          categories={categories}
+          categories={filteredCategories}
           onRowClick={(item) => openDetail(item)}
           actionRenderer={actionRenderer}
           selected={selected}
@@ -393,7 +410,7 @@ function CatalogPage() {
         onOpenChange={handleSheetOpenChange}
         item={editItem}
         defaultBarcode={newBarcode}
-        categories={categories}
+        categories={filteredCategories}
         suppliers={suppliers}
         locations={locations}
         branches={branches}
@@ -406,7 +423,7 @@ function CatalogPage() {
         open={!!detailItem}
         onOpenChange={(v) => { if (!v) closeDetail(); }}
         item={detailItem}
-        categories={categories}
+        categories={filteredCategories}
         suppliers={suppliers}
         locations={locations}
         onEdit={(item) => { closeDetail(); openEdit(item); }}
@@ -444,7 +461,7 @@ function CatalogPage() {
       <PermissionGate permission="edit_item">
         <BulkActionBar
           selectedCount={selected.size}
-          categories={categories}
+          categories={filteredCategories}
           suppliers={suppliers}
           locations={locations}
           onUpdateCategory={(id) => handleBulkUpdate({ categoryId: id })}

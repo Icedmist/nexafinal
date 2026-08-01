@@ -845,7 +845,6 @@ export default function LandingPage() {
               <li><a onClick={() => goto('hiw')} id="nl-hiw" className={activePage === 'hiw' ? 'active' : ''}>How It Works</a></li>
               <li><a onClick={() => goto('about')} id="nl-about" className={activePage === 'about' ? 'active' : ''}>About</a></li>
               <li><a onClick={() => goto('contact')} id="nl-contact" className={activePage === 'contact' ? 'active' : ''}>Contact</a></li>
-              <li><a onClick={() => navigate("/agents")} id="nl-agents" className="cursor-pointer hover:text-emerald-500 font-semibold text-emerald-600 dark:text-emerald-400">Agents</a></li>
             </ul>
             <div className="nav-actions">
               <button className="nav-signin" onClick={handleLogin}>Sign in</button>
@@ -2724,7 +2723,6 @@ export default function LandingPage() {
                 <button className="fc-link" onClick={() => goto('home')}>Pricing</button>
                 <button className="fc-link" onClick={() => handleGetStarted()}>Sign Up Free</button>
                 <button className="fc-link" onClick={() => goto('contact')}>Book a Demo</button>
-                <button className="fc-link text-emerald-400 font-semibold" onClick={() => navigate("/agents")}>Agent Partner Program</button>
               </div>
 
               {/* Company links */}

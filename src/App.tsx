@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { SystemAdminOnly } from "@/components/shared/SystemAdminOnly";
 
 // Lazy load layouts and pages
 const AppLayout = lazy(() => import('./layouts/AppLayout').then(m => ({ default: m.AppLayout })));
@@ -127,8 +128,8 @@ function App() {
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>
 
-            {/* Agents Route (Public) */}
-            <Route path="/agents" element={<AgentsPage />} />
+            {/* Agents Route (System Admin Only) */}
+            <Route path="/agents" element={<SystemAdminOnly><AgentsPage /></SystemAdminOnly>} />
 
             {/* System Admin Routes (Platform Oversight) */}
             <Route path="/system-admin" element={<SystemAdminLayout />}>
@@ -156,7 +157,7 @@ function App() {
             {/* Other Routes */}
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/scan/:id" element={<ScanPage />} />
-            <Route path="/sitemap" element={<SiteMapPage />} />
+            <Route path="/sitemap" element={<SystemAdminOnly><SiteMapPage /></SystemAdminOnly>} />
 
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />

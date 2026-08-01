@@ -1,4 +1,4 @@
-import { Package, ShoppingCart, ClipboardList, AlertTriangle, Info, X, LogIn, UserPlus, Receipt, ArrowRightLeft } from "lucide-react";
+import { Package, ShoppingCart, ClipboardList, AlertTriangle, Info, X, LogIn, UserPlus, Receipt, ArrowRightLeft, Megaphone, Clock } from "lucide-react";
 import type { NotificationType } from "@/types/inventory";
 import { cn } from "@/lib/utils";
 
@@ -7,8 +7,10 @@ const ICON_MAP: Record<NotificationType, { icon: React.ReactNode; color: string 
   zero_stock: { icon: <AlertTriangle className="h-4 w-4" />, color: "text-destructive" },
   po_reminder: { icon: <ShoppingCart className="h-4 w-4" />, color: "text-blue-500" },
   po_overdue: { icon: <ShoppingCart className="h-4 w-4" />, color: "text-destructive" },
+  po_update: { icon: <Megaphone className="h-4 w-4" />, color: "text-primary" },
   request_update: { icon: <ClipboardList className="h-4 w-4" />, color: "text-primary" },
   inventory_request: { icon: <ClipboardList className="h-4 w-4" />, color: "text-primary" },
+  expiry_warning: { icon: <Clock className="h-4 w-4" />, color: "text-amber-500" },
   system: { icon: <Info className="h-4 w-4" />, color: "text-muted-foreground" },
   login: { icon: <LogIn className="h-4 w-4" />, color: "text-emerald-500" },
   staff_onboarding: { icon: <UserPlus className="h-4 w-4" />, color: "text-violet-500" },

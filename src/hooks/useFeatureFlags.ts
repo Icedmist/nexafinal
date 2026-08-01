@@ -21,6 +21,12 @@ export interface FeatureFlags {
 }
 
 const PLAN_FLAGS: Record<string, Partial<FeatureFlags>> = {
+  premium: {
+    hasEcommerce: true,
+    hasAffiliates: true,
+    hasAI: true,
+    hasTracker: true,
+  },
   starter: {
     hasEcommerce: false,
     hasAffiliates: false,
@@ -47,11 +53,17 @@ export function useFeatureFlags(): { flags: FeatureFlags } {
   const sectorConfig = useSector();
 
   const flags = useMemo(() => {
-    const planId = isDemo ? "professional" : (profile?.settings?.planId || "starter");
-    const planName = isDemo ? "Pro Plan" : (profile?.settings?.planName || "Starter");
-    const status = isDemo ? "active" : (profile?.settings?.subscriptionStatus || "active");
+    const planId = isDemo
+      ? "professional"
+      : (profile?.subscriptionTier || profile?.settings?.planId || "premium");
+    const planName = isDemo
+      ? "Pro Plan"
+      : (profile?.settings?.planName || "Premium Plan");
+    const status = isDemo
+      ? "active"
+      : (profile?.subscriptionStatus || profile?.settings?.subscriptionStatus || "active");
 
-    const planOverrides = PLAN_FLAGS[planId] || PLAN_FLAGS.starter;
+    const planOverrides = PLAN_FLAGS[planId] || PLAN_FLAGS.premium;
 
     return {
       hasExpiry: sectorConfig?.features?.hasExpiry ?? false,

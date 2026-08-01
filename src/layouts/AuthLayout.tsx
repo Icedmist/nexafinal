@@ -36,8 +36,6 @@ export function AuthLayout() {
 
       <footer className="px-6 py-8 flex flex-col items-center gap-4 text-center text-xs font-bold text-muted-foreground uppercase tracking-widest opacity-50">
         <div className="flex items-center gap-4">
-          <Link to="/sitemap" className="hover:text-primary transition-colors">Site Map</Link>
-          <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
           <a href={(() => {
             const host = window.location.host;
             if (host.includes('localhost') || host.includes('127.0.0.1')) {

@@ -50,7 +50,14 @@ export function ProvisionStoreDialog({ open, onOpenChange, onSuccess }: Provisio
         status: "active",
         setupComplete: false,
         subscriptionTier: "starter",
-        subscriptionStatus: "trial",
+        subscriptionStatus: "trialing",
+        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        paymentMethodOnFile: false,
+        settings: {
+          planId: "starter",
+          planName: "Starter Plan",
+          subscriptionStatus: "trialing",
+        },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

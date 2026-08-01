@@ -6,6 +6,7 @@ import { collection, addDoc, query, where, getDocs, limit, getDoc, doc, setDoc }
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { SetupWizard, type SetupWizardData } from "@/components/onboarding/SetupWizard";
+import { DEFAULT_PLANS } from "@/utils/subscriptionUtils";
 
 export default OnboardingPage;
 
@@ -82,6 +83,8 @@ function OnboardingPage() {
       }
 
       // 2. Create store document
+      const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      const chosenPlan = DEFAULT_PLANS.find(p => p.planId === data.planId) || DEFAULT_PLANS[0];
       const storeRef = await addDoc(collection(db, "stores"), {
         name: data.storeName,
         slug: data.slug,
@@ -93,8 +96,19 @@ function OnboardingPage() {
         branding: {
           primaryColor: data.primaryColor,
         },
+        // Subscription tier assignment: new stores pick a plan at onboarding
+        // and begin a 14-day trial before they need to make a payment.
+        subscriptionTier: chosenPlan.planId,
+        subscriptionStatus: "trialing",
+        trialEndsAt,
+        currentPeriodEnd: trialEndsAt,
+        paymentMethodOnFile: false,
         settings: {
           moniepointEnabled: !!data.moniepointKey,
+          planId: chosenPlan.planId,
+          planName: chosenPlan.name,
+          subscriptionStatus: "trialing",
+          trialEndsAt,
         },
         storeDetails: {
           name: data.storeName,

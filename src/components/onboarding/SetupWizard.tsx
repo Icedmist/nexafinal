@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { getLucideIcon } from "@/utils/lucideIconMap";
+import { cn } from "@/lib/utils";
 
 const NAIRA = "₦";
 
@@ -53,6 +54,32 @@ const CATEGORY_PRESETS: Record<string, string[]> = {
   general: ["General Goods", "Office Supplies", "Tools", "Equipment"],
 };
 
+// Subscription plan choices offered during onboarding
+const PLAN_OPTIONS = [
+  {
+    planId: "starter",
+    name: "Starter",
+    price: "₦3,500/mo",
+    tagline: "For new merchants getting started",
+    perks: ["Single-store POS", "Core catalog & sales", "1 branch"],
+  },
+  {
+    planId: "professional",
+    name: "Pro",
+    price: "₦6,500/mo",
+    tagline: "For growing businesses",
+    perks: ["Multi-tier pricing", "Digital storefront", "Up to 3 branches"],
+    recommended: true,
+  },
+  {
+    planId: "enterprise",
+    name: "Enterprise",
+    price: "₦45,000/mo",
+    tagline: "For high-volume operations",
+    perks: ["B2B marketplace", "AI assistant", "Up to 10 branches"],
+  },
+];
+
 export interface QuickProductInput {
   name: string;
   costPrice: string;
@@ -69,6 +96,7 @@ export interface SetupWizardData {
   sector: string;
   categories: string[];
   products: QuickProductInput[];
+  planId: string;
 }
 
 interface SetupWizardProps {
@@ -103,6 +131,7 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
   const [selectedSector, setSelectedSector] = useState(SECTORS[0]); // Default to Retail
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [categoryInput, setCategoryInput] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState("professional");
   const [products, setProducts] = useState<QuickProductInput[]>([
     { name: "", costPrice: "", price: "", stock: "", unit: "Piece" }
   ]);
@@ -216,7 +245,8 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
         primaryColor: primaryColor.hex,
         sector: selectedSector.id,
         categories: customCategories,
-        products: validProducts
+        products: validProducts,
+        planId: selectedPlan
       });
     } catch (err: any) {
       console.error(err);
@@ -230,7 +260,7 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
         <motion.div 
           className="h-full bg-primary"
           initial={{ width: "20%" }}
-          animate={{ width: `${(step / 5) * 100}%` }}
+          animate={{ width: `${(step / 6) * 100}%` }}
           transition={{ duration: 0.3 }}
           style={{ backgroundColor: primaryColor.hex }}
         />
@@ -241,17 +271,18 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
         <div className="flex flex-col">
           <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Onboarding Progress</span>
           <h2 className="text-sm font-extrabold uppercase mt-0.5 tracking-tight flex items-center gap-1.5">
-            Step {step} of 5 <span className="text-muted-foreground/30">|</span> <span style={{ color: primaryColor.hex }}>{
+            Step {step} of 6 <span className="text-muted-foreground/30">|</span> <span style={{ color: primaryColor.hex }}>{
               step === 1 ? "Store Profile & Integrations" :
               step === 2 ? "Aesthetic Branding" :
               step === 3 ? "Sector Selection" :
               step === 4 ? "Categories Mapping" :
-              "Bulk Inventory Load"
+              step === 5 ? "Bulk Inventory Load" :
+              "Choose Your Plan"
             }</span>
           </h2>
         </div>
         <div className="flex gap-1.5">
-          {[1, 2, 3, 4, 5].map((s) => (
+          {[1, 2, 3, 4, 5, 6].map((s) => (
             <div 
               key={s} 
               className="h-2 w-2 rounded-full transition-all duration-300"
@@ -737,6 +768,71 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
                 </div>
               </div>
             )}
+
+            {/* STEP 6: PLAN SELECTION */}
+            {step === 6 && (
+              <div className="space-y-4 py-2">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-primary" style={{ color: primaryColor.hex }} /> Choose Your Plan
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Start with a 14-day free trial on any plan. You only pay after your trial ends, or whenever your platform administrator activates billing.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {PLAN_OPTIONS.map((plan) => {
+                    const isSelected = selectedPlan === plan.planId;
+                    return (
+                      <button
+                        key={plan.planId}
+                        type="button"
+                        onClick={() => setSelectedPlan(plan.planId)}
+                        className={cn(
+                          "relative rounded-2xl border-2 p-4 text-left transition-all",
+                          isSelected
+                            ? "border-primary bg-primary/5 shadow-lg"
+                            : "border-border bg-background hover:border-primary/40"
+                        )}
+                      >
+                        {plan.recommended && (
+                          <span className="absolute -top-2.5 right-3 rounded-full bg-primary px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                            Popular
+                          </span>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-black uppercase tracking-tight">{plan.name}</span>
+                          <span className={cn(
+                            "h-4 w-4 rounded-full border-2 flex items-center justify-center",
+                            isSelected ? "border-primary" : "border-muted-foreground/40"
+                          )}>
+                            {isSelected && <span className="h-2 w-2 rounded-full bg-primary" />}
+                          </span>
+                        </div>
+                        <span className="mt-1 block text-lg font-black" style={{ color: primaryColor.hex }}>{plan.price}</span>
+                        <span className="mt-0.5 block text-[10px] text-muted-foreground">{plan.tagline}</span>
+                        <ul className="mt-3 space-y-1.5">
+                          {plan.perks.map((perk) => (
+                            <li key={perk} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                              <Check className="h-3 w-3 mt-0.5 shrink-0" style={{ color: primaryColor.hex }} />
+                              {perk}
+                            </li>
+                          ))}
+                        </ul>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center gap-2.5">
+                  <ShieldAlert className="h-4 w-4 text-primary shrink-0" />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    <strong className="text-foreground">Free 14-day trial.</strong> No card required now. We&apos;ll remind you before your trial ends so you can continue without interruption.
+                  </p>
+                </div>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -756,7 +852,7 @@ export function SetupWizard({ onComplete, loading }: SetupWizardProps) {
           <div />
         )}
 
-        {step < 5 ? (
+        {step < 6 ? (
           <Button
             onClick={handleNext}
             className="h-11 rounded-xl font-black uppercase text-[10px] tracking-widest gap-1 text-white hover:opacity-90 active:scale-98 transition-all shadow-lg"

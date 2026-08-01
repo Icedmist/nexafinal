@@ -32,13 +32,16 @@ import { doc, setDoc, onSnapshot, collection, addDoc } from "firebase/firestore"
 interface StoreDoc {
   id: string;
   name: string;
-  sector: string;
-  manager: string;
-  managerEmail: string;
-  valuationNgn: number;
-  itemCount: number;
-  status: string;
-  healthScore: number;
+  slug?: string;
+  ownerId?: string;
+  businessType?: string;
+  status?: string;
+  subscriptionTier?: string;
+  subscriptionStatus?: string;
+  managerEmail?: string;
+  storeDetails?: { name?: string; phone?: string; address?: string };
+  settings?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 interface UserDoc {
@@ -123,7 +126,7 @@ export default function SystemAdminUpdates() {
   }, [superUsers]);
 
   const paidStoresList = useMemo(() => {
-    return superStores.filter(s => s.valuationNgn > 0 || s.itemCount > 10 || s.status === "active");
+    return superStores.filter(s => s.subscriptionStatus === "active");
   }, [superStores]);
 
   const handleDispatchBroadcast = async (e: React.FormEvent) => {
@@ -163,8 +166,25 @@ export default function SystemAdminUpdates() {
       const notifId = `broadcast-${Date.now()}`;
 
       if (sendInApp) {
-        const notifPayload = {
-          id: notifId,
+        // Resolve which store feeds should receive the in-app broadcast.
+        // Store notifications are scoped per store (storeId query), so broadcasts
+        // to "all"/"paid"/"new_users" must fan out to each target store's feed.
+        let targetStores: StoreDoc[] = [];
+        if (targetAudience === "store") {
+          const storeObj = superStores.find(s => s.id === targetStoreId);
+          if (storeObj) targetStores = [storeObj];
+        } else if (targetAudience === "user") {
+          const userObj = superUsers.find(u => u.id === targetUserId);
+          const storeObj = userObj?.storeId ? superStores.find(s => s.id === userObj.storeId) : undefined;
+          if (storeObj) targetStores = [storeObj];
+        } else if (targetAudience === "paid") {
+          targetStores = paidStoresList;
+        } else {
+          // "all" and "new_users" fall back to every store feed.
+          targetStores = superStores;
+        }
+
+        const baseNotifPayload = {
           type: "po_update" as const,
           title: `📢 ${broadcastTitle}`,
           message: broadcastMessage,
@@ -174,13 +194,19 @@ export default function SystemAdminUpdates() {
           targetAudience,
           targetStoreId: targetAudience === "store" ? targetStoreId : null,
           targetUserId: targetAudience === "user" ? targetUserId : null,
-          storeId: targetAudience === "store" ? targetStoreId : null,
           branchId: null,
         };
-        try {
-          await addDoc(collection(db, "notifications"), notifPayload);
-        } catch (e) {
-          console.warn("Firestore notification create fallback:", e);
+
+        for (const store of targetStores) {
+          try {
+            await addDoc(collection(db, "notifications"), {
+              ...baseNotifPayload,
+              id: `${notifId}-${store.id.slice(-8)}`,
+              storeId: store.id,
+            });
+          } catch (e) {
+            console.warn("Firestore notification create fallback:", e);
+          }
         }
       }
 
@@ -400,7 +426,7 @@ export default function SystemAdminUpdates() {
                     <SelectContent>
                       {superStores.map(store => (
                         <SelectItem key={store.id} value={store.id} className="text-xs">
-                          {store.name} ({store.sector}) - Manager: {store.manager}
+                          {store.name}{store.businessType ? ` (${store.businessType})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -573,9 +599,9 @@ export default function SystemAdminUpdates() {
                           <span className="text-xs font-bold text-foreground">{s.name}</span>
                           <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/10 text-[9px] uppercase font-bold py-0">Active Paid</Badge>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">Manager: {s.manager} ({s.managerEmail})</p>
+                        <p className="text-[11px] text-muted-foreground">Owner: {s.ownerId || "—"}</p>
                         <span className="text-[10px] text-emerald-600 font-bold block">
-                          Valuation: ₦{s.valuationNgn.toLocaleString()} • Health Score {s.healthScore}%
+                          Plan: {s.subscriptionTier || "—"} • Status: {s.subscriptionStatus || "no subscription"}
                         </span>
                       </div>
                       <Button variant="ghost" size="sm" className="text-[11px] h-7 text-emerald-600 hover:bg-emerald-500/10 gap-1 font-bold"

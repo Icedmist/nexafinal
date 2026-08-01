@@ -58,7 +58,7 @@ const detectSlug = () => {
   if (cachedActiveSlug) return cachedActiveSlug;
 
   // Priority 4: Fallback to system admin selected store slug in localStorage
-  const persistActiveSlug = localStorage.getItem("system_admin_selected_store_slug");
+  const persistActiveSlug = localStorage.getItem("nexa_system_admin_selected_store_slug");
   if (persistActiveSlug) return persistActiveSlug;
   
   return "";
@@ -111,8 +111,8 @@ export function useTenant() {
             const data = JSON.parse(sessionCached);
             setStore(data);
             // Sync with system admin selected store for context alignment
-            localStorage.setItem("system_admin_selected_store_id", data.id);
-            localStorage.setItem("system_admin_selected_store_slug", data.slug);
+            localStorage.setItem("nexa_system_admin_selected_store_id", data.id);
+            localStorage.setItem("nexa_system_admin_selected_store_slug", data.slug);
             setLoading(false);
             return; // Session cache is fresh enough — done
           } catch (e) {
@@ -129,8 +129,8 @@ export function useTenant() {
             const data = JSON.parse(persistCached);
             setStore(data);
             // Sync with system admin selected store for context alignment
-            localStorage.setItem("system_admin_selected_store_id", data.id);
-            localStorage.setItem("system_admin_selected_store_slug", data.slug);
+            localStorage.setItem("nexa_system_admin_selected_store_id", data.id);
+            localStorage.setItem("nexa_system_admin_selected_store_slug", data.slug);
             setLoading(false);
             loadedFromCache = true;
             // Don't return — still try to refresh from Firestore below
@@ -158,8 +158,8 @@ export function useTenant() {
             sessionStorage.setItem(sessionKey, JSON.stringify(storeData));
             localStorage.setItem(persistKey, JSON.stringify(storeData));
             // Also update the selected store details for system admin context sync
-            localStorage.setItem("system_admin_selected_store_id", storeData.id);
-            localStorage.setItem("system_admin_selected_store_slug", storeData.slug);
+            localStorage.setItem("nexa_system_admin_selected_store_id", storeData.id);
+            localStorage.setItem("nexa_system_admin_selected_store_slug", storeData.slug);
           }
         }
       } catch (err: any) {

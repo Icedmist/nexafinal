@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSector } from "@/hooks/useSector";
 import type { Item, Category, Supplier, Location } from "@/types/inventory";
@@ -118,7 +119,100 @@ export function CatalogTable({
     </div>
   );
 
-
+  if (isMobile) {
+    return (
+      <div>
+        {showCheckboxes && (
+          <div className="mb-3 flex items-center justify-between bg-muted/40 border border-border/80 px-4 py-3 rounded-2xl text-xs">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(v) => {
+                  if (v) onSelectedChange(new Set(paged.map((i) => i.id)));
+                  else onSelectedChange(new Set());
+                }}
+              />
+              <span className="font-bold text-muted-foreground">Select All on Page ({paged.length})</span>
+            </div>
+            {selected.size > 0 && (
+              <span className="font-semibold text-primary">{selected.size} marked</span>
+            )}
+          </div>
+        )}
+        <div className="space-y-3">
+          {paged.map((item) => (
+            <Card
+              key={item.id}
+              className={cn(
+                "cursor-pointer hover:bg-muted/50 transition-colors relative border-border pb-1",
+                selected.has(item.id) ? "border-primary bg-primary/5" : ""
+              )}
+              onClick={() => onRowClick?.(item)}
+            >
+              <CardHeader className="pb-1.5 pt-3 px-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {showCheckboxes && (
+                      <div className="p-1 -ml-1 mr-0.5" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selected.has(item.id)}
+                          onCheckedChange={(v) => {
+                            const next = new Set(selected);
+                            if (v) {
+                              next.add(item.id);
+                            } else {
+                              next.delete(item.id);
+                            }
+                            onSelectedChange(next);
+                          }}
+                        />
+                      </div>
+                    )}
+                    <CardTitle className="text-sm font-semibold truncate text-foreground leading-snug">
+                      {item.emoji && <span className="mr-1">{item.emoji}</span>}
+                      {item.name}
+                    </CardTitle>
+                  </div>
+                  <div className="shrink-0">
+                    <StatusBadge status={stockStatus(item)} />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1.5 text-xs text-muted-foreground">
+                <div className="flex justify-between items-center transition-all">
+                  <span>SKU</span>
+                  <span className="font-mono text-foreground font-medium">{item.sku}</span>
+                </div>
+                <div className="flex justify-between items-center transition-all">
+                  <span>Qty</span>
+                  <span className="font-mono text-foreground font-medium">
+                    {item.currentStock}
+                    {item.unit && item.unit !== "pcs" && (
+                      <span className="ml-1 text-[10px] uppercase">{item.unit}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center transition-all">
+                  <span>Category</span>
+                  <span className="text-foreground font-medium truncate ml-2 max-w-[180px]">{catMap.get(item.categoryId ?? "") ?? "—"}</span>
+                </div>
+                <div className="flex justify-between items-center transition-all">
+                  <span>Supplier</span>
+                  <span className="text-foreground font-medium truncate ml-2 max-w-[180px]">{supMap.get(item.supplierId ?? "") ?? "—"}</span>
+                </div>
+                {actionRenderer && (
+                  <div className="pt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                    {actionRenderer(item)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {pagination}
+      </div>
+    );
+  }
 
   return (
     <div>

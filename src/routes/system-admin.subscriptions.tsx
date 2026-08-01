@@ -226,6 +226,33 @@ export default function SystemAdminSubscriptions() {
     }
   };
 
+  // System admin approval gate: allow/deny checkout price editing for this store.
+  const priceOverrideApproved = (selectedStore?.settings as Record<string, unknown> | undefined)?.lockPriceAtCheckout === false;
+
+  const handleTogglePriceOverride = async () => {
+    if (!selectedStore) return;
+    const nextLock = priceOverrideApproved; // if currently approved -> lock it, otherwise approve
+
+    try {
+      if (isDemoMode) {
+        const settings = { ...((selectedStore.settings as Record<string, unknown>) || {}), lockPriceAtCheckout: nextLock };
+        const updatedStore = { ...selectedStore, settings };
+        setStores(stores.map(s => s.id === selectedStore.id ? updatedStore : s));
+        setSelectedStore(updatedStore);
+        toast.success(nextLock ? "Price editing locked (Sandbox)." : "Price editing approved (Sandbox).");
+      } else {
+        await updateDoc(doc(db, "stores", selectedStore.id), { "settings.lockPriceAtCheckout": nextLock });
+        const settings = { ...((selectedStore.settings as Record<string, unknown>) || {}), lockPriceAtCheckout: nextLock };
+        const updatedStore = { ...selectedStore, settings };
+        setStores(stores.map(s => s.id === selectedStore.id ? updatedStore : s));
+        setSelectedStore(updatedStore);
+        toast.success(nextLock ? "Price editing locked for this store." : "Price editing approved for this store.");
+      }
+    } catch (err) {
+      toast.error(`Failed to update price override: ${(err as Error).message}`);
+    }
+  };
+
   // Dunning dialog
   const [isDunningDialogOpen, setIsDunningDialogOpen] = useState(false);
   const [dunningStore, setDunningStore] = useState<AdminStore | null>(null);
@@ -317,8 +344,8 @@ export default function SystemAdminSubscriptions() {
       for (const st of stores) {
         const ref = doc(db, "stores", st.id);
         const billingFields = {
-          subscriptionTier: st.subscriptionTier || "starter",
-          subscriptionStatus: st.subscriptionStatus || "trialing",
+          subscriptionTier: st.subscriptionTier || "premium",
+          subscriptionStatus: st.subscriptionStatus || "active",
           currentPeriodEnd: st.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           trialEndsAt: st.trialEndsAt || null,
           paymentMethodOnFile: st.paymentMethodOnFile !== undefined ? st.paymentMethodOnFile : false
@@ -346,7 +373,7 @@ export default function SystemAdminSubscriptions() {
     let cancelledCount = 0;
 
     stores.forEach(s => {
-      const tier = s.subscriptionTier || "starter";
+      const tier = s.subscriptionTier || "premium";
       const plan = plansMap.get(tier) || DEFAULT_PLANS.find(p => p.planId === tier) || DEFAULT_PLANS[0];
       const price = plan.price || 0;
       
@@ -390,7 +417,7 @@ export default function SystemAdminSubscriptions() {
   const planDistribution = useMemo(() => {
     const dist: Record<string, number> = {};
     stores.forEach(s => {
-      const tier = s.subscriptionTier || "starter";
+      const tier = s.subscriptionTier || "premium";
       dist[tier] = (dist[tier] || 0) + 1;
     });
     return Object.entries(dist).map(([name, value]) => ({
@@ -491,8 +518,8 @@ export default function SystemAdminSubscriptions() {
 
   // Delete plan
   const handleDeletePlan = async (pId: string) => {
-    if (["starter", "professional", "enterprise"].includes(pId)) {
-      toast.error("System core tiers (starter, professional, enterprise) cannot be deleted.");
+    if (["premium", "starter", "professional", "enterprise"].includes(pId)) {
+      toast.error("System core tiers (premium, starter, professional, enterprise) cannot be deleted.");
       return;
     }
 
@@ -521,7 +548,7 @@ export default function SystemAdminSubscriptions() {
       return;
     }
 
-    const previousTier = selectedStore.subscriptionTier || "starter";
+    const previousTier = selectedStore.subscriptionTier || "premium";
     let updatedFields: Partial<AdminStore> = {};
     let targetTier = previousTier;
 
@@ -1884,6 +1911,33 @@ export default function SystemAdminSubscriptions() {
                     className="bg-sky-500 hover:bg-sky-600 text-white text-xs h-8 px-4"
                   >
                     Save Feature Overrides
+                  </Button>
+                </div>
+              </div>
+
+              {/* CHECKOUT PRICE EDITING APPROVAL */}
+              <div className="border border-neutral-200/60 rounded-xl p-4 bg-secondary/5 space-y-3">
+                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b pb-1.5 flex items-center gap-1.5">
+                  <Settings2 className="h-4 w-4 text-sky-500" />
+                  Checkout Price Editing Approval
+                </span>
+                <p className="text-[11px] text-muted-foreground -mt-2 leading-relaxed">
+                  Cashiers can edit item prices at checkout only when approved here. Unapproved stores keep price editing hidden in the POS.
+                </p>
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold">Allow price editing at checkout</span>
+                    <span className={`block text-[10px] font-black uppercase tracking-wider ${priceOverrideApproved ? "text-emerald-600" : "text-amber-600"}`}>
+                      {priceOverrideApproved ? "Approved for this store" : "Locked for this store"}
+                    </span>
+                  </div>
+                  <Button
+                    onClick={handleTogglePriceOverride}
+                    variant={priceOverrideApproved ? "destructive" : "default"}
+                    size="sm"
+                    className="h-8 text-xs"
+                  >
+                    {priceOverrideApproved ? "Revoke Approval" : "Approve Price Editing"}
                   </Button>
                 </div>
               </div>

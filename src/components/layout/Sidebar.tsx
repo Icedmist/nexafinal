@@ -24,9 +24,7 @@ import {
   LogOut,
   Activity,
   Store,
-  Handshake,
   Radar,
-  UserPlus,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -75,18 +73,17 @@ const systemAdminGroups: NavGroup[] = [
 
 const standaloneLinks: NavItem[] = [
   { label: "Requests", href: "/app/requests", icon: Inbox },
-  { label: "Site Map", href: "/sitemap", icon: Globe },
   { label: "Help", href: "/app/help", icon: HelpCircle },
-  { label: "Agent Portal", href: "/agents", icon: UserPlus },
 ];
 
 interface SidebarProps {
   onNavigate?: () => void;
+  collapsed?: boolean;
 }
 
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [groupCollapsed, setGroupCollapsed] = useState<Record<string, boolean>>({});
   const { permissions, isSystemAdmin, role } = useRole();
   const sector = useSector();
   const { profile } = useBusiness();
@@ -152,7 +149,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       label: "Growth",
       items: [
         { label: "Digital Storefront", href: "/app/ecommerce", icon: Store },
-        { label: "Affiliate Program", href: "/app/affiliates", icon: Handshake },
         { label: "Admin Tracker", href: "/app/tracker", icon: Radar },
       ],
     },
@@ -167,7 +163,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   ];
 
   const toggleGroup = (label: string) => {
-    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+    setGroupCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
   const isActive = (href: string) => location.pathname === href;
@@ -205,32 +201,36 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <div className="bg-sidebar-primary/20 rounded-xl p-2.5 shadow-[0_0_15px_rgba(var(--sidebar-primary),0.2)]">
           <img src={nexaLogo} className="h-6 w-6" alt="NEXA Logo" />
         </div>
-        <div className="flex flex-col">
-          <span className="text-xs font-black tracking-[0.2em] uppercase text-sidebar-primary-foreground/40 leading-none mb-1">
-            NEXA OS
-          </span>
-          <span className="text-sm font-bold tracking-tight text-sidebar-primary-foreground truncate max-w-[160px]">
-            {isSystemAdmin ? "Platform Admin" : (profile?.storeDetails?.name || "Store OS")}
-          </span>
-        </div>
+        {!collapsed && (
+          <div className="flex flex-col">
+            <span className="text-xs font-black tracking-[0.2em] uppercase text-sidebar-primary-foreground/40 leading-none mb-1">
+              NEXA OS
+            </span>
+            <span className="text-sm font-bold tracking-tight text-sidebar-primary-foreground truncate max-w-[160px]">
+              {isSystemAdmin ? "Platform Admin" : (profile?.storeDetails?.name || "Store OS")}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {allVisibleGroups.map((group, idx) => {
-          const isCollapsed = collapsed[group.label] ?? false;
+          const isCollapsed = groupCollapsed[group.label] ?? false;
           return (
             <div key={group.label}>
               {idx > 0 && <div className="mx-2 my-2 border-t border-sidebar-border" />}
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.label)}
-                className="flex w-full items-center gap-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors"
-              >
-                <ChevronRight className={cn("h-3 w-3 transition-transform duration-150", !isCollapsed && "rotate-90")} />
-                {group.label}
-              </button>
+              {!collapsed && (
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.label)}
+                  className="flex w-full items-center gap-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors"
+                >
+                  <ChevronRight className={cn("h-3 w-3 transition-transform duration-150", !isCollapsed && "rotate-90")} />
+                  {group.label}
+                </button>
+              )}
 
-              {!isCollapsed && (
+              {(!collapsed && !isCollapsed) && (
                 <div className="mt-0.5 space-y-0.5">
                   {group.items.map((item) => (
                     <Link
@@ -238,6 +238,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       to={item.href}
                       onClick={onNavigate}
                       data-tour={item.label.toLowerCase()}
+                      title={item.label}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all duration-200",
                         isActive(item.href)
@@ -257,6 +258,34 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   ))}
                 </div>
               )}
+
+              {collapsed && (
+                <div className="mt-0.5 space-y-0.5">
+                  {group.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={onNavigate}
+                      data-tour={item.label.toLowerCase()}
+                      title={item.label}
+                      className={cn(
+                        "group relative flex items-center justify-center rounded-xl px-0 py-2.5 transition-all duration-200",
+                        isActive(item.href)
+                          ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
+                      )}
+                    >
+                      {isActive(item.href) && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full shadow-[0_0_10px_rgba(var(--sidebar-primary),0.5)]" />
+                      )}
+                      <item.icon className={cn(
+                        "h-5 w-5 shrink-0 transition-transform group-hover:scale-110",
+                        isActive(item.href) ? "text-sidebar-primary" : "text-sidebar-foreground/40"
+                      )} />
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -268,8 +297,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               key={item.href}
               to={item.href}
               onClick={onNavigate}
+              title={item.label}
               className={cn(
                 "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all duration-200",
+                collapsed && "justify-center px-0",
                 isActive(item.href)
                   ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                   : "text-sidebar-foreground/60 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
@@ -282,7 +313,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
                 isActive(item.href) ? "text-sidebar-primary" : "text-sidebar-foreground/40"
               )} />
-              {item.label}
+              {!collapsed && item.label}
             </Link>
           ))}
           
@@ -290,17 +321,21 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           {isSystemAdmin && (
             <Link
               to={isSystemRoute ? "/app/dashboard" : "/system-admin/dashboard"}
-              className="mt-6 flex items-center gap-3 rounded-2xl bg-primary/20 px-4 py-3 text-xs font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/30 border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+              title={isSystemRoute ? "Enter Store View" : "Platform Command"}
+              className={cn(
+                "mt-6 flex items-center gap-3 rounded-2xl bg-primary/20 px-4 py-3 text-xs font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/30 border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]",
+                collapsed && "justify-center px-0"
+              )}
             >
               {isSystemRoute ? (
                 <>
                   <LayoutDashboard className="h-4 w-4" />
-                  Enter Store View
+                  {!collapsed && "Enter Store View"}
                 </>
               ) : (
                 <>
                   <ShieldCheck className="h-4 w-4" />
-                  Platform Command
+                  {!collapsed && "Platform Command"}
                 </>
               )}
             </Link>
@@ -310,34 +345,53 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       {/* User Section */}
       <div className="p-4 border-t border-sidebar-border/20 bg-sidebar-accent/10">
-        <div className="flex items-center gap-3 px-2 py-1">
-          <div className="h-10 w-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary-foreground font-bold border border-sidebar-primary/10 shadow-inner">
-            {userInitials}
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-bold text-sidebar-primary-foreground truncate">
-              {displayName}
-            </span>
-            <span className="text-[10px] text-sidebar-foreground/40 font-medium uppercase tracking-wider">
-              {isSystemAdmin ? "Superuser" : (ROLE_LABELS[role || ""] || role || "Store Staff")}
-            </span>
-          </div>
-        </div>
-        
-        <button
-          onClick={async () => {
-            onNavigate?.();
-            try {
-              await logout();
-            } catch (err) {
-              console.error("Logout failed:", err);
-            }
-          }}
-          className="mt-4 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-400/10 hover:text-red-300 transition-all duration-200 group"
-        >
-          <LogOut className="h-4 w-4 shrink-0 transition-transform group-hover:-translate-x-1" />
-          Logout
-        </button>
+        {!collapsed ? (
+          <>
+            <div className="flex items-center gap-3 px-2 py-1">
+              <div className="h-10 w-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary-foreground font-bold border border-sidebar-primary/10 shadow-inner">
+                {userInitials}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-bold text-sidebar-primary-foreground truncate">
+                  {displayName}
+                </span>
+                <span className="text-[10px] text-sidebar-foreground/40 font-medium uppercase tracking-wider">
+                  {isSystemAdmin ? "Superuser" : (ROLE_LABELS[role || ""] || role || "Store Staff")}
+                </span>
+              </div>
+            </div>
+            
+            <button
+              onClick={async () => {
+                onNavigate?.();
+                try {
+                  await logout();
+                } catch (err) {
+                  console.error("Logout failed:", err);
+                }
+              }}
+              className="mt-4 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-400/10 hover:text-red-300 transition-all duration-200 group"
+            >
+              <LogOut className="h-4 w-4 shrink-0 transition-transform group-hover:-translate-x-1" />
+              Logout
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={async () => {
+              onNavigate?.();
+              try {
+                await logout();
+              } catch (err) {
+                console.error("Logout failed:", err);
+              }
+            }}
+            title="Logout"
+            className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl text-red-400 hover:bg-red-400/10 hover:text-red-300 transition-all duration-200 group"
+          >
+            <LogOut className="h-4 w-4 shrink-0 transition-transform group-hover:-translate-x-1" />
+          </button>
+        )}
       </div>
     </nav>
   );

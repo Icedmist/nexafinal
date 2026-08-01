@@ -3,6 +3,21 @@ import type { SubscriptionPlan, FeatureFlags } from "@/types/subscription";
 
 export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
+    planId: "premium",
+    name: "Premium Plan",
+    price: 0,
+    billingCycle: "monthly",
+    isActive: true,
+    sortOrder: 0,
+    featureFlags: {
+      pricingMode: true,
+      crossBranchVisibility: true,
+      b2bMarketplace: true,
+      maxBranches: 10,
+      aiAssistant: true
+    }
+  },
+  {
     planId: "starter",
     name: "Starter Plan",
     price: 3500,
@@ -58,7 +73,7 @@ export async function resolveFeatureFlags(
     const storeRef = doc(db, "stores", storeId);
     const storeSnap = await getDoc(storeRef);
     
-    let tier = "starter";
+    let tier = "premium";
     let status = "trialing";
     
     if (storeSnap.exists()) {
@@ -105,13 +120,13 @@ export async function resolveFeatureFlags(
   } catch (err) {
     console.error("Error resolving feature flags:", err);
     return {
-      pricingMode: false,
-      crossBranchVisibility: false,
-      b2bMarketplace: false,
-      maxBranches: 1,
-      aiAssistant: false,
-      planName: "Starter Plan",
-      planId: "starter",
+      pricingMode: true,
+      crossBranchVisibility: true,
+      b2bMarketplace: true,
+      maxBranches: 10,
+      aiAssistant: true,
+      planName: "Premium Plan",
+      planId: "premium",
       status: "trialing"
     };
   }
@@ -130,7 +145,7 @@ export function resolveFeatureFlagsSync(
   storeData: StoreBillingData | null | undefined,
   allPlans: SubscriptionPlan[] = DEFAULT_PLANS
 ): FeatureFlags & { planName: string; planId: string; status: string } {
-  let tier = storeData?.subscriptionTier || "starter";
+  let tier = storeData?.subscriptionTier || "premium";
   const status = storeData?.subscriptionStatus || "trialing";
   
   if (status === "cancelled") {

@@ -2,8 +2,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
-import { BottomNav } from "@/components/layout/BottomNav";
+import { Header } from "@/components/layout/Header";import { BottomNav } from "@/components/layout/BottomNav";
 import { ShortcutsHelpDialog } from "@/components/command/ShortcutsHelpDialog";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { useRole } from "@/hooks/useRole";
@@ -21,6 +20,7 @@ import { useDeviceNotifications, NOTIFICATION_PERMISSION_KEY } from "@/hooks/use
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
 import { AIAssistantWidget } from "@/components/layout/AIAssistantWidget";
 import { DemoBanner } from "@/components/layout/DemoBanner";
+import { SubscriptionWarningBanner } from "@/components/layout/SubscriptionWarningBanner";
 import { useDemo } from "@/hooks/useDemo";
 import { StoreTypeOnboardingOverlay } from "@/components/onboarding/StoreTypeOnboardingOverlay";
 import { MemberOnboarding } from "@/components/onboarding/MemberOnboarding";
@@ -38,6 +38,9 @@ export function AppLayout() {
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("nexa_sidebar_collapsed") === "1";
+  });
   const { permission } = useDeviceNotifications();
   const { data: staffList, isLoading: staffLoading } = useStaff();
   const { updateStaff } = useStaffMutations();
@@ -74,6 +77,11 @@ export function AppLayout() {
       console.error("Failed to mark member onboarding complete:", err);
     }
   };
+
+  // Persist desktop sidebar collapse state
+  useEffect(() => {
+    localStorage.setItem("nexa_sidebar_collapsed", sidebarCollapsed ? "1" : "0");
+  }, [sidebarCollapsed]);
 
   // Cross-Tenant Security Check: Ensure user belongs to the current subdomain store
   useEffect(() => {
@@ -241,8 +249,11 @@ export function AppLayout() {
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 blur-[120px] pointer-events-none rounded-full" />
           
-          <aside className="hidden w-[280px] shrink-0 md:block">
-            <Sidebar />
+          <aside className={cn(
+            "hidden shrink-0 md:block transition-[width] duration-300 ease-in-out overflow-hidden",
+            sidebarCollapsed ? "w-[76px]" : "w-[280px]"
+          )}>
+            <Sidebar collapsed={sidebarCollapsed} />
           </aside>
           <div className="flex flex-1 flex-col overflow-hidden md:my-3 md:mr-3 md:rounded-[2rem] md:border md:border-border/50 md:bg-card/80 md:backdrop-blur-xl md:shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
             {/* Admin Audit Banner */}
@@ -252,7 +263,8 @@ export function AppLayout() {
                 Platform Admin Mode — Full Operational Oversight Enabled
               </div>
             )}
-            <Header />
+            <Header sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed((v) => !v)} />
+            <SubscriptionWarningBanner />
             <main className={cn(
               "flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8",
               isSystemAdmin && store ? "md:rounded-none" : "md:rounded-b-[2rem]"

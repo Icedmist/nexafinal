@@ -2,6 +2,7 @@ import * as React from 'react';
 import { 
   User, 
   onAuthStateChanged, 
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -210,68 +211,127 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     await sendPasswordResetEmail(auth, email);
   };
 
+  const syncClaims = async (currentUser: User | null) => {
+    if (!currentUser) {
+      setClaims(null);
+      setClaimsReady(true);
+      return;
+    }
+    try {
+      // 1. Initial claim fetch
+      let tokenResult = await currentUser.getIdTokenResult();
+
+      // 2. If claims are missing, try refreshing a few times
+      // Note: Dev users and System admins are prioritized for fast entry
+      const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
+      const isDev = devUids.includes(currentUser.uid);
+      const hasRole = !!tokenResult.claims.role;
+      const isSystemAdmin = tokenResult.claims.role === 'system_admin';
+
+      // Only wait if it's NOT a dev user AND (role is missing OR (not system_admin and storeId missing))
+      const needsWait = !isDev && (!hasRole || (!isSystemAdmin && !tokenResult.claims.storeId));
+
+      if (needsWait) {
+        console.log("Claims incomplete, attempting to sync permissions...");
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          tokenResult = await currentUser.getIdTokenResult(true);
+          if (tokenResult.claims.role) break;
+          attempts++;
+        }
+      }
+
+      let finalClaims = {
+        storeId: tokenResult.claims.storeId as string,
+        role: tokenResult.claims.role as string,
+        branchId: tokenResult.claims.branchId as string | null,
+      };
+
+      // Temporary: Force system_admin role for dev users if not already set in Auth
+      if (isDev && finalClaims.role !== 'system_admin') {
+        finalClaims.role = 'system_admin';
+      }
+
+      setClaims(finalClaims);
+      setClaimsReady(true);
+    } catch (error) {
+      console.error("Error fetching custom claims:", error);
+      setClaims(null);
+      setClaimsReady(true); // Still set ready to allow UI to show "No Permission" instead of spinning
+    }
+  };
+
   React.useEffect(() => {
-    // Force session-only persistence so closing the tab/window clears local credentials
-    setPersistence(auth, browserSessionPersistence).catch((err) => {
-      console.error("Failed to configure session-only persistence:", err);
-    });
+    let active = true;
+    let unsubscribeAuth: (() => void) | null = null;
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+    // Force session-only persistence so closing the tab/window clears local credentials.
+    // Await it so onAuthStateChanged never fires with a localStorage-restored session
+    // before session persistence is actually active.
+    setPersistence(auth, browserSessionPersistence)
+      .then(() => {
+        if (!active) return;
+        unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+          if (!active) return;
+          setUser(currentUser);
+          await syncClaims(currentUser);
+          if (active) setLoading(false);
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to configure session-only persistence:", err);
+        // Fall back to default persistence behavior rather than blocking login.
+        if (!active) return;
+        unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+          if (!active) return;
+          setUser(currentUser);
+          await syncClaims(currentUser);
+          if (active) setLoading(false);
+        });
+      });
+
+    // Listen to ID token changes so we can react to token refresh/expiry:
+    // - Claims added/changed server-side get picked up without a full reload.
+    // - When the session token expires, onIdTokenChanged fires with null so we
+    //   can reflect the actual session state instead of a stale one.
+    const unsubscribeToken = onIdTokenChanged(auth, async (currentUser) => {
+      if (!active) return;
       if (currentUser) {
+        // Refresh claims from the latest token (lightweight; no force refresh loop).
+        // Only commit them when a meaningful role is present; otherwise let the
+        // auth-state sync (which retries for role propagation) own claimsReady so
+        // the route guard never runs against empty claims.
         try {
-          // 1. Initial claim fetch
-          let tokenResult = await currentUser.getIdTokenResult();
-          
-          // 2. If claims are missing, try refreshing a few times
-          // Note: Dev users and System admins are prioritized for fast entry
-          const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
-          const isDev = devUids.includes(currentUser.uid);
+          const tokenResult = await currentUser.getIdTokenResult();
           const hasRole = !!tokenResult.claims.role;
-          const isSystemAdmin = tokenResult.claims.role === 'system_admin';
-          
-          // Only wait if it's NOT a dev user AND (role is missing OR (not system_admin and storeId missing))
-          const needsWait = !isDev && (!hasRole || (!isSystemAdmin && !tokenResult.claims.storeId));
-
-          if (needsWait) {
-            console.log("Claims incomplete, attempting to sync permissions...");
-            let attempts = 0;
-            const maxAttempts = 3;
-            
-            while (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              tokenResult = await currentUser.getIdTokenResult(true);
-              if (tokenResult.claims.role) break;
-              attempts++;
-            }
+          if (active && hasRole) {
+            setClaims({
+              storeId: tokenResult.claims.storeId as string,
+              role: tokenResult.claims.role as string,
+              branchId: tokenResult.claims.branchId as string | null,
+            });
+            setClaimsReady(true);
           }
-
-          let finalClaims = {
-            storeId: tokenResult.claims.storeId as string,
-            role: tokenResult.claims.role as string,
-            branchId: tokenResult.claims.branchId as string | null,
-          };
-
-          // Temporary: Force system_admin role for dev users if not already set in Auth
-          if (isDev && finalClaims.role !== 'system_admin') {
-            finalClaims.role = 'system_admin';
-          }
-
-          setClaims(finalClaims);
-          setClaimsReady(true);
-        } catch (error) {
-          console.error("Error fetching custom claims:", error);
-          setClaims(null);
-          setClaimsReady(true); // Still set ready to allow UI to show "No Permission" instead of spinning
+        } catch (err) {
+          console.error("Error syncing claims on token change:", err);
         }
       } else {
-        setClaims(null);
-        setClaimsReady(true);
+        if (active) {
+          setUser(null);
+          setClaims(null);
+          setClaimsReady(true);
+        }
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      unsubscribeAuth?.();
+      unsubscribeToken();
+    };
   }, []);
 
   // Premium 1-Hour User Inactivity Auto-Logout Timeout

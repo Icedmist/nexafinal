@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Store, Save, Building2, Globe, Lock } from "lucide-react";
+import { Store, Save, Building2, Globe, Lock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,6 @@ export function StoreSettings() {
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
-  const [lockPriceAtCheckout, setLockPriceAtCheckout] = useState(false);
   const [autoManagerCollectionDebt, setAutoManagerCollectionDebt] = useState(true);
 
   const isOwner = !!(user && profile && user.uid === profile.ownerId);
@@ -93,7 +92,6 @@ export function StoreSettings() {
       setBankName(profile.storeDetails?.bankName || "");
       setAccountNumber(profile.storeDetails?.accountNumber || "");
       setAccountName(profile.storeDetails?.accountName || "");
-      setLockPriceAtCheckout(!!profile.settings?.lockPriceAtCheckout);
       setAutoManagerCollectionDebt(profile.settings?.autoManagerCollectionDebt ?? true);
     }
   }, [profile]);
@@ -115,7 +113,6 @@ export function StoreSettings() {
         } as any,
         settings: {
           ...profile?.settings,
-          lockPriceAtCheckout,
           autoManagerCollectionDebt,
         }
       });
@@ -348,21 +345,25 @@ export function StoreSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border bg-muted/20">
+          <div className="flex items-start justify-between gap-4 p-4 rounded-xl border border-border bg-muted/20">
             <div className="space-y-1">
               <Label htmlFor="lock-price-checkout" className="text-sm font-bold flex items-center gap-1.5">
-                <Lock className="h-4 w-4 text-muted-foreground" /> Lock Item Price Editing at Checkout
+                <Lock className="h-4 w-4 text-muted-foreground" /> Item Price Editing at Checkout
               </Label>
               <p className="text-xs text-muted-foreground">
-                When enabled, cashiers cannot edit item prices during checkout. When disabled (default), staff can adjust prices on cart items.
+                Price editing during checkout is enabled only after your platform administrator approves it for this store. By default, cashiers cannot adjust item prices at checkout.
               </p>
+              <span className={`inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider mt-1.5 ${profile?.settings?.lockPriceAtCheckout === false ? "text-emerald-600" : "text-amber-600"}`}>
+                {profile?.settings?.lockPriceAtCheckout === false ? (
+                  <><CheckCircle2 className="h-3.5 w-3.5" /> Approved — price editing enabled</>
+                ) : (
+                  <><Lock className="h-3.5 w-3.5" /> Locked — awaiting platform approval</>
+                )}
+              </span>
             </div>
-            <Switch 
-              id="lock-price-checkout" 
-              checked={lockPriceAtCheckout} 
-              onCheckedChange={setLockPriceAtCheckout}
-              disabled={!canEditGlobal}
-            />
+            <div className="shrink-0">
+              <Switch id="lock-price-checkout" checked={profile?.settings?.lockPriceAtCheckout === false} disabled onCheckedChange={() => {}} />
+            </div>
           </div>
           <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border bg-muted/20">
             <div className="space-y-1">

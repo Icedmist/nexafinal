@@ -20,6 +20,10 @@ const ROUTE_ACCESS: Record<string, UserRoleType[]> = {
   "/app/sales-analytics": ["admin", "manager", "system_admin", "owner"],
   "/app/expenses": ["admin", "manager", "staff", "system_admin", "owner"],
   "/app/returns": ["admin", "manager", "staff", "system_admin", "owner"],
+  // Removed from merchant nav — affiliate program is system-admin only
+  "/app/affiliates": ["system_admin"],
+  "/agents": ["system_admin"],
+  "/sitemap": ["system_admin"],
   
   // System Admin Routes
   "/system-admin": ["system_admin"],

@@ -246,6 +246,7 @@ export interface Item {
   supplierId: string | null;
   branchId?: string | null;
   imageUrl: string | null;
+  emoji?: string;
   customFields: Record<string, string | number | boolean>;
   createdAt: string;
   updatedAt: string;
@@ -376,7 +377,9 @@ export type NotificationType =
   | "zero_stock"
   | "po_reminder"
   | "po_overdue"
+  | "po_update"
   | "request_update"
+  | "expiry_warning"
   | "system"
   | "login"
   | "staff_onboarding"

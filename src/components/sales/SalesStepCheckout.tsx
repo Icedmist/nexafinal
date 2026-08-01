@@ -65,8 +65,9 @@ export function SalesStepCheckout({
   const { isAdmin } = useRole();
   const businessType = profile?.businessType || "retail";
 
-  // Price lock setting (unlocked by default unless explicitly locked by admin)
-  const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? false;
+  // Price editing at checkout requires platform admin approval.
+  // Locked by default — only unlocked when a system admin enables it for this store.
+  const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true;
   const canEditPrice = !isPriceEditingLocked || isAdmin;
 
   const { addSale, recordDebtPayment } = useSalesMutations();

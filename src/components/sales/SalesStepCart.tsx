@@ -81,7 +81,8 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateC
   const { isAdmin } = useRole();
   const businessType = profile?.businessType || "retail";
 
-  const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? false;
+  // Price editing at checkout requires platform admin approval (locked by default).
+  const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true;
   const canEditPrice = !isPriceEditingLocked || isAdmin;
 
   const [editingCartKey, setEditingCartKey] = useState<string | null>(null);

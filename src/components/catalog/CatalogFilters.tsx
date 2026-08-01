@@ -27,9 +27,9 @@ interface CatalogFiltersProps {
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Status" },
-  { value: "in-stock", label: "In Stock" },
-  { value: "low-stock", label: "Low Stock" },
-  { value: "out-of-stock", label: "Out of Stock" },
+  { value: "in_stock", label: "In Stock" },
+  { value: "low_stock", label: "Low Stock" },
+  { value: "out_of_stock", label: "Out of Stock" },
   { value: "needs-review", label: "Needs Review" },
 ];
 
