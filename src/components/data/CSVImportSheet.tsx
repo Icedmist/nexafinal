@@ -331,7 +331,7 @@ export function CSVImportSheet({
 
   // Preview columns: only mapped fields
   const previewFields = useMemo(() => fields.filter((f) => mapping[f.key]), [fields, mapping]);
-  const previewRows = useMemo(() => validatedRows.slice(0, 20), [validatedRows]);
+  const previewRows = useMemo(() => validatedRows, [validatedRows]);
 
   const startImport = useCallback(async (rows: Record<string, string>[]) => {
     setStep(4);
@@ -570,9 +570,11 @@ export function CSVImportSheet({
                   </ScrollArea>
                 </div>
 
-                {validatedRows.length > 20 && (
+                {validatedRows.length > 0 && (
                   <p className="text-[10px] font-black text-muted-foreground text-center uppercase tracking-widest">
-                    Showing first 20 of {validatedRows.length} rows
+                    {validatedRows.length} row{validatedRows.length !== 1 ? "s" : ""} total
+                    {errorCount > 0 && ` · ${errorCount} with errors`}
+                    {warningCount > 0 && ` · ${warningCount} with warnings`}
                   </p>
                 )}
               </div>

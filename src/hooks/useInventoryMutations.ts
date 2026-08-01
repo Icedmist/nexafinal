@@ -12,6 +12,7 @@ import type { Refund } from "@/types/finance";
 
 interface MutationResult<TData> {
   mutate: (data: TData, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => void;
+  mutateAsync: (data: TData) => Promise<void>;
   isLoading: boolean;
   error: Error | null;
 }
@@ -24,17 +25,21 @@ function useFirestoreMutation<TData>(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  const run = useCallback(
+    async (data: TData): Promise<void> => {
+      if (!user || !storeId) throw new Error("Not authenticated");
+      const cleanedData = cleanFirestoreData(data);
+      await mutationFn(storeId, cleanedData, user, claims);
+    },
+    [user, storeId, mutationFn, claims]
+  );
+
   const mutate = useCallback(
     async (data: TData, opts?: { onSuccess?: () => void; onError?: (e: Error) => void }) => {
-      if (!user || !storeId) {
-        opts?.onError?.(new Error("Not authenticated"));
-        return;
-      }
       setIsLoading(true);
       setError(null);
       try {
-        const cleanedData = cleanFirestoreData(data);
-        await mutationFn(storeId, cleanedData, user, claims);
+        await run(data);
         opts?.onSuccess?.();
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
@@ -44,10 +49,27 @@ function useFirestoreMutation<TData>(
         setIsLoading(false);
       }
     },
-    [user, storeId, mutationFn, claims]
+    [run]
   );
 
-  return { mutate, isLoading, error };
+  const mutateAsync = useCallback(
+    async (data: TData): Promise<void> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await run(data);
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        setError(e);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [run]
+  );
+
+  return { mutate, mutateAsync, isLoading, error };
 }
 
 export function useCreateItem() {
@@ -78,6 +100,58 @@ export function useCreateItem() {
       metadata: { itemId: data.id, itemName: data.name }
     });
   });
+}
+
+/**
+ * Bulk-creates items using Firestore writeBatch (max 500 per batch).
+ * Returns a promise that resolves with { created, failed } counts.
+ */
+export function useBatchCreateItems() {
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const batchCreate = useCallback(
+    async (items: Item[]): Promise<{ created: number; failed: number }> => {
+      if (!user || !storeId) throw new Error("Not authenticated");
+
+      let created = 0;
+      let failed = 0;
+      const CHUNK = 500;
+
+      for (let i = 0; i < items.length; i += CHUNK) {
+        const chunk = items.slice(i, i + CHUNK);
+        const batch = writeBatch(db);
+        const batchMeta: { id: string; name: string }[] = [];
+
+        for (const item of chunk) {
+          const cleaned = cleanFirestoreData({
+            ...item,
+            storeId,
+            branchId: item.branchId !== undefined ? item.branchId : (claims?.branchId || null),
+            ownerId: user.uid,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+          batch.set(doc(db, "products", item.id), cleaned);
+          batchMeta.push({ id: item.id, name: item.name });
+        }
+
+        try {
+          await batch.commit();
+          created += chunk.length;
+        } catch (err) {
+          console.error("Batch write failed for chunk starting at", i, err);
+          failed += chunk.length;
+        }
+      }
+
+      return { created, failed };
+    },
+    [user, storeId, claims]
+  );
+
+  return { batchCreate, isLoading };
 }
 
 export function useUpdateItem() {

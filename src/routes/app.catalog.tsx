@@ -33,7 +33,8 @@ import { RowActionsMenu } from "@/components/catalog/RowActionsMenu";
 import { MovementFormSheet } from "@/components/movements/MovementFormSheet";
 import { printBarcodeLabels } from "@/components/catalog/PrintBarcodeLabel";
 import { useItems, useCategories, useSuppliers, useLocations } from "@/hooks/useInventoryData";
-import { useCreateItem, useUpdateItem, useDeleteItem } from "@/hooks/useInventoryMutations";
+import { useCreateItem, useUpdateItem, useDeleteItem, useBatchCreateItems } from "@/hooks/useInventoryMutations";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import { exportItemsQRCodes } from "@/lib/bulk-qr";
 import { PermissionGate, usePermissions } from "@/hooks/usePermissions";
@@ -147,6 +148,8 @@ function CatalogPage() {
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
+  const { batchCreate } = useBatchCreateItems();
+  const { claims } = useAuth();
   const { can } = usePermissions();
   const { isAdmin } = useRole();
   const sector = useSector();
@@ -500,39 +503,46 @@ function CatalogPage() {
         knownCategories={categories.map((c) => c.name)}
         knownSuppliers={suppliers.map((s) => s.name)}
         onImport={async (rows) => {
-          let created = 0;
-          let failed = 0;
-          for (const row of rows) {
-            try {
-              const newItem: Item = {
-                id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                sku: row.sku ?? "",
-                barcode: row.barcode ?? null,
-                name: row.name ?? "",
-                description: row.description ?? "",
-                categoryId: categories.find((c) => c.name.toLowerCase() === row.category?.toLowerCase())?.id ?? null,
-                status: ItemStatus.Active,
-                unit: row.unit || "each",
-                currentStock: Number(row.quantity) || 0,
-                reorderPoint: Number(row.reorderPoint) || 0,
-                reorderQuantity: 0,
-                costPrice: Number(row.costPrice) || 0,
-                sellingPrice: Number(row.sellingPrice) || 0,
-                locationId: locations.find((l) => l.name.toLowerCase() === row.location?.toLowerCase())?.id ?? null,
-                supplierId: suppliers.find((s) => s.name.toLowerCase() === row.supplier?.toLowerCase())?.id ?? null,
-                imageUrl: null,
-                customFields: {},
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
-              createItem.mutate(newItem);
-              created++;
-            } catch {
-              failed++;
+          // Build item objects — one per valid row
+          const items = rows.map((row) => ({
+            id: crypto.randomUUID(),
+            sku: row.sku ?? "",
+            barcode: row.barcode ?? null,
+            name: row.name ?? "",
+            description: row.description ?? "",
+            categoryId:
+              categories.find((c) => c.name.toLowerCase() === row.category?.toLowerCase())?.id ?? null,
+            status: ItemStatus.Active,
+            unit: row.unit || "each",
+            currentStock: Number(row.quantity) || 0,
+            reorderPoint: Number(row.reorderPoint) || 0,
+            reorderQuantity: 0,
+            costPrice: Number(row.costPrice) || 0,
+            sellingPrice: Number(row.sellingPrice) || 0,
+            locationId:
+              locations.find((l) => l.name.toLowerCase() === row.location?.toLowerCase())?.id ?? null,
+            supplierId:
+              suppliers.find((s) => s.name.toLowerCase() === row.supplier?.toLowerCase())?.id ?? null,
+            branchId: claims?.branchId ?? null,
+            imageUrl: null,
+            customFields: {},
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } as any));
+
+          try {
+            const { created, failed } = await batchCreate(items);
+            if (failed > 0) {
+              toast.warning(`Imported ${created} items — ${failed} failed to save.`);
+            } else {
+              toast.success(`Successfully imported ${created} item${created !== 1 ? "s" : ""}.`);
             }
+            return { created, failed };
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            toast.error(`Import failed: ${msg}`);
+            return { created: 0, failed: items.length };
           }
-          toast.success(`Imported ${created} items${failed > 0 ? `, ${failed} failed` : ""}`);
-          return { created, failed };
         }}
       />
 
