@@ -59,7 +59,16 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
   
   if (sale.amountPaidNgn) {
     lines.push(`Amount Paid: ${fmtNgn(sale.amountPaidNgn)}`);
-    lines.push(`Change: ${fmtNgn(sale.changeGivenNgn || 0)}`);
+    if ((sale as any).remainingBalanceNgn > 0) {
+      lines.push(`*⚠️ BALANCE DUE (DEBT): ${fmtNgn((sale as any).remainingBalanceNgn)}*`);
+    } else {
+      lines.push(`Change: ${fmtNgn(sale.changeGivenNgn || 0)}`);
+    }
+  }
+  
+  if ((sale as any).remainingBalanceNgn > 0) {
+    lines.push("");
+    lines.push("_⚠️ PARTIAL PAYMENT — Balance outstanding_");
   }
   
   lines.push("");
@@ -320,9 +329,23 @@ async function generateReceiptPDF(
     doc.text("Amount Paid:", lm, y);
     doc.text(fmtNgn(sale.amountPaidNgn), rm, y, { align: "right" });
     y += 4;
-    doc.text("Change Given:", lm, y);
-    doc.text(fmtNgn(sale.changeGivenNgn || 0), rm, y, { align: "right" });
-    y += 6;
+    if ((sale as any).remainingBalanceNgn > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 80, 0);
+      doc.text("BALANCE DUE (DEBT):", lm, y);
+      doc.text(fmtNgn((sale as any).remainingBalanceNgn), rm, y, { align: "right" });
+      doc.setTextColor(0);
+      y += 5;
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "italic");
+      doc.text("** PARTIAL PAYMENT — Balance outstanding **", w / 2, y, { align: "center" });
+      doc.setFontSize(8);
+      y += 5;
+    } else {
+      doc.text("Change Given:", lm, y);
+      doc.text(fmtNgn(sale.changeGivenNgn || 0), rm, y, { align: "right" });
+      y += 6;
+    }
   }
 
   y += 5;
@@ -565,10 +588,17 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                             <span>Amount Paid</span>
                             <span className="font-mono">{fmtNgn(sale.amountPaidNgn)}</span>
                           </div>
-                          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
-                            <span>Change Given</span>
-                            <span className="font-mono">{fmtNgn(sale.changeGivenNgn || 0)}</span>
-                          </div>
+                          {(sale as any).remainingBalanceNgn > 0 ? (
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest bg-white/10 rounded-lg px-2 py-1.5">
+                              <span className="flex items-center gap-1">⚠️ Balance Due (Debt)</span>
+                              <span className="font-mono">{fmtNgn((sale as any).remainingBalanceNgn)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-90">
+                              <span>Change Given</span>
+                              <span className="font-mono">{fmtNgn(sale.changeGivenNgn || 0)}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -684,13 +714,23 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
           {sale.amountPaidNgn && (
             <div className="text-[10px] space-y-1 pt-2 border-t border-black border-dotted">
               <div className="flex justify-between">
-                <span>CASH PAID:</span>
+                <span>AMOUNT PAID:</span>
                 <span>{fmtNgn(sale.amountPaidNgn)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>CHANGE:</span>
-                <span>{fmtNgn(sale.changeGivenNgn || 0)}</span>
-              </div>
+              {(sale as any).remainingBalanceNgn > 0 ? (
+                <>
+                  <div className="flex justify-between font-black">
+                    <span>BALANCE DUE (DEBT):</span>
+                    <span>{fmtNgn((sale as any).remainingBalanceNgn)}</span>
+                  </div>
+                  <p className="text-[9px] italic text-center mt-1">** PARTIAL PAYMENT — Balance outstanding **</p>
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span>CHANGE:</span>
+                  <span>{fmtNgn(sale.changeGivenNgn || 0)}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

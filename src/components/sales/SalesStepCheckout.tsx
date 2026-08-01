@@ -157,6 +157,12 @@ export function SalesStepCheckout({
     const paid = parseFloat(amountPaid) || 0;
     return Math.max(0, paid - grandTotal);
   }, [amountPaid, grandTotal]);
+
+  const remainingBalance = useMemo(() => {
+    const paid = parseFloat(amountPaid) || 0;
+    if (paid <= 0) return 0; // nothing entered yet — no partial payment
+    return Math.max(0, grandTotal - paid);
+  }, [amountPaid, grandTotal]);
   
   const customersList = useMemo(() => {
     const map = new Map<string, { name: string; phone: string; email?: string; createdAt?: string }>();
@@ -292,8 +298,10 @@ export function SalesStepCheckout({
       taxRate: taxRate,
       amountPaidNgn: parseFloat(amountPaid) || grandTotal,
       changeGivenNgn: changeGiven,
+      remainingBalanceNgn: remainingBalance > 0 ? remainingBalance : 0,
+      paymentStatus: remainingBalance > 0 ? "incomplete" : "paid",
       paymentMethod,
-      isCreditSale: payOnCredit,
+      isCreditSale: payOnCredit || remainingBalance > 0,
       debtSettledNgn: includeDebt && customerDebt > 0 ? customerDebt : 0,
       recordedByName: recordedBy,
       saleType: saleType,
@@ -601,6 +609,24 @@ export function SalesStepCheckout({
               ))}
             </div>
           )}
+          {/* Remaining balance / partial payment warning */}
+          {remainingBalance > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 mt-2 space-y-1">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <p className="text-xs font-black uppercase tracking-wide">Incomplete Payment</p>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] text-muted-foreground">Amount Paid</span>
+                <span className="font-mono font-bold text-xs text-foreground">{NAIRA}{(parseFloat(amountPaid) || 0).toLocaleString("en-NG")}</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-amber-500/20 pt-1 mt-1">
+                <span className="text-[11px] font-black text-amber-700 dark:text-amber-400">Remaining Balance (Debt)</span>
+                <span className="font-mono font-black text-sm text-amber-700 dark:text-amber-400">{NAIRA}{remainingBalance.toLocaleString("en-NG")}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">This transaction will be recorded as a debt of {NAIRA}{remainingBalance.toLocaleString("en-NG")}.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -825,21 +851,35 @@ export function SalesStepCheckout({
       {/* Total and checkout button */}
       </div>
       <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-4 space-y-3">
-        <div className="flex items-center justify-between text-xl font-bold">
-          <span>Total</span>
-          <span className="font-mono">{NAIRA}{grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xl font-bold">
+            <span>Total</span>
+            <span className="font-mono">{NAIRA}{grandTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
+          </div>
+          {remainingBalance > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Paid now</span>
+              <span className="font-mono text-foreground font-semibold">{NAIRA}{(parseFloat(amountPaid) || 0).toLocaleString("en-NG")}</span>
+            </div>
+          )}
+          {remainingBalance > 0 && (
+            <div className="flex items-center justify-between text-sm font-bold text-amber-600 dark:text-amber-400">
+              <span>Balance (Debt)</span>
+              <span className="font-mono">{NAIRA}{remainingBalance.toLocaleString("en-NG")}</span>
+            </div>
+          )}
         </div>
         <Button 
           onClick={handleCheckout} 
           className={cn(
             "w-full gap-2 h-12 text-base rounded-xl",
-            businessType === "restaurant" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
+            remainingBalance > 0 ? "bg-amber-600 hover:bg-amber-700 text-white" : (businessType === "restaurant" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "")
           )}
           size="lg"
           disabled={isProcessing}
         >
           <CreditCard className={cn("h-5 w-5", isProcessing && "animate-pulse")} />
-          {isProcessing ? "Processing..." : (payOnCredit ? "Record Credit Sale" : "Complete Sale")}
+          {isProcessing ? "Processing..." : remainingBalance > 0 ? `Record Partial — ${NAIRA}${remainingBalance.toLocaleString("en-NG")} Debt` : (payOnCredit ? "Record Credit Sale" : "Complete Sale")}
         </Button>
       </div>
     </div>

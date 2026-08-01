@@ -64,6 +64,7 @@ export interface SaleTransaction {
   taxRate?: number;
   amountPaidNgn?: number;
   changeGivenNgn?: number;
+  remainingBalanceNgn?: number;
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
   paymentStatus?: "paid" | "incomplete";
