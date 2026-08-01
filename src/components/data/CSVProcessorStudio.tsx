@@ -135,9 +135,11 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiStep, setAiStep] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"upload" | "ai" | "data">("upload");
 
   // Direct import state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+
   const [isImporting, setIsImporting] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
@@ -295,8 +297,10 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
     });
 
     setRows(mapped);
+    setActiveTab("ai");
     toast.success(`Converted ${mapped.length} rows into Nexa standard inventory format!`);
   };
+
 
   // AI Categorize & Auto SKU
   const runAiCategorization = async () => {
@@ -336,6 +340,7 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
       });
 
       setRows(updated);
+      setActiveTab("data");
       toast.success("AI Categorization & Auto-SKU assignment completed!");
     } catch {
       toast.error("AI Categorization encountered an error.");
@@ -344,6 +349,7 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
       setAiStep("");
     }
   };
+
 
   // Generate Nexa Standard CSV string
   const generateNexaCSVString = (): string => {
@@ -559,7 +565,7 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
         </div>
       </div>
 
-      <Tabs defaultValue="upload" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-3 max-w-md">
           <TabsTrigger value="upload" className="gap-1 text-xs">
             <Upload className="h-3.5 w-3.5" /> 1. Upload & Map
@@ -571,6 +577,7 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
             <Package className="h-3.5 w-3.5 text-emerald-500" /> 3. Review ({rows.length})
           </TabsTrigger>
         </TabsList>
+
 
         {/* TAB 1: UPLOAD & MAP */}
         <TabsContent value="upload" className="space-y-6 pt-4">
