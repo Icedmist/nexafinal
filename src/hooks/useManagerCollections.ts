@@ -149,19 +149,21 @@ export function useManagerCollections() {
   }, [rawCollections, currentStoreId]);
 
   const createCollection = useCallback(
-    async (payload: Omit<ManagerCollection, "id" | "collectionNumber" | "createdAt" | "updatedAt" | "status" | "totalValueNgn" | "cashRemittedNgn" | "returnedStockValueNgn" | "remainingDebtValueNgn">) => {
+    async (payload: Omit<ManagerCollection, "id" | "collectionNumber" | "createdAt" | "updatedAt" | "status" | "totalValueNgn" | "cashRemittedNgn" | "returnedStockValueNgn" | "remainingDebtValueNgn"> & { initialCashRemittedNgn?: number }) => {
       const collectionNumber = `MCOL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const totalValueNgn = payload.items.reduce((sum, item) => sum + item.quantityCollected * item.unitPriceNgn, 0);
+      const initialCash = Math.min(Math.max(0, payload.initialCashRemittedNgn ?? 0), totalValueNgn);
+      const remainingDebtValueNgn = autoDebtEnabled ? Math.max(0, totalValueNgn - initialCash) : 0;
 
       const newRecord: ManagerCollection = {
         ...payload,
         id: isDemo ? `mc-demo-${Date.now()}` : doc(collection(db, "managerCollections")).id,
         collectionNumber,
         totalValueNgn,
-        cashRemittedNgn: 0,
+        cashRemittedNgn: initialCash,
         returnedStockValueNgn: 0,
-        remainingDebtValueNgn: autoDebtEnabled ? totalValueNgn : 0,
-        status: autoDebtEnabled ? "has_debt" : "collected",
+        remainingDebtValueNgn,
+        status: remainingDebtValueNgn > 0 ? "has_debt" : "collected",
         debtPayments: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

@@ -684,6 +684,19 @@ export function SalesHistoryPage() {
                 <span className="text-3xl font-black font-mono tracking-tighter text-primary">{fmtNgn(selectedSale.totalNgn)}</span>
               </div>
 
+              {selectedSale.paymentStatus === "incomplete" && (
+                <div className="rounded-2xl bg-amber-500/5 p-4 border border-amber-500/20 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground font-bold uppercase tracking-wider">Amount Received</span>
+                    <span className="font-mono font-black text-emerald-600">{fmtNgn(selectedSale.amountPaidNgn || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pt-2 border-t border-amber-500/10">
+                    <span className="text-muted-foreground font-bold uppercase tracking-wider">Outstanding Debt</span>
+                    <span className="font-mono font-black text-amber-600">{fmtNgn(Math.max(0, selectedSale.totalNgn - (selectedSale.amountPaidNgn || 0)))}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Processed Refunds section */}
               {saleRefunds.length > 0 && (
                 <div className="space-y-3 pt-2">

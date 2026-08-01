@@ -47,7 +47,7 @@ const schema = z.object({
   quantity: z.coerce.number().int().min(1, "Minimum 1"),
   priceMode: z.enum(["predefined", "custom"]),
   unitPrice: z.coerce.number().min(0, "Enter a valid transfer price"),
-  recordAsDebt: z.boolean(),
+  amountReceived: z.coerce.number().min(0, "Enter the amount received"),
   receiverManagerId: z.string(),
 });
 
@@ -97,7 +97,7 @@ export function TransferStockSheet({
       quantity: 1,
       priceMode: "predefined",
       unitPrice: 0,
-      recordAsDebt: true,
+      amountReceived: 0,
       receiverManagerId: "",
     },
   });
@@ -106,7 +106,7 @@ export function TransferStockSheet({
   const fromLocationId = form.watch("fromLocationId");
   const quantity = form.watch("quantity");
   const priceMode = form.watch("priceMode");
-  const recordAsDebt = form.watch("recordAsDebt");
+  const amountReceived = form.watch("amountReceived");
 
   const selectedItem = useMemo(
     () => items.find((i) => i.id === selectedItemId),
@@ -123,6 +123,11 @@ export function TransferStockSheet({
   const effectiveUnitPrice =
     priceMode === "predefined" ? predefinedPrice : Number(form.watch("unitPrice")) || 0;
   const totalValue = effectiveUnitPrice * Number(quantity || 0);
+
+  const receivedAmount = Number(amountReceived) || 0;
+  const paidAmount = Math.min(Math.max(receivedAmount, 0), totalValue);
+  const remainingDebt = Math.max(0, totalValue - paidAmount);
+  const isIncompletePayment = totalValue > 0 && remainingDebt > 0;
 
   // Items that have a location assigned
   const assignedItems = useMemo(
@@ -149,9 +154,16 @@ export function TransferStockSheet({
       return;
     }
 
-    if (values.recordAsDebt && !values.receiverManagerId) {
+    const unitPriceValue =
+      values.priceMode === "predefined" ? predefinedPrice : Number(values.unitPrice) || 0;
+    const transferValue = unitPriceValue * values.quantity;
+    const received = Math.min(Math.max(Number(values.amountReceived) || 0, 0), transferValue);
+    const debt = Math.max(0, transferValue - received);
+    const isIncomplete = transferValue > 0 && debt > 0;
+
+    if (isIncomplete && !values.receiverManagerId) {
       form.setError("receiverManagerId", {
-        message: "Select the receiving manager",
+        message: "Select the receiving manager for the outstanding debt",
       });
       return;
     }
@@ -160,15 +172,13 @@ export function TransferStockSheet({
     const toLoc = locations.find((l) => l.id === values.toLocationId);
     if (!selectedItem || !fromLoc || !toLoc) return;
 
-    const unitPriceValue =
-      values.priceMode === "predefined" ? predefinedPrice : Number(values.unitPrice) || 0;
-    const transferValue = unitPriceValue * values.quantity;
     setIsSubmitting(true);
 
     try {
       // 1. Record the transfer as a manager-to-manager sale: the source manager
-      // sells the goods to the destination manager's branch. When recorded as a
-      // debt, the sale is a credit sale (the destination manager still owes).
+      // sells the goods to the destination manager's branch. If the amount
+      // received is less than the total value, the shortfall is flagged as an
+      // incomplete payment (credit sale) and becomes manager debt.
       await addSale({
         customerName: `${toLoc.name} (Manager Transfer)`,
         customerPhone: "",
@@ -186,15 +196,16 @@ export function TransferStockSheet({
         subtotalNgn: transferValue,
         paymentMethod: "transfer",
         saleType: "wholesale",
-        isCreditSale: values.recordAsDebt,
-        paymentStatus: values.recordAsDebt ? "incomplete" : "paid",
-        amountPaidNgn: values.recordAsDebt ? 0 : transferValue,
+        isCreditSale: isIncomplete,
+        paymentStatus: isIncomplete ? "incomplete" : "paid",
+        amountPaidNgn: received,
         createdAt: new Date().toISOString(),
       });
 
-      // 2. When recorded as debt, log the destination manager's collection so
-      // the outstanding value shows up in the manager debt tracking system.
-      if (values.recordAsDebt) {
+      // 2. When the payment is incomplete, log the destination manager's
+      // collection so the outstanding value shows up in the manager debt
+      // tracking system.
+      if (isIncomplete) {
         const receiver = availableManagers.find((m) => m.id === values.receiverManagerId);
         if (receiver) {
           await createCollection({
@@ -214,6 +225,7 @@ export function TransferStockSheet({
             collectionDate: new Date().toISOString(),
             notes: `Stock transfer: ${fromLoc.name} → ${toLoc.name}`,
             debtPayments: [],
+            initialCashRemittedNgn: received,
           });
         }
       }
@@ -229,7 +241,7 @@ export function TransferStockSheet({
           unitPrice: unitPriceValue,
           value: transferValue,
           reference: `Transfer: ${fromLoc.name ?? ""} → ${toLoc.name ?? ""}`,
-          notes: `Manager-to-manager sale · ${values.quantity} × ${NAIRA}${unitPriceValue.toLocaleString("en-NG")}`,
+          notes: `Manager-to-manager sale · ${values.quantity} × ${NAIRA}${unitPriceValue.toLocaleString("en-NG")} · received ${NAIRA}${received.toLocaleString("en-NG")}${isIncomplete ? ` · debt ${NAIRA}${debt.toLocaleString("en-NG")}` : ""}`,
           performedBy: user?.email || "System",
           createdAt: new Date().toISOString(),
         },
@@ -237,9 +249,9 @@ export function TransferStockSheet({
           onSuccess: () => {
             setIsSubmitting(false);
             toast.success(
-              values.recordAsDebt
-                ? "Stock transferred and recorded as manager debt"
-                : "Stock transferred and recorded as a sale",
+              isIncomplete
+                ? `Stock transferred · ${NAIRA}${received.toLocaleString("en-NG")} received, ${NAIRA}${debt.toLocaleString("en-NG")} recorded as manager debt`
+                : "Stock transferred and fully paid",
             );
             form.reset();
             onOpenChange(false);
@@ -477,36 +489,66 @@ export function TransferStockSheet({
                       <span className="font-mono font-black text-lg text-primary">
                         {NAIRA}{totalValue.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
                       </span>
-                      {recordAsDebt && totalValue > 0 && (
+                      {isIncompletePayment && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600">
                           <HandCoins className="h-2.5 w-2.5" />
-                          Incomplete payment · {NAIRA}{totalValue.toLocaleString("en-NG", { minimumFractionDigits: 2 })} outstanding
+                          Incomplete payment · {NAIRA}{remainingDebt.toLocaleString("en-NG", { minimumFractionDigits: 2 })} outstanding
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Debt */}
+                {/* Payment — editable amount received, shortfall becomes debt */}
                 <div className="rounded-2xl border-2 border-muted bg-muted/20 p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <HandCoins className="h-3 w-3 text-amber-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        Record as Manager Debt
-                      </span>
-                    </div>
-                    <Switch
-                      checked={recordAsDebt}
-                      onCheckedChange={(checked) => form.setValue("recordAsDebt", checked)}
-                    />
+                  <div className="flex items-center gap-2">
+                    <HandCoins className="h-3 w-3 text-amber-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      Amount Received
+                    </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Mark this transfer as an incomplete payment. The receiving manager
-                    owes the full transfer value until it is remitted — this is tracked
-                    automatically as manager debt and flagged as an outstanding payment.
+                    Enter the final amount actually received from the destination
+                    manager. Any shortfall is marked as an incomplete payment and
+                    recorded automatically as manager debt.
                   </p>
-                  {recordAsDebt && (
+                  <FormField
+                    control={form.control}
+                    name="amountReceived"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[10px] font-bold text-muted-foreground">
+                          Amount Received ({NAIRA})
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={totalValue}
+                            step={0.01}
+                            {...field}
+                            className="h-11 rounded-xl border-2 font-mono font-black"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex items-center justify-between rounded-xl bg-background px-4 py-3 border-2 border-dashed border-muted">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      {isIncompletePayment ? "Remaining Debt" : "Payment Status"}
+                    </span>
+                    {isIncompletePayment ? (
+                      <span className="font-mono font-black text-base text-amber-600">
+                        {NAIRA}{remainingDebt.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                        Fully Paid
+                      </span>
+                    )}
+                  </div>
+                  {isIncompletePayment && (
                     <FormField
                       control={form.control}
                       name="receiverManagerId"
@@ -515,7 +557,7 @@ export function TransferStockSheet({
                           <div className="flex items-center gap-2 ml-1">
                             <User className="h-3 w-3 text-muted-foreground" />
                             <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                              Receiving Manager
+                              Receiving Manager (for the debt)
                             </FormLabel>
                           </div>
                           <Select onValueChange={field.onChange} value={field.value}>
