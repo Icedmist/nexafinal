@@ -33,6 +33,7 @@ const ROUTE_ACCESS: Record<string, UserRoleType[]> = {
   "/system-admin/health": ["system_admin"],
   "/system-admin/settings": ["system_admin"],
   "/system-admin/audit": ["system_admin"],
+  "/system-admin/deleted-items": ["system_admin"],
   "/system-admin/agents-network": ["system_admin"],
   "/system-admin/subscriptions": ["system_admin"],
   "/system-admin/retention": ["system_admin"],

@@ -17,7 +17,8 @@ import {
   PieChart,
   MapPin,
   Globe,
-  Map
+  Map,
+  Trash2
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ const systemAdminLinks: NavItem[] = [
   { label: "Businesses", href: "/system-admin/businesses", icon: Building2 },
   { label: "Platform Users", href: "/system-admin/users", icon: Users },
   { label: "Audit Logs", href: "/system-admin/audit", icon: ShieldCheck },
+  { label: "Deleted Items", href: "/system-admin/deleted-items", icon: Trash2 },
   { label: "System Health", href: "/system-admin/health", icon: Activity },
   { label: "Global Settings", href: "/system-admin/settings", icon: Settings },
   { label: "Agent Network", href: "/system-admin/agents-network", icon: UserCheck },

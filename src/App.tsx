@@ -50,6 +50,7 @@ const SystemUsersPage = lazy(() => import('./routes/system-admin.users'));
 const SystemHealthPage = lazy(() => import('./routes/system-admin.health'));
 const SystemSettingsPage = lazy(() => import('./routes/system-admin.settings'));
 const SystemAuditPage = lazy(() => import('./routes/system-admin.audit'));
+const SystemDeletedItemsPage = lazy(() => import('./routes/system-admin.deleted-items'));
 const SystemAgentsNetworkPage = lazy(() => import('./routes/system-admin.agents-network'));
 const SystemSubscriptionsPage = lazy(() => import('./routes/system-admin.subscriptions'));
 const SystemRetentionPage = lazy(() => import('./routes/system-admin.retention'));
@@ -139,6 +140,7 @@ function App() {
               <Route path="health" element={<SystemHealthPage />} />
               <Route path="settings" element={<SystemSettingsPage />} />
               <Route path="audit" element={<SystemAuditPage />} />
+              <Route path="deleted-items" element={<SystemDeletedItemsPage />} />
               <Route path="agents-network" element={<SystemAgentsNetworkPage />} />
               <Route path="subscriptions" element={<SystemSubscriptionsPage />} />
               <Route path="retention" element={<SystemRetentionPage />} />
