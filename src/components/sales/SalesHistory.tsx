@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { exportSalesHistoryPDF } from "@/lib/pdf-export";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check, ShoppingBag, Package, Layers, RefreshCw, FileEdit } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check, ShoppingBag, Package, Layers, RefreshCw, FileEdit, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -57,6 +57,7 @@ export function SalesHistoryPage() {
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
   const [saleTypeFilter, setSaleTypeFilter] = useState<"all" | "retail" | "wholesale">("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedSaleIds, setSelectedSaleIds] = useState<string[]>([]);
   const { addRefund } = useRefundsMutations();
 
@@ -167,8 +168,18 @@ export function SalesHistoryPage() {
         return hasWholesale || s.saleType === "wholesale" || s.saleType === "mixed";
       });
     }
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase();
+      list = list.filter((s) => {
+        const receiptLike = [s.id, s.collectionCode, s.customerName, s.customerPhone, s.customerEmail]
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase())
+          .join(" ");
+        return receiptLike.includes(q);
+      });
+    }
     return list;
-  }, [sales, from, to, paymentFilter, selectedBranchId, saleTypeFilter]);
+  }, [sales, from, to, paymentFilter, selectedBranchId, saleTypeFilter, searchTerm]);
 
   if (isLoading) {
     return (
@@ -390,6 +401,15 @@ export function SalesHistoryPage() {
       {sales.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-4 bg-muted/10 p-3 rounded-2xl border border-border/40">
           <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search receipt / txn / customer"
+                className="h-9 rounded-xl pl-9 text-sm"
+              />
+            </div>
             <DatePicker label="From" date={from} onSelect={setFrom} />
             <DatePicker label="To" date={to} onSelect={setTo} />
             {(from || to) && (
@@ -583,7 +603,7 @@ export function SalesHistoryPage() {
           setCollectionCodeInput("");
         }
       }}>
-        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none [&>button]:hidden">
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md p-2 sm:p-3 border-none bg-transparent shadow-none [&>button]:hidden">
           {selectedSale && (
             <div className="nexa-card bg-card p-6 space-y-6">
               <div className="flex items-center justify-between mb-2">
@@ -800,7 +820,7 @@ export function SalesHistoryPage() {
 
       {/* Process Refund Dialog */}
       <Dialog open={!!refundSale} onOpenChange={(o) => !o && setRefundSale(null)}>
-        <DialogContent className="rounded-3xl border-none p-0 bg-transparent shadow-none [&>button]:hidden sm:max-w-md">
+        <DialogContent className="w-[calc(100%-1.5rem)] rounded-3xl border-none p-2 sm:p-3 bg-transparent shadow-none [&>button]:hidden sm:max-w-md">
           {refundSale && (
             <div className="nexa-card bg-card p-6 space-y-6">
               <div className="flex items-center justify-between">
