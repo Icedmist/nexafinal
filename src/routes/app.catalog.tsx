@@ -192,11 +192,16 @@ function CatalogPage() {
     navigate("/app/catalog");
   }, [navigate]);
   const items = useMemo(() => {
-    let result = allItems.filter((i) => i.status !== ItemStatus.Archived);
-    if (filters.status === "in_stock") result = result.filter((i) => i.currentStock > i.reorderPoint && !i.needsReview);
-    else if (filters.status === "low_stock") result = result.filter((i) => i.currentStock > 0 && i.currentStock <= i.reorderPoint && !i.needsReview);
-    else if (filters.status === "out_of_stock") result = result.filter((i) => i.currentStock === 0 && !i.needsReview);
-    else if (filters.status === "needs-review") result = result.filter((i) => i.needsReview === true);
+    let result = allItems;
+    if (filters.status === "archived") {
+      result = result.filter((i) => i.status === ItemStatus.Archived);
+    } else {
+      result = result.filter((i) => i.status !== ItemStatus.Archived);
+      if (filters.status === "in_stock") result = result.filter((i) => i.currentStock > i.reorderPoint && !i.needsReview);
+      else if (filters.status === "low_stock") result = result.filter((i) => i.currentStock > 0 && i.currentStock <= i.reorderPoint && !i.needsReview);
+      else if (filters.status === "out_of_stock") result = result.filter((i) => i.currentStock === 0 && !i.needsReview);
+      else if (filters.status === "needs-review") result = result.filter((i) => i.needsReview === true);
+    }
     return result;
   }, [allItems, filters.status]);
 
@@ -279,6 +284,14 @@ function CatalogPage() {
     }
   }, [deleteTarget, isAdmin, deleteItem, updateItem]);
 
+  const handleRestore = useCallback(() => {
+    if (!deleteTarget) return;
+    updateItem.mutate({ id: deleteTarget.id, updates: { status: ItemStatus.Active } }, {
+      onSuccess: () => { toast.success(`${deleteTarget.name} restored`); setDeleteTarget(null); },
+      onError: (e) => toast.error(e.message || "Failed to restore item."),
+    });
+  }, [deleteTarget, updateItem]);
+
   const openEdit = (item: Item) => { setEditItem(item); setSheetOpen(true); };
   const openCreate = () => { setEditItem(null); setSheetOpen(true); };
 
@@ -298,6 +311,7 @@ function CatalogPage() {
       onViewDetails={(i) => openDetail(i)}
       onEdit={(i) => openEdit(i)}
       onLogMovement={(i) => setMovementItemId(i.id)}
+      onRestore={(i) => setDeleteTarget(i)}
       onDelete={(i) => setDeleteTarget(i)}
     />
   );
@@ -437,16 +451,24 @@ function CatalogPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{isAdmin ? "Delete" : "Archive"} {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteTarget?.status === ItemStatus.Archived
+                ? `Restore ${deleteTarget?.name}?`
+                : `${isAdmin ? "Delete" : "Archive"} ${deleteTarget?.name}?`}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {isAdmin
-                ? "This action cannot be undone. Movement history will be preserved but the item will be removed."
+              {deleteTarget?.status === ItemStatus.Archived
+                ? "The item will be restored and visible in the active catalog."
+                : isAdmin
+                ? "This action cannot be undone. The product will be permanently removed."
                 : "The item will be archived and hidden from the default view."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>{isAdmin ? "Delete" : "Archive"}</AlertDialogAction>
+            <AlertDialogAction onClick={deleteTarget?.status === ItemStatus.Archived ? handleRestore : handleDelete}>
+              {deleteTarget?.status === ItemStatus.Archived ? "Restore" : isAdmin ? "Delete" : "Archive"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,4 +1,4 @@
-import { MoreVertical, Eye, Pencil, ArrowRightLeft, Trash2, Archive, QrCode } from "lucide-react";
+import { MoreVertical, Eye, Pencil, ArrowRightLeft, Trash2, Archive, QrCode, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ interface RowActionsMenuProps {
   onEdit: (item: Item) => void;
   onLogMovement: (item: Item) => void;
   onDelete: (item: Item) => void;
+  onRestore?: (item: Item) => void;
 }
 
 export function RowActionsMenu({
@@ -26,6 +27,7 @@ export function RowActionsMenu({
   onEdit,
   onLogMovement,
   onDelete,
+  onRestore,
 }: RowActionsMenuProps) {
   const { can } = usePermissions();
   const { isAdmin } = useRole();
@@ -63,7 +65,11 @@ export function RowActionsMenu({
         {canEdit && (
           <>
             <DropdownMenuSeparator />
-            {isAdmin ? (
+            {item.status === "archived" && onRestore ? (
+              <DropdownMenuItem onClick={() => onRestore(item)} className="text-emerald-600">
+                <RotateCcw className="mr-2 h-4 w-4" />Restore
+              </DropdownMenuItem>
+            ) : isAdmin ? (
               <DropdownMenuItem onClick={() => onDelete(item)} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />Delete
               </DropdownMenuItem>

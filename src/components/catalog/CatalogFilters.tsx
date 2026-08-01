@@ -31,6 +31,7 @@ const STATUS_OPTIONS = [
   { value: "low_stock", label: "Low Stock" },
   { value: "out_of_stock", label: "Out of Stock" },
   { value: "needs-review", label: "Needs Review" },
+  { value: "archived", label: "Archived" },
 ];
 
 export function CatalogFilters({ filters, onChange, categories, suppliers, locations, view = "list", onViewChange, needsReviewCount = 0 }: CatalogFiltersProps) {
