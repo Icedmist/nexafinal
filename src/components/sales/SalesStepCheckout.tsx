@@ -163,6 +163,9 @@ export function SalesStepCheckout({
     if (paid <= 0) return 0; // nothing entered yet — no partial payment
     return Math.max(0, grandTotal - paid);
   }, [amountPaid, grandTotal]);
+
+  // Debts (credit sales / partial payments) can only be given when customer details are provided
+  const hasCustomerDetails = Boolean(customerName.trim() || customerPhone.trim());
   
   const customersList = useMemo(() => {
     const map = new Map<string, { name: string; phone: string; email?: string; createdAt?: string }>();
@@ -251,6 +254,12 @@ export function SalesStepCheckout({
     // Validate required data
     if (!storeId && !claims?.storeId) {
       toast.error("Store context not loaded. Please refresh and try again.");
+      return;
+    }
+
+    // Debts (credit sales / partial payments) are only given when customer details are added
+    if ((payOnCredit || remainingBalance > 0) && !hasCustomerDetails) {
+      toast.error("Add a customer name or phone number to record this debt.");
       return;
     }
 
@@ -368,7 +377,7 @@ export function SalesStepCheckout({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-1">Customer Details</h3>
-            <p className="text-xs text-muted-foreground">Optional — helps with receipts and repeat tracking</p>
+            <p className="text-xs text-muted-foreground">Name or phone is required to give credit</p>
           </div>
           <PriceModeSelector
             value={saleType}
@@ -511,16 +520,21 @@ export function SalesStepCheckout({
         <button
           type="button"
           onClick={() => setPayOnCredit(!payOnCredit)}
+          disabled={!hasCustomerDetails}
           className={cn(
             "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all w-full",
             payOnCredit
               ? (businessType === "restaurant" ? "border-emerald-600 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" : "border-primary bg-primary/10 text-primary")
-              : (businessType === "restaurant" ? "border-border text-muted-foreground hover:border-emerald-600/40" : "border-border text-muted-foreground hover:border-primary/40")
+              : (businessType === "restaurant" ? "border-border text-muted-foreground hover:border-emerald-600/40" : "border-border text-muted-foreground hover:border-primary/40"),
+            !hasCustomerDetails && "opacity-50 cursor-not-allowed hover:border-border"
           )}
         >
           <Wallet className="h-4 w-4" />
           {payOnCredit ? "Paying on credit ✓" : "Add to customer credit"}
         </button>
+        {!hasCustomerDetails && (
+          <p className="text-xs text-muted-foreground italic">Add a customer name or phone number to enable credit sales.</p>
+        )}
       </div>
 
       <Separator className="my-4" />
@@ -625,6 +639,11 @@ export function SalesStepCheckout({
                 <span className="font-mono font-black text-sm text-amber-700 dark:text-amber-400">{NAIRA}{remainingBalance.toLocaleString("en-NG")}</span>
               </div>
               <p className="text-[10px] text-muted-foreground italic">This transaction will be recorded as a debt of {NAIRA}{remainingBalance.toLocaleString("en-NG")}.</p>
+              {!hasCustomerDetails && (
+                <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                  Add a customer name or phone number to record this debt.
+                </p>
+              )}
             </div>
           )}
         </div>

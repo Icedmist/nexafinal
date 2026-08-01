@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { RestockingTable } from "@/components/restocking/RestockingTable";
 import { RestockSummaryStats } from "@/components/restocking/RestockSummaryStats";
 import { RestockingFilters } from "@/components/restocking/RestockingFilters";
@@ -15,13 +14,11 @@ import { useRole } from "@/hooks/useRole";
 import {
   useDeletePurchaseOrder,
   useUpdatePurchaseOrder,
-  useCreateMovement,
-  useUpdateItem,
+  useReceiveShipment,
 } from "@/hooks/useInventoryMutations";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
-import { OrderStatus, MovementType } from "@/types/inventory";
 import type { PurchaseOrder } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 import type { RestockFilters } from "@/components/restocking/restock-filter-types";
@@ -34,19 +31,17 @@ interface POSearch {
 export default RestockingPage;
 
 function RestockingPage() {
-  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { po: poParam, action } = Object.fromEntries(searchParams.entries()) as any;
   const { data: purchaseOrders } = usePurchaseOrders();
   const { data: suppliers } = useSuppliers();
   const { data: catalogItems } = useItems();
-  const { data: allMovements } = useMovements();
+  const { data: allMovements } = useMovements(1000);
   const { can } = usePermissions();
   const { role } = useRole();
   const deletePO = useDeletePurchaseOrder();
   const updatePO = useUpdatePurchaseOrder();
-  const createMovement = useCreateMovement();
-  const updateItem = useUpdateItem();
+  const receiveShipment = useReceiveShipment();
   const canManagePOs = can("create_po");
   const isAdmin = isAdminRole(role);
   const [filters, setFilters] = useState<RestockFilters>(EMPTY_RESTOCK_FILTERS);
@@ -192,64 +187,27 @@ function RestockingPage() {
           purchaseOrder={receivePO}
           items={catalogItems}
           onConfirm={(receivedLines, notes) => {
-            const now = new Date().toISOString();
             const po = receivePO!;
-
-            // 1. Create stock movements for each received line
-            for (const line of receivedLines) {
-              createMovement.mutate({
-                itemId: line.itemId,
-                type: MovementType.Received,
-                quantity: line.qty,
-                fromLocationId: null,
-                toLocationId: null,
-                reference: po.orderNumber,
-                notes: notes || `Received via ${po.orderNumber}`,
-                performedBy: user?.email || "System",
-                createdAt: now,
-              });
-
-              // 2. Update item currentStock and costPrice
-              const item = catalogItems.find((i) => i.id === line.itemId);
-              if (item) {
-                const poItem = po.items.find((pi) => pi.id === line.lineItemId);
-                updateItem.mutate({
-                  id: item.id,
-                  updates: { 
-                    currentStock: item.currentStock + line.qty, 
-                    costPrice: poItem?.unitCost ?? item.costPrice,
-                    sellingPrice: poItem?.sellingPrice ?? item.sellingPrice,
-                    updatedAt: now 
-                  },
-                });
-              }
-            }
-
-            // 3. Update PO line items received quantities
-            const updatedItems = po.items.map((li) => {
-              const received = receivedLines.find((r) => r.lineItemId === li.id);
-              if (received) {
-                return { ...li, quantityReceived: li.quantityReceived + received.qty };
-              }
-              return li;
-            });
-
-            // 4. Determine new PO status
-            const allFullyReceived = updatedItems.every(
-              (li) => li.quantityReceived >= li.quantityOrdered,
+            receiveShipment.mutate(
+              {
+                purchaseOrderId: po.id,
+                orderNumber: po.orderNumber,
+                lines: receivedLines,
+                notes,
+              },
+              {
+                onSuccess: () => {
+                  const totalQty = receivedLines.reduce((sum, l) => sum + l.qty, 0);
+                  toast.success(
+                    `Received ${totalQty} items across ${receivedLines.length} line items`,
+                  );
+                  setReceiveOpen(false);
+                },
+                onError: (e) => {
+                  toast.error(e.message || "Failed to receive shipment. Please try again.");
+                },
+              },
             );
-            const newStatus = allFullyReceived ? OrderStatus.Received : OrderStatus.Partial;
-
-            updatePO.mutate({
-              id: po.id,
-              updates: { items: updatedItems, status: newStatus, updatedAt: now },
-            });
-
-            const totalQty = receivedLines.reduce((sum, l) => sum + l.qty, 0);
-            toast.success(
-              `Received ${totalQty} items across ${receivedLines.length} line items`,
-            );
-            setReceiveOpen(false);
           }}
         />
       )}

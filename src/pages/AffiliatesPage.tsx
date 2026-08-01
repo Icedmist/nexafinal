@@ -144,54 +144,58 @@ export default function AffiliatesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-md border border-border bg-card">
-          <div className="grid grid-cols-[1fr_100px_100px_140px_50px] gap-4 p-4 border-b text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <div>Partner</div>
-            <div className="text-right">Sales</div>
-            <div className="text-right">Earnings</div>
-            <div className="text-right">Referral Link</div>
-            <div></div>
-          </div>
-          {partners.map((partner) => (
-            <div key={partner.id} className="grid grid-cols-[1fr_100px_100px_140px_50px] gap-4 p-4 items-center border-b last:border-0 hover:bg-muted/50 transition-colors">
-              <div>
-                <p className="text-sm font-medium">{partner.name}</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-muted-foreground">{partner.email}</p>
-                  <Badge variant={partner.status === "active" ? "outline" : partner.status === "pending" ? "secondary" : "destructive"} className="h-4 text-[10px] px-1">
-                    {partner.status}
-                  </Badge>
+        <div className="rounded-md border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <div className="min-w-[550px]">
+              <div className="grid grid-cols-[1fr_100px_100px_140px_50px] gap-4 p-4 border-b text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <div>Partner</div>
+                <div className="text-right">Sales</div>
+                <div className="text-right">Earnings</div>
+                <div className="text-right">Referral Link</div>
+                <div></div>
+              </div>
+              {partners.map((partner) => (
+                <div key={partner.id} className="grid grid-cols-[1fr_100px_100px_140px_50px] gap-4 p-4 items-center border-b last:border-0 hover:bg-muted/50 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium">{partner.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">{partner.email}</p>
+                      <Badge variant={partner.status === "active" ? "outline" : partner.status === "pending" ? "secondary" : "destructive"} className="h-4 text-[10px] px-1">
+                        {partner.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="text-right font-medium text-sm">
+                    {partner.totalSales}
+                  </div>
+                  <div className="text-right font-semibold text-green-600 text-sm">
+                    ₦{partner.totalEarnings.toLocaleString()}
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 gap-2 text-xs"
+                      onClick={() => copyReferralLink(partner.id)}
+                    >
+                      {copiedId === partner.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      Copy Link
+                    </Button>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => handleRemovePartner(partner.id, partner.name)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="text-right font-medium text-sm">
-                {partner.totalSales}
-              </div>
-              <div className="text-right font-semibold text-green-600 text-sm">
-                ₦{partner.totalEarnings.toLocaleString()}
-              </div>
-              <div className="flex justify-end">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-8 gap-2 text-xs"
-                  onClick={() => copyReferralLink(partner.id)}
-                >
-                  {copiedId === partner.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  Copy Link
-                </Button>
-              </div>
-              <div className="flex justify-end">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => handleRemovePartner(partner.id, partner.name)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       )}
 
@@ -209,31 +213,35 @@ export default function AffiliatesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-md border border-border bg-card">
-          <div className="grid grid-cols-[1fr_120px_120px] gap-4 p-4 border-b text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <div>Product</div>
-            <div className="text-right">Commission</div>
-            <div className="text-right">Actions</div>
-          </div>
-          {affiliateItems.map((item) => (
-            <div key={item.id} className="grid grid-cols-[1fr_120px_120px] gap-4 p-4 items-center border-b last:border-0 hover:bg-muted/50 transition-colors">
-              <div>
-                <p className="text-sm font-medium">{item.name}</p>
-                <p className="text-xs text-muted-foreground font-mono">{item.sku}</p>
+        <div className="rounded-md border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <div className="min-w-[400px]">
+              <div className="grid grid-cols-[1fr_120px_120px] gap-4 p-4 border-b text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <div>Product</div>
+                <div className="text-right">Commission</div>
+                <div className="text-right">Actions</div>
               </div>
-              <div className="text-right font-semibold text-green-600">
-                ₦{(item as any).affiliateCommission?.toLocaleString()}
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MessageSquare className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Mail className="h-4 w-4" />
-                </Button>
-              </div>
+              {affiliateItems.map((item) => (
+                <div key={item.id} className="grid grid-cols-[1fr_120px_120px] gap-4 p-4 items-center border-b last:border-0 hover:bg-muted/50 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium">{item.name}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{item.sku}</p>
+                  </div>
+                  <div className="text-right font-semibold text-green-600">
+                    ₦{(item as any).affiliateCommission?.toLocaleString()}
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Mail className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       )}
 

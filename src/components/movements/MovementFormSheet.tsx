@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { MovementType } from "@/types/inventory";
-import type { Item, Location, StockMovement } from "@/types/inventory";
-import { useCreateMovement } from "@/hooks/useInventoryMutations";
+import type { Item, Location } from "@/types/inventory";
+import { useStockAdjustment } from "@/hooks/useInventoryMutations";
 import { PackagePlus, X } from "lucide-react";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 
@@ -53,7 +53,7 @@ export function MovementFormSheet({
   locations,
   preSelectedItemId,
 }: MovementFormSheetProps) {
-  const { mutate, isLoading } = useCreateMovement();
+  const { mutate, isLoading } = useStockAdjustment();
   const { user } = useAuth();
 
   const [itemId, setItemId] = useState("");
@@ -144,32 +144,33 @@ export function MovementFormSheet({
     const signedQty = direction === "in" ? qty : -qty;
     const unitPriceValue = type === MovementType.Transferred ? Number(unitPrice) || 0 : 0;
 
-    const movement: StockMovement = {
-      id: crypto.randomUUID(),
-      itemId,
-      type,
-      quantity: signedQty,
-      fromLocationId: type === MovementType.Transferred ? fromLocationId || null : null,
-      toLocationId: type === MovementType.Transferred ? toLocationId || null : null,
-      reference,
-      notes: reference,
-      performedBy: user?.email || "System",
-      unitPrice: unitPriceValue,
-      value: unitPriceValue * qty,
-      createdAt: new Date().toISOString(),
-    };
-
-    mutate(movement, {
-      onSuccess: () => {
-        const label = selectedItem?.name ?? itemId;
-        const sign = direction === "in" ? "+" : "−";
-        toast.success(`Movement logged: ${sign}${qty} ${label} (${type})`, {
-          duration: 5000,
-        });
-        onOpenChange(false);
+    mutate(
+      {
+        itemId,
+        type,
+        quantity: signedQty,
+        // Update the item's currentStock to reflect the movement
+        stockDelta: signedQty,
+        fromLocationId: type === MovementType.Transferred ? fromLocationId || null : null,
+        toLocationId: type === MovementType.Transferred ? toLocationId || null : null,
+        reference,
+        notes: reference,
+        unitPrice: unitPriceValue,
+        value: unitPriceValue * qty,
+        performedByName: user?.displayName || user?.email || "System",
       },
-      onError: (e) => toast.error(e.message || "Failed to log movement. Please try again."),
-    });
+      {
+        onSuccess: () => {
+          const label = selectedItem?.name ?? itemId;
+          const sign = direction === "in" ? "+" : "−";
+          toast.success(`Movement logged: ${sign}${qty} ${label} (${type})`, {
+            duration: 5000,
+          });
+          onOpenChange(false);
+        },
+        onError: (e) => toast.error(e.message || "Failed to log movement. Please try again."),
+      },
+    );
   };
 
   const isTransfer = type === MovementType.Transferred;

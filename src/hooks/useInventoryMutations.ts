@@ -6,8 +6,8 @@ import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { notifyActivity } from "@/lib/notification-service";
 import { cleanFirestoreData } from "@/utils/cleanFirestoreData";
-import type { Item, Supplier, Location, StockMovement, PurchaseOrder, InventoryRequest, Category } from "@/types/inventory";
-import { MovementType } from "@/types/inventory";
+import type { Item, Supplier, Location, StockMovement, PurchaseOrder, PurchaseOrderItem, InventoryRequest, Category } from "@/types/inventory";
+import { MovementType, OrderStatus } from "@/types/inventory";
 import type { Refund } from "@/types/finance";
 
 interface MutationResult<TData> {
@@ -223,10 +223,12 @@ export function useCreateMovement() {
     await addDoc(collection(db, "movements"), { 
       ...data, 
       storeId, 
-      branchId: claims?.branchId || null,
+      branchId: data.branchId !== undefined ? data.branchId : (claims?.branchId || null),
       ownerId: user.uid, 
-      performedBy: user.uid, 
-      createdAt: new Date().toISOString() 
+      performedBy: data.performedBy || user.uid, 
+      performedByName: data.performedByName || user.displayName || user.email || "System",
+      createdAt: data.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
 
     await notifyActivity({
@@ -260,8 +262,9 @@ export function useCreatePurchaseOrder() {
         storeId,
         branchId: claims?.branchId || null,
         ownerId: user.uid,
-        status: "RECEIVED", // Instant is automatically received
-        createdAt: new Date().toISOString()
+        status: OrderStatus.Received, // Instant is automatically received
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
       // 2. Update stock and create movements
@@ -284,12 +287,17 @@ export function useCreatePurchaseOrder() {
           itemId: item.itemId,
           type: MovementType.Received,
           quantity: item.quantityOrdered,
-          reason: `Restock Order ${poData.orderNumber}`,
-          referenceId: poId,
+          fromLocationId: null,
+          toLocationId: null,
+          reference: poData.orderNumber,
+          notes: `Instant restock via ${poData.orderNumber}`,
+          performedBy: user.uid,
+          performedByName: user.displayName || user.email || "System",
           storeId,
           branchId: claims?.branchId || null,
           ownerId: user.uid,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       }
 
@@ -300,7 +308,8 @@ export function useCreatePurchaseOrder() {
         storeId, 
         branchId: claims?.branchId || null,
         ownerId: user.uid, 
-        createdAt: new Date().toISOString() 
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
 
@@ -317,6 +326,167 @@ export function useCreatePurchaseOrder() {
       metadata: { orderNumber: poData.orderNumber, supplierId: poData.supplierId, isInstant },
       actionUrl: "/app/restock",
       actionLabel: "View Order"
+    });
+  });
+}
+
+export interface ReceiveShipmentLine {
+  lineItemId: string;
+  itemId: string;
+  qty: number;
+}
+
+/**
+ * Atomically logs a stock movement and updates the item's currentStock.
+ * Uses `stockDelta` (signed) when provided, otherwise derives it from type
+ * (Received adds, Shipped removes, Adjusted/Transferred stay neutral).
+ */
+export function useStockAdjustment() {
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+  return useFirestoreMutation<{
+    itemId: string;
+    type: MovementType;
+    quantity: number;
+    stockDelta?: number;
+    notes?: string;
+    reference?: string;
+    fromLocationId?: string | null;
+    toLocationId?: string | null;
+    unitPrice?: number;
+    value?: number;
+    performedByName?: string;
+  }>(async (storeId, data, user, claims) => {
+    const batch = writeBatch(db);
+    const now = new Date().toISOString();
+
+    const delta = data.stockDelta !== undefined
+      ? data.stockDelta
+      : data.type === MovementType.Received ? data.quantity
+      : data.type === MovementType.Shipped ? -data.quantity
+      : 0;
+
+    if (delta !== 0) {
+      batch.update(doc(db, "products", data.itemId), {
+        currentStock: increment(delta),
+        updatedAt: now,
+      });
+    }
+
+    const movementRef = doc(collection(db, "movements"));
+    batch.set(movementRef, {
+      itemId: data.itemId,
+      type: data.type,
+      quantity: data.quantity,
+      fromLocationId: data.fromLocationId ?? null,
+      toLocationId: data.toLocationId ?? null,
+      reference: data.reference || "Quick Entry",
+      notes: data.notes || "",
+      unitPrice: data.unitPrice ?? null,
+      value: data.value ?? null,
+      performedBy: user.uid,
+      performedByName: data.performedByName || user.displayName || user.email || "System",
+      storeId,
+      branchId: claims?.branchId || null,
+      ownerId: user.uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await batch.commit();
+
+    await notifyActivity({
+      type: "movement",
+      category: "inventory",
+      severity: "low",
+      title: "Stock Adjustment",
+      message: `${data.type === MovementType.Received ? "Added" : data.type === MovementType.Shipped ? "Removed" : "Adjusted"} ${data.quantity} units via Quick Entry.`,
+      userId: user.uid,
+      userEmail: user.email || "unknown",
+      storeId,
+      branchId: claims?.branchId,
+      metadata: { movementType: data.type, quantity: data.quantity, itemId: data.itemId },
+    });
+  });
+}
+
+export function useReceiveShipment() {
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+  return useFirestoreMutation<{
+    purchaseOrderId: string;
+    orderNumber: string;
+    lines: ReceiveShipmentLine[];
+    notes?: string;
+  }>(async (storeId, data, user, claims) => {
+    const batch = writeBatch(db);
+    const now = new Date().toISOString();
+
+    // Read the latest PO to compute received quantities atomically
+    const poRef = doc(db, "purchase_orders", data.purchaseOrderId);
+    const poSnap = await getDoc(poRef);
+    if (!poSnap.exists()) throw new Error("Purchase order not found");
+    const poData = poSnap.data() as PurchaseOrder;
+
+    const receivedByLine = new Map(data.lines.map((l) => [l.lineItemId, l.qty]));
+
+    // 1. Update PO line item received quantities + status
+    const updatedItems: PurchaseOrderItem[] = (poData.items || []).map((li) => {
+      const qty = receivedByLine.get(li.id) || 0;
+      return qty > 0 ? { ...li, quantityReceived: (li.quantityReceived || 0) + qty } : li;
+    });
+    const allFullyReceived = updatedItems.every((li) => li.quantityReceived >= li.quantityOrdered);
+    const newStatus = allFullyReceived ? OrderStatus.Received : OrderStatus.Partial;
+
+    batch.update(poRef, { items: updatedItems, status: newStatus, updatedAt: now });
+
+    // 2. Update stock, cost price, selling price + create movements for each received line
+    for (const line of data.lines) {
+      const poLine = (poData.items || []).find((li) => li.id === line.lineItemId);
+
+      const itemRef = doc(db, "products", line.itemId);
+      const productUpdates: Record<string, unknown> = {
+        currentStock: increment(line.qty),
+        updatedAt: now,
+      };
+      if (poLine?.unitCost && poLine.unitCost > 0) productUpdates.costPrice = poLine.unitCost;
+      if (poLine?.sellingPrice && poLine.sellingPrice > 0) productUpdates.sellingPrice = poLine.sellingPrice;
+      batch.update(itemRef, productUpdates);
+
+      const movementRef = doc(collection(db, "movements"));
+      batch.set(movementRef, {
+        itemId: line.itemId,
+        type: MovementType.Received,
+        quantity: line.qty,
+        fromLocationId: null,
+        toLocationId: null,
+        reference: data.orderNumber,
+        notes: data.notes || `Received via ${data.orderNumber}`,
+        performedBy: user.uid,
+        performedByName: user.displayName || user.email || "System",
+        storeId,
+        branchId: claims?.branchId || null,
+        ownerId: user.uid,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    await batch.commit();
+
+    await notifyActivity({
+      type: "purchase_order_update",
+      category: "procurement",
+      severity: "low",
+      title: "Shipment Received",
+      message: `Received ${data.lines.reduce((s, l) => s + l.qty, 0)} units for order ${data.orderNumber}.`,
+      userId: user.uid,
+      userEmail: user.email || "unknown",
+      storeId,
+      branchId: claims?.branchId,
+      metadata: { orderNumber: data.orderNumber, lines: data.lines.length },
+      actionUrl: "/app/restock",
+      actionLabel: "View Order",
     });
   });
 }

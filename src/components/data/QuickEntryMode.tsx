@@ -18,9 +18,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useItems } from "@/hooks/useInventoryData";
-import { useCreateMovement } from "@/hooks/useInventoryMutations";
+import { useStockAdjustment } from "@/hooks/useInventoryMutations";
 import { MovementType } from "@/types/inventory";
-import type { Item, StockMovement } from "@/types/inventory";
+import type { Item } from "@/types/inventory";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -40,7 +40,7 @@ export function QuickEntryMode({ open, onOpenChange }: QuickEntryModeProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: items = [] } = useItems();
-  const createMovement = useCreateMovement();
+  const stockAdjustment = useStockAdjustment();
   const { user } = useAuth();
 
   // Auto-focus input when opened or after action
@@ -80,26 +80,25 @@ export function QuickEntryMode({ open, onOpenChange }: QuickEntryModeProps) {
   const handleSubmit = useCallback(() => {
     if (!foundItem || !quantity) return;
 
-    const movement: StockMovement = {
-      id: `mov-${Date.now()}`,
-      itemId: foundItem.id,
-      type: movementType,
-      quantity: Number(quantity),
-      fromLocationId: null,
-      toLocationId: null,
-      reference: `Quick Entry`,
-      notes,
-      performedBy: user?.email || "System",
-      createdAt: new Date().toISOString(),
-    };
-
-    createMovement.mutate(movement, {
-      onSuccess: () => {
-        toast.success(`Logged: ${quantity} × ${foundItem.name}`);
-        resetForm();
+    stockAdjustment.mutate(
+      {
+        itemId: foundItem.id,
+        type: movementType,
+        quantity: Number(quantity),
+        notes,
+        performedByName: user?.displayName || user?.email || "System",
       },
-    });
-  }, [foundItem, movementType, quantity, notes, createMovement, resetForm]);
+      {
+        onSuccess: () => {
+          toast.success(`Logged: ${quantity} × ${foundItem.name}`);
+          resetForm();
+        },
+        onError: (e) => {
+          toast.error(e.message || "Failed to commit movement.");
+        },
+      },
+    );
+  }, [foundItem, movementType, quantity, notes, stockAdjustment, resetForm, user]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -244,10 +243,10 @@ export function QuickEntryMode({ open, onOpenChange }: QuickEntryModeProps) {
                     <div className="pt-2">
                       <Button
                         onClick={handleSubmit}
-                        disabled={!quantity || createMovement.isLoading}
+                        disabled={!quantity || stockAdjustment.isLoading}
                         className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20 group"
                       >
-                        {createMovement.isLoading ? "Processing..." : "Commit Movement"}
+                        {stockAdjustment.isLoading ? "Processing..." : "Commit Movement"}
                         <CheckCircle2 className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100" />
                       </Button>
                       <Button type="button" variant="ghost" onClick={resetForm} className="w-full mt-2 font-bold text-muted-foreground">

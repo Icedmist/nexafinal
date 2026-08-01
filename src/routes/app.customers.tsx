@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Search, User, Phone, ShoppingBag, MessageCircle, Send,
-  TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X,
+  TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X, FileDown,
 } from "lucide-react";
 import { useSales, useDebtPayments, useSalesMutations } from "@/hooks/useSalesData";
 import { useTenant } from "@/hooks/useTenant";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { CreditCard, DollarSign } from "lucide-react";
 import { normalizePhone } from "@/lib/utils";
 import { DebtClearingHistory } from "@/components/sales/DebtClearingHistory";
+import { DebtReportModal } from "@/components/sales/DebtReportModal";
 import { ListSkeleton } from "@/components/shared/skeletons";
 
 const NAIRA = "₦";
@@ -86,6 +87,9 @@ function CustomersPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportCustomer, setReportCustomer] = useState<CustomerRecord | null>(null);
 
   const customers = useMemo(() => {
     const map = new Map<string, CustomerRecord>();
@@ -316,6 +320,17 @@ function CustomersPage() {
             Message {selectedCustomers.size} selected
           </Button>
         )}
+        <Button
+          variant="outline"
+          onClick={() => {
+            setReportCustomer(null);
+            setReportOpen(true);
+          }}
+          className="gap-2"
+        >
+          <FileDown className="h-4 w-4" />
+          Download Debt Report
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -424,6 +439,18 @@ function CustomersPage() {
                     <Button variant="ghost" size="icon" onClick={() => handleSendMessage(c)} className="h-9 w-9 text-primary">
                       <MessageCircle className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setReportCustomer(c);
+                        setReportOpen(true);
+                      }}
+                      className="h-9 w-9 text-muted-foreground hover:text-primary"
+                      title="Download debt report"
+                    >
+                      <FileDown className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -503,8 +530,7 @@ function CustomersPage() {
           setPaymentAmount("");
           setPaymentNote("");
         }
-      }}>
-        <DialogContent className="sm:max-w-md">
+      }}>        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary" />
@@ -552,6 +578,15 @@ function CustomersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Debt Report Download Dialog */}
+      <DebtReportModal
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        sales={sales}
+        payments={payments}
+        customer={reportCustomer ? { name: reportCustomer.name, phone: reportCustomer.phone } : null}
+      />
     </div>
   );
 }

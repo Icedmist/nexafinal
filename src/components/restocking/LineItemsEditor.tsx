@@ -168,137 +168,143 @@ export function LineItemsEditor({ items, lineItems, onChange, error }: LineItems
         </p>
       )}
 
-      {lineItems.map((row, idx) => {
-        const lineTotal = row.quantity * row.unitCost;
-        return (
-          <div
-            key={row.id}
-            className="grid grid-cols-[1fr_120px_60px_90px_90px_80px_32px] items-end gap-2 rounded-md border border-border bg-muted/30 p-3"
-          >
-            {/* Item select */}
-            <div>
-              {idx === 0 && (
-                <Label className="mb-1 block text-xs text-muted-foreground">Item</Label>
-              )}
-              <Select
-                value={row.itemId || "__none__"}
-                onValueChange={(v) => handleItemSelect(row.id, v === "__none__" ? "" : v)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select item" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__" disabled>Select item</SelectItem>
-                  {items.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name} ({item.sku})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {lineItems.length > 0 && (
+        <div className="overflow-x-auto pb-2">
+          <div className="min-w-[640px] space-y-2">
+            {lineItems.map((row, idx) => {
+              const lineTotal = row.quantity * row.unitCost;
+              return (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-[1fr_120px_60px_90px_90px_80px_32px] items-end gap-2 rounded-md border border-border bg-muted/30 p-3"
+                >
+                  {/* Item select */}
+                  <div>
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-xs text-muted-foreground">Item</Label>
+                    )}
+                    <Select
+                      value={row.itemId || "__none__"}
+                      onValueChange={(v) => handleItemSelect(row.id, v === "__none__" ? "" : v)}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Select item" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__" disabled>Select item</SelectItem>
+                        {items.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} ({item.sku})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {/* Unit Selection */}
-            <div>
-              {idx === 0 && (
-                <Label className="mb-1 block text-xs text-muted-foreground">Unit</Label>
-              )}
-              <Select
-                value={row.selectedUnit || "__none__"}
-                onValueChange={(v) => handleUnitChange(row.id, v)}
-                disabled={!row.itemId}
-              >
-                <SelectTrigger className="h-8 text-[10px] font-bold">
-                  <SelectValue placeholder="Unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {row.itemId && (
-                    <>
-                      <SelectItem value={items.find(i => i.id === row.itemId)?.unit || "Base"}>
-                        {items.find(i => i.id === row.itemId)?.unit || "Base"} (1x)
-                      </SelectItem>
-                      {items.find(i => i.id === row.itemId)?.units?.map((u) => (
-                        <SelectItem key={u.name} value={u.name}>
-                          {u.name} ({u.conversionFactor}x)
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+                  {/* Unit Selection */}
+                  <div>
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-xs text-muted-foreground">Unit</Label>
+                    )}
+                    <Select
+                      value={row.selectedUnit || "__none__"}
+                      onValueChange={(v) => handleUnitChange(row.id, v)}
+                      disabled={!row.itemId}
+                    >
+                      <SelectTrigger className="h-8 text-[10px] font-bold">
+                        <SelectValue placeholder="Unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {row.itemId && (
+                          <>
+                            <SelectItem value={items.find(i => i.id === row.itemId)?.unit || "Base"}>
+                              {items.find(i => i.id === row.itemId)?.unit || "Base"} (1x)
+                            </SelectItem>
+                            {items.find(i => i.id === row.itemId)?.units?.map((u) => (
+                              <SelectItem key={u.name} value={u.name}>
+                                {u.name} ({u.conversionFactor}x)
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {/* Quantity */}
-            <div>
-              {idx === 0 && (
-                <Label className="mb-1 block text-xs text-muted-foreground">Qty</Label>
-              )}
-              <Input
-                type="number"
-                min={1}
-                className="h-8 text-xs"
-                value={row.quantity}
-                onChange={(e) => updateRow(row.id, "quantity", Math.max(1, Number(e.target.value) || 1))}
-              />
-            </div>
+                  {/* Quantity */}
+                  <div>
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-xs text-muted-foreground">Qty</Label>
+                    )}
+                    <Input
+                      type="number"
+                      min={1}
+                      className="h-8 text-xs"
+                      value={row.quantity}
+                      onChange={(e) => updateRow(row.id, "quantity", Math.max(1, Number(e.target.value) || 1))}
+                    />
+                  </div>
 
-            {/* Unit Cost */}
-            <div>
-              {idx === 0 && (
-                <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Cost</Label>
-              )}
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                className="h-8 text-xs font-bold"
-                value={row.unitCost}
-                onChange={(e) => updateRow(row.id, "unitCost", Math.max(0, Number(e.target.value) || 0))}
-              />
-            </div>
+                  {/* Unit Cost */}
+                  <div>
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Cost</Label>
+                    )}
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="h-8 text-xs font-bold"
+                      value={row.unitCost}
+                      onChange={(e) => updateRow(row.id, "unitCost", Math.max(0, Number(e.target.value) || 0))}
+                    />
+                  </div>
 
-            {/* Selling Price */}
-            <div>
-              {idx === 0 && (
-                <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Price</Label>
-              )}
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                className="h-8 text-xs font-bold border-primary/20"
-                value={row.sellingPrice}
-                onChange={(e) => updateRow(row.id, "sellingPrice", Math.max(0, Number(e.target.value) || 0))}
-              />
-            </div>
+                  {/* Selling Price */}
+                  <div>
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Price</Label>
+                    )}
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="h-8 text-xs font-bold border-primary/20"
+                      value={row.sellingPrice}
+                      onChange={(e) => updateRow(row.id, "sellingPrice", Math.max(0, Number(e.target.value) || 0))}
+                    />
+                  </div>
 
-            {/* Line total */}
-            <div>
-              {idx === 0 && (
-                <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Total</Label>
-              )}
-              <span className="flex h-8 items-center text-[10px] font-mono font-black text-foreground">
-                {NAIRA}{lineTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
-              </span>
-            </div>
+                  {/* Line total */}
+                  <div>
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-[10px] uppercase tracking-tighter text-muted-foreground">Total</Label>
+                    )}
+                    <span className="flex h-8 items-center text-[10px] font-mono font-black text-foreground">
+                      {NAIRA}{lineTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                    </span>
+                  </div>
 
-            {/* Remove */}
-            <div>
-              {idx === 0 && <div className="mb-1 h-4" />}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => removeRow(row.id)}
-                aria-label="Remove line item"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+                  {/* Remove */}
+                  <div>
+                    {idx === 0 && <div className="mb-1 h-4" />}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeRow(row.id)}
+                      aria-label="Remove line item"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-destructive">{error}</p>

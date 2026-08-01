@@ -130,15 +130,19 @@ export function RestockingFormSheet({
     setLineError("");
 
     const now = new Date().toISOString();
-    const poItems: PurchaseOrderItem[] = lineItems.map((r) => ({
-      id: r.id,
-      purchaseOrderId: "",
-      itemId: r.itemId,
-      quantityOrdered: r.quantity,
-      quantityReceived: values.isInstant ? r.quantity : 0,
-      unitCost: r.unitCost,
-      sellingPrice: r.sellingPrice,
-    }));
+    const poItems: PurchaseOrderItem[] = lineItems.map((r) => {
+      const existing = isEdit ? purchaseOrder?.items.find((li) => li.id === r.id) : undefined;
+      return {
+        id: r.id,
+        purchaseOrderId: "",
+        itemId: r.itemId,
+        quantityOrdered: r.quantity,
+        // Preserve already-received quantities when editing; only instant restocks fill them fully
+        quantityReceived: values.isInstant ? r.quantity : (existing?.quantityReceived ?? 0),
+        unitCost: r.unitCost,
+        sellingPrice: r.sellingPrice,
+      };
+    });
     const totalCost = poItems.reduce((s, i) => s + i.quantityOrdered * i.unitCost, 0);
 
     if (isEdit && purchaseOrder) {

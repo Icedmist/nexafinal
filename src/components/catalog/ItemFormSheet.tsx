@@ -405,54 +405,58 @@ function VariantsSection({ control, watch, setValue, errors, cardGroupCls, label
             </div>
 
             <div className="rounded-xl border border-border overflow-hidden">
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_100px_80px] gap-2 px-3 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                <span>Variant</span>
-                <span className="text-right">Price (₦)</span>
-                <span className="text-right">Stock</span>
-              </div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[320px]">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr_100px_80px] gap-2 px-3 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <span>Variant</span>
+                    <span className="text-right">Price (₦)</span>
+                    <span className="text-right">Stock</span>
+                  </div>
 
-              {/* Rows */}
-              <div className="max-h-[300px] overflow-y-auto divide-y divide-border/50">
-                {variants.map((variant: ProductVariant, index: number) => {
-                  const label = Object.values(variant.attributes).join(" / ");
-                  const colorHex = variant.attributes["Colour"] ? getColorHex(variant.attributes["Colour"]) : null;
+                  {/* Rows */}
+                  <div className="max-h-[300px] overflow-y-auto divide-y divide-border/50">
+                    {variants.map((variant: ProductVariant, index: number) => {
+                      const label = Object.values(variant.attributes).join(" / ");
+                      const colorHex = variant.attributes["Colour"] ? getColorHex(variant.attributes["Colour"]) : null;
 
-                  return (
-                    <div
-                      key={variant.id}
-                      className="grid grid-cols-[1fr_100px_80px] gap-2 px-3 py-2.5 items-center hover:bg-muted/20 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        {colorHex && (
-                          <span
-                            className="h-3 w-3 rounded-full border border-black/10 shrink-0"
-                            style={{ backgroundColor: colorHex }}
-                          />
-                        )}
-                        <span className="text-xs font-bold truncate">{label}</span>
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          value={variant.price || ""}
-                          onChange={(e) => updateVariant(index, "price", Number(e.target.value))}
-                          className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs font-mono text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          value={variant.stock || ""}
-                          onChange={(e) => updateVariant(index, "stock", Number(e.target.value))}
-                          className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs font-mono text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                      return (
+                        <div
+                          key={variant.id}
+                          className="grid grid-cols-[1fr_100px_80px] gap-2 px-3 py-2.5 items-center hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {colorHex && (
+                              <span
+                                className="h-3 w-3 rounded-full border border-black/10 shrink-0"
+                                style={{ backgroundColor: colorHex }}
+                              />
+                            )}
+                            <span className="text-xs font-bold truncate">{label}</span>
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              value={variant.price || ""}
+                              onChange={(e) => updateVariant(index, "price", Number(e.target.value))}
+                              className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs font-mono text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              value={variant.stock || ""}
+                              onChange={(e) => updateVariant(index, "stock", Number(e.target.value))}
+                              className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs font-mono text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -767,9 +771,9 @@ export function ItemFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
         <div className="nexa-card bg-card flex flex-col max-h-[90vh]">
-          <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+          <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <PackagePlus className="h-5 w-5" />
@@ -786,7 +790,7 @@ export function ItemFormSheet({
             </Button>
           </div>
 
-        <div className="overflow-y-auto p-6 scroll-smooth">
+        <div className="overflow-y-auto p-4 sm:p-6 scroll-smooth">
           <form id="item-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
             
             {/* Image Upload Section */}

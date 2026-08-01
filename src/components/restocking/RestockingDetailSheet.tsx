@@ -335,7 +335,7 @@ export function RestockingDetailSheet({
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                              <span>{m.performedBy}</span>
+                              <span>{m.performedByName || m.performedBy}</span>
                               <span>•</span>
                               <span>{formatDistanceToNow(ensureDate(m.createdAt), { addSuffix: true })}</span>
                             </div>
