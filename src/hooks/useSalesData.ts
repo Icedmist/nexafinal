@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useDemo } from "@/hooks/useDemo";
-import type { SaleTransaction, DebtPayment } from "@/types/inventory";
+import type { SaleTransaction, DebtPayment, ImportedDebt } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 import { notifyActivity, notifyInventoryAlert } from "@/lib/notification-service";
@@ -120,6 +120,61 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
       payments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setData(payments);
+      setIsLoading(false);
+    }, (err) => {
+      console.error(err);
+      setError(err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
+
+  return { data, isLoading, error };
+}
+
+export function useImportedDebts(): QueryResult<ImportedDebt[]> {
+  const { user, claimsReady, claims } = useAuth();
+  const { storeId, ownerId } = useBusiness();
+  const { isDemo } = useDemo();
+  const [data, setData] = useState<ImportedDebt[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) {
+        setData([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
+    const userBranchId = claims?.branchId;
+
+    let q = query(
+      collection(db, "debt_records"),
+      where("storeId", "==", storeId)
+    );
+
+    if (!isAdmin) {
+      q = query(q, where("branchId", "==", userBranchId || "none"));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const debts: ImportedDebt[] = [];
+      snapshot.forEach((doc) => {
+        debts.push({ ...doc.data(), id: doc.id } as ImportedDebt);
+      });
+      debts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setData(debts);
       setIsLoading(false);
     }, (err) => {
       console.error(err);
@@ -328,5 +383,57 @@ export function useSalesMutations() {
     });
   };
 
-  return { addSale, recordDebtPayment, updateSaleStatus };
+  const importDebtors = async (debtors: Array<Pick<ImportedDebt, "customerName" | "customerPhone" | "amountNgn"> & { notes?: string; source?: "csv" | "manual"; branchId?: string | null }>) => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    if (debtors.length === 0) return { created: 0, failed: 0 };
+
+    const now = new Date().toISOString();
+    const loggedByName = user.displayName || user.email?.split("@")[0] || "Staff";
+
+    // Respect the caller's branch scope: managers only write to their own branch.
+    const branchId = claims?.branchId ?? null;
+
+    // Firestore writeBatch is capped at 500 writes.
+    const results = { created: 0, failed: 0 };
+    const CHUNK = 400;
+
+    for (let i = 0; i < debtors.length; i += CHUNK) {
+      const chunk = debtors.slice(i, i + CHUNK);
+      const batch = writeBatch(db);
+      for (const d of chunk) {
+        const amount = Number(d.amountNgn) || 0;
+        if (!d.customerName?.trim()) {
+          results.failed++;
+          continue;
+        }
+        const ref = doc(collection(db, "debt_records"));
+        const data = cleanFirestoreData({
+          customerName: d.customerName.trim(),
+          customerPhone: d.customerPhone?.trim() || "",
+          amountNgn: amount,
+          notes: d.notes || "",
+          source: d.source || "csv",
+          storeId,
+          branchId: d.branchId ?? branchId ?? null,
+          ownerId: user.uid,
+          recordedBy: user.uid,
+          recordedByName: loggedByName,
+          createdAt: now,
+          updatedAt: now,
+        });
+        batch.set(ref, data);
+      }
+      try {
+        await batch.commit();
+        results.created += chunk.length - chunk.filter((d) => !d.customerName?.trim()).length;
+      } catch (err) {
+        console.error("Failed to import debtors chunk:", err);
+        results.failed += chunk.length;
+      }
+    }
+
+    return results;
+  };
+
+  return { addSale, recordDebtPayment, updateSaleStatus, importDebtors };
 }

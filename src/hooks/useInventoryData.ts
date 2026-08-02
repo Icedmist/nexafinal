@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, where, onSnapshot, orderBy, limit as firestoreLimit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, limit as firestoreLimit, type Query, type DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -10,7 +10,6 @@ import type {
   ItemFilters, StockSummary 
 } from "@/types/inventory";
 import type { Customer } from "@/types/crm";
-import { isAdminRole } from "@/lib/roles";
 
 function useDemoStore(): DemoStore | null {
   const { isDemo, onboarding } = useDemo();
@@ -20,10 +19,23 @@ function useDemoStore(): DemoStore | null {
   }, [isDemo, onboarding.businessType]);
 }
 
-const getBranchAccessValues = (userBranchId: string | null | undefined) => {
-  const values = ["all", null] as const;
+// Branch-access decision for inventory reads.
+//
+// Only platform roles (system_admin, owner) are truly "global"; a store admin,
+// manager, or staff is scoped to their own branch (plus any store-wide items).
+// This mirrors the permission model used across the app.
+const isGlobalScope = (role: string | null | undefined, uid: string | null | undefined, ownerId: string | null | undefined) => {
+  return role === "system_admin" || role === "owner" || (!!ownerId && !!uid && uid === ownerId);
+};
+
+// Returns the branch values a scoped user may read. NEVER includes `null`:
+// Firestore disallows null inside an `in` array (it throws at query build).
+// Store-wide products (branchId === null) are handled by a separate equality
+// query. "all" is kept for legacy/compat products stamped with that value.
+const getBranchInValues = (userBranchId: string | null | undefined) => {
+  const values: string[] = ["all"];
   if (userBranchId) {
-    return [userBranchId, ...values] as const;
+    return [userBranchId, ...values];
   }
   return values;
 };
@@ -57,7 +69,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
+    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
     const userBranchId = claims?.branchId;
 
     let prodQuery = query(
@@ -69,27 +81,34 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       prodQuery = query(prodQuery, where("categoryId", "==", filters.categoryId));
     }
 
-    if (!isAdmin) {
-      prodQuery = query(prodQuery, where("branchId", "in", getBranchAccessValues(userBranchId)));
+    let storewideQuery: Query<DocumentData> | null = null;
+    let ownerQuery: Query<DocumentData> | null = null;
+
+    if (!isGlobal) {
+      // Branch-scoped: products for the user's branch or stamped "all".
+      prodQuery = query(prodQuery, where("branchId", "in", getBranchInValues(userBranchId)));
+      // Store-wide products carry branchId === null and can't be in an `in`
+      // array, so read them with their own equality query and merge in.
+      storewideQuery = query(
+        collection(db, "products"),
+        where("storeId", "==", storeId),
+        where("branchId", "==", null),
+        ...(filters?.categoryId ? [where("categoryId", "==", filters.categoryId)] : [])
+      );
+
+      // Branch claims can drift relative to the branchId stamped on a product
+      // at creation time. To guarantee a user never "loses" a product they
+      // created, also listen to an owner-scoped query and merge its results.
+      ownerQuery = query(
+        collection(db, "products"),
+        where("storeId", "==", storeId),
+        where("ownerId", "==", user?.uid || ""),
+        ...(filters?.categoryId ? [where("categoryId", "==", filters.categoryId)] : []),
+        orderBy("createdAt", "desc")
+      );
     }
     
     prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
-
-    // Branch claims can drift relative to the branchId stamped on a product at
-    // creation time. The branch filter runs server-side, so a manager-created
-    // item whose stored branchId disagrees with the manager's current claim
-    // would never appear in the main snapshot. To guarantee a manager never
-    // "loses" a product they created, listen to a second owner-scoped query and
-    // merge its results in for non-admin users.
-    const ownQuery = isAdmin
-      ? null
-      : query(
-          collection(db, "products"),
-          where("storeId", "==", storeId),
-          where("ownerId", "==", user?.uid || ""),
-          ...(filters?.categoryId ? [where("categoryId", "==", filters.categoryId)] : []),
-          orderBy("createdAt", "desc")
-        );
 
     const applyFilters = (rows: Item[]) => {
       let filtered = rows;
@@ -118,16 +137,21 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     };
 
     let mainSnapshotData: Item[] = [];
-    let ownSnapshotData: Item[] = [];
+    let storewideSnapshotData: Item[] = [];
+    let ownerSnapshotData: Item[] = [];
 
-    // Merge the main (branch-scoped) snapshot with the owner-scoped snapshot.
+    // Merge the branch-scoped snapshot with the store-wide (branchId === null)
+    // and owner-created snapshots so scoped users never miss a shareable product.
     const combine = () => {
       const byId = new Map<string, Item>();
       mainSnapshotData.forEach((i) => byId.set(i.id, i));
-      ownSnapshotData.forEach((o) => {
+      storewideSnapshotData.forEach((i) => {
+        if (!byId.has(i.id)) byId.set(i.id, i);
+      });
+      ownerSnapshotData.forEach((o) => {
         if (!byId.has(o.id)) byId.set(o.id, o);
       });
-      let filtered = applyFilters([...byId.values()]);
+      const filtered = applyFilters([...byId.values()]);
       setData(filtered);
       setIsLoading(false);
     };
@@ -144,11 +168,24 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       setIsLoading(false);
     });
 
-    const unsubscribeOwn = ownQuery
-      ? onSnapshot(ownQuery, (snapshot) => {
-          ownSnapshotData = [];
+    const unsubscribeStorewide = storewideQuery
+      ? onSnapshot(storewideQuery, (snapshot) => {
+          storewideSnapshotData = [];
           snapshot.forEach((doc) => {
-            ownSnapshotData.push({ ...doc.data(), id: doc.id } as Item);
+            storewideSnapshotData.push({ ...doc.data(), id: doc.id } as Item);
+          });
+          combine();
+        }, (err) => {
+          console.error("Firestore Listen Error (Storewide Items):", err);
+          setIsLoading(false);
+        })
+      : null;
+
+    const unsubscribeOwn = ownerQuery
+      ? onSnapshot(ownerQuery, (snapshot) => {
+          ownerSnapshotData = [];
+          snapshot.forEach((doc) => {
+            ownerSnapshotData.push({ ...doc.data(), id: doc.id } as Item);
           });
           combine();
         }, (err) => {
@@ -159,9 +196,10 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
 
     return () => {
       unsubscribe();
+      unsubscribeStorewide?.();
       unsubscribeOwn?.();
     };
-  }, [demoStore, user, storeId, claimsReady, claims, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
 
   return { data, isLoading, error };
 }
@@ -194,11 +232,12 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
       const doc = snapshot.docs.find(d => d.id === id);
       if (doc) {
         const item = { ...doc.data(), id: doc.id } as Item;
-        const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
+        const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
         const userBranchId = claims?.branchId;
-        const branchAccess = getBranchAccessValues(userBranchId) as readonly (string | null)[];
+        const branchAccess = getBranchInValues(userBranchId);
 
-        if (!isAdmin && !branchAccess.includes(item.branchId ?? null)) {
+        // Store-wide (branchId === null) products plus the user's branch / "all".
+        if (!isGlobal && !(item.branchId == null || branchAccess.includes(item.branchId ?? ""))) {
           setData(undefined);
         } else {
           setData(item);
@@ -213,7 +252,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     });
 
     return () => unsubscribe();
-  }, [demoStore, user, storeId, id, claimsReady, claims]);
+  }, [demoStore, user, storeId, id, claimsReady, claims, ownerId]);
 
   return { data, isLoading, error: null };
 }
@@ -271,28 +310,58 @@ export function useLocations(): QueryResult<Location[]> {
       return;
     }
     const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
+    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
     const userBranchId = claims?.branchId;
 
-    let q = locQuery;
-    if (!isAdmin) {
-      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
+    let q: Query<DocumentData>;
+    if (isGlobal) {
+      q = locQuery;
+    } else {
+      q = query(locQuery, where("branchId", "in", getBranchInValues(userBranchId)));
     }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: Location[] = [];
-      snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as Location));
-      
-      let filtered = items;
-      
-      setData(filtered);
+    const storewideQuery = isGlobal
+      ? null
+      : query(collection(db, "locations"), where("storeId", "==", storeId), where("branchId", "==", null));
+
+    let mainItems: Location[] = [];
+    let storewideItems: Location[] = [];
+
+    const combine = () => {
+      const byId = new Map<string, Location>();
+      mainItems.forEach((i) => byId.set(i.id, i));
+      storewideItems.forEach((i) => {
+        if (!byId.has(i.id)) byId.set(i.id, i);
+      });
+      setData([...byId.values()]);
       setIsLoading(false);
+    };
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      mainItems = [];
+      snapshot.forEach((doc) => mainItems.push({ id: doc.id, ...doc.data() } as Location));
+      combine();
     }, (err) => {
       console.error("Firestore Listen Error (Locations):", err);
       setIsLoading(false);
     });
-    return () => unsubscribe();
-  }, [demoStore, user, storeId, claimsReady, claims]);
+
+    const unsubscribeStorewide = storewideQuery
+      ? onSnapshot(storewideQuery, (snapshot) => {
+          storewideItems = [];
+          snapshot.forEach((doc) => storewideItems.push({ id: doc.id, ...doc.data() } as Location));
+          combine();
+        }, (err) => {
+          console.error("Firestore Listen Error (Storewide Locations):", err);
+          setIsLoading(false);
+        })
+      : null;
+
+    return () => {
+      unsubscribe();
+      unsubscribeStorewide?.();
+    };
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId]);
 
   return { data, isLoading, error: null };
 }
@@ -386,38 +455,75 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
+    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
     const userBranchId = claims?.branchId;
 
-    let q = query(
-      collection(db, "movements"), 
-      where("storeId", "==", storeId)
-    );
-
-    if (!isAdmin) {
-      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
+    let q: Query<DocumentData>;
+    if (isGlobal) {
+      q = query(
+        collection(db, "movements"),
+        where("storeId", "==", storeId),
+        orderBy("createdAt", "desc"),
+        firestoreLimit(count)
+      );
+    } else {
+      q = query(
+        collection(db, "movements"),
+        where("storeId", "==", storeId),
+        where("branchId", "in", getBranchInValues(userBranchId)),
+        orderBy("createdAt", "desc"),
+        firestoreLimit(count)
+      );
     }
 
-    q = query(
-      q,
-      orderBy("createdAt", "desc"),
-      firestoreLimit(count)
-    );
+    const storewideQuery = isGlobal
+      ? null
+      : query(
+          collection(db, "movements"),
+          where("storeId", "==", storeId),
+          where("branchId", "==", null),
+          orderBy("createdAt", "desc"),
+          firestoreLimit(count)
+        );
+
+    let mainItems: StockMovement[] = [];
+    let storewideItems: StockMovement[] = [];
+
+    const combine = () => {
+      const byId = new Map<string, StockMovement>();
+      mainItems.forEach((i) => byId.set(i.id, i));
+      storewideItems.forEach((i) => {
+        if (!byId.has(i.id)) byId.set(i.id, i);
+      });
+      setData([...byId.values()]);
+      setIsLoading(false);
+    };
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: StockMovement[] = [];
-      snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as StockMovement));
-      
-      let filtered = items;
-      
-      setData(filtered);
-      setIsLoading(false);
+      mainItems = [];
+      snapshot.forEach((doc) => mainItems.push({ id: doc.id, ...doc.data() } as StockMovement));
+      combine();
     }, (err) => {
       console.error("Firestore Listen Error (Movements):", err);
       setIsLoading(false);
     });
-    return () => unsubscribe();
-  }, [demoStore, user, storeId, claimsReady, claims, count]);
+
+    const unsubscribeStorewide = storewideQuery
+      ? onSnapshot(storewideQuery, (snapshot) => {
+          storewideItems = [];
+          snapshot.forEach((doc) => storewideItems.push({ id: doc.id, ...doc.data() } as StockMovement));
+          combine();
+        }, (err) => {
+          console.error("Firestore Listen Error (Storewide Movements):", err);
+          setIsLoading(false);
+        })
+      : null;
+
+    return () => {
+      unsubscribe();
+      unsubscribeStorewide?.();
+    };
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId, count]);
 
   return { data, isLoading, error: null };
 }
@@ -451,29 +557,59 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
+    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
     const userBranchId = claims?.branchId;
 
-    let q = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
-    
-    if (!isAdmin) {
-      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
+    const baseQuery = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
+    let q: Query<DocumentData>;
+    if (isGlobal) {
+      q = baseQuery;
+    } else {
+      q = query(baseQuery, where("branchId", "in", getBranchInValues(userBranchId)));
     }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: PurchaseOrder[] = [];
-      snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as PurchaseOrder));
-      
-      let filtered = items;
-      
-      setData(filtered);
+    const storewideQuery = isGlobal
+      ? null
+      : query(collection(db, "purchase_orders"), where("storeId", "==", storeId), where("branchId", "==", null));
+
+    let mainItems: PurchaseOrder[] = [];
+    let storewideItems: PurchaseOrder[] = [];
+
+    const combine = () => {
+      const byId = new Map<string, PurchaseOrder>();
+      mainItems.forEach((i) => byId.set(i.id, i));
+      storewideItems.forEach((i) => {
+        if (!byId.has(i.id)) byId.set(i.id, i);
+      });
+      setData([...byId.values()]);
       setIsLoading(false);
+    };
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      mainItems = [];
+      snapshot.forEach((doc) => mainItems.push({ id: doc.id, ...doc.data() } as PurchaseOrder));
+      combine();
     }, (err) => {
       console.error("Firestore Listen Error (PurchaseOrders):", err);
       setIsLoading(false);
     });
-    return () => unsubscribe();
-  }, [demoStore, user, storeId, claimsReady, claims]);
+
+    const unsubscribeStorewide = storewideQuery
+      ? onSnapshot(storewideQuery, (snapshot) => {
+          storewideItems = [];
+          snapshot.forEach((doc) => storewideItems.push({ id: doc.id, ...doc.data() } as PurchaseOrder));
+          combine();
+        }, (err) => {
+          console.error("Firestore Listen Error (Storewide PurchaseOrders):", err);
+          setIsLoading(false);
+        })
+      : null;
+
+    return () => {
+      unsubscribe();
+      unsubscribeStorewide?.();
+    };
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId]);
 
   return { data, isLoading, error: null };
 }
@@ -496,29 +632,59 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
+    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
     const userBranchId = claims?.branchId;
 
-    let q = query(collection(db, "requests"), where("storeId", "==", storeId));
-    
-    if (!isAdmin) {
-      q = query(q, where("branchId", "in", getBranchAccessValues(userBranchId)));
+    const baseQuery = query(collection(db, "requests"), where("storeId", "==", storeId));
+    let q: Query<DocumentData>;
+    if (isGlobal) {
+      q = baseQuery;
+    } else {
+      q = query(baseQuery, where("branchId", "in", getBranchInValues(userBranchId)));
     }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: InventoryRequest[] = [];
-      snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() } as InventoryRequest));
-      
-      let filtered = items;
-      
-      setData(filtered);
+    const storewideQuery = isGlobal
+      ? null
+      : query(collection(db, "requests"), where("storeId", "==", storeId), where("branchId", "==", null));
+
+    let mainItems: InventoryRequest[] = [];
+    let storewideItems: InventoryRequest[] = [];
+
+    const combine = () => {
+      const byId = new Map<string, InventoryRequest>();
+      mainItems.forEach((i) => byId.set(i.id, i));
+      storewideItems.forEach((i) => {
+        if (!byId.has(i.id)) byId.set(i.id, i);
+      });
+      setData([...byId.values()]);
       setIsLoading(false);
+    };
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      mainItems = [];
+      snapshot.forEach((doc) => mainItems.push({ id: doc.id, ...doc.data() } as InventoryRequest));
+      combine();
     }, (err) => {
       console.error("Firestore Listen Error (Requests):", err);
       setIsLoading(false);
     });
-    return () => unsubscribe();
-  }, [demoStore, user, storeId, claimsReady, claims]);
+
+    const unsubscribeStorewide = storewideQuery
+      ? onSnapshot(storewideQuery, (snapshot) => {
+          storewideItems = [];
+          snapshot.forEach((doc) => storewideItems.push({ id: doc.id, ...doc.data() } as InventoryRequest));
+          combine();
+        }, (err) => {
+          console.error("Firestore Listen Error (Storewide Requests):", err);
+          setIsLoading(false);
+        })
+      : null;
+
+    return () => {
+      unsubscribe();
+      unsubscribeStorewide?.();
+    };
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId]);
 
   return { data, isLoading, error: null };
 }

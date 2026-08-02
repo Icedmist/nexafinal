@@ -438,6 +438,27 @@ export interface DebtPayment {
   notes?: string;
 }
 
+/**
+ * An imported / manually-added opening debt record. These back an "existed
+ * debtor" that was migrated into the system (via CSV or a manual entry) rather
+ * than being created from a live credit sale.
+ */
+export interface ImportedDebt {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  amountNgn: number;
+  notes?: string;
+  source: "csv" | "manual";
+  storeId: string;
+  branchId: string | null;
+  ownerId?: string;
+  recordedBy: string;
+  recordedByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ManagerCollectionItem {
   itemId: string;
   itemName: string;

@@ -7,7 +7,7 @@ type PermissionAction =
   | "log_movement" | "create_po" | "approve_request"
   | "manage_users" | "view_analytics" | "export_data"
   | "create_request" | "access_settings" | "manage_suppliers"
-  | "view_sales" | "record_sales";
+  | "view_sales" | "record_sales" | "import_debtors";
 
 const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
   create_item: ["admin", "manager", "system_admin", "owner"],
@@ -24,6 +24,7 @@ const ACTION_ROLES: Record<PermissionAction, UserRoleType[]> = {
   manage_suppliers: ["admin", "manager", "system_admin", "owner"],
   view_sales: ["admin", "manager", "staff", "system_admin", "owner"],
   record_sales: ["admin", "manager", "staff", "system_admin", "owner"],
+  import_debtors: ["admin", "manager", "system_admin", "owner"],
 };
 
 export function usePermissions() {

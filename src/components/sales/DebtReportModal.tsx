@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FileDown, User, Users, Download, FileText } from "lucide-react";
-import type { SaleTransaction, DebtPayment } from "@/types/inventory";
+import type { SaleTransaction, DebtPayment, ImportedDebt } from "@/types/inventory";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogFooter,
 } from "@/components/ui/dialog";
@@ -20,6 +20,7 @@ interface DebtReportModalProps {
   onOpenChange: (open: boolean) => void;
   sales: SaleTransaction[];
   payments: DebtPayment[];
+  importedDebts?: ImportedDebt[];
   customer?: { name: string; phone: string } | null;
 }
 
@@ -43,7 +44,7 @@ interface DebtProfile {
   }>;
 }
 
-export function DebtReportModal({ open, onOpenChange, sales, payments, customer }: DebtReportModalProps) {
+export function DebtReportModal({ open, onOpenChange, sales, payments, importedDebts = [], customer }: DebtReportModalProps) {
   const { profile } = useBusiness();
   const storeName = profile?.storeDetails?.name || "Nexa POS";
   const { data: storeBranches } = useStoreBranches({ includeAll: true });
@@ -146,8 +147,49 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
       }
     }
 
+    // Imported / manually-added opening debtors ensure migrated debt shows up
+    // in statements and the general ledger.
+    for (const debt of importedDebts) {
+      if (debt.amountNgn <= 0) continue;
+      const phone = debt.customerPhone?.trim();
+      if (!phone) continue;
+      const key = normalizePhone(phone);
+      const existing = map.get(key);
+      if (existing) {
+        existing.totalCreditSales += debt.amountNgn;
+        existing.currentBalance = Math.max(0, existing.totalCreditSales - existing.totalPayments);
+        existing.events.push({
+          type: "credit",
+          date: debt.createdAt,
+          amount: debt.amountNgn,
+          reference: `Imported debt (${debt.source === "csv" ? "CSV" : "Manual"})`,
+          recordedBy: debt.recordedByName,
+          branchName: debt.branchId ? branchNameMap.get(debt.branchId) : undefined,
+        });
+      } else {
+        map.set(key, {
+          key,
+          name: debt.customerName?.trim() || "Customer",
+          phone,
+          branchId: debt.branchId ?? null,
+          branchName: debt.branchId ? branchNameMap.get(debt.branchId) : undefined,
+          totalCreditSales: debt.amountNgn,
+          totalPayments: 0,
+          currentBalance: debt.amountNgn,
+          events: [{
+            type: "credit",
+            date: debt.createdAt,
+            amount: debt.amountNgn,
+            reference: `Imported debt (${debt.source === "csv" ? "CSV" : "Manual"})`,
+            recordedBy: debt.recordedByName,
+            branchName: debt.branchId ? branchNameMap.get(debt.branchId) : undefined,
+          }],
+        });
+      }
+    }
+
     return Array.from(map.values()).sort((a, b) => b.currentBalance - a.currentBalance);
-  }, [sales, payments, branchNameMap]);
+  }, [sales, payments, branchNameMap, importedDebts]);
 
   const selectedProfile = profiles.find((p) => p.key === selectedKey) || null;
 

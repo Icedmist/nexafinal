@@ -2,9 +2,9 @@ import { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Search, User, Phone, ShoppingBag, MessageCircle, Send,
-  TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X, FileDown,
+  TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X, FileDown, UserPlus,
 } from "lucide-react";
-import { useSales, useDebtPayments, useSalesMutations } from "@/hooks/useSalesData";
+import { useSales, useDebtPayments, useSalesMutations, useImportedDebts } from "@/hooks/useSalesData";
 import { useTenant } from "@/hooks/useTenant";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import { normalizePhone } from "@/lib/utils";
 import { getSaleOutstanding } from "@/lib/credit-sale";
 import { DebtClearingHistory } from "@/components/sales/DebtClearingHistory";
 import { DebtReportModal } from "@/components/sales/DebtReportModal";
+import { DebtorImportModal } from "@/components/sales/DebtorImportModal";
+import { PermissionGate } from "@/hooks/usePermissions";
 import { ListSkeleton } from "@/components/shared/skeletons";
 
 const NAIRA = "₦";
@@ -59,7 +61,8 @@ const MESSAGE_TEMPLATES = [
 function CustomersPage() {
   const { data: sales, isLoading: salesLoading } = useSales();
   const { data: payments, isLoading: paymentsLoading } = useDebtPayments();
-  const { recordDebtPayment } = useSalesMutations();
+  const { data: importedDebts, isLoading: debtsLoading } = useImportedDebts();
+  const { recordDebtPayment, importDebtors } = useSalesMutations();
   
   const [search, setSearch] = useState("");
   const { store } = useTenant();
@@ -91,6 +94,9 @@ function CustomersPage() {
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportCustomer, setReportCustomer] = useState<CustomerRecord | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const isLoading = salesLoading || paymentsLoading || debtsLoading;
 
   const customers = useMemo(() => {
     const map = new Map<string, CustomerRecord>();
@@ -144,8 +150,30 @@ function CustomersPage() {
       }
     }
 
+    // Imported / manually-added opening debtors show up as debtors too.
+    for (const debt of importedDebts) {
+      if (debt.amountNgn <= 0) continue;
+      const phone = debt.customerPhone?.trim();
+      const name = debt.customerName?.trim();
+      if (!phone && !name) continue;
+      const key = phone ? normalizePhone(phone) : `name:${name?.toLowerCase()}`;
+      const record = map.get(key);
+      if (record) {
+        record.debtBalance += debt.amountNgn;
+      } else {
+        map.set(key, {
+          name: name || "Customer",
+          phone: phone || "",
+          totalSpent: debt.amountNgn,
+          transactionCount: 1,
+          lastPurchase: debt.createdAt,
+          debtBalance: debt.amountNgn,
+        });
+      }
+    }
+
     return Array.from(map.values()).sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [sales, payments]);
+  }, [sales, payments, importedDebts]);
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
@@ -300,7 +328,7 @@ function CustomersPage() {
     }
   };
 
-  if (salesLoading || paymentsLoading) {
+  if (isLoading) {
     return (
       <div className="mx-auto max-w-[1400px] space-y-4 p-4">
         <ListSkeleton items={5} />
@@ -321,6 +349,16 @@ function CustomersPage() {
             Message {selectedCustomers.size} selected
           </Button>
         )}
+        <PermissionGate permission="import_debtors">
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className="gap-2"
+          >
+            <UserPlus className="h-4 w-4" />
+            Import Debtors
+          </Button>
+        </PermissionGate>
         <Button
           variant="outline"
           onClick={() => {
@@ -586,7 +624,18 @@ function CustomersPage() {
         onOpenChange={setReportOpen}
         sales={sales}
         payments={payments}
+        importedDebts={importedDebts}
         customer={reportCustomer ? { name: reportCustomer.name, phone: reportCustomer.phone } : null}
+      />
+
+      {/* Import / Manual Add Debtors */}
+      <DebtorImportModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImport={async (debtors) => {
+          const result = await importDebtors(debtors);
+          return result;
+        }}
       />
     </div>
   );
