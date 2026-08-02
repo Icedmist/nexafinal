@@ -867,7 +867,7 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
   // TOTAL ROW at the bottom of the ledger
   const totalPaid = records.reduce((sum, r) => sum + r.totalPayments, 0);
-  currentY += 6;
+  currentY += 12;
   if (currentY > pageH - 22) {
     doc.addPage();
     currentY = 25;
