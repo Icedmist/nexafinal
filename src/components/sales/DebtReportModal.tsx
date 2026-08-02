@@ -46,7 +46,7 @@ interface DebtProfile {
 export function DebtReportModal({ open, onOpenChange, sales, payments, customer }: DebtReportModalProps) {
   const { profile } = useBusiness();
   const storeName = profile?.storeDetails?.name || "Nexa POS";
-  const { data: storeBranches } = useStoreBranches();
+  const { data: storeBranches } = useStoreBranches({ includeAll: true });
   const branchNameMap = useMemo(() => {
     const m = new Map<string, string>();
     (storeBranches || []).forEach((b) => { if (b.id) m.set(b.id, b.name); });
@@ -142,7 +142,7 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
     }
 
     return Array.from(map.values()).sort((a, b) => b.currentBalance - a.currentBalance);
-  }, [sales, payments]);
+  }, [sales, payments, branchNameMap]);
 
   const selectedProfile = profiles.find((p) => p.key === selectedKey) || null;
 
