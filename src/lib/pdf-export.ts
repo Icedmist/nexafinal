@@ -792,25 +792,30 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
   // TABLE HEADERS
   let currentY = 82;
-  const colWidths = [32, 25, 30, 30, 30, 35]; // Branch, Name, Phone, Credit, Paid, Balance
-  const headers = ["BRANCH", "CUSTOMER NAME", "PHONE", "CREDIT EXTENDED", "PAYMENTS RECEIVED", "OUTSTANDING"];
+  const tableLeft = margin;
+  const tableRight = pageW - margin;
+  // Column boundaries (left-aligned) for text cells
+  const cLeft = tableLeft + 4;
+  const cName = tableLeft + 60;
+  const cPhone = tableLeft + 185;
+  const rightCredit = tableRight - 0;
+  const rightPaid = tableRight - 100;
+  const rightBalance = tableRight - 210;
+  const headers = ["BRANCH", "CUSTOMER NAME", "PHONE", "CREDIT EXTENDED", "PAYMENTS", "OUTSTANDING"];
 
   doc.setFillColor(22, 28, 45);
-  doc.rect(margin, currentY, pageW - 2 * margin, 8, "F");
+  doc.rect(tableLeft, currentY, tableRight - tableLeft, 8, "F");
 
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
 
-  let currentX = margin;
-  headers.forEach((h, idx) => {
-    if (idx >= 3) {
-      doc.text(h, pageW - margin - (idx === 5 ? 5 : 38), currentY + 5.5, { align: "right" });
-    } else {
-      doc.text(h, currentX + 4, currentY + 5.5);
-    }
-    currentX += colWidths[idx];
-  });
+  doc.text(headers[0], cLeft, currentY + 5.5);
+  doc.text(headers[1], cName, currentY + 5.5);
+  doc.text(headers[2], cPhone, currentY + 5.5);
+  doc.text(headers[3], rightCredit, currentY + 5.5, { align: "right" });
+  doc.text(headers[4], rightPaid, currentY + 5.5, { align: "right" });
+  doc.text(headers[5], rightBalance, currentY + 5.5, { align: "right" });
 
   // TABLE BODY
   doc.setFont("Helvetica", "normal");
@@ -821,22 +826,17 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
     if (currentY > pageH - 20) {
       doc.addPage();
-      currentY = 20;
-
+      currentY = 22;
       doc.setFillColor(22, 28, 45);
-      doc.rect(margin, currentY, pageW - 2 * margin, 8, "F");
+      doc.rect(margin, currentY, tableRight - tableLeft, 8, "F");
       doc.setFont("Helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-
-      let newX = margin;
-      headers.forEach((h, idx) => {
-        if (idx >= 3) {
-          doc.text(h, pageW - margin - (idx === 5 ? 5 : 38), currentY + 5.5, { align: "right" });
-        } else {
-          doc.text(h, newX + 4, currentY + 5.5);
-        }
-        newX += colWidths[idx];
-      });
+      doc.text(headers[0], cLeft, currentY + 5.5);
+      doc.text(headers[1], cName, currentY + 5.5);
+      doc.text(headers[2], cPhone, currentY + 5.5);
+      doc.text(headers[3], rightCredit, currentY + 5.5, { align: "right" });
+      doc.text(headers[4], rightPaid, currentY + 5.5, { align: "right" });
+      doc.text(headers[5], rightBalance, currentY + 5.5, { align: "right" });
       doc.setFont("Helvetica", "normal");
       doc.setTextColor(15, 23, 42);
       currentY += 8.5;
@@ -844,22 +844,22 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
     if (index % 2 === 0) {
       doc.setFillColor(250, 250, 250);
-      doc.rect(margin, currentY - 1.5, pageW - 2 * margin, 8.5, "F");
+      doc.rect(margin, currentY - 1.5, tableRight - tableLeft, 8.5, "F");
     }
 
     doc.setDrawColor(240, 242, 245);
-    doc.line(margin, currentY + 7, pageW - margin, currentY + 7);
+    doc.line(margin, currentY + 7, tableRight, currentY + 7);
 
     doc.setTextColor(15, 23, 42);
-    doc.text((r.branchName || "—").slice(0, 12), margin + 4, currentY + 4);
-    doc.text(r.name.slice(0, 14), margin + colWidths[0] + 4, currentY + 4);
-    doc.text(r.phone || "—", margin + colWidths[0] + colWidths[1] + 4, currentY + 4);
+    doc.text((r.branchName || "—").slice(0, 11), cLeft, currentY + 4);
+    doc.text(r.name.slice(0, 20), cName, currentY + 4);
+    doc.text(r.phone || "—", cPhone, currentY + 4);
 
     doc.setFont("Helvetica", "bold");
-    doc.text(fmtNgn(r.totalCreditSales), pageW - margin - 75, currentY + 4, { align: "right" });
-    doc.text(fmtNgn(r.totalPayments), pageW - margin - 38, currentY + 4, { align: "right" });
+    doc.text(fmtNgn(r.totalCreditSales), rightCredit, currentY + 4, { align: "right" });
+    doc.text(fmtNgn(r.totalPayments), rightPaid, currentY + 4, { align: "right" });
     doc.setTextColor(r.currentBalance > 0 ? 220 : 34, r.currentBalance > 0 ? 38 : 197, r.currentBalance > 0 ? 38 : 94);
-    doc.text(fmtNgn(r.currentBalance), pageW - margin - 5, currentY + 4, { align: "right" });
+    doc.text(fmtNgn(r.currentBalance), rightBalance, currentY + 4, { align: "right" });
     doc.setFont("Helvetica", "normal");
     doc.setTextColor(15, 23, 42);
   });
@@ -872,14 +872,14 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
     currentY = 25;
   }
   doc.setFillColor(22, 28, 45);
-  doc.rect(margin, currentY - 3.5, pageW - 2 * margin, 7, "F");
+  doc.rect(margin, currentY - 3.5, tableRight - tableLeft, 7, "F");
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
-  doc.text("TOTAL", margin + 4, currentY);
-  doc.text(fmtNgn(totalCredit), pageW - margin - 75, currentY + 2, { align: "right" });
-  doc.text(fmtNgn(totalPaid), pageW - margin - 38, currentY + 2, { align: "right" });
-  doc.text(fmtNgn(outstanding), pageW - margin - 5, currentY + 2, { align: "right" });
+  doc.text("TOTAL", cLeft, currentY);
+  doc.text(fmtNgn(totalCredit), rightCredit, currentY + 2, { align: "right" });
+  doc.text(fmtNgn(totalPaid), rightPaid, currentY + 2, { align: "right" });
+  doc.text(fmtNgn(outstanding), rightBalance, currentY + 2, { align: "right" });
 
   // Footer branding
   const totalPages = doc.getNumberOfPages();
