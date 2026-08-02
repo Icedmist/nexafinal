@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { normalizePhone } from "@/lib/utils";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import { exportDebtStatementPDF, exportDebtorsLedgerPDF } from "@/lib/pdf-export";
 import { getSaleOutstanding } from "@/lib/credit-sale";
 
@@ -26,6 +27,8 @@ interface DebtProfile {
   key: string;
   name: string;
   phone: string;
+  branchId?: string | null;
+  branchName?: string;
   totalCreditSales: number;
   totalPayments: number;
   currentBalance: number;
@@ -36,12 +39,19 @@ interface DebtProfile {
     reference?: string;
     notes?: string;
     recordedBy?: string;
+    branchName?: string;
   }>;
 }
 
 export function DebtReportModal({ open, onOpenChange, sales, payments, customer }: DebtReportModalProps) {
   const { profile } = useBusiness();
   const storeName = profile?.storeDetails?.name || "Nexa POS";
+  const { data: storeBranches } = useStoreBranches();
+  const branchNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (storeBranches || []).forEach((b) => { if (b.id) m.set(b.id, b.name); });
+    return m;
+  }, [storeBranches]);
   const [selectedKey, setSelectedKey] = useState<string>("");
   const [downloading, setDownloading] = useState<"statement" | "ledger" | null>(null);
 
@@ -62,6 +72,8 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
           date: sale.createdAt,
           amount: getSaleOutstanding(sale),
           reference: `Sale #${sale.id?.slice(-6) || "—"}`,
+          recordedBy: sale.recordedByName || "Staff",
+          branchName: sale.branchId ? branchNameMap.get(sale.branchId) : undefined,
         });
         if (sale.customerName?.trim()) existing.name = sale.customerName.trim();
       } else {
@@ -69,6 +81,8 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
           key,
           name: sale.customerName?.trim() || "Customer",
           phone,
+          branchId: sale.branchId ?? null,
+          branchName: sale.branchId ? branchNameMap.get(sale.branchId) : undefined,
           totalCreditSales: getSaleOutstanding(sale),
           totalPayments: 0,
           currentBalance: 0,
@@ -77,6 +91,8 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
             date: sale.createdAt,
             amount: getSaleOutstanding(sale),
             reference: `Sale #${sale.id?.slice(-6) || "—"}`,
+            recordedBy: sale.recordedByName || "Staff",
+            branchName: sale.branchId ? branchNameMap.get(sale.branchId) : undefined,
           }],
         });
       }
@@ -96,6 +112,7 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
           amount: payment.amountNgn,
           recordedBy: payment.recordedByName || "Staff",
           notes: payment.notes,
+          branchName: payment.branchId ? branchNameMap.get(payment.branchId) : undefined,
         });
         if (payment.customerName?.trim()) existing.name = payment.customerName.trim();
       } else {
@@ -103,6 +120,8 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
           key,
           name: payment.customerName?.trim() || "Customer",
           phone,
+          branchId: payment.branchId ?? null,
+          branchName: payment.branchId ? branchNameMap.get(payment.branchId) : undefined,
           totalCreditSales: 0,
           totalPayments: payment.amountNgn,
           currentBalance: 0,
@@ -112,6 +131,7 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
             amount: payment.amountNgn,
             recordedBy: payment.recordedByName || "Staff",
             notes: payment.notes,
+            branchName: payment.branchId ? branchNameMap.get(payment.branchId) : undefined,
           }],
         });
       }
@@ -151,7 +171,23 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
     }
     setDownloading("statement");
     try {
-      await exportDebtStatementPDF(selectedProfile, storeName);
+      await exportDebtStatementPDF({
+        name: selectedProfile.name,
+        phone: selectedProfile.phone,
+        branchName: selectedProfile.branchName,
+        totalCreditSales: selectedProfile.totalCreditSales,
+        totalPayments: selectedProfile.totalPayments,
+        currentBalance: selectedProfile.currentBalance,
+        events: selectedProfile.events.map((e) => ({
+          type: e.type,
+          date: e.date,
+          amount: e.amount,
+          reference: e.reference,
+          notes: e.notes,
+          recordedBy: e.recordedBy,
+          branchName: e.branchName,
+        })),
+      }, storeName);
       toast.success(`Debt statement downloaded for ${selectedProfile.name}`);
     } catch (err) {
       console.error("Debt statement export error:", err);
@@ -164,7 +200,17 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
   const handleDownloadLedger = async () => {
     setDownloading("ledger");
     try {
-      await exportDebtorsLedgerPDF(profiles, storeName);
+      await exportDebtorsLedgerPDF(
+        profiles.map((p) => ({
+          name: p.name,
+          phone: p.phone,
+          branchName: p.branchName,
+          totalCreditSales: p.totalCreditSales,
+          totalPayments: p.totalPayments,
+          currentBalance: p.currentBalance,
+        })),
+        storeName
+      );
       toast.success(`Debtors ledger downloaded (${profiles.length} customers)`);
     } catch (err) {
       console.error("Debtors ledger export error:", err);

@@ -587,11 +587,13 @@ export interface DebtStatementEvent {
   reference?: string;
   notes?: string;
   recordedBy?: string;
+  branchName?: string;
 }
 
 export interface DebtStatementRecord {
   name: string;
   phone: string;
+  branchName?: string;
   totalCreditSales: number;
   totalPayments: number;
   currentBalance: number;
@@ -627,6 +629,14 @@ export async function exportDebtStatementPDF(record: DebtStatementRecord, storeN
   doc.setFontSize(9);
   doc.setTextColor(60, 70, 80);
   doc.text(`Customer: ${record.name || "—"}     Phone: ${record.phone || "—"}`, margin + 6, 54);
+
+  if (record.branchName) {
+    doc.setFontSize(8);
+    doc.setTextColor(100, 110, 120);
+    doc.text(`Branch: ${record.branchName}`, pageW / 2, 54);
+    doc.setFontSize(9);
+    doc.setTextColor(60, 70, 80);
+  }
 
   // METRICS WIDGET BOXES
   doc.setFillColor(248, 249, 250);
@@ -669,6 +679,9 @@ export async function exportDebtStatementPDF(record: DebtStatementRecord, storeN
     const phrase = evt.type === "credit"
       ? `Bought items worth ${fmtNgn(evt.amount)}`
       : `Paid ${fmtNgn(evt.amount)}`;
+    const byLine = evt.branchName || evt.recordedBy
+      ? `  (${[evt.branchName, evt.recordedBy && `by ${evt.recordedBy}`].filter(Boolean).join(" · ")})`
+      : "";
 
     if (currentY > pageH - 55) {
       doc.addPage();
@@ -680,7 +693,7 @@ export async function exportDebtStatementPDF(record: DebtStatementRecord, storeN
     doc.text(phrase, margin, currentY);
     doc.setFont("Helvetica", "normal");
     doc.setTextColor(100, 110, 120);
-    doc.text(dateStr, pageW - margin, currentY, { align: "right" });
+    doc.text(`${dateStr}${byLine}`, pageW - margin, currentY, { align: "right" });
 
     currentY += 5;
     doc.setDrawColor(240, 242, 245);
@@ -725,6 +738,7 @@ export async function exportDebtStatementPDF(record: DebtStatementRecord, storeN
 export interface DebtorLedgerRecord {
   name: string;
   phone: string;
+  branchName?: string;
   totalCreditSales: number;
   totalPayments: number;
   currentBalance: number;
@@ -778,8 +792,8 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
   // TABLE HEADERS
   let currentY = 82;
-  const colWidths = [50, 35, 30, 30, 35]; // Name, Phone, Credit, Paid, Balance
-  const headers = ["CUSTOMER NAME", "PHONE NUMBER", "CREDIT EXTENDED", "PAYMENTS RECEIVED", "OUTSTANDING BALANCE"];
+  const colWidths = [32, 25, 30, 30, 30, 35]; // Branch, Name, Phone, Credit, Paid, Balance
+  const headers = ["BRANCH", "CUSTOMER NAME", "PHONE", "CREDIT EXTENDED", "PAYMENTS RECEIVED", "OUTSTANDING"];
 
   doc.setFillColor(22, 28, 45);
   doc.rect(margin, currentY, pageW - 2 * margin, 8, "F");
@@ -790,8 +804,8 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
   let currentX = margin;
   headers.forEach((h, idx) => {
-    if (idx >= 2) {
-      doc.text(h, pageW - margin - (idx === 4 ? 5 : 38), currentY + 5.5, { align: "right" });
+    if (idx >= 3) {
+      doc.text(h, pageW - margin - (idx === 5 ? 5 : 38), currentY + 5.5, { align: "right" });
     } else {
       doc.text(h, currentX + 4, currentY + 5.5);
     }
@@ -816,8 +830,8 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
       let newX = margin;
       headers.forEach((h, idx) => {
-        if (idx >= 2) {
-          doc.text(h, pageW - margin - (idx === 4 ? 5 : 38), currentY + 5.5, { align: "right" });
+        if (idx >= 3) {
+          doc.text(h, pageW - margin - (idx === 5 ? 5 : 38), currentY + 5.5, { align: "right" });
         } else {
           doc.text(h, newX + 4, currentY + 5.5);
         }
@@ -837,8 +851,9 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
     doc.line(margin, currentY + 7, pageW - margin, currentY + 7);
 
     doc.setTextColor(15, 23, 42);
-    doc.text(r.name.slice(0, 22), margin + 4, currentY + 4);
-    doc.text(r.phone || "—", margin + colWidths[0] + 4, currentY + 4);
+    doc.text((r.branchName || "—").slice(0, 12), margin + 4, currentY + 4);
+    doc.text(r.name.slice(0, 14), margin + colWidths[0] + 4, currentY + 4);
+    doc.text(r.phone || "—", margin + colWidths[0] + colWidths[1] + 4, currentY + 4);
 
     doc.setFont("Helvetica", "bold");
     doc.text(fmtNgn(r.totalCreditSales), pageW - margin - 75, currentY + 4, { align: "right" });
