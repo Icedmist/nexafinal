@@ -647,89 +647,66 @@ export async function exportDebtStatementPDF(record: DebtStatementRecord, storeN
   doc.setTextColor(record.currentBalance > 0 ? 220 : 34, record.currentBalance > 0 ? 38 : 197, record.currentBalance > 0 ? 38 : 94);
   doc.text(fmtNgn(record.currentBalance), margin + 132, 82);
 
-  // TABLE HEADERS
+  // SIMPLE ACTIVITY LIST — plain-language lines instead of a dense table
   let currentY = 102;
-  const colWidths = [38, 45, 35, 30, 30]; // Date, Description, Reference, Amount, Balance
-  const headers = ["DATE & TIME", "DESCRIPTION", "REFERENCE / NOTES", "AMOUNT", "RUNNING BALANCE"];
-
-  doc.setFillColor(22, 28, 45);
-  doc.rect(margin, currentY, pageW - 2 * margin, 8, "F");
-
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(255, 255, 255);
-
-  let currentX = margin;
-  headers.forEach((h, idx) => {
-    if (idx === 3 || idx === 4) {
-      doc.text(h, pageW - margin - (idx === 4 ? 5 : 38), currentY + 5.5, { align: "right" });
-    } else {
-      doc.text(h, currentX + 4, currentY + 5.5);
-    }
-    currentX += colWidths[idx];
-  });
-
-  // TABLE ROWS (chronological so running balance builds up)
+  doc.setFontSize(9);
+  doc.setTextColor(60, 70, 80);
+  doc.text("DEBT ACTIVITY", margin, currentY);
   doc.setFont("Helvetica", "normal");
-  doc.setFontSize(8);
+  currentY += 6;
+
+  doc.setDrawColor(240, 242, 245);
+  doc.line(margin, currentY, pageW - margin, currentY);
+  currentY += 6;
 
   const chronological = [...record.events].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
-  let runningBalance = 0;
 
-  chronological.forEach((evt, index) => {
-    runningBalance += evt.type === "credit" ? evt.amount : -evt.amount;
-    const balance = Math.max(0, runningBalance);
-    currentY += 8.5;
+  chronological.forEach((evt) => {
+    const dateStr = format(new Date(evt.date), "dd MMM yyyy");
+    const phrase = evt.type === "credit"
+      ? `Bought items worth ${fmtNgn(evt.amount)}`
+      : `Paid ${fmtNgn(evt.amount)}`;
 
-    if (currentY > pageH - 20) {
+    if (currentY > pageH - 55) {
       doc.addPage();
-      currentY = 20;
-
-      doc.setFillColor(22, 28, 45);
-      doc.rect(margin, currentY, pageW - 2 * margin, 8, "F");
-      doc.setFont("Helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
-
-      let newX = margin;
-      headers.forEach((h, idx) => {
-        if (idx === 3 || idx === 4) {
-          doc.text(h, pageW - margin - (idx === 4 ? 5 : 38), currentY + 5.5, { align: "right" });
-        } else {
-          doc.text(h, newX + 4, currentY + 5.5);
-        }
-        newX += colWidths[idx];
-      });
-      doc.setFont("Helvetica", "normal");
-      doc.setTextColor(15, 23, 42);
-      currentY += 8.5;
+      currentY = 25;
     }
 
-    if (index % 2 === 0) {
-      doc.setFillColor(250, 250, 250);
-      doc.rect(margin, currentY - 1.5, pageW - 2 * margin, 8.5, "F");
-    }
-
-    doc.setDrawColor(240, 242, 245);
-    doc.line(margin, currentY + 7, pageW - margin, currentY + 7);
-
     doc.setTextColor(15, 23, 42);
-    const dateStr = format(new Date(evt.date), "dd MMM yyyy, HH:mm");
-    const description = evt.type === "credit" ? "Credit Sale" : "Debt Payment";
-    const reference = evt.reference || evt.notes || evt.recordedBy || "—";
-
-    doc.text(dateStr, margin + 4, currentY + 4);
-    doc.setTextColor(evt.type === "credit" ? 220 : 34, evt.type === "credit" ? 38 : 197, evt.type === "credit" ? 38 : 94);
-    doc.text(description, margin + colWidths[0] + 4, currentY + 4);
-    doc.setTextColor(15, 23, 42);
-    doc.text(reference.slice(0, 22), margin + colWidths[0] + colWidths[1] + 4, currentY + 4);
-
     doc.setFont("Helvetica", "bold");
-    doc.text(fmtNgn(evt.amount), pageW - margin - 38, currentY + 4, { align: "right" });
-    doc.text(fmtNgn(balance), pageW - margin - 5, currentY + 4, { align: "right" });
+    doc.text(phrase, margin, currentY);
     doc.setFont("Helvetica", "normal");
+    doc.setTextColor(100, 110, 120);
+    doc.text(dateStr, pageW - margin, currentY, { align: "right" });
+
+    currentY += 5;
+    doc.setDrawColor(240, 242, 245);
+    doc.line(margin, currentY, pageW - margin, currentY);
+    currentY += 7;
   });
+
+  // FINAL BALANCE SUMMARY
+  if (currentY > pageH - 45) {
+    doc.addPage();
+    currentY = 25;
+  }
+
+  doc.setDrawColor(200, 205, 210);
+  doc.line(margin, currentY, pageW - margin, currentY);
+  currentY += 6;
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Total bought worth: ${fmtNgn(record.totalCreditSales)}`, margin, currentY);
+  doc.text(`Total paid: ${fmtNgn(record.totalPayments)}`, pageW / 2, currentY);
+  currentY += 7;
+  doc.setTextColor(record.currentBalance > 0 ? 220 : 34, record.currentBalance > 0 ? 38 : 197, record.currentBalance > 0 ? 38 : 94);
+  doc.text(`Total balance: ${fmtNgn(record.currentBalance)}`, margin, currentY);
+  doc.setFont("Helvetica", "normal");
 
   // Footer branding
   const totalPages = doc.getNumberOfPages();
@@ -871,6 +848,23 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
     doc.setFont("Helvetica", "normal");
     doc.setTextColor(15, 23, 42);
   });
+
+  // TOTAL ROW at the bottom of the ledger
+  const totalPaid = records.reduce((sum, r) => sum + r.totalPayments, 0);
+  currentY += 6;
+  if (currentY > pageH - 22) {
+    doc.addPage();
+    currentY = 25;
+  }
+  doc.setFillColor(22, 28, 45);
+  doc.rect(margin, currentY - 3.5, pageW - 2 * margin, 7, "F");
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text("TOTAL", margin + 4, currentY);
+  doc.text(fmtNgn(totalCredit), pageW - margin - 75, currentY + 2, { align: "right" });
+  doc.text(fmtNgn(totalPaid), pageW - margin - 38, currentY + 2, { align: "right" });
+  doc.text(fmtNgn(outstanding), pageW - margin - 5, currentY + 2, { align: "right" });
 
   // Footer branding
   const totalPages = doc.getNumberOfPages();
