@@ -35,7 +35,15 @@ service cloud.firestore {
       return isAdmin() || role == 'manager';
     }
 
-    // STORES: Publicly readable for tenant resolution (subdomain lookup)
+    // Store scoping: the caller must be authenticated AND belong to the given store.
+    function isStoreScoped(storeId) {
+      return isAuth() && getStoreId() != null && getStoreId() == storeId;
+    }
+
+    // STORES: Publicly readable for tenant resolution (subdomain/slug lookup) and
+    // for the public storefront (store name, contact details, and the payment
+    // instructions customers need to transfer funds). Storefront writes remain
+    // restricted to the store owner / admins.
     match /stores/{storeId} {
       allow read: if true; 
       allow create: if isAuth(); 
@@ -76,9 +84,17 @@ service cloud.firestore {
       );
     }
 
-    // PRODUCTS: Publicly readable so public store pages can browse items
+    // PRODUCTS: NO anonymous reads. Products carry sensitive fields (cost price,
+    // supplier, reorder levels), so reads require an authenticated caller of the
+    // SAME store (or an admin). Branch-level filtering is enforced client-side.
+    // The public storefront must use the getpubliccatalog callable function,
+    // which returns only non-sensitive fields. The anonymous checkout may still
+    // decrement stock via the update carve-out below (currentStock/updatedAt only).
     match /products/{productId} {
-      allow read: if true;
+      allow read: if isAuth() && (
+        isStoreScoped(resource.data.storeId) ||
+        isAdmin()
+      );
       allow create, delete: if isAuth() && (
         (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
         (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
@@ -94,9 +110,13 @@ service cloud.firestore {
       );
     }
 
-    // CATEGORIES: Publicly readable for navigation
+    // CATEGORIES: not sensitive, but reads are still store-scoped; the public
+    // storefront receives categories through the getpubliccatalog function.
     match /categories/{categoryId} {
-      allow read: if true;
+      allow read: if isAuth() && (
+        isStoreScoped(resource.data.storeId) ||
+        isAdmin()
+      );
       allow write: if isAuth() && (
         (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
         (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
@@ -104,9 +124,17 @@ service cloud.firestore {
       );
     }
 
-    // SALES: Public checkout creates a transaction and reads a specific receipt
+    // SALES: Public checkout creates a sale and pays by transfer (no receipt is
+    // read back — the guest flow renders the receipt from local state). Reads are
+    // restricted to authenticated callers of the same store (or the record's
+    // owner, or admins — needed for the system-admin global sales monitor).
     match /sales/{saleId} {
-      allow create, read: if true;
+      allow create: if true;
+      allow read: if isAuth() && (
+        isStoreScoped(resource.data.storeId) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        isAdmin()
+      );
       allow update, delete: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
@@ -114,7 +142,7 @@ service cloud.firestore {
       );
     }
 
-    // MOVEMENTS: Public checkout records stock decrement movements
+    // MOVEMENTS: Public checkout records stock decrement movements (create only).
     match /movements/{movementId} {
       allow create: if true;
       allow read, update, delete: if isAuth() && (

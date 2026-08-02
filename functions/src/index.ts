@@ -67,6 +67,75 @@ const getDefaultBranchId = async (storeId: string): Promise<string | null> => {
 };
 
 /**
+ * PUBLIC STOREFRONT CATALOG (callable)
+ *
+ * Returns a store's public catalog (products + categories) without exposing the
+ * sensitive product fields (cost price, supplier, reorder levels, notes, etc.)
+ * that live on the product documents. Firestore rules do not support field-level
+ * read filtering, so product documents are NOT publicly readable at the rules
+ * layer — public storefronts must call this function, which only returns the
+ * fields customers need to browse and buy.
+ *
+ * Publicly callable: no authentication is required (request.auth may be null).
+ */
+export const getpubliccatalog = onCall({ cors: true }, async (request) => {
+  const storeId = request.data?.storeId;
+  if (typeof storeId !== "string" || storeId.length === 0) {
+    throw new HttpsError("invalid-argument", "storeId is required.");
+  }
+
+  const db = admin.firestore();
+
+  const storeSnap = await db.collection("stores").doc(storeId).get();
+  if (!storeSnap.exists) {
+    return { isPublic: false, products: [], categories: [] };
+  }
+  const storeData = storeSnap.data() as any;
+  if (storeData?.storeDetails?.isPublic !== true) {
+    return { isPublic: false, products: [], categories: [] };
+  }
+
+  const [prodSnap, catSnap] = await Promise.all([
+    db.collection("products").where("storeId", "==", storeId).get(),
+    db.collection("categories").where("storeId", "==", storeId).get(),
+  ]);
+
+  const products = prodSnap.docs
+    .map((doc) => {
+      const d = doc.data() as any;
+      if (d?.status !== "active") return null;
+      const units = Array.isArray(d.units)
+        ? d.units
+            .filter((u: any) => u && typeof u.name === "string")
+            .map((u: any) => ({
+              name: u.name,
+              conversionFactor: typeof u.conversionFactor === "number" ? u.conversionFactor : 1,
+              ...(typeof u.sellingPrice === "number" ? { sellingPrice: u.sellingPrice } : {}),
+            }))
+        : undefined;
+      return {
+        id: doc.id,
+        name: d.name,
+        sku: d.sku,
+        description: d.description,
+        sellingPrice: d.sellingPrice ?? 0,
+        currentStock: d.currentStock ?? 0,
+        unit: d.unit || "unit",
+        units,
+        imageUrl: d.imageUrl ?? null,
+        categoryId: d.categoryId ?? null,
+        reorderPoint: d.reorderPoint ?? 0,
+        status: d.status,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null);
+
+  const categories = catSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  return { isPublic: true, products, categories };
+});
+
+/**
  * AUTOMATIC ONBOARDING: Firestore Trigger (v2)
  * Synchronizes Custom Claims whenever a staff record changes.
  */

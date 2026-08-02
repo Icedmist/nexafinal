@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dailyActivitySummary = exports.retentionSendBulkEmail = exports.retentionSendCustomEmail = exports.reportsTestGenerate = exports.reportsGenerateScheduled = exports.retentionTriggerManual = exports.retentionEvaluate = exports.retentionMetrics = exports.retentionStatus = exports.moniepointwebhook = exports.unlinkmoniepointaccount = exports.linkmoniepointaccount = exports.getplatformstats = exports.resetuserpassword = exports.updateplatformuser = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = void 0;
+exports.dailyActivitySummary = exports.retentionSendBulkEmail = exports.retentionSendCustomEmail = exports.reportsTestGenerate = exports.reportsGenerateScheduled = exports.retentionTriggerManual = exports.retentionEvaluate = exports.retentionMetrics = exports.retentionStatus = exports.moniepointwebhook = exports.unlinkmoniepointaccount = exports.linkmoniepointaccount = exports.getplatformstats = exports.resetuserpassword = exports.updateplatformuser = exports.updateuseremail = exports.wipeuser = exports.listallusers = exports.ping = exports.onactivitycreated = exports.sendautoreceipt = exports.sendcustomemail = exports.onusercreated = exports.updatestaffprofile = exports.provisionplatformuser = exports.provisionstaff = exports.syncstaffclaims = exports.getpubliccatalog = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -58,6 +58,69 @@ const getDefaultBranchId = async (storeId) => {
     const defaultBranch = branches.find((b) => b?.isMain) || branches[0];
     return defaultBranch?.id ?? null;
 };
+/**
+ * PUBLIC STOREFRONT CATALOG (callable)
+ *
+ * Returns a store's public catalog (products + categories) without exposing the
+ * sensitive product fields (cost price, supplier, reorder levels, notes, etc.)
+ * that live on the product documents. Firestore rules do not support field-level
+ * read filtering, so product documents are NOT publicly readable at the rules
+ * layer — public storefronts must call this function, which only returns the
+ * fields customers need to browse and buy.
+ *
+ * Publicly callable: no authentication is required (request.auth may be null).
+ */
+exports.getpubliccatalog = (0, https_1.onCall)({ cors: true }, async (request) => {
+    const storeId = request.data?.storeId;
+    if (typeof storeId !== "string" || storeId.length === 0) {
+        throw new https_1.HttpsError("invalid-argument", "storeId is required.");
+    }
+    const db = admin.firestore();
+    const storeSnap = await db.collection("stores").doc(storeId).get();
+    if (!storeSnap.exists) {
+        return { isPublic: false, products: [], categories: [] };
+    }
+    const storeData = storeSnap.data();
+    if (storeData?.storeDetails?.isPublic !== true) {
+        return { isPublic: false, products: [], categories: [] };
+    }
+    const [prodSnap, catSnap] = await Promise.all([
+        db.collection("products").where("storeId", "==", storeId).get(),
+        db.collection("categories").where("storeId", "==", storeId).get(),
+    ]);
+    const products = prodSnap.docs
+        .map((doc) => {
+        const d = doc.data();
+        if (d?.status !== "active")
+            return null;
+        const units = Array.isArray(d.units)
+            ? d.units
+                .filter((u) => u && typeof u.name === "string")
+                .map((u) => ({
+                name: u.name,
+                conversionFactor: typeof u.conversionFactor === "number" ? u.conversionFactor : 1,
+                ...(typeof u.sellingPrice === "number" ? { sellingPrice: u.sellingPrice } : {}),
+            }))
+            : undefined;
+        return {
+            id: doc.id,
+            name: d.name,
+            sku: d.sku,
+            description: d.description,
+            sellingPrice: d.sellingPrice ?? 0,
+            currentStock: d.currentStock ?? 0,
+            unit: d.unit || "unit",
+            units,
+            imageUrl: d.imageUrl ?? null,
+            categoryId: d.categoryId ?? null,
+            reorderPoint: d.reorderPoint ?? 0,
+            status: d.status,
+        };
+    })
+        .filter((p) => p !== null);
+    const categories = catSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return { isPublic: true, products, categories };
+});
 /**
  * AUTOMATIC ONBOARDING: Firestore Trigger (v2)
  * Synchronizes Custom Claims whenever a staff record changes.

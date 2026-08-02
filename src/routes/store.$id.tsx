@@ -11,7 +11,8 @@ import {
   writeBatch, 
   increment 
 } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "../lib/firebase";
 import { 
   Plus, 
   Minus, 
@@ -92,6 +93,12 @@ function generateCollectionCode(): string {
   return code;
 }
 
+// The products/categories collections are NOT publicly readable at the rules
+// layer (products carry sensitive fields like cost price and supplier). The
+// public storefront loads its catalog through this callable, which returns only
+// non-sensitive fields.
+const getPublicCatalog = httpsCallable(functions, "getpubliccatalog");
+
 export default function PublicStorePage() {
   const { id } = useParams<{ id: string }>();
   const [store, setStore] = useState<any>(null);
@@ -169,32 +176,23 @@ export default function PublicStorePage() {
 
         setStore(storeData);
 
-        // Fetch Categories
-        const catQuery = query(
-          collection(db, "categories"),
-          where("storeId", "==", storeData.id)
-        );
-        const catSnapshot = await getDocs(catQuery);
-        const catsList: Category[] = [];
-        catSnapshot.forEach((doc) => {
-          catsList.push({ id: doc.id, ...doc.data() } as Category);
-        });
-        setCategories(catsList);
+        // Fetch public catalog (products + categories) via the callable function
+        const catalogRes = await getPublicCatalog({ storeId: storeData.id });
+        const catalog = (catalogRes.data as any) || {};
 
-        // Fetch Products
-        const prodQuery = query(
-          collection(db, "products"),
-          where("storeId", "==", storeData.id)
+        if (catalog.isPublic !== true) {
+          setError("Storefront is private");
+          setLoading(false);
+          return;
+        }
+
+        const catsList: Category[] = (catalog.categories || []).map(
+          (c: any) => ({ id: c.id, ...c }) as Category
         );
-        const prodSnapshot = await getDocs(prodQuery);
-        const prodsList: Item[] = [];
-        prodSnapshot.forEach((doc) => {
-          const item = { id: doc.id, ...doc.data() } as Item;
-          // Only show active items
-          if (item.status === "active") {
-            prodsList.push(item);
-          }
-        });
+        const prodsList: Item[] = (catalog.products || []).map(
+          (p: any) => p as Item
+        );
+        setCategories(catsList);
         setProducts(prodsList);
 
         // Initialize active units defaults
