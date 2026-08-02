@@ -98,9 +98,23 @@ export const syncstaffclaims = onDocumentWritten("staff/{staffId}", async (event
     }
     
     if (userRecord) {
+      // Only assign the store's default branch when the staff document is
+      // genuinely being created without a branch. On updates where branchId is
+      // missing/falsy but the document previously had a branchId, preserve the
+      // existing branch instead of silently reassigning the user to the store's
+      // default branch. This prevents incidental field updates (password reset,
+      // displayName sync, isActive toggle, etc.) from changing branch scoping as
+      // a side effect.
+      const isCreate = !event.data?.before?.exists;
+      const previousBranchId = isCreate ? null : (event.data?.before?.data()?.branchId || null);
+
       let actualBranchId = data.branchId || null;
-      if (!actualBranchId && storeId) {
-        actualBranchId = await getDefaultBranchId(storeId);
+      if (!actualBranchId) {
+        if (previousBranchId) {
+          actualBranchId = previousBranchId;
+        } else if (isCreate && storeId) {
+          actualBranchId = await getDefaultBranchId(storeId);
+        }
       }
       
       const batch = admin.firestore().batch();

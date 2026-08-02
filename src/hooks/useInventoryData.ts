@@ -147,8 +147,9 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
         const item = { ...doc.data(), id: doc.id } as Item;
         const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
         const userBranchId = claims?.branchId;
-        
-        if (!isAdmin && item.branchId !== userBranchId) {
+        const branchAccess = getBranchAccessValues(userBranchId) as readonly (string | null)[];
+
+        if (!isAdmin && !branchAccess.includes(item.branchId ?? null)) {
           setData(undefined);
         } else {
           setData(item);

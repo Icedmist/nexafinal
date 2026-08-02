@@ -86,9 +86,23 @@ exports.syncstaffclaims = (0, firestore_1.onDocumentWritten)("staff/{staffId}", 
             userRecord = await admin.auth().getUserByEmail(email);
         }
         if (userRecord) {
+            // Only assign the store's default branch when the staff document is
+            // genuinely being created without a branch. On updates where branchId is
+            // missing/falsy but the document previously had a branchId, preserve the
+            // existing branch instead of silently reassigning the user to the store's
+            // default branch. This prevents incidental field updates (password reset,
+            // displayName sync, isActive toggle, etc.) from changing branch scoping as
+            // a side effect.
+            const isCreate = !event.data?.before?.exists;
+            const previousBranchId = isCreate ? null : (event.data?.before?.data()?.branchId || null);
             let actualBranchId = data.branchId || null;
-            if (!actualBranchId && storeId) {
-                actualBranchId = await getDefaultBranchId(storeId);
+            if (!actualBranchId) {
+                if (previousBranchId) {
+                    actualBranchId = previousBranchId;
+                }
+                else if (isCreate && storeId) {
+                    actualBranchId = await getDefaultBranchId(storeId);
+                }
             }
             const batch = admin.firestore().batch();
             const staffRef = admin.firestore().collection("staff").doc(staffId);
@@ -576,16 +590,33 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
     if (!data || !data.storeId)
         return null;
     try {
-        // 1. Get store details for branding and owner email
+        // 1. Get store details for branding
         const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
         const storeData = storeDoc.data();
         if (!storeData || !storeData.ownerId)
             return null;
-        const owner = await admin.auth().getUser(storeData.ownerId);
-        const ownerEmail = owner.email;
-        if (!ownerEmail)
+        // 2. Collect recipient emails scoped to this store: owner + managers/admins
+        const recipients = [];
+        try {
+            const owner = await admin.auth().getUser(storeData.ownerId);
+            if (owner.email)
+                recipients.push(owner.email);
+        }
+        catch (e) {
+            console.warn(`[ActivityNotify] Could not fetch owner for store ${data.storeId}:`, e);
+        }
+        const staffSnap = await admin.firestore().collection("staff")
+            .where("storeId", "==", data.storeId)
+            .where("role", "in", ["manager", "owner", "admin"])
+            .get();
+        for (const staffDoc of staffSnap.docs) {
+            const email = staffDoc.data().email;
+            if (email && !recipients.includes(email))
+                recipients.push(email);
+        }
+        if (recipients.length === 0)
             return null;
-        // 2. Determine if email should be sent
+        // 3. Determine if email should be sent
         // Emails are triggered for: medium, high, critical severities, or security/procurement categories
         const emailSeverities = ["medium", "high", "critical"];
         const emailCategories = ["security", "procurement"];
@@ -627,12 +658,19 @@ exports.onactivitycreated = (0, firestore_1.onDocumentCreated)({
                     performedBy: data.userEmail || "System",
                 });
             }
-            await (0, email_1.sendEmailViaZoho)({
-                to: ownerEmail,
-                subject: emailSubject,
-                text: data.message,
-                html: emailHtml
-            });
+            for (const recipientEmail of recipients) {
+                try {
+                    await (0, email_1.sendEmailViaZoho)({
+                        to: recipientEmail,
+                        subject: emailSubject,
+                        text: data.message,
+                        html: emailHtml
+                    });
+                }
+                catch (e) {
+                    console.error(`[ActivityNotify] Email failed for ${recipientEmail}:`, e);
+                }
+            }
         }
         // 3. Create In-App Notification document
         // Map activity categories to notification types for the UI

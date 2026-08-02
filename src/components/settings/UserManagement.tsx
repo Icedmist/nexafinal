@@ -59,10 +59,15 @@ export function UserManagement() {
   const [deactivateTarget, setDeactivateTarget] = useState<Staff | null>(null);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [editFormOpen, setEditFormOpen] = useState(false);
-  const [editData, setEditData] = useState({
+  const [editData, setEditData] = useState<{
+    displayName: string;
+    role: RoleType;
+    branchId: string | null;
+    password: string;
+  }>({
     displayName: "",
-    role: "staff" as RoleType,
-    branchId: "",
+    role: "staff",
+    branchId: null,
     password: "",
   });
 
@@ -136,7 +141,7 @@ export function UserManagement() {
     setEditData({
       displayName: user.displayName,
       role: user.role,
-      branchId: user.branchId || "",
+      branchId: user.branchId ?? null,
       password: "",
     });
     setEditFormOpen(true);
@@ -149,12 +154,19 @@ export function UserManagement() {
         toast.error("Password must be at least 6 characters");
         return;
       }
-      await updateStaff(editingStaff.uid, {
+      const updates: Partial<Staff> & { password?: string } = {
         displayName: editData.displayName,
         role: editData.role,
-        branchId: editData.branchId,
         password: editData.password || undefined,
-      });
+      };
+      // Only send branchId if the admin actually changed it in the form.
+      // Sending the pre-filled value unconditionally re-triggers claim reassignment
+      // for staff whose branchId is null/unset, silently moving them to the
+      // store's default branch.
+      if (editData.branchId !== (editingStaff.branchId ?? null)) {
+        (updates as { branchId?: string | null }).branchId = editData.branchId;
+      }
+      await updateStaff(editingStaff.uid, updates);
       toast.success(`${editData.displayName} updated successfully`);
       setEditFormOpen(false);
     } catch (err: any) {
@@ -352,7 +364,7 @@ export function UserManagement() {
               </div>
               <div className="space-y-1.5">
                 <Label>Branch</Label>
-                <Select value={editData.branchId} onValueChange={(v) => setEditData({ ...editData, branchId: v })}>
+                <Select value={editData.branchId ?? "all"} onValueChange={(v) => setEditData({ ...editData, branchId: v === "all" ? null : v })}>
                   <SelectTrigger><SelectValue placeholder="All Branches" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Branches</SelectItem>
