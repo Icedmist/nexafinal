@@ -103,8 +103,40 @@ export function useCreateItem() {
 }
 
 /**
+ * Maps a Firestore/network error to a human-readable reason so imports can
+ * tell the user exactly why their file was rejected.
+ */
+function getFirestoreErrorMessage(err: unknown): string {
+  const code = (err as any)?.code as string | undefined;
+  const message = (err as any)?.message as string | undefined;
+  switch (code) {
+    case "permission-denied":
+      return "Permission denied — your account isn't allowed to write to this store's catalog. Ask the store owner to grant you access.";
+    case "unauthenticated":
+      return "You're not signed in. Sign in again and retry the import.";
+    case "resource-exhausted":
+    case "quota-exceeded":
+      return "Firestore write quota exceeded for this store. Wait a few minutes and import again, or split the file into smaller batches.";
+    case "invalid-argument":
+      return "The file contains invalid data (e.g. a non-numeric price or a missing required field). Fix the rows and retry.";
+    case "deadline-exceeded":
+      return "The write timed out. Check your internet connection and try again.";
+    case "unavailable":
+      return "Database is temporarily unavailable. Try again in a moment.";
+    case "not-found":
+      return "The store record wasn't found — refresh the page and retry.";
+    case "already-exists":
+      return "Some of those items already exist in the catalog. Import the rest or update existing items instead.";
+    case "aborted":
+      return "The import was aborted by the database. Try again in a moment.";
+    default:
+      return message ? message.replace(/\s+/g, " ").trim().slice(0, 240) : "Unexpected error while saving. Try again.";
+  }
+}
+
+/**
  * Bulk-creates items using Firestore writeBatch (max 500 per batch).
- * Returns a promise that resolves with { created, failed } counts.
+ * Returns a promise that resolves with { created, failed, error } counts.
  */
 export function useBatchCreateItems() {
   const { user, claims } = useAuth();
@@ -112,11 +144,12 @@ export function useBatchCreateItems() {
   const [isLoading, setIsLoading] = useState(false);
 
   const batchCreate = useCallback(
-    async (items: Item[]): Promise<{ created: number; failed: number }> => {
+    async (items: Item[]): Promise<{ created: number; failed: number; error?: string }> => {
       if (!user || !storeId) throw new Error("Not authenticated");
 
       let created = 0;
       let failed = 0;
+      let error: string | undefined;
       const CHUNK = 500;
 
       for (let i = 0; i < items.length; i += CHUNK) {
@@ -143,10 +176,11 @@ export function useBatchCreateItems() {
         } catch (err) {
           console.error("Batch write failed for chunk starting at", i, err);
           failed += chunk.length;
+          if (!error) error = getFirestoreErrorMessage(err);
         }
       }
 
-      return { created, failed };
+      return { created, failed, error };
     },
     [user, storeId, claims]
   );

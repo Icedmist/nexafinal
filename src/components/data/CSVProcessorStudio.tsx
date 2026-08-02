@@ -445,10 +445,10 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
         pricingTiers: { retail: r.sellingPrice || 0, tierEnabled: false },
       }));
 
-      const { created, failed } = await batchCreate(items);
+      const { created, failed, error } = await batchCreate(items);
 
       if (failed > 0) {
-        toast.warning(`Imported ${created} items — ${failed} failed to save.`);
+        toast.warning(`Imported ${created} items — ${failed} failed to save.${error ? `\n${error}` : ""}`);
       } else {
         toast.success(`Successfully imported ${created} item${created !== 1 ? "s" : ""} into your catalog!`);
       }
@@ -460,7 +460,8 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
       }
     } catch (err) {
       console.error("Direct import error:", err);
-      toast.error("Failed to import items to catalog.");
+      const msg = err instanceof Error ? err.message : "Unexpected error while importing.";
+      toast.error(`Failed to import items to catalog: ${msg}`);
     } finally {
       setIsImporting(false);
     }

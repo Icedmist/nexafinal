@@ -318,12 +318,12 @@ function CatalogPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{sector.t("catalog")}</h1>
           <p className="text-sm text-muted-foreground">{items.length} {sector.t("item").toLowerCase()}s</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <CSVExportButton
             data={items}
             columns={csvColumns}
@@ -568,17 +568,17 @@ function CatalogPage() {
           });
 
           try {
-            const { created, failed } = await batchCreate(items);
+            const { created, failed, error } = await batchCreate(items);
             if (failed > 0) {
-              toast.warning(`Imported ${created} items — ${failed} failed to save.`);
+              toast.warning(`Imported ${created} items — ${failed} failed to save.${error ? `\n${error}` : ""}`);
             } else {
               toast.success(`Successfully imported ${created} item${created !== 1 ? "s" : ""}.`);
             }
-            return { created, failed };
+            return { created, failed, error };
           } catch (err) {
             const msg = err instanceof Error ? err.message : "Unknown error";
             toast.error(`Import failed: ${msg}`);
-            return { created: 0, failed: items.length };
+            return { created: 0, failed: items.length, error: msg };
           }
         }}
       />

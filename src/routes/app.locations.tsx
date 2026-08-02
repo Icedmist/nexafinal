@@ -57,7 +57,7 @@ function LocationsPage() {
   return (
     <div className={cn("mx-auto max-w-[1200px] space-y-6 flex flex-col", tree.length === 0 && "min-h-[60vh] justify-center")}>
       {tree.length > 0 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-foreground">Locations</h1>
             <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
@@ -65,7 +65,7 @@ function LocationsPage() {
             </p>
           </div>
           <PermissionGate permission="create_item">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"

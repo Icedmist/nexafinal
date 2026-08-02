@@ -42,12 +42,19 @@ export interface ValidatedRow {
   warnings: string[];
 }
 
+export interface CSVImportResult {
+  created: number;
+  failed: number;
+  /** Optional human-readable reason when rows were rejected. */
+  error?: string;
+}
+
 export interface CSVImportSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fields: ImportField[];
   /** Called with all valid rows to import. Returns { created, failed } counts. */
-  onImport: (rows: Record<string, string>[]) => Promise<{ created: number; failed: number }>;
+  onImport: (rows: Record<string, string>[]) => Promise<CSVImportResult>;
   entityName?: string;
   existingSkus?: string[];
   knownCategories?: string[];
@@ -265,7 +272,7 @@ export function CSVImportSheet({
   const [isDragOver, setIsDragOver] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResult, setImportResult] = useState<{ created: number; failed: number } | null>(null);
+  const [importResult, setImportResult] = useState<CSVImportResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const totalSteps = 4; // upload → mapping → validation → execute
@@ -378,8 +385,9 @@ export function CSVImportSheet({
       clearInterval(progressInterval);
       setImportProgress(100);
       setImportResult(result);
-    } catch {
-      setImportResult({ created: 0, failed: rows.length });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unexpected error while importing.";
+      setImportResult({ created: 0, failed: rows.length, error: msg });
     } finally {
       setIsImporting(false);
     }
@@ -393,11 +401,11 @@ export function CSVImportSheet({
         else if (!isImporting) onOpenChange(v);
       }}
     >
-      <DialogContent className="left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:max-w-[640px] max-h-[90vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col overflow-hidden max-h-full flex-1">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <DialogTitle className="text-2xl font-black tracking-tight">Import {entityName}</DialogTitle>
+      <DialogContent className="flex flex-col left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[95vw] sm:max-w-[640px] max-h-[90vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
+        <div className="nexa-card bg-card p-4 sm:p-6 flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="flex items-start justify-between mb-6 shrink-0 gap-3">
+            <div className="min-w-0">
+              <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight truncate">Import {entityName}</DialogTitle>
               <DialogDescription className="text-muted-foreground font-medium mt-1">
                 {step === 1 && "Upload your CSV data source."}
                 {step === 2 && "Map your CSV columns to app fields."}
@@ -405,7 +413,7 @@ export function CSVImportSheet({
                 {step === 4 && (isImporting ? "Processing rows..." : "Import complete.")}
               </DialogDescription>
             </div>
-            <div className="flex flex-col items-end gap-3">
+            <div className="flex flex-col items-end gap-3 shrink-0">
               <button onClick={() => !isImporting && onOpenChange(false)} className="rounded-full p-2 hover:bg-muted transition-colors">
                 <X className="h-4 w-4" />
               </button>
@@ -413,7 +421,7 @@ export function CSVImportSheet({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
             {/* ── Step 1: File Upload ── */}
             {step === 1 && (
               <div className="space-y-4">
@@ -645,37 +653,61 @@ export function CSVImportSheet({
                     </div>
                   </>
                 ) : importResult ? (
-                  <>
-                    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-500 shadow-lg shadow-emerald-500/10">
-                      <CheckCircle2 className="h-10 w-10" />
-                    </div>
-                    <div className="text-center space-y-2">
-                      <p className="text-2xl font-black tracking-tight text-foreground">Import Successful</p>
-                      <p className="text-sm font-medium text-muted-foreground max-w-xs mx-auto">
-                        We've successfully added <span className="text-foreground font-black">{importResult.created}</span> {entityName} to your catalog.
-                        {importResult.failed > 0 && <span className="block mt-2 text-destructive font-bold">{importResult.failed} rows failed to process.</span>}
-                      </p>
-                    </div>
-                  </>
+                  importResult.created === 0 && importResult.failed > 0 ? (
+                    <>
+                      <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-destructive/10 text-destructive shadow-lg shadow-destructive/10">
+                        <XCircle className="h-10 w-10" />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <p className="text-2xl font-black tracking-tight text-foreground">Import Rejected</p>
+                        <p className="text-sm font-medium text-muted-foreground max-w-xs mx-auto">
+                          {importResult.failed} row{importResult.failed !== 1 ? "s" : ""} could not be imported.
+                          {importResult.error && (
+                            <span className="block mt-2 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs font-bold text-destructive text-left">
+                              {importResult.error}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-500 shadow-lg shadow-emerald-500/10">
+                        <CheckCircle2 className="h-10 w-10" />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <p className="text-2xl font-black tracking-tight text-foreground">Import Successful</p>
+                        <p className="text-sm font-medium text-muted-foreground max-w-xs mx-auto">
+                          We've successfully added <span className="text-foreground font-black">{importResult.created}</span> {entityName} to your catalog.
+                          {importResult.failed > 0 && (
+                            <span className="block mt-2 text-destructive font-bold">
+                              {importResult.failed} rows failed to process.
+                              {importResult.error && <span className="block mt-1 font-medium">{importResult.error}</span>}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </>
+                  )
                 ) : null}
               </div>
             )}
           </div>
 
           {/* ── Footer ── */}
-          <div className="mt-8 flex items-center justify-between border-t-2 border-border pt-6">
+          <div className="mt-6 shrink-0 flex flex-wrap items-center justify-between gap-3 border-t-2 border-border pt-4">
             <div>
               {step > 1 && step < 4 && (
-                <Button variant="ghost" className="h-11 rounded-xl font-bold px-4" onClick={() => setStep((s) => s - 1)}>
+                <Button variant="ghost" className="h-10 sm:h-11 rounded-xl font-bold px-4" onClick={() => setStep((s) => s - 1)}>
                   <ChevronLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {step === 2 && (
                 <Button
-                  className="h-11 min-w-[140px] rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
+                  className="h-10 sm:h-11 min-w-[140px] rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
                   disabled={unmappedRequired.length > 0}
                   onClick={() => setStep(3)}
                 >
@@ -688,7 +720,7 @@ export function CSVImportSheet({
                   {errorCount > 0 && validCount > 0 && (
                     <Button
                       variant="outline"
-                      className="h-11 rounded-xl font-black uppercase text-xs tracking-widest border-2"
+                      className="h-10 sm:h-11 rounded-xl font-black uppercase text-xs tracking-widest border-2"
                       onClick={() => {
                         const validRows = validatedRows
                           .filter((r) => r.errors.length === 0)
@@ -701,7 +733,7 @@ export function CSVImportSheet({
                   )}
                   {validCount > 0 && (
                     <Button
-                      className="h-11 min-w-[160px] rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
+                      className="h-10 sm:h-11 min-w-[150px] rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
                       onClick={() => {
                         const validRows = validatedRows
                           .filter((r) => r.errors.length === 0)
@@ -713,7 +745,7 @@ export function CSVImportSheet({
                     </Button>
                   )}
                   {validCount === 0 && (
-                    <Button className="h-11 rounded-xl font-black uppercase text-xs tracking-widest" disabled>
+                    <Button className="h-10 sm:h-11 rounded-xl font-black uppercase text-xs tracking-widest" disabled>
                       No Valid Data
                     </Button>
                   )}
@@ -722,7 +754,7 @@ export function CSVImportSheet({
 
               {step === 4 && !isImporting && (
                 <Button
-                  className="h-11 min-w-[120px] rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
+                  className="h-10 sm:h-11 min-w-[120px] rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
                   onClick={() => {
                     reset();
                     onOpenChange(false);

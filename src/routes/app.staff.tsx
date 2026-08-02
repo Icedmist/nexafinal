@@ -141,7 +141,7 @@ function StaffPage() {
 
   return (
     <div className={cn("mx-auto max-w-[1200px] space-y-6 flex flex-col", filteredStaff.length === 0 && "min-h-[60vh] justify-center")}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-foreground">Staff Management</h1>
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{staff.length} team members authorized</p>
