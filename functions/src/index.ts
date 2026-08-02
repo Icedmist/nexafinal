@@ -706,10 +706,11 @@ export const sendautoreceipt = onDocumentCreated({
     const title = `Receipt from ${storeData.name}`;
 
     // 3. Send the email
+    const storePhone = (storeData as any).storeDetails?.phone;
     await sendEmailViaZoho({
       to: data.customerEmail,
       subject: title,
-      text: `Your receipt from ${storeData.name} for ₦${data.totalNgn?.toLocaleString()}`,
+      text: `Your receipt from ${storeData.name} for ₦${data.totalNgn?.toLocaleString()}${storePhone ? `\nContact: ${storePhone}` : ""}`,
       html: emailHtml,
       fromName: storeData.name
     });

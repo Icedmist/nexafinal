@@ -198,11 +198,11 @@ function validateRows(
       }
     }
 
-    // SKU uniqueness
+    // SKU uniqueness (warning only — never blocks an import)
     const sku = row.sku?.trim().toLowerCase();
     if (sku) {
       if (seenSkus.has(sku) || fileSkus.has(sku)) {
-        errors.push("Duplicate SKU");
+        warnings.push("Duplicate SKU — a new item with this SKU will be created");
       } else {
         fileSkus.add(sku);
       }

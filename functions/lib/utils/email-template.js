@@ -265,6 +265,7 @@ const getReceiptEmailTemplate = (sale, store) => {
         type: "receipt",
         metadata: {
             "Shop Name": store.name,
+            "Store Contact": store.storeDetails?.phone || "N/A",
             "Customer": sale.customerName || "Walk-in",
             "Customer Email": sale.customerEmail || "N/A",
             "Date & Time": new Date(sale.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }),

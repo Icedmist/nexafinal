@@ -389,6 +389,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const storeName = profile?.storeDetails?.name || "NEXA Store";
   const branch = store?.branches?.find(b => b.id === sale.branchId);
   const address = branch?.location || profile?.storeDetails?.address || "";
+  const storePhone = profile?.storeDetails?.phone || "";
 
   const [downloading, setDownloading] = useState(false);
 
@@ -464,7 +465,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                       </div>
                       <div>
                         <DialogTitle className="text-lg font-black tracking-tight text-foreground uppercase">Receipt</DialogTitle>
-                        {address && <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{address}</p>}
+                        {(address || storePhone) && <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{[address, storePhone && `Tel: ${storePhone}`].filter(Boolean).join(" • ")}</p>}
                       </div>
                     </div>
                   </div>
@@ -645,6 +646,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
         <div className="text-center space-y-1 mb-6">
           <h1 className="text-xl font-bold uppercase">{storeName}</h1>
           {address && <p className="text-[9px] uppercase">{address}</p>}
+          {storePhone && <p className="text-[10px]">TEL: {storePhone}</p>}
           <p className="text-[10px]">SALES RECEIPT</p>
         </div>
 

@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef } from "react";
 import * as XLSX from "xlsx";
 import { CATEGORY_PRESETS } from "@/utils/categorySuggestions";
-import { db } from "@/lib/firebase";
-import { collection, doc, writeBatch } from "firebase/firestore";
+import { useCategories } from "@/hooks/useInventoryData";
+import { useBatchCreateItems } from "@/hooks/useInventoryMutations";
+import { ItemStatus, type Item } from "@/types/inventory";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +103,9 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeStoreId = storeId;
+
+  const { data: categories } = useCategories();
+  const { batchCreate } = useBatchCreateItems();
 
   // File & Workbook state
   const [fileName, setFileName] = useState<string | null>(null);
@@ -415,32 +419,45 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
 
     setIsImporting(true);
     try {
-      const batch = writeBatch(db);
-      rows.forEach((r) => {
-        const itemRef = doc(collection(db, "items"));
-        batch.set(itemRef, {
-          id: itemRef.id,
-          storeId: activeStoreId,
-          name: r.name,
-          sku: r.sku || `PROD-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-          sellingPrice: Number(r.sellingPrice || 0),
-          costPrice: Number(r.costPrice || 0),
-          currentStock: Number(r.stockQuantity || 0),
-          categoryId: r.category || "General",
-          supplier: r.supplier || "",
-          reorderPoint: Number(r.reorderLevel || 5),
-          barcode: r.barcode || "",
-          description: r.description || "",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      });
+      const categoryIdByName = (name: string) =>
+        categories.find((c) => c.name.toLowerCase() === name.toLowerCase())?.id ?? null;
 
-      await batch.commit();
-      toast.success(`Successfully imported ${rows.length} items directly into catalog!`);
-      setIsImportDialogOpen(false);
-      if (onSuccessImport) onSuccessImport();
-      if (onClose) onClose();
+      const items: Item[] = rows.map((r, idx) => ({
+        id: crypto.randomUUID(),
+        sku: r.sku?.trim() || `PROD-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
+        barcode: r.barcode?.trim() || null,
+        name: r.name || `Un-named Item ${idx + 1}`,
+        description: r.description || "",
+        categoryId: categoryIdByName(r.category),
+        status: ItemStatus.Active,
+        unit: "each",
+        currentStock: r.stockQuantity || 0,
+        reorderPoint: r.reorderLevel || 0,
+        reorderQuantity: 0,
+        costPrice: r.costPrice || 0,
+        sellingPrice: r.sellingPrice || 0,
+        locationId: null,
+        supplierId: null,
+        imageUrl: null,
+        customFields: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        pricingTiers: { retail: r.sellingPrice || 0, tierEnabled: false },
+      }));
+
+      const { created, failed } = await batchCreate(items);
+
+      if (failed > 0) {
+        toast.warning(`Imported ${created} items — ${failed} failed to save.`);
+      } else {
+        toast.success(`Successfully imported ${created} item${created !== 1 ? "s" : ""} into your catalog!`);
+      }
+
+      if (created > 0) {
+        setIsImportDialogOpen(false);
+        if (onSuccessImport) onSuccessImport();
+        if (onClose) onClose();
+      }
     } catch (err) {
       console.error("Direct import error:", err);
       toast.error("Failed to import items to catalog.");
@@ -565,7 +582,7 @@ export function CSVProcessorStudio({ onSuccessImport, onClose, inline = false }:
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "upload" | "ai" | "data")} className="w-full">
         <TabsList className="grid grid-cols-3 max-w-md">
           <TabsTrigger value="upload" className="gap-1 text-xs">
             <Upload className="h-3.5 w-3.5" /> 1. Upload & Map

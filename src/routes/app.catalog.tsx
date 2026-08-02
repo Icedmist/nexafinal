@@ -121,7 +121,7 @@ function CatalogPage() {
 
   const importFields = useMemo<ImportField[]>(() => [
     { key: "name", label: "Name", required: true },
-    { key: "sku", label: "SKU", required: true },
+    { key: "sku", label: "SKU" },
     { key: "description", label: "Description" },
     { key: "category", label: "Category" },
     { key: "supplier", label: "Supplier" },
@@ -527,13 +527,13 @@ function CatalogPage() {
         knownSuppliers={suppliers.map((s) => s.name)}
         onImport={async (rows) => {
           // Build item objects — one per valid row
-          const items = rows.map((row) => {
+          const items = rows.map((row, idx) => {
             const retailPrice = Number(row.sellingPrice) || 0;
             const wholesalePrice = row.wholesalePrice ? Number(row.wholesalePrice) : undefined;
 
             return {
               id: crypto.randomUUID(),
-              sku: row.sku ?? "",
+              sku: row.sku?.trim() || `PROD-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
               barcode: row.barcode ?? null,
               name: row.name ?? "",
               description: row.description ?? "",

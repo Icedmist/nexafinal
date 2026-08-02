@@ -638,10 +638,11 @@ exports.sendautoreceipt = (0, firestore_1.onDocumentCreated)({
         const emailHtml = (0, email_template_1.getReceiptEmailTemplate)(data, storeData);
         const title = `Receipt from ${storeData.name}`;
         // 3. Send the email
+        const storePhone = storeData.storeDetails?.phone;
         await (0, email_1.sendEmailViaZoho)({
             to: data.customerEmail,
             subject: title,
-            text: `Your receipt from ${storeData.name} for ₦${data.totalNgn?.toLocaleString()}`,
+            text: `Your receipt from ${storeData.name} for ₦${data.totalNgn?.toLocaleString()}${storePhone ? `\nContact: ${storePhone}` : ""}`,
             html: emailHtml,
             fromName: storeData.name
         });
