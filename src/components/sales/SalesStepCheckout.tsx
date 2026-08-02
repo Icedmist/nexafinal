@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { Item, SaleTransaction } from "@/types/inventory";
 import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
-import { useSalesMutations, useSales, useDebtPayments } from "@/hooks/useSalesData";
+import { useSalesMutations, useSales, useDebtPayments, useCustomerBalance } from "@/hooks/useSalesData";
 import { notifyActivity } from "@/lib/notification-service";
 import { validatePromo, usePromo } from "@/lib/promos";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -72,7 +72,7 @@ export function SalesStepCheckout({
   const isPriceEditingLocked = profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true;
   const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
 
-  const { addSale, recordDebtPayment } = useSalesMutations();
+  const { addSale, recordDebtPayment, applyBalanceToSale, addOverpayCredit } = useSalesMutations();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -124,6 +124,10 @@ export function SalesStepCheckout({
   const { data: payments = [] } = useDebtPayments();
   const [includeDebt, setIncludeDebt] = useState(false);
 
+  // Customer prepaid credit. Store-wide, automatically applied / topped-up.
+  const { balance: customerBalance } = useCustomerBalance(customerPhone || null);
+  const [useCredit, setUseCredit] = useState(false);
+
   // Tax calculation
   const taxAmount = total * (taxRate / 100);
 
@@ -137,36 +141,55 @@ export function SalesStepCheckout({
 
   const grandTotal = total + taxAmount + (includeDebt && customerDebt > 0 ? customerDebt : 0);
 
+  // Amount of the customer's credit we will apply to this purchase (never exceeds
+  // the grand total, and only when the cashier opts into using the balance).
+  const creditToApply = useMemo(() => {
+    if (!useCredit || customerBalance <= 0) return 0;
+    return Math.min(customerBalance, grandTotal || 0);
+  }, [useCredit, customerBalance, grandTotal]);
+
+  // After applying customer credit, this is what the customer still owes in cash.
+  const cashOwedAfterCredit = Math.max(0, grandTotal - creditToApply);
+
   // Quick cash payment options
   const quickPayOptions = useMemo(() => {
-    if (grandTotal <= 0) return [];
+    if (cashOwedAfterCredit <= 0) return [];
     const options = new Set<number>();
-    const roundedTotal = Math.ceil(grandTotal);
+    const roundedTotal = Math.ceil(cashOwedAfterCredit);
 
     // Exact amount
     options.add(roundedTotal);
 
-    // Common bills above grandTotal
+    // Common bills above the cash owed
     [1000, 2000, 5000, 10000, 20000, 50000].forEach((amt) => {
-      if (amt >= grandTotal) options.add(amt);
+      if (amt >= cashOwedAfterCredit) options.add(amt);
     });
 
     return Array.from(options).sort((a, b) => a - b).slice(0, 5);
-  }, [grandTotal]);
+  }, [cashOwedAfterCredit]);
 
   const changeGiven = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
-    return Math.max(0, paid - grandTotal);
-  }, [amountPaid, grandTotal]);
+    return Math.max(0, paid - cashOwedAfterCredit);
+  }, [amountPaid, cashOwedAfterCredit]);
 
   const remainingBalance = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
     if (paid <= 0) return 0; // nothing entered yet — no partial payment
-    return Math.max(0, grandTotal - paid);
-  }, [amountPaid, grandTotal]);
+    return Math.max(0, cashOwedAfterCredit - paid);
+  }, [amountPaid, cashOwedAfterCredit]);
 
   // Debts (credit sales / partial payments) can only be given when customer details are provided
   const hasCustomerDetails = Boolean(customerName.trim() || customerPhone.trim());
+
+  // Cash handed over in excess of the total charge — with a known customer this
+  // is parked into their store credit (per the overpay→balance behaviour) instead
+  // of being returned as cash change.
+  const overpayToCredit = useMemo(() => {
+    const paid = parseFloat(amountPaid) || 0;
+    const over = Math.max(0, paid - grandTotal);
+    return hasCustomerDetails ? over : 0;
+  }, [amountPaid, grandTotal, hasCustomerDetails]);
   
   const customersList = useMemo(() => {
     const map = new Map<string, { name: string; phone: string; email?: string; createdAt?: string }>();
@@ -306,9 +329,10 @@ export function SalesStepCheckout({
       discountAmountNgn: discountAmount,
       taxAmountNgn: taxAmount,
       taxRate: taxRate,
-      amountPaidNgn: parseFloat(amountPaid) || grandTotal,
+      amountPaidNgn: parseFloat(amountPaid) || cashOwedAfterCredit,
       changeGivenNgn: changeGiven,
       remainingBalanceNgn: remainingBalance > 0 ? remainingBalance : 0,
+      creditUsedNgn: creditToApply,
       paymentStatus: remainingBalance > 0 ? "incomplete" : "paid",
       paymentMethod,
       isCreditSale: payOnCredit || remainingBalance > 0,
@@ -325,6 +349,29 @@ export function SalesStepCheckout({
       setLastSale(sale);
 
       if (promoApplied && promoCode) usePromo(promoCode);
+
+      // Deduct the customer's prepaid credit that covered part of this sale.
+      if (creditToApply > 0 && customerPhone.trim()) {
+        const applied = await applyBalanceToSale({
+          customerPhone: customerPhone.trim(),
+          customerName: customerName.trim() || "Customer",
+          amountNgn: creditToApply,
+          saleId: sale.id,
+        });
+        if (applied > 0) {
+          toast.success(`${NAIRA}${applied.toLocaleString("en-NG")} deducted from customer credit`);
+        }
+      }
+
+      // Parking an overpayment into the customer's credit balance.
+      if (overpayToCredit > 0 && customerPhone.trim()) {
+        await addOverpayCredit({
+          customerPhone: customerPhone.trim(),
+          customerName: customerName.trim() || "Customer",
+          amountNgn: overpayToCredit,
+          saleId: sale.id,
+        });
+      }
 
       if (includeDebt && customerDebt > 0) {
         await recordDebtPayment({
@@ -451,6 +498,31 @@ export function SalesStepCheckout({
                 />
                 Include debt settlement in this transaction
               </label>
+            </div>
+          )}
+          {customerBalance > 0 && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 flex flex-col gap-2 mt-2">
+              <div className="flex items-start gap-2 text-emerald-600">
+                <Wallet className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold">Store Credit</p>
+                  <p className="text-xs">This customer has {NAIRA}{customerBalance.toLocaleString("en-NG")} credit to spend</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={useCredit} 
+                  onChange={(e) => setUseCredit(e.target.checked)} 
+                  className="rounded border-emerald-500/30 text-emerald-600 focus:ring-emerald-500" 
+                />
+                Use credit toward this purchase
+              </label>
+              {useCredit && creditToApply > 0 && (
+                <p className="text-[11px] text-emerald-700 font-medium">
+                  Applying {NAIRA}{creditToApply.toLocaleString("en-NG")} — cash due is {NAIRA}{cashOwedAfterCredit.toLocaleString("en-NG")}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -601,11 +673,11 @@ export function SalesStepCheckout({
                 variant="outline"
                 className={cn(
                   "h-7 text-xs font-mono font-medium border-dashed",
-                  amountPaid === String(grandTotal) && "border-primary text-primary bg-primary/10"
+                  amountPaid === String(cashOwedAfterCredit) && "border-primary text-primary bg-primary/10"
                 )}
-                onClick={() => setAmountPaid(String(grandTotal))}
+                onClick={() => setAmountPaid(String(cashOwedAfterCredit))}
               >
-                Exact ({NAIRA}{grandTotal.toLocaleString("en-NG")})
+                Exact ({NAIRA}{cashOwedAfterCredit.toLocaleString("en-NG")})
               </Button>
               {quickPayOptions.map((opt) => (
                 <Button

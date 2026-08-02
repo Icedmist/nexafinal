@@ -439,6 +439,40 @@ export interface DebtPayment {
 }
 
 /**
+ * A customer's prepaid credit balance at a store (shared across all branches —
+ * a "wallet" the customer tops up ahead of time, then draws down on purchases).
+ * Keyed by (storeId, customerPhone); one active balance per customer per store.
+ */
+export interface CustomerBalance {
+  id: string;
+  customerPhone: string;
+  customerName: string;
+  balanceNgn: number;
+  storeId: string;
+  updatedAt: string;
+}
+
+/**
+ * Immutable ledger entry backing every change to a CustomerBalance. This is the
+ * auditable trail (like the debt ledger) proving why the balance moved.
+ */
+export interface CreditTopup {
+  id: string;
+  customerPhone: string;
+  customerName: string;
+  /** Signed: positive = money added, negative = deducted by a sale/withdrawal. */
+  amountNgn: number;
+  type: "topup" | "sale_deduction" | "overpay_credit" | "adjustment";
+  storeId: string;
+  branchId: string | null;
+  saleId?: string;
+  notes?: string;
+  recordedBy: string;
+  recordedByName: string;
+  createdAt: string;
+}
+
+/**
  * An imported / manually-added opening debt record. These back an "existed
  * debtor" that was migrated into the system (via CSV or a manual entry) rather
  * than being created from a live credit sale.

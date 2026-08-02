@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocFromCache, updateDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocFromCache, updateDoc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useDemo } from "@/hooks/useDemo";
-import type { SaleTransaction, DebtPayment, ImportedDebt } from "@/types/inventory";
+import type { SaleTransaction, DebtPayment, ImportedDebt, CustomerBalance, CreditTopup } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 import { notifyActivity, notifyInventoryAlert } from "@/lib/notification-service";
@@ -188,6 +188,98 @@ export function useImportedDebts(): QueryResult<ImportedDebt[]> {
 
     return () => unsubscribe();
   }, [isDemo, user, storeId, claimsReady, claims?.branchId, canJumpBranch, effectiveBranchId]);
+
+  return { data, isLoading, error };
+}
+
+/**
+ * Real-time balance for a single (store, customerPhone). Returns 0 when the
+ * customer has no credit account yet. Balances are store-wide (shared across
+ * branches), matching how a customer's credit travels with them.
+ */
+export function useCustomerBalance(customerPhone: string | null): { balance: number; isLoading: boolean } {
+  const { user, claimsReady } = useAuth();
+  const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
+  const [balance, setBalance] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (isDemo) {
+      setBalance(0);
+      setIsLoading(false);
+      return;
+    }
+    const phone = customerPhone?.trim();
+    if (!user || !storeId || !claimsReady || !phone) {
+      if (!claimsReady || !user || !phone) setIsLoading(false);
+      setBalance(0);
+      return;
+    }
+
+    const q = query(
+      collection(db, "customer_credits"),
+      where("storeId", "==", storeId),
+      where("customerPhone", "==", phone)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let bal = 0;
+      snapshot.forEach((docc) => {
+        bal = Number(docc.data().balanceNgn) || 0;
+      });
+      setBalance(bal);
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Customer credit balance listener error:", err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [isDemo, user, storeId, claimsReady, customerPhone]);
+
+  return { balance, isLoading };
+}
+
+/**
+ * All active customer balances for the store, for the credit ledger screen.
+ */
+export function useCustomerBalances(): QueryResult<CustomerBalance[]> {
+  const { user, claimsReady } = useAuth();
+  const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
+  const [data, setData] = useState<CustomerBalance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
+      setData([]);
+      return;
+    }
+    const q = query(
+      collection(db, "customer_credits"),
+      where("storeId", "==", storeId),
+      orderBy("updatedAt", "desc")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const rows: CustomerBalance[] = [];
+      snapshot.forEach((docc) => rows.push({ id: docc.id, ...docc.data() } as CustomerBalance));
+      setData(rows);
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Customer balances listener error:", err);
+      setError(err);
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [isDemo, user, storeId, claimsReady]);
 
   return { data, isLoading, error };
 }
@@ -441,5 +533,160 @@ export function useSalesMutations() {
     return results;
   };
 
-  return { addSale, recordDebtPayment, updateSaleStatus, importDebtors };
+  /**
+   * Atomically adjust a customer's store-wide credit balance and append a ledger
+   * entry. `deltaNgn` is signed (+N = add credit, -N = deduct). The balance doc
+   * for (store, customerPhone) is upserted and never goes negative.
+   */
+  const adjustCustomerCredit = async (args: {
+    customerPhone: string;
+    customerName?: string;
+    deltaNgn: number;
+    type: CreditTopup["type"];
+    branchId?: string | null;
+    saleId?: string;
+    notes?: string;
+  }) => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    const phone = args.customerPhone?.trim();
+    if (!phone || phone.length < 6) throw new Error("A valid customer phone number is required.");
+    if (!args.deltaNgn) return;
+
+    const balanceKey = `${storeId}_${phone}`;
+    const balanceRef = doc(db, "customer_credits", balanceKey);
+    const ledgerRef = doc(collection(db, "credit_topups"));
+    const branchId = canJumpBranch ? effectiveBranchId : (claims?.branchId ?? null);
+    const now = new Date().toISOString();
+    const loggedByName = user.displayName || user.email?.split("@")[0] || "Staff";
+
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(balanceRef);
+      const current = snap.exists() ? Number(snap.data().balanceNgn) || 0 : 0;
+      const next = current + args.deltaNgn;
+      const final = Math.max(0, next);
+
+      if (snap.exists()) {
+        tx.update(balanceRef, {
+          balanceNgn: final,
+          customerName: args.customerName?.trim() || snap.data().customerName || "",
+          storeId,
+          updatedAt: now,
+        });
+      } else {
+        tx.set(balanceRef, {
+          customerPhone: phone,
+          customerName: args.customerName?.trim() || "Customer",
+          balanceNgn: final,
+          storeId,
+          updatedAt: now,
+        });
+      }
+
+      tx.set(ledgerRef, {
+        customerPhone: phone,
+        customerName: args.customerName?.trim() || "Customer",
+        amountNgn: args.deltaNgn,
+        type: args.type,
+        storeId,
+        branchId,
+        saleId: args.saleId || null,
+        notes: args.notes || null,
+        recordedBy: user.uid,
+        recordedByName: loggedByName,
+        createdAt: now,
+      });
+    });
+
+    return balanceRef.id;
+  };
+
+  /** Customer tops up their wallet (money given to the store ahead of time). */
+  const topUpCustomerCredit = async (args: {
+    customerPhone: string;
+    customerName?: string;
+    amountNgn: number;
+    notes?: string;
+  }) => {
+    return adjustCustomerCredit({
+      customerPhone: args.customerPhone,
+      customerName: args.customerName,
+      deltaNgn: Math.abs(Number(args.amountNgn) || 0),
+      type: "topup",
+      notes: args.notes,
+    });
+  };
+
+  /**
+   * Deduct `amountNgn` (up to the available balance) to pay for a sale.
+   * Returns the amount actually deducted.
+   */
+  const applyCustomerBalanceToSale = async (args: {
+    customerPhone: string;
+    customerName?: string;
+    amountNgn: number;
+    saleId: string;
+  }): Promise<number> => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    const phone = args.customerPhone?.trim();
+    if (!phone) throw new Error("A valid customer phone number is required.");
+    if (!(args.amountNgn > 0)) return 0;
+
+    const balanceRef = doc(db, "customer_credits", `${storeId}_${phone}`);
+    const ledgerRef = doc(collection(db, "credit_topups"));
+    const branchId = canJumpBranch ? effectiveBranchId : (claims?.branchId ?? null);
+    const now = new Date().toISOString();
+    const loggedByName = user.displayName || user.email?.split("@")[0] || "Staff";
+    let applied = 0;
+
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(balanceRef);
+      const current = snap.exists() ? Number(snap.data().balanceNgn) || 0 : 0;
+      applied = Math.min(current, args.amountNgn);
+      if (applied <= 0) return;
+      const next = current - applied;
+      const existingName = snap.exists() ? (snap.data().customerName as string | undefined) : undefined;
+      tx.update(balanceRef, {
+        balanceNgn: next,
+        customerName: args.customerName?.trim() || existingName || "",
+        updatedAt: now,
+      });
+      tx.set(ledgerRef, {
+        customerPhone: phone,
+        customerName: args.customerName?.trim() || "Customer",
+        amountNgn: -applied,
+        type: "sale_deduction",
+        storeId,
+        branchId,
+        saleId: args.saleId,
+        recordedBy: user.uid,
+        recordedByName: loggedByName,
+        createdAt: now,
+      });
+    });
+
+    return applied;
+  };
+
+  /**
+   * A sale was overpaid (changeGiven > 0) for a known customer; park the excess
+   * into their credit balance instead of handing it back as cash.
+   */
+  const addOverpayCredit = async (args: {
+    customerPhone: string;
+    customerName?: string;
+    amountNgn: number;
+    saleId: string;
+  }) => {
+    if (!(args.amountNgn > 0)) return;
+    return adjustCustomerCredit({
+      customerPhone: args.customerPhone,
+      customerName: args.customerName,
+      deltaNgn: Math.abs(Number(args.amountNgn) || 0),
+      type: "overpay_credit",
+      saleId: args.saleId,
+      notes: `Overpayment parked to credit from sale ${args.saleId}`,
+    });
+  };
+
+  return { addSale, recordDebtPayment, updateSaleStatus, importDebtors, adjustCustomerCredit, topUpCustomerCredit, applyBalanceToSale: applyCustomerBalanceToSale, addOverpayCredit };
 }

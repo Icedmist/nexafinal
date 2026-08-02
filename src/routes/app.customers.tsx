@@ -4,7 +4,7 @@ import {
   Search, User, Phone, ShoppingBag, MessageCircle, Send,
   TrendingUp, AlertTriangle, Clock, Filter, CheckSquare, X, FileDown, UserPlus,
 } from "lucide-react";
-import { useSales, useDebtPayments, useSalesMutations, useImportedDebts } from "@/hooks/useSalesData";
+import { useSales, useDebtPayments, useSalesMutations, useImportedDebts, useCustomerBalances } from "@/hooks/useSalesData";
 import { useTenant } from "@/hooks/useTenant";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { getSaleOutstanding } from "@/lib/credit-sale";
 import { DebtClearingHistory } from "@/components/sales/DebtClearingHistory";
 import { DebtReportModal } from "@/components/sales/DebtReportModal";
 import { DebtorImportModal } from "@/components/sales/DebtorImportModal";
+import { CustomerCreditModal } from "@/components/sales/CustomerCreditModal";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { ListSkeleton } from "@/components/shared/skeletons";
 
@@ -62,7 +63,7 @@ function CustomersPage() {
   const { data: sales, isLoading: salesLoading } = useSales();
   const { data: payments, isLoading: paymentsLoading } = useDebtPayments();
   const { data: importedDebts, isLoading: debtsLoading } = useImportedDebts();
-  const { recordDebtPayment, importDebtors } = useSalesMutations();
+  const { recordDebtPayment, importDebtors, topUpCustomerCredit } = useSalesMutations();
   
   const [search, setSearch] = useState("");
   const { store } = useTenant();
@@ -95,6 +96,9 @@ function CustomersPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportCustomer, setReportCustomer] = useState<CustomerRecord | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [creditOpen, setCreditOpen] = useState(false);
+
+  const { data: customerBalances } = useCustomerBalances();
 
   const isLoading = salesLoading || paymentsLoading || debtsLoading;
 
@@ -359,6 +363,14 @@ function CustomersPage() {
             Import Debtors
           </Button>
         </PermissionGate>
+        <Button
+          variant="outline"
+          onClick={() => setCreditOpen(true)}
+          className="gap-2 text-emerald-700"
+        >
+          <CreditCard className="h-4 w-4" />
+          Store Credit
+        </Button>
         <Button
           variant="outline"
           onClick={() => {
@@ -636,6 +648,14 @@ function CustomersPage() {
           const result = await importDebtors(debtors);
           return result;
         }}
+      />
+
+      {/* Store Credit */}
+      <CustomerCreditModal
+        open={creditOpen}
+        onOpenChange={setCreditOpen}
+        balances={customerBalances ?? []}
+        onTopUp={topUpCustomerCredit}
       />
     </div>
   );

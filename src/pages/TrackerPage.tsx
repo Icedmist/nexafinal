@@ -45,6 +45,7 @@ import { useDemo } from "@/hooks/useDemo";
 import { useUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { isAdminRole } from "@/lib/roles";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import type { SaleTransaction, Item, StockMovement } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
@@ -60,9 +61,16 @@ function AdminTrackerPage() {
   const { isDemo, onboarding } = useDemo();
   const { role } = useRole();
   const { claims } = useAuth();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
 
-  // Branch-scoped managers (e.g. a branch manager) only ever see their own branch's data.
-  const isBranchScoped = !isAdminRole(role) && !!claims?.branchId;
+  // This page is branch-scoped when the current user is either a branch-assigned
+  // manager OR an admin/owner who has "jumped" into a specific branch via the
+  // branch switcher. In both cases the underlying data hooks are already scoped
+  // to that branch (by useEffectiveBranch), so the Store/Branch filter must be
+  // locked to it — otherwise the dropdown would let you filter to branches whose
+  // data was never fetched.
+  const isBranchScoped = canJumpBranch || (!isAdminRole(role) && !!claims?.branchId);
+  const scopedBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
   // Data queries
   const { data: sales = [], isLoading: salesLoading } = useSales();
@@ -84,7 +92,7 @@ function AdminTrackerPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // Global filter states
-  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>(isBranchScoped ? claims?.branchId || "all" : "all");
+  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>(isBranchScoped ? scopedBranchId || "all" : "all");
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>("all");
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("all");
 
@@ -623,7 +631,7 @@ function AdminTrackerPage() {
               variant="ghost"
               className="text-xs text-red-500 hover:text-red-600 h-7 px-2"
               onClick={() => {
-                setSelectedStoreFilter(isBranchScoped ? claims?.branchId || "all" : "all");
+                setSelectedStoreFilter(isBranchScoped ? scopedBranchId || "all" : "all");
                 setSelectedUserFilter("all");
                 setSelectedDateFilter("all");
               }}
@@ -639,7 +647,7 @@ function AdminTrackerPage() {
             {isBranchScoped ? (
               <div className="flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-medium">
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                {branches.find((b) => b.id === claims?.branchId)?.name || "Your Branch"}
+                {branches.find((b) => b.id === scopedBranchId)?.name || "Your Branch"}
                 <span className="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600">Locked</span>
               </div>
             ) : (
@@ -811,7 +819,7 @@ function AdminTrackerPage() {
                         <TableCell className="font-mono text-xs text-primary font-bold">{sale.id.slice(0, 10)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] font-sans font-medium">
-                            {"Main Store"}
+                            {branches.find((b) => b.id === sale.branchId)?.name || "Main Store"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
@@ -1145,7 +1153,7 @@ function AdminTrackerPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] font-sans">
-                            Main Store
+                            {branches.find((b) => b.id === exp.branchId)?.name || "Main Store"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -1214,7 +1222,7 @@ function AdminTrackerPage() {
                         <TableCell className="font-mono text-xs font-bold text-red-500">{refund.id.slice(0, 10)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] font-sans">
-                            Main Store
+                            {branches.find((b) => b.id === refund.branchId)?.name || "Main Store"}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-semibold text-foreground">{refund.itemName}</TableCell>
@@ -1333,7 +1341,7 @@ function AdminTrackerPage() {
                           <TableCell className="font-mono text-xs font-bold">{move.id.slice(0, 10)}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-[10px] font-sans">
-                              Main Store
+                              {branches.find((b) => b.id === move.fromBranchId || b.id === move.branchId)?.name || "Main Store"}
                             </Badge>
                           </TableCell>
                           <TableCell className="font-semibold text-foreground">
