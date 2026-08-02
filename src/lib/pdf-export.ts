@@ -776,13 +776,13 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
   doc.roundedRect(margin, 48, pageW - 2 * margin, 20, 3, 3, "FD");
 
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(100, 110, 120);
   doc.text("TOTAL DEBTORS", margin + 12, 56);
   doc.text("TOTAL CREDIT EXTENDED", margin + 62, 56);
   doc.text("OUTSTANDING BALANCE", margin + 120, 56);
 
-  doc.setFontSize(12);
+  doc.setFontSize(13);
   doc.setTextColor(15, 23, 42);
   doc.text(`${records.length} Customers`, margin + 12, 62);
   doc.text(fmtNgn(totalCredit), margin + 62, 62);
@@ -792,59 +792,60 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
 
   // TABLE HEADERS
   let currentY = 82;
-  const tableLeft = margin;
-  const tableRight = pageW - margin;
-  // Column boundaries (left-aligned) for text cells
-  const cLeft = tableLeft + 4;
-  const cName = tableLeft + 60;
-  const cPhone = tableLeft + 185;
-  const rightCredit = tableRight - 0;
-  const rightPaid = tableRight - 100;
-  const rightBalance = tableRight - 210;
-  const headers = ["BRANCH", "CUSTOMER NAME", "PHONE", "CREDIT EXTENDED", "PAYMENTS", "OUTSTANDING"];
+  const tableLeft = margin; // 15
+  const tableRight = pageW - margin; // 195
+  // Millimeter-based column boundaries. Left-aligned text cells:
+  const cLeft = tableLeft + 1;   // 16
+  const cName = tableLeft + 30;  // 45
+  const cPhone = tableLeft + 75; // 90
+  // Right-aligned money cells (their right edge):
+  const rightCredit = tableRight - 0;    // 195
+  const rightPaid = tableRight - 28;     // 167
+  const rightBalance = tableRight - 56;  // 139
+  const headers = ["BRANCH", "CUSTOMER NAME", "PHONE", "OUTSTANDING", "PAYMENTS", "CREDIT EXTENDED"];
 
   doc.setFillColor(22, 28, 45);
-  doc.rect(tableLeft, currentY, tableRight - tableLeft, 8, "F");
+  doc.rect(tableLeft, currentY, tableRight - tableLeft, 9, "F");
 
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
 
-  doc.text(headers[0], cLeft, currentY + 5.5);
-  doc.text(headers[1], cName, currentY + 5.5);
-  doc.text(headers[2], cPhone, currentY + 5.5);
-  doc.text(headers[3], rightCredit, currentY + 5.5, { align: "right" });
-  doc.text(headers[4], rightPaid, currentY + 5.5, { align: "right" });
-  doc.text(headers[5], rightBalance, currentY + 5.5, { align: "right" });
+  doc.text(headers[0], cLeft, currentY + 6);
+  doc.text(headers[1], cName, currentY + 6);
+  doc.text(headers[2], cPhone, currentY + 6);
+  doc.text(headers[3], rightBalance, currentY + 6, { align: "right" });
+  doc.text(headers[4], rightPaid, currentY + 6, { align: "right" });
+  doc.text(headers[5], rightCredit, currentY + 6, { align: "right" });
 
   // TABLE BODY
   doc.setFont("Helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
 
   records.forEach((r, index) => {
-    currentY += 8.5;
+    currentY += 9.5;
 
     if (currentY > pageH - 20) {
       doc.addPage();
       currentY = 22;
       doc.setFillColor(22, 28, 45);
-      doc.rect(margin, currentY, tableRight - tableLeft, 8, "F");
+      doc.rect(margin, currentY, tableRight - tableLeft, 9, "F");
       doc.setFont("Helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(headers[0], cLeft, currentY + 5.5);
-      doc.text(headers[1], cName, currentY + 5.5);
-      doc.text(headers[2], cPhone, currentY + 5.5);
-      doc.text(headers[3], rightCredit, currentY + 5.5, { align: "right" });
-      doc.text(headers[4], rightPaid, currentY + 5.5, { align: "right" });
-      doc.text(headers[5], rightBalance, currentY + 5.5, { align: "right" });
+      doc.text(headers[0], cLeft, currentY + 6);
+      doc.text(headers[1], cName, currentY + 6);
+      doc.text(headers[2], cPhone, currentY + 6);
+      doc.text(headers[3], rightBalance, currentY + 6, { align: "right" });
+      doc.text(headers[4], rightPaid, currentY + 6, { align: "right" });
+      doc.text(headers[5], rightCredit, currentY + 6, { align: "right" });
       doc.setFont("Helvetica", "normal");
       doc.setTextColor(15, 23, 42);
-      currentY += 8.5;
+      currentY += 9.5;
     }
 
     if (index % 2 === 0) {
       doc.setFillColor(250, 250, 250);
-      doc.rect(margin, currentY - 1.5, tableRight - tableLeft, 8.5, "F");
+      doc.rect(margin, currentY - 1.5, tableRight - tableLeft, 9.5, "F");
     }
 
     doc.setDrawColor(240, 242, 245);
@@ -874,12 +875,12 @@ export async function exportDebtorsLedgerPDF(records: DebtorLedgerRecord[], stor
   doc.setFillColor(22, 28, 45);
   doc.rect(margin, currentY - 3.5, tableRight - tableLeft, 7, "F");
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
   doc.text("TOTAL", cLeft, currentY);
-  doc.text(fmtNgn(totalCredit), rightCredit, currentY + 2, { align: "right" });
-  doc.text(fmtNgn(totalPaid), rightPaid, currentY + 2, { align: "right" });
-  doc.text(fmtNgn(outstanding), rightBalance, currentY + 2, { align: "right" });
+  doc.text(fmtNgn(totalCredit), rightCredit, currentY + 3, { align: "right" });
+  doc.text(fmtNgn(totalPaid), rightPaid, currentY + 3, { align: "right" });
+  doc.text(fmtNgn(outstanding), rightBalance, currentY + 3, { align: "right" });
 
   // Footer branding
   const totalPages = doc.getNumberOfPages();
