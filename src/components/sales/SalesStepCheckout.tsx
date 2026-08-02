@@ -168,11 +168,6 @@ export function SalesStepCheckout({
     return Array.from(options).sort((a, b) => a - b).slice(0, 5);
   }, [cashOwedAfterCredit]);
 
-  const changeGiven = useMemo(() => {
-    const paid = parseFloat(amountPaid) || 0;
-    return Math.max(0, paid - cashOwedAfterCredit);
-  }, [amountPaid, cashOwedAfterCredit]);
-
   const remainingBalance = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
     if (paid <= 0) return 0; // nothing entered yet — no partial payment
@@ -182,14 +177,16 @@ export function SalesStepCheckout({
   // Debts (credit sales / partial payments) can only be given when customer details are provided
   const hasCustomerDetails = Boolean(customerName.trim() || customerPhone.trim());
 
-  // Cash handed over in excess of the total charge — with a known customer this
-  // is parked into their store credit (per the overpay→balance behaviour) instead
-  // of being returned as cash change.
+  // Overpayments are NEVER returned as cash change. Instead the surplus is parked
+  // into the customer's store credit, and the customer is added to the credit list
+  // automatically. This always requires customer details.
   const overpayToCredit = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
-    const over = Math.max(0, paid - grandTotal);
-    return hasCustomerDetails ? over : 0;
-  }, [amountPaid, grandTotal, hasCustomerDetails]);
+    return Math.max(0, paid - cashOwedAfterCredit);
+  }, [amountPaid, cashOwedAfterCredit]);
+
+  // Cash change is never returned; use overpay->credit instead.
+  const changeGiven = 0;
   
   const customersList = useMemo(() => {
     const map = new Map<string, { name: string; phone: string; email?: string; createdAt?: string }>();
@@ -287,6 +284,13 @@ export function SalesStepCheckout({
       return;
     }
 
+    // Overpayments become store credit — a customer phone is required to attach it to
+    // and add the customer to the store credit list.
+    if (overpayToCredit > 0 && !customerPhone.trim()) {
+      toast.error("Add the customer phone number to record the overpayment as store credit.");
+      return;
+    }
+
     setIsProcessing(true);
 
     const saleData: any = {
@@ -330,9 +334,10 @@ export function SalesStepCheckout({
       taxAmountNgn: taxAmount,
       taxRate: taxRate,
       amountPaidNgn: parseFloat(amountPaid) || cashOwedAfterCredit,
-      changeGivenNgn: changeGiven,
+      changeGivenNgn: 0,
       remainingBalanceNgn: remainingBalance > 0 ? remainingBalance : 0,
       creditUsedNgn: creditToApply,
+      creditAddedNgn: overpayToCredit,
       paymentStatus: remainingBalance > 0 ? "incomplete" : "paid",
       paymentMethod,
       isCreditSale: payOnCredit || remainingBalance > 0,
@@ -645,9 +650,9 @@ export function SalesStepCheckout({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Payment Details</h3>
-          {parseFloat(amountPaid) > grandTotal && (
+          {parseFloat(amountPaid) > cashOwedAfterCredit && (
             <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse">
-              Change: {NAIRA}{changeGiven.toLocaleString()}
+              Credit: {NAIRA}{overpayToCredit.toLocaleString()}
             </span>
           )}
         </div>

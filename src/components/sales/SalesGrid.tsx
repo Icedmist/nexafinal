@@ -203,7 +203,6 @@ export function SalesGrid() {
     }
   });
 
-  const totalItems = Array.from(cart.values()).reduce((s, q) => s + q, 0);
   const totalNaira = cartItems.reduce((s, ci) => {
     const unitPrice = ci.customPrice ?? getCartItemUnitPrice(ci.item, ci.selectedUnit, (ci.saleType as SalePriceMode) ?? defaultSaleType);
     return s + unitPrice * ci.quantity;
@@ -307,7 +306,28 @@ export function SalesGrid() {
 
       {/* Content */}
       {posMode === "quickscan" ? (
-        <SalesQuickScanCheckout />
+        <SalesQuickScanCheckout
+          cart={cart}
+          cartItemsRaw={cartItems}
+          onAddCartKey={(cartKey, qty = 1) => {
+            setCart((prev) => {
+              const next = new Map(prev);
+              next.set(cartKey, (next.get(cartKey) ?? 0) + qty);
+              return next;
+            });
+          }}
+          onRemoveCartKey={(cartKey) => {
+            setCart((prev) => {
+              const next = new Map(prev);
+              const qty = (next.get(cartKey) ?? 0) - 1;
+              if (qty <= 0) next.delete(cartKey);
+              else next.set(cartKey, qty);
+              return next;
+            });
+          }}
+          onSetCartKeyQuantity={setQuantityInCart}
+          onClearCart={handleClearCart}
+        />
       ) : (
         <>
           {/* Step content */}

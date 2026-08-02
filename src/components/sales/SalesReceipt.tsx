@@ -61,6 +61,8 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
     lines.push(`Amount Paid: ${fmtNgn(sale.amountPaidNgn)}`);
     if ((sale as any).remainingBalanceNgn > 0) {
       lines.push(`*⚠️ BALANCE DUE (DEBT): ${fmtNgn((sale as any).remainingBalanceNgn)}*`);
+    } else if ((sale as any).creditAddedNgn > 0) {
+      lines.push(`*🎁 Store Credit Added: ${fmtNgn((sale as any).creditAddedNgn)}*`);
     } else {
       lines.push(`Change: ${fmtNgn(sale.changeGivenNgn || 0)}`);
     }
@@ -341,6 +343,13 @@ async function generateReceiptPDF(
       doc.text("** PARTIAL PAYMENT — Balance outstanding **", w / 2, y, { align: "center" });
       doc.setFontSize(8);
       y += 5;
+    } else if ((sale as any).creditAddedNgn > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 120, 60);
+      doc.text("Store Credit Added:", lm, y);
+      doc.text(fmtNgn((sale as any).creditAddedNgn), rm, y, { align: "right" });
+      doc.setTextColor(0);
+      y += 6;
     } else {
       doc.text("Change Given:", lm, y);
       doc.text(fmtNgn(sale.changeGivenNgn || 0), rm, y, { align: "right" });
@@ -594,6 +603,11 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                               <span className="flex items-center gap-1">⚠️ Balance Due (Debt)</span>
                               <span className="font-mono">{fmtNgn((sale as any).remainingBalanceNgn)}</span>
                             </div>
+                          ) : (sale as any).creditAddedNgn > 0 ? (
+                            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest bg-emerald-500/20 rounded-lg px-2 py-1.5">
+                              <span>🎁 Store Credit Added</span>
+                              <span className="font-mono">{fmtNgn((sale as any).creditAddedNgn)}</span>
+                            </div>
                           ) : (
                             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest opacity-90">
                               <span>Change Given</span>
@@ -727,6 +741,11 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                   </div>
                   <p className="text-[9px] italic text-center mt-1">** PARTIAL PAYMENT — Balance outstanding **</p>
                 </>
+              ) : (sale as any).creditAddedNgn > 0 ? (
+                <div className="flex justify-between font-black text-emerald-600">
+                  <span>STORE CREDIT ADDED:</span>
+                  <span>{fmtNgn((sale as any).creditAddedNgn)}</span>
+                </div>
               ) : (
                 <div className="flex justify-between">
                   <span>CHANGE:</span>

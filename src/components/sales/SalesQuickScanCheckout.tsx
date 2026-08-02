@@ -30,6 +30,7 @@ import { useCreateItem, useUpdateItem } from "@/hooks/useInventoryMutations";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import type { Item, SaleTransaction } from "@/types/inventory";
+import { buildCartKey, parseCartKey } from "./price-utils";
 import { QRCodeSVG } from "qrcode.react";
 import { Html5Qrcode } from "html5-qrcode";
 import {
@@ -189,6 +190,7 @@ interface QuickCartItem {
   item: Item;
   quantity: number;
   unitPrice: number;
+  cartKey: string;
 }
 
 interface UnrecognizedScanData {
@@ -205,7 +207,21 @@ interface UnrecognizedScanData {
   emoji?: string;
 }
 
-export function SalesQuickScanCheckout() {
+export function SalesQuickScanCheckout({
+  cart,
+  cartItemsRaw,
+  onAddCartKey,
+  onRemoveCartKey,
+  onSetCartKeyQuantity,
+  onClearCart,
+}: {
+  cart: Map<string, number>;
+  cartItemsRaw: { item: Item; quantity: number; cartKey: string }[];
+  onAddCartKey: (cartKey: string, qty?: number) => void;
+  onRemoveCartKey: (cartKey: string) => void;
+  onSetCartKeyQuantity: (cartKey: string, qty: number) => void;
+  onClearCart: () => void;
+}) {
   const { data: items } = useItems();
   const { addSale } = useSalesMutations();
   const createItem = useCreateItem();
@@ -214,7 +230,6 @@ export function SalesQuickScanCheckout() {
   const { profile } = useBusiness();
 
   const [scanInput, setScanInput] = useState("");
-  const [scannedItems, setScannedItems] = useState<Map<string, number>>(new Map());
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
@@ -316,21 +331,15 @@ export function SalesQuickScanCheckout() {
     setIsCameraActive(false);
   };
 
-  // Map scanned map to actual pricing array
-  const cartItems = useMemo<QuickCartItem[]>(() => {
-    const arr: QuickCartItem[] = [];
-    scannedItems.forEach((qty, itemId) => {
-      const item = items.find(i => i.id === itemId);
-      if (item) {
-        arr.push({
-          item,
-          quantity: qty,
-          unitPrice: item.sellingPrice
-        });
-      }
-    });
-    return arr;
-  }, [scannedItems, items]);
+  // Map scanned map to actual pricing array (from the shared cart)
+  const cartItems: QuickCartItem[] = useMemo<QuickCartItem[]>(() => {
+    return cartItemsRaw.map(({ item, quantity, cartKey }) => ({
+      item,
+      quantity,
+      unitPrice: item.sellingPrice,
+      cartKey,
+    }));
+  }, [cartItemsRaw]);
 
   const subtotal = useMemo(() => {
     return cartItems.reduce((acc, ci) => acc + ci.unitPrice * ci.quantity, 0);
@@ -385,19 +394,16 @@ export function SalesQuickScanCheckout() {
       if (matchedItem) mappedAs = "manufacturer_code";
     }
 
-    if (matchedItem) {
-      const currentQty = scannedItems.get(matchedItem.id) ?? 0;
+if (matchedItem) {
+      const cartKey = buildCartKey(matchedItem.id, matchedItem.unit || "pcs", "retail");
+      const existing = cart.get(cartKey) ?? 0;
+      const currentQty = existing;
       const isOutOfStock = matchedItem.currentStock !== undefined && currentQty >= matchedItem.currentStock;
 
       if (isOutOfStock) {
         // "then if recognize and not in stock it should be sell and ask if to add to stock"
         playScanBeep("beep");
-        setScannedItems(prev => {
-          const next = new Map(prev);
-          const curr = next.get(matchedItem!.id) ?? 0;
-          next.set(matchedItem!.id, curr + 1);
-          return next;
-        });
+        onAddCartKey(cartKey, 1);
 
         // Trigger prompt to restock & update catalog prices
         setRestockItem(matchedItem);
@@ -411,12 +417,7 @@ export function SalesQuickScanCheckout() {
       } else {
         // Normal scan success
         playScanBeep("beep");
-        setScannedItems(prev => {
-          const next = new Map(prev);
-          const curr = next.get(matchedItem!.id) ?? 0;
-          next.set(matchedItem!.id, curr + 1);
-          return next;
-        });
+        onAddCartKey(cartKey, 1);
         toast.success(`Scanned: ${matchedItem.name} via ${mappedAs === "store_qr" ? "Store QR Mapping" : "Manufacturer Code"}`);
       }
       setScanInput("");
@@ -569,11 +570,7 @@ export function SalesQuickScanCheckout() {
       });
 
       // Add to active quick scan sale cart
-      setScannedItems(prev => {
-        const next = new Map(prev);
-        next.set(newItemId, (next.get(newItemId) || 0) + 1);
-        return next;
-      });
+      onAddCartKey(buildCartKey(newItemId, unit || "pcs", "retail"), 1);
 
       playScanBeep("success");
       toast.success(`Saved "${name}" to Catalog and added to active Sale!`);
@@ -590,16 +587,12 @@ export function SalesQuickScanCheckout() {
     setLaserActive(item.id);
     setTimeout(() => setLaserActive(null), 300);
 
-    const currentQty = scannedItems.get(item.id) ?? 0;
+    const cartKey = buildCartKey(item.id, item.unit || "pcs", "retail");
+    const currentQty = cart.get(cartKey) ?? 0;
     const isOutOfStock = item.currentStock !== undefined && currentQty >= item.currentStock;
 
     playScanBeep("beep");
-    setScannedItems(prev => {
-      const next = new Map(prev);
-      const curr = next.get(item.id) ?? 0;
-      next.set(item.id, curr + 1);
-      return next;
-    });
+    onAddCartKey(cartKey, 1);
 
     if (isOutOfStock) {
       // Trigger prompt to restock & update catalog prices
@@ -620,27 +613,24 @@ export function SalesQuickScanCheckout() {
   };
 
   const updateQuantity = (itemId: string, diff: number) => {
-    setScannedItems(prev => {
-      const next = new Map(prev);
-      const curr = next.get(itemId) ?? 0;
-      
-      if (diff > 0) {
-        const item = items.find(i => i.id === itemId);
-        if (item && item.currentStock !== undefined && curr >= item.currentStock) {
-          playScanBeep("error");
-          toast.error(`Cannot exceed current stock for "${item.name}" (${item.currentStock} available).`);
-          return prev;
-        }
-      }
+    const item = items.find(i => i.id === itemId);
+    const cartKey = buildCartKey(itemId, item?.unit || "pcs", "retail");
+    const curr = cart.get(cartKey) ?? 0;
 
-      const nextVal = curr + diff;
-      if (nextVal <= 0) {
-        next.delete(itemId);
-      } else {
-        next.set(itemId, nextVal);
+    if (diff > 0) {
+      if (item && item.currentStock !== undefined && curr >= item.currentStock) {
+        playScanBeep("error");
+        toast.error(`No stock for "${item.name}" (${item.currentStock} available).`);
+        return;
       }
-      return next;
-    });
+    }
+
+    const nextVal = curr + diff;
+    if (nextVal <= 0) {
+      onRemoveCartKey(cartKey);
+    } else {
+      onSetCartKeyQuantity(cartKey, nextVal);
+    }
   };
 
   const handleQuickCheckout = async () => {
@@ -677,7 +667,7 @@ export function SalesQuickScanCheckout() {
   };
 
   const startNewSession = () => {
-    setScannedItems(new Map());
+    onClearCart();
     setCustomerName("");
     setCustomerPhone("");
     setCheckoutResult(null);
@@ -1106,11 +1096,7 @@ export function SalesQuickScanCheckout() {
                   <button
                     type="button"
                     onClick={() => {
-                      setScannedItems(prev => {
-                        const next = new Map(prev);
-                        next.delete(ci.item.id);
-                        return next;
-                      });
+                      onRemoveCartKey(ci.cartKey);
                       playScanBeep("error");
                     }}
                     className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-colors"
