@@ -75,13 +75,24 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
     
     prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
 
-    const unsubscribe = onSnapshot(prodQuery, (snapshot) => {
-      const items: Item[] = [];
-      snapshot.forEach((doc) => {
-        items.push({ ...doc.data(), id: doc.id } as Item);
-      });
-      
-      let filtered = items;
+    // Branch claims can drift relative to the branchId stamped on a product at
+    // creation time. The branch filter runs server-side, so a manager-created
+    // item whose stored branchId disagrees with the manager's current claim
+    // would never appear in the main snapshot. To guarantee a manager never
+    // "loses" a product they created, listen to a second owner-scoped query and
+    // merge its results in for non-admin users.
+    const ownQuery = isAdmin
+      ? null
+      : query(
+          collection(db, "products"),
+          where("storeId", "==", storeId),
+          where("ownerId", "==", user?.uid || ""),
+          ...(filters?.categoryId ? [where("categoryId", "==", filters.categoryId)] : []),
+          orderBy("createdAt", "desc")
+        );
+
+    const applyFilters = (rows: Item[]) => {
+      let filtered = rows;
 
       if (filters?.search) {
         const lowerSearch = filters.search.toLowerCase();
@@ -102,16 +113,54 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       if (filters?.supplierId) {
         filtered = filtered.filter(i => i.supplierId === filters.supplierId);
       }
-      
+
+      return filtered;
+    };
+
+    let mainSnapshotData: Item[] = [];
+    let ownSnapshotData: Item[] = [];
+
+    // Merge the main (branch-scoped) snapshot with the owner-scoped snapshot.
+    const combine = () => {
+      const byId = new Map<string, Item>();
+      mainSnapshotData.forEach((i) => byId.set(i.id, i));
+      ownSnapshotData.forEach((o) => {
+        if (!byId.has(o.id)) byId.set(o.id, o);
+      });
+      let filtered = applyFilters([...byId.values()]);
       setData(filtered);
       setIsLoading(false);
+    };
+
+    const unsubscribe = onSnapshot(prodQuery, (snapshot) => {
+      mainSnapshotData = [];
+      snapshot.forEach((doc) => {
+        mainSnapshotData.push({ ...doc.data(), id: doc.id } as Item);
+      });
+      combine();
     }, (err) => {
       console.error("Firestore Listen Error (Items):", err);
       setError(err);
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    const unsubscribeOwn = ownQuery
+      ? onSnapshot(ownQuery, (snapshot) => {
+          ownSnapshotData = [];
+          snapshot.forEach((doc) => {
+            ownSnapshotData.push({ ...doc.data(), id: doc.id } as Item);
+          });
+          combine();
+        }, (err) => {
+          console.error("Firestore Listen Error (Own Items):", err);
+          setIsLoading(false);
+        })
+      : null;
+
+    return () => {
+      unsubscribe();
+      unsubscribeOwn?.();
+    };
   }, [demoStore, user, storeId, claimsReady, claims, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
 
   return { data, isLoading, error };
