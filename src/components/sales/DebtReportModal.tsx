@@ -139,6 +139,11 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
 
     for (const p of map.values()) {
       p.currentBalance = Math.max(0, p.totalCreditSales - p.totalPayments);
+      // Derive the profile branch from an event that actually carries one, so it
+      // shows reliably in the ledger even when the first event had no branch.
+      if (!p.branchName) {
+        p.branchName = p.events.find((e) => e.branchName)?.branchName;
+      }
     }
 
     return Array.from(map.values()).sort((a, b) => b.currentBalance - a.currentBalance);
