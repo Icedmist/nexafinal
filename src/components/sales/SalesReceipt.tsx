@@ -443,10 +443,10 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   return (
     <>
       <Dialog open={!!sale} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-md p-2 sm:p-3 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
+        <DialogContent className="max-w-md p-1.5 sm:p-3 border-none bg-transparent shadow-none overflow-hidden flex items-center justify-center">
 
           {sale && (
-            <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-[96vw] sm:w-full mx-auto shadow-2xl">
+            <div className="nexa-card bg-card flex flex-col max-h-[90vh] relative overflow-hidden w-full mx-auto shadow-2xl">
                <ScrollArea className="flex-1 w-full overflow-y-auto">
                 <div className="p-3 sm:p-4 space-y-3">
                    {/* Decorative background element */}
@@ -455,17 +455,17 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                      businessType === "restaurant" ? "bg-emerald-600/5" : "bg-primary/5"
                    )} />
                    
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-xl",
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                         businessType === "restaurant" ? "bg-emerald-600/10 text-emerald-600" : "bg-primary/10 text-primary"
                       )}>
                         <Receipt className="h-5 w-5" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <DialogTitle className="text-lg font-black tracking-tight text-foreground uppercase">Receipt</DialogTitle>
-                        {(address || storePhone) && <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{[address, storePhone && `Tel: ${storePhone}`].filter(Boolean).join(" • ")}</p>}
+                        {(address || storePhone) && <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest break-words leading-snug">{[address, storePhone && `Tel: ${storePhone}`].filter(Boolean).join(" • ")}</p>}
                       </div>
                     </div>
                   </div>
@@ -475,16 +475,16 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                       "absolute top-0 left-0 h-1 w-full",
                       businessType === "restaurant" ? "bg-emerald-600" : "bg-primary"
                     )} />
-                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Transaction ID</span>
-                      <span className="font-mono font-black text-xs text-foreground bg-background px-2 py-1 rounded-lg border">#{sale.id.slice(-8).toUpperCase()}</span>
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest shrink-0">Transaction ID</span>
+                      <span className="font-mono font-black text-xs text-foreground bg-background px-2 py-1 rounded-lg border truncate">#{sale.id.slice(-8).toUpperCase()}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Timestamp</span>
-                      <span className="font-bold text-[11px] text-foreground">{format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest shrink-0">Timestamp</span>
+                      <span className="font-bold text-[11px] text-foreground text-right">{format(ensureDate(sale.createdAt), "dd MMM yyyy, HH:mm")}</span>
                     </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Payment Method</span>
+                    <div className="flex justify-between items-center gap-2 pt-2 border-t border-border/50">
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest shrink-0">Payment Method</span>
                       <Badge variant="outline" className={cn(
                         "capitalize font-black text-[10px] tracking-wider px-3",
                         businessType === "restaurant" ? "bg-emerald-600/5 border-emerald-600/20 text-emerald-600" : "bg-primary/5 border-primary/20 text-primary"
@@ -492,11 +492,11 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                         {(sale as any).paymentMethod || "cash"}
                       </Badge>
                     </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">Cashier</span>
-                      <div className="flex items-center gap-1.5">
-                        <UserCircle className={cn("h-3.5 w-3.5", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
-                        <span className="font-black text-xs text-foreground uppercase tracking-tight">
+                    <div className="flex justify-between items-center gap-2 pt-2 border-t border-border/50">
+                      <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest shrink-0">Cashier</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <UserCircle className={cn("h-3.5 w-3.5 shrink-0", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
+                        <span className="font-black text-xs text-foreground uppercase tracking-tight truncate">
                           {sale.recordedByName || user?.displayName || user?.email?.split('@')[0] || "Cashier"}
                         </span>
                       </div>
@@ -507,14 +507,14 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                   {sale.customerName && (
                     <div className="rounded-xl border border-border bg-card p-3 space-y-2 shadow-sm">
                       <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Customer</p>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-black">{sale.customerName}</span>
-                        <div className="flex flex-col items-end">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-black min-w-0 truncate">{sale.customerName}</span>
+                        <div className="flex flex-col items-end shrink-0">
                           {sale.customerPhone && (
                             <span className="text-[10px] font-mono text-muted-foreground font-bold">{sale.customerPhone}</span>
                           )}
                           {sale.customerEmail && (
-                            <span className="text-[9px] text-muted-foreground">{sale.customerEmail}</span>
+                            <span className="text-[9px] text-muted-foreground break-all">{sale.customerEmail}</span>
                           )}
                         </div>
                       </div>
@@ -572,12 +572,12 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                         ? "bg-emerald-600 text-white shadow-emerald-500/20"
                         : "bg-primary text-primary-foreground shadow-primary/20"
                     )}>
-                      <div className="flex justify-between items-center">
-                        <div>
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <div className="min-w-0">
                           <p className="text-[9px] font-black uppercase tracking-widest opacity-80">Total Amount Due</p>
                           <p className="text-[7px] font-bold opacity-60 italic uppercase tracking-tighter">VAT inclusive (if applicable)</p>
                         </div>
-                        <span className="text-2xl font-black font-mono tracking-tighter">{fmtNgn(sale.totalNgn)}</span>
+                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tighter break-words">{fmtNgn(sale.totalNgn)}</span>
                       </div>
 
                       {sale.amountPaidNgn && (

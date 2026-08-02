@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { uploadImage } from "@/lib/storage";
+import { SalesReceipt } from "@/components/sales/SalesReceipt";
 
 const NAIRA = "₦";
 
@@ -52,6 +53,7 @@ export function SalesHistoryPage() {
   const { data: refunds } = useRefunds();
   const { updateSaleStatus } = useSalesMutations();
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
+  const [receiptSale, setReceiptSale] = useState<SaleTransaction | null>(null);
   const [collectionCodeInput, setCollectionCodeInput] = useState("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "card" | "transfer" | "debit">("all");
@@ -791,7 +793,7 @@ export function SalesHistoryPage() {
                 <Button 
                   className="flex-1 gap-2 rounded-xl h-12 font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
                   onClick={() => {
-                    toast.success("Preparing receipt for print...");
+                    setReceiptSale(selectedSale);
                   }}
                 >
                   <Printer className="h-4 w-4" /> Print
@@ -817,6 +819,11 @@ export function SalesHistoryPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Receipt modal (print / PDF / WhatsApp) */}
+      {receiptSale && (
+        <SalesReceipt sale={receiptSale} onClose={() => setReceiptSale(null)} />
+      )}
 
       {/* Process Refund Dialog */}
       <Dialog open={!!refundSale} onOpenChange={(o) => !o && setRefundSale(null)}>
