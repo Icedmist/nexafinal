@@ -313,6 +313,8 @@ export interface StockMovement {
   quantity: number;
   fromLocationId: string | null;
   toLocationId: string | null;
+  fromBranchId?: string | null;
+  toBranchId?: string | null;
   reference: string;
   notes: string;
   performedBy: string;
@@ -412,7 +414,7 @@ export interface ItemFilters {
   categoryId?: string;
   supplierId?: string;
   locationId?: string;
-  status?: "in_stock" | "low_stock" | "out_of_stock" | "needs-review";
+  status?: "in_stock" | "low_stock" | "out_of_stock" | "needs-review" | "archived";
   search?: string;
 }
 

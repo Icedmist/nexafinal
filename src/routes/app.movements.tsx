@@ -10,6 +10,7 @@ import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButt
 import { EMPTY_MOVEMENT_FILTERS } from "@/components/movements/movement-filter-types";
 import type { MovementFilters } from "@/components/movements/movement-filter-types";
 import { useMovements, useItems, useLocations } from "@/hooks/useInventoryData";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import { useSector } from "@/hooks/useSector";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -44,6 +45,7 @@ function MovementsPage() {
   const { data: movements } = useMovements();
   const { data: items } = useItems();
   const { data: locations } = useLocations();
+  const { data: storeBranches = [] } = useStoreBranches({ includeAll: true });
   const sector = useSector();
 
   // Pre-filter by item query param on mount
@@ -63,6 +65,11 @@ function MovementsPage() {
   const locationNameMap = useMemo(
     () => new Map(locations.map((l) => [l.id, l.name])),
     [locations],
+  );
+
+  const branchNameMap = useMemo(
+    () => new Map(storeBranches.map((b) => [b.id, b.name])),
+    [storeBranches],
   );
 
   const performers = useMemo(
@@ -124,7 +131,7 @@ function MovementsPage() {
           onAction={() => setFormOpen(true)}
         />
       ) : (
-        <MovementsTable movements={filtered} itemNameMap={itemNameMap} locationNameMap={locationNameMap} />
+        <MovementsTable movements={filtered} itemNameMap={itemNameMap} locationNameMap={locationNameMap} branchNameMap={branchNameMap} />
       )}
       </ErrorBoundary>
 

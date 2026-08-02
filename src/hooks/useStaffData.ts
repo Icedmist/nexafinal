@@ -73,7 +73,7 @@ export function useStaff(): QueryResult<Staff[]> {
   return { data, isLoading, error };
 }
 
-export function useStoreBranches(): QueryResult<Branch[]> {
+export function useStoreBranches(options?: { includeAll?: boolean }): QueryResult<Branch[]> {
   const { user, claims } = useAuth();
   const { store } = useTenant();
   const { storeId, ownerId } = useBusiness();
@@ -97,6 +97,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     const storeRef = doc(db, "stores", targetStoreId);
     const isAdmin = isAdminRole(claims?.role) || (store && user?.uid === store.ownerId) || (ownerId && user?.uid === ownerId);
     const userBranchId = claims?.branchId;
+    const includeAll = !!options?.includeAll;
 
     const unsubscribe = onSnapshot(storeRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -104,7 +105,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
         const allBranches = storeData.branches || [];
         
         let filtered = allBranches;
-        if (!isAdmin) {
+        if (!isAdmin && !includeAll) {
           filtered = allBranches.filter(b => b.id === (userBranchId || "none"));
         }
         setData(filtered);
@@ -116,7 +117,7 @@ export function useStoreBranches(): QueryResult<Branch[]> {
     });
 
     return () => unsubscribe();
-  }, [isDemo, storeId, store?.id, claims?.storeId, user?.uid, claims?.role, claims?.branchId, ownerId, store?.ownerId]);
+  }, [isDemo, storeId, store?.id, claims?.storeId, user?.uid, claims?.role, claims?.branchId, ownerId, store?.ownerId, options?.includeAll]);
 
   return { data, isLoading, error: null };
 }

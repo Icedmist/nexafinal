@@ -43,6 +43,8 @@ import { getWhatsAppUrl, buildPersonalizedReceiptText } from "@/lib/whatsapp";
 import { useRole } from "@/hooks/useRole";
 import { useDemo } from "@/hooks/useDemo";
 import { useUsers } from "@/hooks/useUsers";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import type { SaleTransaction, Item, StockMovement } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
@@ -57,6 +59,10 @@ function fmtNgn(amount: number): string {
 function AdminTrackerPage() {
   const { isDemo, onboarding } = useDemo();
   const { role } = useRole();
+  const { claims } = useAuth();
+
+  // Branch-scoped managers (e.g. a branch manager) only ever see their own branch's data.
+  const isBranchScoped = !isAdminRole(role) && !!claims?.branchId;
 
   // Data queries
   const { data: sales = [], isLoading: salesLoading } = useSales();
@@ -78,7 +84,7 @@ function AdminTrackerPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // Global filter states
-  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>("all");
+  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>(isBranchScoped ? claims?.branchId || "all" : "all");
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>("all");
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("all");
 
@@ -617,7 +623,7 @@ function AdminTrackerPage() {
               variant="ghost"
               className="text-xs text-red-500 hover:text-red-600 h-7 px-2"
               onClick={() => {
-                setSelectedStoreFilter("all");
+                setSelectedStoreFilter(isBranchScoped ? claims?.branchId || "all" : "all");
                 setSelectedUserFilter("all");
                 setSelectedDateFilter("all");
               }}
@@ -630,20 +636,28 @@ function AdminTrackerPage() {
           {/* 1. Store Selection */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Store / Branch</label>
-            <Select value={selectedStoreFilter} onValueChange={setSelectedStoreFilter}>
-              <SelectTrigger className="bg-background text-xs h-9 border-border">
-                <SelectValue placeholder="All Store Branches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all"><Building2 className="inline h-3.5 w-3.5 mr-1" /> All Store Branches</SelectItem>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    <Building2 className="inline h-3.5 w-3.5 mr-1" /> {b.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="unassigned"><Building2 className="inline h-3.5 w-3.5 mr-1" /> Unassigned / Main</SelectItem>
-              </SelectContent>
-            </Select>
+            {isBranchScoped ? (
+              <div className="flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-medium">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                {branches.find((b) => b.id === claims?.branchId)?.name || "Your Branch"}
+                <span className="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600">Locked</span>
+              </div>
+            ) : (
+              <Select value={selectedStoreFilter} onValueChange={setSelectedStoreFilter}>
+                <SelectTrigger className="bg-background text-xs h-9 border-border">
+                  <SelectValue placeholder="All Store Branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all"><Building2 className="inline h-3.5 w-3.5 mr-1" /> All Store Branches</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      <Building2 className="inline h-3.5 w-3.5 mr-1" /> {b.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="unassigned"><Building2 className="inline h-3.5 w-3.5 mr-1" /> Unassigned / Main</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* 2. Staff/User Selection */}

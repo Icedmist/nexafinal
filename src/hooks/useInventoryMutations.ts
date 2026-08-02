@@ -387,6 +387,8 @@ export function useStockAdjustment() {
     reference?: string;
     fromLocationId?: string | null;
     toLocationId?: string | null;
+    fromBranchId?: string | null;
+    toBranchId?: string | null;
     unitPrice?: number;
     value?: number;
     performedByName?: string;
@@ -414,6 +416,8 @@ export function useStockAdjustment() {
       quantity: data.quantity,
       fromLocationId: data.fromLocationId ?? null,
       toLocationId: data.toLocationId ?? null,
+      fromBranchId: data.fromBranchId ?? null,
+      toBranchId: data.toBranchId ?? null,
       reference: data.reference || "Quick Entry",
       notes: data.notes || "",
       unitPrice: data.unitPrice ?? null,

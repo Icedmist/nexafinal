@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { MovementType } from "@/types/inventory";
 import type { Item, Location } from "@/types/inventory";
 import { useStockAdjustment } from "@/hooks/useInventoryMutations";
+import { useStoreBranches } from "@/hooks/useStaffData";
+import { isAdminRole } from "@/lib/roles";
 import { PackagePlus, X } from "lucide-react";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 
@@ -54,7 +56,14 @@ export function MovementFormSheet({
   preSelectedItemId,
 }: MovementFormSheetProps) {
   const { mutate, isLoading } = useStockAdjustment();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const { data: storeBranches = [] } = useStoreBranches({ includeAll: true });
+
+  // Branch-scoped users (e.g. branch managers) can only transfer FROM their own store.
+  const isBranchScoped = !!claims?.branchId && !isAdminRole(claims?.role);
+  const sourceBranch = isBranchScoped
+    ? storeBranches.find((b) => b.id === claims.branchId) || null
+    : null;
 
   const [itemId, setItemId] = useState("");
   const [type, setType] = useState<MovementType>(MovementType.Received);
@@ -63,6 +72,7 @@ export function MovementFormSheet({
   const [reference, setReference] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
   const [toLocationId, setToLocationId] = useState("");
+  const [toBranchId, setToBranchId] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -76,6 +86,7 @@ export function MovementFormSheet({
       setReference("");
       setFromLocationId("");
       setToLocationId("");
+      setToBranchId("");
       setUnitPrice("");
       setErrors({});
     }
@@ -118,12 +129,19 @@ export function MovementFormSheet({
       errs.reference = "Reason for adjustment is required";
     }
 
-    // Transferred: both locations required and different
+    // Transferred: source/destination required and must differ
     if (type === MovementType.Transferred) {
-      if (!fromLocationId) errs.fromLocationId = "Source location is required";
-      if (!toLocationId) errs.toLocationId = "Destination location is required";
-      if (fromLocationId && toLocationId && fromLocationId === toLocationId) {
-        errs.toLocationId = "Source and destination must differ";
+      if (isBranchScoped) {
+        if (!toBranchId) errs.toBranchId = "Destination branch is required";
+        if (toBranchId && claims?.branchId && toBranchId === claims.branchId) {
+          errs.toBranchId = "Source and destination must differ";
+        }
+      } else {
+        if (!fromLocationId) errs.fromLocationId = "Source location is required";
+        if (!toLocationId) errs.toLocationId = "Destination location is required";
+        if (fromLocationId && toLocationId && fromLocationId === toLocationId) {
+          errs.toLocationId = "Source and destination must differ";
+        }
       }
       // Transfers are sales between managers: a transfer price is required
       const price = Number(unitPrice);
@@ -151,8 +169,10 @@ export function MovementFormSheet({
         quantity: signedQty,
         // Update the item's currentStock to reflect the movement
         stockDelta: signedQty,
-        fromLocationId: type === MovementType.Transferred ? fromLocationId || null : null,
-        toLocationId: type === MovementType.Transferred ? toLocationId || null : null,
+        fromLocationId: type === MovementType.Transferred && !isBranchScoped ? fromLocationId || null : null,
+        toLocationId: type === MovementType.Transferred && !isBranchScoped ? toLocationId || null : null,
+        fromBranchId: type === MovementType.Transferred && isBranchScoped ? claims?.branchId || null : null,
+        toBranchId: type === MovementType.Transferred && isBranchScoped ? toBranchId || null : null,
         reference,
         notes: reference,
         unitPrice: unitPriceValue,
@@ -266,39 +286,70 @@ export function MovementFormSheet({
               </div>
             )}
 
-            {/* Transfer locations */}
+            {/* Transfer source & destination */}
             {isTransfer && (
               <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/50">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source</Label>
-                  <Select value={fromLocationId || "__none__"} onValueChange={(v) => setFromLocationId(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="h-10 rounded-lg border bg-background">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__" disabled>Select</SelectItem>
-                      {locations.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.fromLocationId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.fromLocationId}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Destination</Label>
-                  <Select value={toLocationId || "__none__"} onValueChange={(v) => setToLocationId(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="h-10 rounded-lg border bg-background">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__" disabled>Select</SelectItem>
-                      {locations.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.toLocationId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.toLocationId}</p>}
-                </div>
+                {isBranchScoped ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source</Label>
+                      <div className="flex h-10 items-center gap-2 rounded-lg border bg-background px-3 text-sm font-semibold">
+                        {sourceBranch?.name || "Your Store"}
+                        <span className="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600">Locked</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Destination</Label>
+                      <Select value={toBranchId || "__none__"} onValueChange={(v) => setToBranchId(v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-10 rounded-lg border bg-background">
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__" disabled>Select branch</SelectItem>
+                          {storeBranches
+                            .filter((b) => b.id !== claims?.branchId)
+                            .map((b) => (
+                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.toBranchId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.toBranchId}</p>}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source</Label>
+                      <Select value={fromLocationId || "__none__"} onValueChange={(v) => setFromLocationId(v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-10 rounded-lg border bg-background">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__" disabled>Select</SelectItem>
+                          {locations.map((l) => (
+                            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.fromLocationId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.fromLocationId}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Destination</Label>
+                      <Select value={toLocationId || "__none__"} onValueChange={(v) => setToLocationId(v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-10 rounded-lg border bg-background">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__" disabled>Select</SelectItem>
+                          {locations.map((l) => (
+                            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.toLocationId && <p className="mt-1 text-[10px] font-bold text-destructive">{errors.toLocationId}</p>}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

@@ -45,11 +45,12 @@ interface MovementsTableProps {
   movements: StockMovement[];
   itemNameMap: Map<string, string>;
   locationNameMap?: Map<string, string>;
+  branchNameMap?: Map<string, string>;
 }
 
 const PER_PAGE = 25;
 
-export function MovementsTable({ movements, itemNameMap, locationNameMap }: MovementsTableProps) {
+export function MovementsTable({ movements, itemNameMap, locationNameMap, branchNameMap }: MovementsTableProps) {
   const [page, setPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const isMobile = useIsMobile();
@@ -196,6 +197,8 @@ export function MovementsTable({ movements, itemNameMap, locationNameMap }: Move
                             itemName={itemNameMap.get(m.itemId) ?? m.itemId}
                             fromLocation={m.fromLocationId && locationNameMap ? locationNameMap.get(m.fromLocationId) : undefined}
                             toLocation={m.toLocationId && locationNameMap ? locationNameMap.get(m.toLocationId) : undefined}
+                            fromBranch={m.fromBranchId && branchNameMap ? branchNameMap.get(m.fromBranchId) : undefined}
+                            toBranch={m.toBranchId && branchNameMap ? branchNameMap.get(m.toBranchId) : undefined}
                           />
                         </TableCell>
                       </TableRow>
@@ -217,16 +220,21 @@ interface MovementDetailProps {
   itemName: string;
   fromLocation?: string;
   toLocation?: string;
+  fromBranch?: string;
+  toBranch?: string;
 }
 
-function MovementDetail({ movement, itemName, fromLocation, toLocation }: MovementDetailProps) {
+function MovementDetail({ movement, itemName, fromLocation, toLocation, fromBranch, toBranch }: MovementDetailProps) {
   const isTransfer = movement.type === MovementType.Transferred;
   return (
     <div className="space-y-2 text-sm">
       {(movement.notes || movement.reference) && (
         <div><span className="font-medium text-foreground">Note: </span><span className="text-muted-foreground">{movement.notes || movement.reference}</span></div>
       )}
-      {isTransfer && (fromLocation || toLocation) && (
+      {isTransfer && (fromBranch || toBranch) && (
+        <div><span className="font-medium text-foreground">Branch Transfer: </span><span className="text-muted-foreground">{fromBranch ?? "—"} → {toBranch ?? "—"}</span></div>
+      )}
+      {isTransfer && !(fromBranch || toBranch) && (fromLocation || toLocation) && (
         <div><span className="font-medium text-foreground">Transfer: </span><span className="text-muted-foreground">{fromLocation ?? "—"} → {toLocation ?? "—"}</span></div>
       )}
       {isTransfer && movement.value != null && (
