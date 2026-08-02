@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { uploadImage } from "@/lib/storage";
 import { SalesReceipt } from "@/components/sales/SalesReceipt";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 
 const NAIRA = "₦";
 
@@ -714,7 +715,7 @@ export function SalesHistoryPage() {
                   </div>
                   <div className="flex justify-between items-center text-xs pt-2 border-t border-amber-500/10">
                     <span className="text-muted-foreground font-bold uppercase tracking-wider">Outstanding Debt</span>
-                    <span className="font-mono font-black text-amber-600">{fmtNgn(Math.max(0, selectedSale.totalNgn - (selectedSale.amountPaidNgn || 0)))}</span>
+                    <span className="font-mono font-black text-amber-600">{fmtNgn(getSaleOutstanding(selectedSale))}</span>
                   </div>
                 </div>
               )}

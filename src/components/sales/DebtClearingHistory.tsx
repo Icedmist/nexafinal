@@ -16,6 +16,7 @@ import type { SaleTransaction, DebtPayment } from "@/types/inventory";
 import { normalizePhone } from "@/lib/utils";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { exportDebtHistoryPDF } from "@/lib/pdf-export";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 
 const NAIRA = "₦";
 
@@ -108,14 +109,14 @@ export function DebtClearingHistory({ payments, sales }: DebtClearingHistoryProp
 
       const existing = map.get(key);
       if (existing) {
-        existing.totalCreditSales += sale.totalNgn;
+        existing.totalCreditSales += getSaleOutstanding(sale);
         existing.creditSales.push(sale);
         if (sale.customerName?.trim()) existing.name = sale.customerName.trim();
       } else {
         map.set(key, {
           name: sale.customerName?.trim() || "Customer",
           phone,
-          totalCreditSales: sale.totalNgn,
+          totalCreditSales: getSaleOutstanding(sale),
           totalPayments: 0,
           currentBalance: 0,
           payments: [],

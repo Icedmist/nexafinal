@@ -19,6 +19,7 @@ import { validatePromo, usePromo } from "@/lib/promos";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useRole } from "@/hooks/useRole";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 
 const NAIRA = "₦";
 
@@ -129,7 +130,7 @@ export function SalesStepCheckout({
   const customerDebt = useMemo(() => {
     const qPhone = customerPhone.trim();
     if (!qPhone || qPhone.length < 8) return 0;
-    const creditSales = sales.filter(s => s.isCreditSale && s.customerPhone === qPhone).reduce((sum, s) => sum + s.totalNgn, 0);
+    const creditSales = sales.filter(s => s.isCreditSale && s.customerPhone === qPhone).reduce((sum, s) => sum + getSaleOutstanding(s), 0);
     const cleared = payments.filter(p => p.customerPhone === qPhone).reduce((sum, p) => sum + p.amountNgn, 0);
     return Math.max(0, creditSales - cleared);
   }, [customerPhone, sales, payments]);

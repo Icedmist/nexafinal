@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { normalizePhone } from "@/lib/utils";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { exportDebtStatementPDF, exportDebtorsLedgerPDF } from "@/lib/pdf-export";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 
 const NAIRA = "₦";
 
@@ -55,11 +56,11 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
 
       const existing = map.get(key);
       if (existing) {
-        existing.totalCreditSales += sale.totalNgn;
+        existing.totalCreditSales += getSaleOutstanding(sale);
         existing.events.push({
           type: "credit",
           date: sale.createdAt,
-          amount: sale.totalNgn,
+          amount: getSaleOutstanding(sale),
           reference: `Sale #${sale.id?.slice(-6) || "—"}`,
         });
         if (sale.customerName?.trim()) existing.name = sale.customerName.trim();
@@ -68,13 +69,13 @@ export function DebtReportModal({ open, onOpenChange, sales, payments, customer 
           key,
           name: sale.customerName?.trim() || "Customer",
           phone,
-          totalCreditSales: sale.totalNgn,
+          totalCreditSales: getSaleOutstanding(sale),
           totalPayments: 0,
           currentBalance: 0,
           events: [{
             type: "credit",
             date: sale.createdAt,
-            amount: sale.totalNgn,
+            amount: getSaleOutstanding(sale),
             reference: `Sale #${sale.id?.slice(-6) || "—"}`,
           }],
         });

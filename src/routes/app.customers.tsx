@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { toast } from "sonner";
 import { CreditCard, DollarSign } from "lucide-react";
 import { normalizePhone } from "@/lib/utils";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 import { DebtClearingHistory } from "@/components/sales/DebtClearingHistory";
 import { DebtReportModal } from "@/components/sales/DebtReportModal";
 import { ListSkeleton } from "@/components/shared/skeletons";
@@ -108,7 +109,7 @@ function CustomersPage() {
         existing.totalSpent += sale.totalNgn;
         existing.transactionCount++;
         if (sale.isCreditSale) {
-          existing.debtBalance += sale.totalNgn;
+          existing.debtBalance += getSaleOutstanding(sale);
         }
         if (sale.createdAt > existing.lastPurchase) {
           existing.lastPurchase = sale.createdAt;
@@ -122,7 +123,7 @@ function CustomersPage() {
           totalSpent: sale.totalNgn,
           transactionCount: 1,
           lastPurchase: sale.createdAt,
-          debtBalance: sale.isCreditSale ? sale.totalNgn : 0,
+          debtBalance: sale.isCreditSale ? getSaleOutstanding(sale) : 0,
           email: sale.customerEmail || undefined,
         });
       }

@@ -82,7 +82,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     // differ. Mirrors the storeId mismatch refresh logic (guarded by
     // hasRefreshed) so a corrected staff.branchId takes effect in the UI
     // without requiring a manual sign-out/in.
-    if (claims?.branchId && claims?.role && claims.role !== "system_admin" && claims.role !== "owner" && !isOwner) {
+    if (claims?.role && claims.role !== "system_admin" && claims.role !== "owner" && !isOwner) {
       (async () => {
         if (hasRefreshed) return;
         try {
