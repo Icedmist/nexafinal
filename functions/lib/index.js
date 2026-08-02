@@ -159,6 +159,16 @@ exports.provisionstaff = (0, https_1.onCall)({
     if (!isCallerAdmin) {
         throw new https_1.HttpsError('permission-denied', 'Only store admins can add team members.');
     }
+    // No one can be created as an Admin anymore. The store creator is the only
+    // user who becomes an admin (during onboarding); new admin roles are not
+    // assignable. This blocks managers and existing admins/owners alike.
+    if (role === 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'The admin role can no longer be assigned.');
+    }
+    // Only system admins can create platform-level roles (owner / system_admin).
+    if ((role === 'owner' || role === 'system_admin') && callerRole !== 'system_admin') {
+        throw new https_1.HttpsError('permission-denied', 'Only system admins can create platform roles.');
+    }
     if (callerRole !== 'system_admin' && callerStoreId && storeId && callerStoreId !== storeId) {
         throw new https_1.HttpsError('permission-denied', 'You can only add team members to your own store.');
     }
@@ -318,9 +328,11 @@ exports.updatestaffprofile = (0, https_1.onCall)({ cors: true }, async (request)
     if (roleChangeRequested && !isCallerAdmin) {
         throw new https_1.HttpsError('permission-denied', 'Only admins can change roles or activation status.');
     }
-    // Only admins can set the admin role; managers can never promote anyone.
-    if (role === 'admin' && !isCallerAdmin) {
-        throw new https_1.HttpsError('permission-denied', 'Only admins can assign the admin role.');
+    // No one can be promoted to the admin role anymore — the store creator is the
+    // only user who becomes an admin (during onboarding). This blocks managers and
+    // existing admins/owners from promoting anyone to admin.
+    if (role === 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'The admin role can no longer be assigned.');
     }
     if (!isSelfUpdate && !isCallerAdmin) {
         throw new https_1.HttpsError('permission-denied', 'Only admins can manage other team members.');
@@ -418,7 +430,7 @@ exports.updatestaffprofile = (0, https_1.onCall)({ cors: true }, async (request)
                 await admin.auth().setCustomUserClaims(targetUid, {
                     ...currentClaims,
                     role: resolvedRole,
-                    branchId: branchId !== undefined ? branchId : currentClaims.branchId || null,
+                    branchId: branchId ? branchId : (branchId === null ? null : currentClaims.branchId || null),
                 });
                 console.log(`Updated claims for ${targetUid}: role=${resolvedRole}, branchId=${branchId}`);
             }

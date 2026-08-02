@@ -167,7 +167,7 @@ export function MovementsTable({ movements, itemNameMap, locationNameMap }: Move
                       <TableCell>
                         <span className="inline-flex items-center gap-1.5 text-sm"><Icon className="h-4 w-4 text-muted-foreground" />{meta.label}</span>
                       </TableCell>
-                      <TableCell className="font-medium">{itemNameMap.get(m.itemId) ?? <span className="italic text-muted-foreground/60 line-through">[Item Deleted]</span>}</TableCell>
+                      <TableCell className="font-medium">{itemNameMap.get(m.itemId) ?? <span className="italic text-muted-foreground/60 line-through">[Item not visible in your branch]</span>}</TableCell>
                       <TableCell>
                         <span className={`font-mono text-sm font-medium ${dir === "in" ? "text-emerald-600" : "text-red-500"}`}>{dir === "in" ? "+" : "−"}{absQty}</span>
                         {m.type === MovementType.Transferred && m.value != null && (

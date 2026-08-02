@@ -77,6 +77,31 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     );
     setIsStoreMismatch(hasMismatch);
 
+    // Self-healing for stale branchId claims: compare the branch in the token
+    // against the live staff document and force a token refresh once if they
+    // differ. Mirrors the storeId mismatch refresh logic (guarded by
+    // hasRefreshed) so a corrected staff.branchId takes effect in the UI
+    // without requiring a manual sign-out/in.
+    if (claims?.branchId && claims?.role && claims.role !== "system_admin" && claims.role !== "owner" && !isOwner) {
+      (async () => {
+        if (hasRefreshed) return;
+        try {
+          const staffSnap = await getDoc(doc(db, "staff", user.uid));
+          if (!staffSnap.exists()) return;
+          const liveBranchId = staffSnap.data()?.branchId || null;
+          if ((claims.branchId || null) !== liveBranchId) {
+            setHasRefreshed(true);
+            console.log("BranchId claim mismatch detected. Forcing token refresh...");
+            user.getIdToken(true).catch((err) => {
+              console.error("Failed to force refresh token:", err);
+            });
+          }
+        } catch (err) {
+          console.error("Failed to fetch staff branchId for self-heal:", err);
+        }
+      })();
+    }
+
     // 1. High Priority: Use Custom Claims (Zero DB Read)
     if (claims?.role) {
       const roleFromClaims = claims.role as UserRoleType;

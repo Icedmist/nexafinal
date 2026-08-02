@@ -9,7 +9,7 @@ import { MovementFormSheet } from "@/components/movements/MovementFormSheet";
 import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButton";
 import { EMPTY_MOVEMENT_FILTERS } from "@/components/movements/movement-filter-types";
 import type { MovementFilters } from "@/components/movements/movement-filter-types";
-import { useMovements, useItems, useLocations } from "@/hooks/useInventoryData";
+import { useMovements, useItems, useLocations, useAllItemNames } from "@/hooks/useInventoryData";
 import { useSector } from "@/hooks/useSector";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -45,6 +45,7 @@ function MovementsPage() {
   const { data: items } = useItems();
   const { data: locations } = useLocations();
   const sector = useSector();
+  const allItemNames = useAllItemNames();
 
   // Pre-filter by item query param on mount
   useEffect(() => {
@@ -53,10 +54,7 @@ function MovementsPage() {
     }
   }, [itemParam]);
 
-  const itemNameMap = useMemo(
-    () => new Map(items.map((i) => [i.id, i.name])),
-    [items],
-  );
+  const itemNameMap = allItemNames;
 
   const locationNameMap = useMemo(
     () => new Map(locations.map((l) => [l.id, l.name])),

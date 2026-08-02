@@ -271,7 +271,6 @@ export function UserManagement() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {currentRole === "system_admin" && <SelectItem value="owner">Store Owner</SelectItem>}
-                    {canManageUsers && <SelectItem value="admin">Admin</SelectItem>}
                     <SelectItem value="manager">Inventory Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                     {currentRole === "system_admin" && <SelectItem value="system_admin">System Admin</SelectItem>}
@@ -355,7 +354,7 @@ export function UserManagement() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {currentRole === "system_admin" && <SelectItem value="owner">Store Owner</SelectItem>}
-                    {canManageUsers && <SelectItem value="admin">Admin</SelectItem>}
+                    {editingStaff?.role === "admin" && <SelectItem value="admin" disabled>Admin</SelectItem>}
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
                     {currentRole === "system_admin" && <SelectItem value="system_admin">System Admin</SelectItem>}
@@ -446,8 +445,8 @@ function RoleDropdown({ user, currentUserId, adminCount, isLastAdmin, currentRol
             <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Store Owner</div>
           </SelectItem>
         )}
-        {canManageUsers && (
-          <SelectItem value="admin">
+        {user.role === "admin" && (
+          <SelectItem value="admin" disabled>
             <div className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Admin</div>
           </SelectItem>
         )}
