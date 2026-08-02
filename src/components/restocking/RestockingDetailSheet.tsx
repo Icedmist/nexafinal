@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { Pencil, ExternalLink, Trash2, PackageCheck, Clock, Check, Printer, ShoppingCart, Calendar, FileText, History } from "lucide-react";
-import { useAllItemNames } from "@/hooks/useInventoryData";
 import {
   Dialog,
   DialogContent,
@@ -87,20 +86,9 @@ export function RestockingDetailSheet({
     () => new Map(suppliers.map((s) => [s.id, s])),
     [suppliers],
   );
-  const allItemNames = useAllItemNames();
   const itemMap = useMemo(
-    () => {
-      // Prefer the full item record when the item is in the user's branch, but
-      // merge in names from the unfiltered catalog so items created under other
-      // branches still resolve by name (products are publicly readable). Only a
-      // genuinely deleted item falls through to the placeholder label below.
-      const merged = new Map(items.map((i) => [i.id, i]));
-      allItemNames.forEach((name, id) => {
-        if (!merged.has(id)) merged.set(id, { id, name } as Item);
-      });
-      return merged;
-    },
-    [items, allItemNames],
+    () => new Map(items.map((i) => [i.id, i])),
+    [items],
   );
 
   // Filter movements by PO reference (must be before early return)

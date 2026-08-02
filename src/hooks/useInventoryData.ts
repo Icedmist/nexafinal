@@ -117,55 +117,6 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
   return { data, isLoading, error };
 }
 
-export function useAllItemNames(): Map<string, string> {
-  const { user, claimsReady } = useAuth();
-  const { storeId } = useBusiness();
-  const demoStore = useDemoStore();
-  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
-
-  useEffect(() => {
-    if (demoStore) {
-      const m = new Map<string, string>();
-      demoStore.getItems().forEach((i) => m.set(i.id, i.name));
-      setNameMap(m);
-      return;
-    }
-
-    if (!user || !storeId || !claimsReady) {
-      if (!claimsReady || !user) setNameMap(new Map());
-      return;
-    }
-
-    // Unfiltered name lookup (products are publicly readable) so movement and
-    // restocking views can resolve names for items that live outside the user's
-    // branch, instead of showing a misleading "[Item Deleted]" placeholder.
-    const prodQuery = query(
-      collection(db, "products"),
-      where("storeId", "==", storeId)
-    );
-
-    const unsubscribe = onSnapshot(
-      prodQuery,
-      (snapshot) => {
-        const m = new Map<string, string>();
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as Item;
-          if (data?.name) m.set(docSnap.id, data.name);
-        });
-        setNameMap(m);
-      },
-      (err) => {
-        console.error("Firestore Listen Error (All Item Names):", err);
-        setNameMap(new Map());
-      }
-    );
-
-    return () => unsubscribe();
-  }, [demoStore, user, storeId, claimsReady]);
-
-  return nameMap;
-}
-
 export function useItemById(id: string): QueryResult<Item | undefined> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
