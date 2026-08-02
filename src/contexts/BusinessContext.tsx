@@ -40,6 +40,14 @@ interface BusinessContextType {
   storeId: string | null;
   needsOnboarding: boolean;
   switchStore?: (storeId: string | null) => void;
+  /**
+   * Branch override for store-level users (admin/owner/manager) who are allowed
+   * to operate across the branches of their own shop. When set, all data reads
+   * and writes treat this as the user's branch. `null` means "use the user's
+   * real claim", and an empty string is only used internally while switching.
+   */
+  activeBranchId: string | null;
+  setActiveBranchId: (branchId: string | null) => void;
 }
 
 const BusinessContext = createContext<BusinessContextType>({ 
@@ -49,7 +57,9 @@ const BusinessContext = createContext<BusinessContextType>({
   ownerId: null,
   storeId: null,
   needsOnboarding: false,
-  switchStore: () => {}
+  switchStore: () => {},
+  activeBranchId: null,
+  setActiveBranchId: () => {},
 });
 
 export const useBusiness = () => useContext(BusinessContext);
@@ -86,12 +96,52 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   });
 
+  const [activeBranchId, setActiveBranchState] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("nexa_active_branch_id");
+    } catch (_) {
+      return null;
+    }
+  });
+
+  // Sync the branch override to the signed-in user: never leak another user's
+  // active branch, and clear the stored override whenever the user changes so
+  // a jump made by a previous admin can't scope a later user into the wrong shop.
+  useEffect(() => {
+    const branchKey = user?.uid ? `nexa_active_branch_id_${user.uid}` : "nexa_active_branch_id";
+    const saved = localStorage.getItem(branchKey);
+    setActiveBranchState(saved);
+    try {
+      localStorage.removeItem("nexa_active_branch_id");
+    } catch (_) {}
+  }, [user?.uid]);
+
+  const setActiveBranchId = (branchId: string | null) => {
+    // Only admins and owners may jump between branches of their own shop.
+    // Managers/staff are hard-scoped to a single branch and are excluded.
+    const canJump = claims?.role === "admin" || claims?.role === "owner";
+    if (!canJump) {
+      console.warn("Only store admins and owners can switch branches.");
+      return;
+    }
+    setActiveBranchState(branchId);
+    const branchKey = user?.uid ? `nexa_active_branch_id_${user.uid}` : "nexa_active_branch_id";
+    try {
+      if (branchId) {
+        localStorage.setItem(branchKey, branchId);
+      } else {
+        localStorage.removeItem(branchKey);
+      }
+    } catch (_) {}
+  };
+
   const switchStore = (id: string | null) => {
     if (claims?.role !== "system_admin") {
       console.warn("Only system admins can switch stores.");
       return;
     }
     setSelectedStoreId(id);
+    setActiveBranchState(null);
     try {
       if (id) {
         localStorage.setItem("nexa_system_admin_selected_store_id", id);
@@ -100,6 +150,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.removeItem("nexa_system_admin_selected_store_slug");
         sessionStorage.removeItem("nexa_active_slug");
       }
+      const branchKey = user?.uid ? `nexa_active_branch_id_${user.uid}` : "nexa_active_branch_id";
+      localStorage.removeItem(branchKey);
+      localStorage.removeItem("nexa_active_branch_id");
     } catch (_) {}
   };
 
@@ -326,7 +379,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ownerId,
       storeId,
       needsOnboarding,
-      switchStore
+      switchStore,
+      activeBranchId,
+      setActiveBranchId
     }}>
       {children}
     </BusinessContext.Provider>

@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, limit as firestoreLimit,
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useDemo } from "@/hooks/useDemo";
 import { DemoStore } from "@/lib/demo-store";
 import type { 
@@ -47,12 +48,13 @@ interface QueryResult<T> {
 }
 
 export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
-  const { user, claimsReady, claims } = useAuth();
-  const { storeId, ownerId } = useBusiness();
-  const demoStore = useDemoStore();
-  const [data, setData] = useState<Item[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+const { user, claimsReady, claims } = useAuth();
+    const { storeId, ownerId } = useBusiness();
+    const demoStore = useDemoStore();
+    const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
+    const [data, setData] = useState<Item[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (demoStore) {
@@ -69,8 +71,8 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       return;
     }
 
-    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
-    const userBranchId = claims?.branchId;
+    const isGlobal = !canJumpBranch && isGlobalScope(claims?.role, user?.uid, ownerId);
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     let prodQuery = query(
       collection(db, "products"),
@@ -97,15 +99,32 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       );
 
       // Branch claims can drift relative to the branchId stamped on a product
-      // at creation time. To guarantee a user never "loses" a product they
-      // created, also listen to an owner-scoped query and merge its results.
-      ownerQuery = query(
-        collection(db, "products"),
-        where("storeId", "==", storeId),
-        where("ownerId", "==", user?.uid || ""),
-        ...(filters?.categoryId ? [where("categoryId", "==", filters.categoryId)] : []),
-        orderBy("createdAt", "desc")
-      );
+      // at creation time. To guarantee a branch-claim user never "loses" a
+      // product they created, listen to an owner-scoped query and merge it.
+      //
+      // IMPORTANT: when the user is deliberately "jumping" into a chosen branch
+      // (`canJumpBranch`), we must NOT merge an unfiltered owner query, because
+      // it would re-import every product the admin owns in OTHER branches and
+      // break the per-branch filter. In jump mode the owner query is scoped to
+      // the same branch values so filtering stays correct.
+      if (canJumpBranch) {
+        ownerQuery = query(
+          collection(db, "products"),
+          where("storeId", "==", storeId),
+          where("branchId", "in", getBranchInValues(userBranchId)),
+          where("ownerId", "==", user?.uid || ""),
+          ...(filters?.categoryId ? [where("categoryId", "==", filters.categoryId)] : []),
+          orderBy("createdAt", "desc")
+        );
+      } else {
+        ownerQuery = query(
+          collection(db, "products"),
+          where("storeId", "==", storeId),
+          where("ownerId", "==", user?.uid || ""),
+          ...(filters?.categoryId ? [where("categoryId", "==", filters.categoryId)] : []),
+          orderBy("createdAt", "desc")
+        );
+      }
     }
     
     prodQuery = query(prodQuery, orderBy("createdAt", "desc"));
@@ -199,7 +218,7 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       unsubscribeStorewide?.();
       unsubscribeOwn?.();
     };
-  }, [demoStore, user, storeId, claimsReady, claims, ownerId, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId, canJumpBranch, effectiveBranchId, filters?.categoryId, filters?.status, filters?.search, filters?.locationId, filters?.supplierId]);
 
   return { data, isLoading, error };
 }
@@ -208,6 +227,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const demoStore = useDemoStore();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<Item | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -232,8 +252,8 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
       const doc = snapshot.docs.find(d => d.id === id);
       if (doc) {
         const item = { ...doc.data(), id: doc.id } as Item;
-        const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
-        const userBranchId = claims?.branchId;
+        const isGlobal = !canJumpBranch && isGlobalScope(claims?.role, user?.uid, ownerId);
+        const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
         const branchAccess = getBranchInValues(userBranchId);
 
         // Store-wide (branchId === null) products plus the user's branch / "all".
@@ -252,7 +272,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
     });
 
     return () => unsubscribe();
-  }, [demoStore, user, storeId, id, claimsReady, claims, ownerId]);
+  }, [demoStore, user, storeId, id, claimsReady, claims, ownerId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error: null };
 }
@@ -295,6 +315,7 @@ export function useLocations(): QueryResult<Location[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const demoStore = useDemoStore();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -310,8 +331,8 @@ export function useLocations(): QueryResult<Location[]> {
       return;
     }
     const locQuery = query(collection(db, "locations"), where("storeId", "==", storeId));
-    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
-    const userBranchId = claims?.branchId;
+    const isGlobal = !canJumpBranch && isGlobalScope(claims?.role, user?.uid, ownerId);
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     let q: Query<DocumentData>;
     if (isGlobal) {
@@ -361,7 +382,7 @@ export function useLocations(): QueryResult<Location[]> {
       unsubscribe();
       unsubscribeStorewide?.();
     };
-  }, [demoStore, user, storeId, claimsReady, claims, ownerId]);
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error: null };
 }
@@ -441,6 +462,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const demoStore = useDemoStore();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<StockMovement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -455,8 +477,8 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
-    const userBranchId = claims?.branchId;
+    const isGlobal = !canJumpBranch && isGlobalScope(claims?.role, user?.uid, ownerId);
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     let q: Query<DocumentData>;
     if (isGlobal) {
@@ -523,7 +545,7 @@ export function useMovements(count = 20): QueryResult<StockMovement[]> {
       unsubscribe();
       unsubscribeStorewide?.();
     };
-  }, [demoStore, user, storeId, claimsReady, claims, ownerId, count]);
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId, canJumpBranch, effectiveBranchId, count]);
 
   return { data, isLoading, error: null };
 }
@@ -543,6 +565,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const demoStore = useDemoStore();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -557,8 +580,8 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
-    const userBranchId = claims?.branchId;
+    const isGlobal = !canJumpBranch && isGlobalScope(claims?.role, user?.uid, ownerId);
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     const baseQuery = query(collection(db, "purchase_orders"), where("storeId", "==", storeId));
     let q: Query<DocumentData>;
@@ -609,7 +632,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
       unsubscribe();
       unsubscribeStorewide?.();
     };
-  }, [demoStore, user, storeId, claimsReady, claims, ownerId]);
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error: null };
 }
@@ -618,6 +641,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const demoStore = useDemoStore();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<InventoryRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -632,8 +656,8 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       if (!claimsReady || !user) setIsLoading(false);
       return;
     }
-    const isGlobal = isGlobalScope(claims?.role, user?.uid, ownerId);
-    const userBranchId = claims?.branchId;
+    const isGlobal = !canJumpBranch && isGlobalScope(claims?.role, user?.uid, ownerId);
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     const baseQuery = query(collection(db, "requests"), where("storeId", "==", storeId));
     let q: Query<DocumentData>;
@@ -684,7 +708,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       unsubscribe();
       unsubscribeStorewide?.();
     };
-  }, [demoStore, user, storeId, claimsReady, claims, ownerId]);
+  }, [demoStore, user, storeId, claimsReady, claims, ownerId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error: null };
 }

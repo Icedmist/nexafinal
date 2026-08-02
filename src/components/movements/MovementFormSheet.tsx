@@ -24,6 +24,7 @@ import { useStoreBranches } from "@/hooks/useStaffData";
 import { isAdminRole } from "@/lib/roles";
 import { PackagePlus, X } from "lucide-react";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 
 interface MovementFormSheetProps {
   open: boolean;
@@ -58,12 +59,16 @@ export function MovementFormSheet({
   const { mutate, isLoading } = useStockAdjustment();
   const { user, claims } = useAuth();
   const { data: storeBranches = [] } = useStoreBranches({ includeAll: true });
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
 
   // Branch-scoped users (e.g. branch managers) can only transfer FROM their own store.
-  const isBranchScoped = !!claims?.branchId && !isAdminRole(claims?.role);
+  // When an admin/owner/manager "jumps" into a branch, they operate as that branch.
+  const isBranchScoped = canJumpBranch || (!!claims?.branchId && !isAdminRole(claims?.role));
   const sourceBranch = isBranchScoped
-    ? storeBranches.find((b) => b.id === claims.branchId) || null
+    ? storeBranches.find((b) => b.id === (canJumpBranch ? effectiveBranchId : claims?.branchId)) || null
     : null;
+  // Use the effective branch for the From field when scoped.
+  const scopedBranchId = canJumpBranch ? effectiveBranchId : (claims?.branchId ?? null);
 
   const [itemId, setItemId] = useState("");
   const [type, setType] = useState<MovementType>(MovementType.Received);
@@ -133,7 +138,7 @@ export function MovementFormSheet({
     if (type === MovementType.Transferred) {
       if (isBranchScoped) {
         if (!toBranchId) errs.toBranchId = "Destination branch is required";
-        if (toBranchId && claims?.branchId && toBranchId === claims.branchId) {
+        if (toBranchId && scopedBranchId && toBranchId === scopedBranchId) {
           errs.toBranchId = "Source and destination must differ";
         }
       } else {
@@ -171,7 +176,7 @@ export function MovementFormSheet({
         stockDelta: signedQty,
         fromLocationId: type === MovementType.Transferred && !isBranchScoped ? fromLocationId || null : null,
         toLocationId: type === MovementType.Transferred && !isBranchScoped ? toLocationId || null : null,
-        fromBranchId: type === MovementType.Transferred && isBranchScoped ? claims?.branchId || null : null,
+        fromBranchId: type === MovementType.Transferred && isBranchScoped ? scopedBranchId || null : null,
         toBranchId: type === MovementType.Transferred && isBranchScoped ? toBranchId || null : null,
         reference,
         notes: reference,
@@ -307,7 +312,7 @@ export function MovementFormSheet({
                         <SelectContent>
                           <SelectItem value="__none__" disabled>Select branch</SelectItem>
                           {storeBranches
-                            .filter((b) => b.id !== claims?.branchId)
+                            .filter((b) => b.id !== scopedBranchId)
                             .map((b) => (
                               <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                             ))}

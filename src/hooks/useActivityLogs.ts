@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useDemo } from "@/hooks/useDemo";
 import { isAdminRole } from "@/lib/roles";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 export interface ActivityLog {
@@ -21,6 +22,7 @@ export function useActivityLogs(count = 10) {
   const { user, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const { isDemo } = useDemo();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,8 +46,8 @@ export function useActivityLogs(count = 10) {
       limit(count)
     );
 
-    const isAdmin = user && (ownerId ? user.uid === ownerId : false) || isAdminRole(claims?.role);
-    const userBranchId = claims?.branchId;
+    const isAdmin = (user && (ownerId ? user.uid === ownerId : false) || isAdminRole(claims?.role)) && !canJumpBranch;
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs: ActivityLog[] = [];
@@ -65,7 +67,7 @@ export function useActivityLogs(count = 10) {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, storeId, count, claims, ownerId]);
+  }, [isDemo, user, storeId, count, claims, ownerId, canJumpBranch, effectiveBranchId]);
 
   return { logs, loading };
 }

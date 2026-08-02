@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, addDoc, deleteDoc, doc }
 import { db } from "@/lib/firebase";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useDemo } from "@/hooks/useDemo";
 import { Expense } from "@/types/finance";
 import { isAdminRole } from "@/lib/roles";
@@ -17,6 +18,7 @@ export function useExpenses(): QueryResult<Expense[]> {
   const { user, claims, claimsReady } = useAuth();
   const { storeId } = useBusiness();
   const { isDemo } = useDemo();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -36,8 +38,8 @@ export function useExpenses(): QueryResult<Expense[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role);
-    const userBranchId = claims?.branchId;
+    const isAdmin = isAdminRole(claims?.role) && !canJumpBranch;
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     let q = query(
       collection(db, "expenses"),
@@ -67,7 +69,7 @@ export function useExpenses(): QueryResult<Expense[]> {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error };
 }
@@ -75,13 +77,14 @@ export function useExpenses(): QueryResult<Expense[]> {
 export function useExpensesMutations() {
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
 
   const addExpense = async (expense: Omit<Expense, "id" | "ownerId">) => {
     if (!user || !storeId) throw new Error("Authentication required");
     return await addDoc(collection(db, "expenses"), {
       ...expense,
       storeId,
-      branchId: claims?.branchId || null,
+      branchId: canJumpBranch ? effectiveBranchId : (claims?.branchId || null),
       ownerId: user.uid,
       recordedBy: user.uid,
       recordedByName: user.displayName || user.email?.split("@")[0] || "Unknown Staff",

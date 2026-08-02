@@ -28,6 +28,8 @@ import { useRole } from "@/hooks/useRole";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -65,8 +67,9 @@ export function Header({ sidebarCollapsed = false, onToggleSidebar }: { sidebarC
   
   const { logout } = useAuth();
   const { role, isSystemAdmin } = useRole();
-  const { profile, switchStore, storeId } = useBusiness();
+  const { profile, switchStore, storeId, activeBranchId, setActiveBranchId } = useBusiness();
   const { user } = useAuth();
+  const { data: branches = [], isLoading: branchesLoading } = useStoreBranches({ includeAll: true });
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -146,6 +149,11 @@ export function Header({ sidebarCollapsed = false, onToggleSidebar }: { sidebarC
       window.location.href = "/";
     }
   };
+
+  // Branch switcher: only admins and owners may jump into any branch of their
+  // own shop. Managers/staff stay hard-scoped to their single branch.
+  const maySwitchBranch = role === "admin" || role === "owner";
+  const activeBranch = branches.find((b) => b.id === activeBranchId) || null;
 
   // CMD+K / Ctrl+K shortcut
   useEffect(() => {
@@ -246,6 +254,54 @@ export function Header({ sidebarCollapsed = false, onToggleSidebar }: { sidebarC
           </div>
 
           <div className="mx-1 h-6 w-[1px] bg-border/40" />
+
+          {maySwitchBranch && branches.length > 1 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-10 px-3 gap-2 rounded-xl border-border/60 bg-white/50 backdrop-blur-sm hover:border-primary/40 hover:bg-white/80 hover:text-primary text-xs font-black uppercase tracking-widest transition-all active:scale-95 flex items-center shrink-0"
+                  title="Switch active branch"
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span className="max-w-[110px] truncate">
+                    {activeBranch ? activeBranch.name || "Branch" : "All Branches"}
+                  </span>
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 max-h-[300px] overflow-y-auto nexa-glass p-2 border-border/40 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Active Branch
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-border/40 my-2" />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setActiveBranchId(null);
+                    toast.success("Viewing all branches");
+                  }}
+                  className="rounded-xl h-10 px-3 cursor-pointer focus:bg-primary/5 focus:text-primary transition-all text-xs font-bold"
+                >
+                  {!activeBranchId ? "✓ " : ""}All Branches
+                </DropdownMenuItem>
+                {branches.map((b) => (
+                  <DropdownMenuItem
+                    key={b.id}
+                    onClick={() => {
+                      setActiveBranchId(b.id);
+                      toast.success(`Operating in: ${b.name}`);
+                    }}
+                    className={cn(
+                      "rounded-xl h-10 px-3 cursor-pointer focus:bg-primary/5 focus:text-primary transition-all text-xs font-bold",
+                      activeBranchId === b.id ? "bg-primary/10 text-primary border border-primary/20" : ""
+                    )}
+                  >
+                    {activeBranchId === b.id ? "✓ " : ""}{b.name || "Branch"}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <PermissionGate permission="log_movement">
             <Button size="icon" variant="outline" className="shrink-0 h-10 w-10 rounded-xl border-border/60 bg-white/50 backdrop-blur-sm hover:border-primary/40 hover:bg-white/80 hover:text-primary transition-all active:scale-95" aria-label="Quick entry" onClick={() => setQuickEntryOpen(true)}>

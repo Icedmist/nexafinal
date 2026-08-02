@@ -4,6 +4,7 @@ import { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { notifyActivity } from "@/lib/notification-service";
 import { cleanFirestoreData } from "@/utils/cleanFirestoreData";
 import type { Item, Supplier, Location, StockMovement, PurchaseOrder, PurchaseOrderItem, InventoryRequest, Category } from "@/types/inventory";
@@ -22,6 +23,7 @@ function useFirestoreMutation<TData>(
 ): MutationResult<TData> {
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -29,9 +31,14 @@ function useFirestoreMutation<TData>(
     async (data: TData): Promise<void> => {
       if (!user || !storeId) throw new Error("Not authenticated");
       const cleanedData = cleanFirestoreData(data);
-      await mutationFn(storeId, cleanedData, user, claims);
+      // When a store admin/owner/manager jumps into a branch, override the
+      // branch claim passed to every mutation so writes stamp the target branch.
+      const effectiveClaims = canJumpBranch
+        ? { ...claims, branchId: effectiveBranchId }
+        : claims;
+      await mutationFn(storeId, cleanedData, user, effectiveClaims);
     },
-    [user, storeId, mutationFn, claims]
+    [user, storeId, mutationFn, claims, canJumpBranch, effectiveBranchId]
   );
 
   const mutate = useCallback(

@@ -35,6 +35,7 @@ import { printBarcodeLabels } from "@/components/catalog/PrintBarcodeLabel";
 import { useItems, useCategories, useSuppliers, useLocations } from "@/hooks/useInventoryData";
 import { useCreateItem, useUpdateItem, useDeleteItem, useBatchCreateItems } from "@/hooks/useInventoryMutations";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import { exportItemsQRCodes } from "@/lib/bulk-qr";
 import { PermissionGate, usePermissions } from "@/hooks/usePermissions";
@@ -151,6 +152,7 @@ function CatalogPage() {
   const deleteItem = useDeleteItem();
   const { batchCreate } = useBatchCreateItems();
   const { claims } = useAuth();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const { can } = usePermissions();
   const { isAdmin } = useRole();
   const sector = useSector();
@@ -559,7 +561,7 @@ function CatalogPage() {
                 locations.find((l) => l.name.toLowerCase() === row.location?.toLowerCase())?.id ?? null,
               supplierId:
                 suppliers.find((s) => s.name.toLowerCase() === row.supplier?.toLowerCase())?.id ?? null,
-              branchId: claims?.branchId ?? null,
+              branchId: (canJumpBranch ? effectiveBranchId : claims?.branchId) ?? null,
               imageUrl: null,
               customFields: {},
               createdAt: new Date().toISOString(),

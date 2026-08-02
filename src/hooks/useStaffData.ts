@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, setDoc } 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useDemo } from "@/hooks/useDemo";
 import { useTenant } from "@/contexts/TenantContext";
 import { limit, writeBatch, getDocs } from "firebase/firestore";
@@ -20,6 +21,7 @@ export function useStaff(): QueryResult<Staff[]> {
   const { store } = useTenant();
   const { storeId, ownerId } = useBusiness();
   const { isDemo } = useDemo();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -40,8 +42,8 @@ export function useStaff(): QueryResult<Staff[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role) || (store && user.uid === store.ownerId) || (ownerId && user.uid === ownerId);
-    const userBranchId = claims?.branchId;
+    const isAdmin = ((isAdminRole(claims?.role)) || (store && user.uid === store.ownerId) || (ownerId && user.uid === ownerId)) && !canJumpBranch;
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     // STRICT TENANT FILTER: Use storeId
     let q = query(
@@ -68,7 +70,7 @@ export function useStaff(): QueryResult<Staff[]> {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, claims, store, storeId]);
+  }, [isDemo, user, claims, store, storeId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error };
 }

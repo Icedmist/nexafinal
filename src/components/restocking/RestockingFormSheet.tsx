@@ -37,6 +37,7 @@ import { LineItemsEditor, type LineItemRow } from "./LineItemsEditor";
 import { LowStockSuggestions } from "./LowStockSuggestions";
 import { ShoppingCart, X, Calendar, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 
@@ -83,6 +84,7 @@ export function RestockingFormSheet({
   const updatePO = useUpdatePurchaseOrder();
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
 
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [lineError, setLineError] = useState("");
@@ -179,7 +181,7 @@ export function RestockingFormSheet({
         notes: values.notes,
         createdBy: user?.email || "System",
         storeId: storeId || "",
-        branchId: claims?.branchId || null,
+        branchId: (canJumpBranch ? effectiveBranchId : claims?.branchId) || null,
         createdAt: now,
         updatedAt: now,
       };

@@ -23,6 +23,7 @@ import { useCreateRequest } from "@/hooks/useInventoryMutations";
 import { RequestStatus } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 
@@ -55,6 +56,7 @@ interface RequestFormSheetProps {
 export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheetProps) {
   const { user, claims } = useAuth();
   const { storeId } = useBusiness();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
 
   const createRequest = useCreateRequest();
   const [title, setTitle] = useState("");
@@ -136,7 +138,7 @@ export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheet
         requestedBy: user?.email || user?.uid || "staff",
         approvedBy: null,
         storeId: storeId || "",
-        branchId: claims?.branchId || null,
+        branchId: (canJumpBranch ? effectiveBranchId : claims?.branchId) || null,
         reason,
         createdAt: now,
         updatedAt: now,

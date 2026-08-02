@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increme
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useDemo } from "@/hooks/useDemo";
 import type { SaleTransaction, DebtPayment, ImportedDebt } from "@/types/inventory";
 import { MovementType } from "@/types/inventory";
@@ -20,6 +21,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
   const { user, claims, claimsReady } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const { isDemo } = useDemo();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -40,8 +42,8 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
-    const userBranchId = claims?.branchId;
+    const isAdmin = ((isAdminRole(claims?.role)) || (user && ownerId && user.uid === ownerId)) && !canJumpBranch;
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     let q = query(
       collection(db, "sales"),
@@ -70,7 +72,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error };
 }
@@ -79,6 +81,7 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const { isDemo } = useDemo();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<DebtPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -98,8 +101,8 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
-    const userBranchId = claims?.branchId;
+    const isAdmin = ((isAdminRole(claims?.role)) || (user && ownerId && user.uid === ownerId)) && !canJumpBranch;
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     let q = query(
       collection(db, "debt_payments"),
@@ -128,7 +131,7 @@ export function useDebtPayments(): QueryResult<DebtPayment[]> {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error };
 }
@@ -137,6 +140,7 @@ export function useImportedDebts(): QueryResult<ImportedDebt[]> {
   const { user, claimsReady, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
   const { isDemo } = useDemo();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const [data, setData] = useState<ImportedDebt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -156,8 +160,8 @@ export function useImportedDebts(): QueryResult<ImportedDebt[]> {
       return;
     }
 
-    const isAdmin = isAdminRole(claims?.role) || (user && ownerId && user.uid === ownerId);
-    const userBranchId = claims?.branchId;
+    const isAdmin = ((isAdminRole(claims?.role)) || (user && ownerId && user.uid === ownerId)) && !canJumpBranch;
+    const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
     let q = query(
       collection(db, "debt_records"),
@@ -183,7 +187,7 @@ export function useImportedDebts(): QueryResult<ImportedDebt[]> {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, storeId, claimsReady, claims?.branchId]);
+  }, [isDemo, user, storeId, claimsReady, claims?.branchId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error };
 }
@@ -191,6 +195,8 @@ export function useImportedDebts(): QueryResult<ImportedDebt[]> {
 export function useSalesMutations() {
   const { user, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();
+  const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
+  const effectiveBranch = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
   const addSale = async (sale: Omit<SaleTransaction, "id">) => {
     if (!user || !storeId) {
@@ -225,7 +231,7 @@ export function useSalesMutations() {
         ...sale,
         itemIds: sale.items.map((i) => i.itemId),
         storeId: storeId || claims?.storeId, // CRITICAL: Must include storeId for Firestore rules
-        branchId: claims?.branchId || null,
+        branchId: effectiveBranch || null,
         ownerId: user.uid,
         recordedBy: user.uid,
         recordedByName: user.displayName || user.email || "Staff",
@@ -286,7 +292,7 @@ export function useSalesMutations() {
           reference: `Sale: ${saleRef.id}`,
           notes: `Customer: ${sale.customerName || "Walk-in"}`,
           storeId: saleData.storeId,
-          branchId: claims?.branchId || null,
+          branchId: effectiveBranch || null,
           ownerId: user.uid,
           performedBy: user.uid,
           performedByName: user.displayName || user.email || "Staff",
@@ -363,7 +369,7 @@ export function useSalesMutations() {
       ...payment,
       storeId,
       // Normalize branchId to match queries (non-admin listeners expect "none" when no branch)
-      branchId: claims?.branchId || "none",
+      branchId: effectiveBranch || "none",
       recordedBy: user.uid,
       recordedByName: user.displayName || user.email?.split("@")[0] || "Staff",
       createdAt: new Date().toISOString(),
@@ -391,7 +397,7 @@ export function useSalesMutations() {
     const loggedByName = user.displayName || user.email?.split("@")[0] || "Staff";
 
     // Respect the caller's branch scope: managers only write to their own branch.
-    const branchId = claims?.branchId ?? null;
+    const branchId = canJumpBranch ? effectiveBranchId : (claims?.branchId ?? null);
 
     // Firestore writeBatch is capped at 500 writes.
     const results = { created: 0, failed: 0 };
