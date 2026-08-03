@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Plus, Minus, Trash2, FileDown, Save, Search, User, Phone, Users,
-  Wallet, AlertTriangle, Printer, Copy, FileText, ShoppingCart, X, CheckCircle2,
+  Wallet, AlertTriangle, Printer, Copy, FileText, ShoppingCart, X, CheckCircle2, Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +108,7 @@ export function SalesFormBuilder({
   const [totalOverride, setTotalOverride] = useState<string | null>(null);
   const [isPriceEditingLocked] = useState(profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true);
   const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
+  const isFinalized = status === "finalized";
 
   // The form currently being edited (allows switching between saved forms).
   const [activeForm, setActiveForm] = useState<SalesForm | null>(editingForm);
@@ -716,17 +717,21 @@ export function SalesFormBuilder({
             >
               <FileDown className="h-3.5 w-3.5" /> Download PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={() => handleSave(false)} disabled={saving} className="gap-1.5">
-              <Save className="h-3.5 w-3.5" /> Save Draft
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => handleSave(true)}
-              disabled={saving}
-              className={cn("gap-1.5", businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700")}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Finalize & Save"}
-            </Button>
+            {!isFinalized && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => handleSave(false)} disabled={saving} className="gap-1.5">
+                  <Save className="h-3.5 w-3.5" /> Save Draft
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className={cn("gap-1.5", businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700")}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Finalize & Save"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -737,9 +742,11 @@ export function SalesFormBuilder({
               key={t.id}
               type="button"
               onClick={() => setFormType(t.id)}
+              disabled={isFinalized}
               title={t.hint}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all",
+                isFinalized && "cursor-not-allowed opacity-50",
                 formType === t.id
                   ? (businessType === "restaurant" ? "border-emerald-600 bg-emerald-500/10 text-emerald-600" : "border-primary bg-primary/10 text-primary")
                   : "border-border text-muted-foreground hover:border-border/70"
@@ -752,6 +759,12 @@ export function SalesFormBuilder({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        {isFinalized && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-xs text-emerald-700">
+            <Lock className="h-3.5 w-3.5 shrink-0" />
+            This form is completed and locked — it can no longer be edited. You can still download the PDF receipt.
+          </div>
+        )}
         {/* Customer details */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 rounded-xl border border-border bg-card p-4 space-y-3">
@@ -774,6 +787,7 @@ export function SalesFormBuilder({
                       onFocus={() => {
                         if (customerName.trim() || customerPhone.trim()) setCustomerOpen(true);
                       }}
+                      disabled={isFinalized}
                       placeholder="e.g. Chidi Okonkwo"
                       className="pl-9 h-9"
                     />
@@ -789,6 +803,7 @@ export function SalesFormBuilder({
                       onFocus={() => {
                         if (customerName.trim() || customerPhone.trim()) setCustomerOpen(true);
                       }}
+                      disabled={isFinalized}
                       placeholder="08012345678"
                       className="pl-9 h-9 font-mono"
                     />
@@ -796,7 +811,7 @@ export function SalesFormBuilder({
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Email (optional)</Label>
-                  <Input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="customer@example.com" className="h-9" />
+                  <Input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={isFinalized} placeholder="customer@example.com" className="h-9" />
                 </div>
               </div>
               {customerOpen && customerSuggestions.length > 0 && (
@@ -837,11 +852,11 @@ export function SalesFormBuilder({
             </div>
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Discount ({NAIRA})</Label>
-              <Input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0" className="h-8 font-mono text-xs" />
+              <Input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} disabled={isFinalized} placeholder="0" className="h-8 font-mono text-xs" />
             </div>
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">VAT rate (%)</Label>
-              <Input type="number" min="0" max="100" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} placeholder="0" className="h-8 font-mono text-xs" />
+              <Input type="number" min="0" max="100" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} disabled={isFinalized} placeholder="0" className="h-8 font-mono text-xs" />
             </div>
             <Separator />
             <div className="space-y-1">
@@ -852,13 +867,14 @@ export function SalesFormBuilder({
                 step="any"
                 value={totalOverride !== null ? totalOverride : String(Math.round(effectiveTotal))}
                 onChange={(e) => setTotalOverride(e.target.value)}
+                disabled={isFinalized}
                 placeholder={String(Math.round(effectiveTotal))}
                 className="h-9 font-mono text-right font-bold text-sm"
               />
               {totalOverride !== null && (
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                   <span>Auto: {NAIRA}{total.toLocaleString("en-NG")}</span>
-                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setTotalOverride(null)}>
+                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" disabled={isFinalized} onClick={() => setTotalOverride(null)}>
                     Reset to auto
                   </Button>
                 </div>
@@ -878,7 +894,7 @@ export function SalesFormBuilder({
               <h3 className="text-sm font-semibold">Line Items</h3>
               <Badge variant="secondary" className="font-mono text-[10px]">{rows.length} rows</Badge>
             </div>
-            <Button size="sm" variant="outline" onClick={addRow} className="gap-1.5">
+            <Button size="sm" variant="outline" onClick={addRow} disabled={isFinalized} className="gap-1.5">
               <Plus className="h-3.5 w-3.5" /> Add Line
             </Button>
           </div>
@@ -913,6 +929,7 @@ export function SalesFormBuilder({
                           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                           <Input
                             value={rowSearch[r.key]?.trim() ? rowSearch[r.key] : r.itemName}
+                            disabled={isFinalized}
                             onChange={(e) => {
                               setRowSearch((prev) => ({ ...prev, [r.key]: e.target.value }));
                               if (r.itemId && e.target.value === r.itemName) return;
@@ -949,17 +966,18 @@ export function SalesFormBuilder({
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1">
-                          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateRow(r.key, { quantity: Math.max(1, (r.quantity || 1) - 1) })}>
+                          <Button variant="outline" size="icon" className="h-7 w-7" disabled={isFinalized} onClick={() => updateRow(r.key, { quantity: Math.max(1, (r.quantity || 1) - 1) })}>
                             <Minus className="h-3 w-3" />
                           </Button>
                           <Input
                             type="number"
                             min="1"
                             value={r.quantity}
+                            disabled={isFinalized}
                             onChange={(e) => updateRow(r.key, { quantity: parseInt(e.target.value, 10) || 0 })}
                             className="h-7 w-14 text-center font-mono text-xs px-1"
                           />
-                          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateRow(r.key, { quantity: (r.quantity || 1) + 1 })}>
+                          <Button variant="outline" size="icon" className="h-7 w-7" disabled={isFinalized} onClick={() => updateRow(r.key, { quantity: (r.quantity || 1) + 1 })}>
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
@@ -970,7 +988,7 @@ export function SalesFormBuilder({
                           min="0"
                           step="any"
                           value={r.unitPriceNgn}
-                          disabled={!canEditPrice}
+                          disabled={!canEditPrice || isFinalized}
                           onChange={(e) => updateRow(r.key, { unitPriceNgn: parseFloat(e.target.value) || 0 })}
                           className="h-7 font-mono text-xs text-right"
                         />
@@ -979,7 +997,7 @@ export function SalesFormBuilder({
                         {NAIRA}{((r.unitPriceNgn || 0) * (r.quantity || 0)).toLocaleString("en-NG")}
                       </td>
                       <td className="px-3 py-2">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeRow(r.key)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" disabled={isFinalized} onClick={() => removeRow(r.key)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </td>
@@ -1011,7 +1029,7 @@ export function SalesFormBuilder({
         {/* Notes */}
         <div className="space-y-1.5">
           <Label className="text-xs">Notes (printed on the form)</Label>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Payment terms, delivery instructions…" className="h-9" />
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isFinalized} placeholder="e.g. Payment terms, delivery instructions…" className="h-9" />
         </div>
       </div>
 

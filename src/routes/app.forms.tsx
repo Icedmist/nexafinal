@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Plus, Pencil, Trash2, FileDown, Copy, Search } from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, FileDown, Copy, Search, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -323,9 +323,15 @@ function FormsPage() {
                   </div>
                   <span className="font-mono font-bold text-sm shrink-0">{NAIRA}{(form.totalNgn || 0).toLocaleString("en-NG")}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => setOpenForm(form)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    {form.status === "finalized" ? (
+                      <span title="Completed — this form is locked and can no longer be edited" className="flex h-7 w-7 items-center justify-center text-emerald-600">
+                        <Lock className="h-3.5 w-3.5" />
+                      </span>
+                    ) : (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => setOpenForm(form)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
