@@ -655,6 +655,7 @@ function CustomersPage() {
         open={creditOpen}
         onOpenChange={setCreditOpen}
         balances={customerBalances ?? []}
+        customers={customers.map((c) => ({ name: c.name, phone: c.phone, email: c.email }))}
         onTopUp={topUpCustomerCredit}
       />
     </div>
