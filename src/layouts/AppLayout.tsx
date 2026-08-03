@@ -22,7 +22,6 @@ import { AIAssistantWidget } from "@/components/layout/AIAssistantWidget";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import { SubscriptionWarningBanner } from "@/components/layout/SubscriptionWarningBanner";
 import { useDemo } from "@/hooks/useDemo";
-import { StoreTypeOnboardingOverlay } from "@/components/onboarding/StoreTypeOnboardingOverlay";
 import { MemberOnboarding } from "@/components/onboarding/MemberOnboarding";
 import { useStaff, useStaffMutations } from "@/hooks/useStaffData";
 
@@ -236,7 +235,6 @@ export function AppLayout() {
     <StoreAccessGuard>
       <div className="flex h-screen flex-col overflow-hidden bg-background nexa-gradient-mesh">
         {isDemo && <DemoBanner />}
-        <StoreTypeOnboardingOverlay />
         {showMemberOnboarding && currentStaff && (
           <MemberOnboarding
             name={currentStaff.displayName || user?.displayName || "there"}

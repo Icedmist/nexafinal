@@ -26,6 +26,7 @@ const SalesAnalyticsPage = lazy(() => import('./routes/app.sales-analytics'));
 const SalesHistoryPage = lazy(() => import('./routes/app.sales-history'));
 const SalesPage = lazy(() => import('./routes/app.sales'));
 const FormsPage = lazy(() => import('./routes/app.forms'));
+const StoreCreditsPage = lazy(() => import('./routes/app.store-credits'));
 const SettingsPage = lazy(() => import('./routes/app.settings'));
 const StaffPage = lazy(() => import('./routes/app.staff'));
 const SuppliersPage = lazy(() => import('./routes/app.suppliers'));
@@ -110,6 +111,7 @@ function App() {
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="ai-insights" element={<AIInsightsPage />} />
               <Route path="customers" element={<CustomersPage />} />
+              <Route path="store-credits" element={<StoreCreditsPage />} />
               <Route path="expenses" element={<ExpensesPage />} />
               <Route path="help" element={<HelpPage />} />
               <Route path="locations" element={<LocationsPage />} />

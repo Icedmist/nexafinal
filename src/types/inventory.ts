@@ -79,6 +79,8 @@ export interface SalesForm {
   totalNgn: number;
   notes?: string;
   status: "draft" | "finalized";
+  /** The `sales` doc created when this form was finalized (records + stock deduction). */
+  saleId?: string;
   recordedBy?: string;
   recordedByName?: string;
   createdAt: string;

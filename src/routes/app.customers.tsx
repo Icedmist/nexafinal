@@ -24,7 +24,6 @@ import { getSaleOutstanding } from "@/lib/credit-sale";
 import { DebtClearingHistory } from "@/components/sales/DebtClearingHistory";
 import { DebtReportModal } from "@/components/sales/DebtReportModal";
 import { DebtorImportModal } from "@/components/sales/DebtorImportModal";
-import { CustomerCreditModal } from "@/components/sales/CustomerCreditModal";
 import { PermissionGate } from "@/hooks/usePermissions";
 import { ListSkeleton } from "@/components/shared/skeletons";
 
@@ -48,6 +47,7 @@ interface CustomerRecord {
   transactionCount: number;
   lastPurchase: string;
   debtBalance: number;
+  creditBalance: number;
 }
 
 type CustomerTab = "all" | "frequent" | "high-spenders" | "debtors" | "inactive" | "cleared-debts";
@@ -63,7 +63,8 @@ function CustomersPage() {
   const { data: sales, isLoading: salesLoading } = useSales();
   const { data: payments, isLoading: paymentsLoading } = useDebtPayments();
   const { data: importedDebts, isLoading: debtsLoading } = useImportedDebts();
-  const { recordDebtPayment, importDebtors, topUpCustomerCredit } = useSalesMutations();
+  const { recordDebtPayment, importDebtors } = useSalesMutations();
+  const { data: customerBalances } = useCustomerBalances();
   
   const [search, setSearch] = useState("");
   const { store } = useTenant();
@@ -96,9 +97,6 @@ function CustomersPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportCustomer, setReportCustomer] = useState<CustomerRecord | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [creditOpen, setCreditOpen] = useState(false);
-
-  const { data: customerBalances } = useCustomerBalances();
 
   const isLoading = salesLoading || paymentsLoading || debtsLoading;
 
@@ -134,6 +132,7 @@ function CustomersPage() {
           transactionCount: 1,
           lastPurchase: sale.createdAt,
           debtBalance: sale.isCreditSale ? getSaleOutstanding(sale) : 0,
+          creditBalance: 0,
           email: sale.customerEmail || undefined,
         });
       }
@@ -172,12 +171,37 @@ function CustomersPage() {
           transactionCount: 1,
           lastPurchase: debt.createdAt,
           debtBalance: debt.amountNgn,
+          creditBalance: 0,
+        });
+      }
+    }
+
+    // Store credit: customers with a prepaid balance appear here too, shown in
+    // green. Credit cancels out debt, so the displayed debt is net of credit.
+    for (const b of customerBalances || []) {
+      const phone = b.customerPhone?.trim();
+      if (!phone) continue;
+      const key = normalizePhone(phone);
+      const credit = Number(b.balanceNgn) || 0;
+      const record = map.get(key);
+      if (record) {
+        record.creditBalance += credit;
+        record.debtBalance = Math.max(0, record.debtBalance - credit);
+      } else {
+        map.set(key, {
+          name: b.customerName?.trim() || "Customer",
+          phone,
+          totalSpent: 0,
+          transactionCount: 0,
+          lastPurchase: b.updatedAt || new Date().toISOString(),
+          debtBalance: 0,
+          creditBalance: credit,
         });
       }
     }
 
     return Array.from(map.values()).sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [sales, payments, importedDebts]);
+  }, [sales, payments, importedDebts, customerBalances]);
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
@@ -199,6 +223,8 @@ function CustomersPage() {
     frequent: customers.filter((c) => c.transactionCount >= 3).length,
     debtors: customers.filter((c) => c.debtBalance > 0).length,
     totalDebt: customers.reduce((s, c) => s + c.debtBalance, 0),
+    withCredit: customers.filter((c) => c.creditBalance > 0).length,
+    totalCredit: customers.reduce((s, c) => s + c.creditBalance, 0),
   }), [customers]);
 
   const toggleSelect = (phoneOrName: string) => {
@@ -363,14 +389,13 @@ function CustomersPage() {
             Import Debtors
           </Button>
         </PermissionGate>
-        <Button
-          variant="outline"
-          onClick={() => setCreditOpen(true)}
-          className="gap-2 text-emerald-700"
+        <Link
+          to="/app/store-credits"
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium text-emerald-700 shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <CreditCard className="h-4 w-4" />
           Store Credit
-        </Button>
+        </Link>
         <Button
           variant="outline"
           onClick={() => {
@@ -385,7 +410,7 @@ function CustomersPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Card className="p-3">
           <p className="text-xs text-muted-foreground">Total Customers</p>
           <p className="text-xl font-bold font-mono">{stats.total}</p>
@@ -401,6 +426,14 @@ function CustomersPage() {
         <Card className="p-3">
           <p className="text-xs text-muted-foreground">Total Debt</p>
           <p className="text-xl font-bold font-mono text-destructive">{NAIRA}{stats.totalDebt.toLocaleString("en-NG")}</p>
+        </Card>
+        <Card className="p-3">
+          <p className="text-xs text-muted-foreground">Customers w/ Credit</p>
+          <p className="text-xl font-bold font-mono text-emerald-600">{stats.withCredit}</p>
+        </Card>
+        <Card className="p-3">
+          <p className="text-xs text-muted-foreground">Total Credit</p>
+          <p className="text-xl font-bold font-mono text-emerald-600">{NAIRA}{stats.totalCredit.toLocaleString("en-NG")}</p>
         </Card>
       </div>
 
@@ -470,6 +503,9 @@ function CustomersPage() {
 
                   <div className="text-right shrink-0">
                     <p className="text-sm font-semibold font-mono">{NAIRA}{c.totalSpent.toLocaleString("en-NG")}</p>
+                    {c.creditBalance > 0 && (
+                      <p className="text-xs text-emerald-600 font-mono">Credit {NAIRA}{c.creditBalance.toLocaleString("en-NG")}</p>
+                    )}
                     {c.debtBalance > 0 && (
                       <p className="text-xs text-destructive font-mono">Owes {NAIRA}{c.debtBalance.toLocaleString("en-NG")}</p>
                     )}
@@ -648,15 +684,6 @@ function CustomersPage() {
           const result = await importDebtors(debtors);
           return result;
         }}
-      />
-
-      {/* Store Credit */}
-      <CustomerCreditModal
-        open={creditOpen}
-        onOpenChange={setCreditOpen}
-        balances={customerBalances ?? []}
-        customers={customers.map((c) => ({ name: c.name, phone: c.phone, email: c.email }))}
-        onTopUp={topUpCustomerCredit}
       />
     </div>
   );

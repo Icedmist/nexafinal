@@ -77,6 +77,10 @@ function FormsPage() {
   };
 
   const downloadPdf = async (form: SalesForm) => {
+    if (form.status !== "finalized") {
+      toast.error("Only finalized receipts can be printed. Finalize the form first.");
+      return;
+    }
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const w = doc.internal.pageSize.getWidth();
@@ -89,6 +93,8 @@ function FormsPage() {
     const storeAddress = profile?.storeDetails?.address || "";
     const typeLabel = FORM_TYPE_LABELS[form.formType] || "Form";
     const taxRateNum = form.taxRate || 0;
+    const completed = form.status === "finalized";
+    const statusLabel = completed ? "COMPLETED" : "DRAFT";
 
     doc.setFillColor(13, 27, 42);
     doc.rect(0, 0, w, 30, "F");
@@ -108,9 +114,18 @@ function FormsPage() {
     doc.setTextColor(255);
     doc.text(`# ${form.formNumber}`, w - margin, 12, { align: "right" });
     doc.text(new Date(form.createdAt).toLocaleDateString("en-NG"), w - margin, 18, { align: "right" });
-    doc.text(`Type: ${typeLabel}`, w - margin, 26, { align: "right" });
+    doc.text(`Type: ${typeLabel} • ${statusLabel}`, w - margin, 26, { align: "right" });
 
-    y = 38;
+    // Status banner
+    doc.setFillColor(completed ? 6 : 180, completed ? 150 : 140, completed ? 84 : 30);
+    doc.rect(margin, 31.5, contentWidth, 6, "F");
+    doc.setTextColor(255);
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.text(completed ? "TRANSACTION COMPLETED" : "DRAFT — NOT YET COMPLETED", w / 2, 36, { align: "center" });
+    doc.setTextColor(20);
+
+    y = 43;
     doc.setTextColor(20);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
@@ -194,7 +209,7 @@ function FormsPage() {
       y += 5;
     }
 
-    y = 280;
+    y = 276;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(120);
@@ -204,7 +219,12 @@ function FormsPage() {
       y,
       { align: "center" }
     );
-    doc.text(`This is a ${typeLabel.toLowerCase()} document. Thank you!`, w / 2, y + 4, { align: "center" });
+    doc.text(
+      `Status: ${statusLabel}  •  Recorded by: ${form.recordedByName || "Staff"}  •  ${typeLabel.toLowerCase()} document. Thank you!`,
+      w / 2,
+      y + 4,
+      { align: "center" }
+    );
 
     doc.save(`${form.formNumber}.pdf`);
     toast.success(`PDF downloaded for ${form.formNumber}`);
@@ -293,8 +313,8 @@ function FormsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold">{form.formNumber}</p>
                       <Badge variant="secondary" className="text-[10px]">{FORM_TYPE_LABELS[form.formType]}</Badge>
-                      <Badge variant={form.status === "finalized" ? "default" : "outline"} className="text-[10px]">
-                        {form.status === "finalized" ? "Finalized" : "Draft"}
+                      <Badge variant={form.status === "finalized" ? "default" : "outline"} className={cn("text-[10px]", form.status === "finalized" && "bg-emerald-600 border-emerald-600 text-white")}>
+                        {form.status === "finalized" ? "Completed" : "Draft"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -306,7 +326,14 @@ function FormsPage() {
                     <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => setOpenForm(form)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Download PDF" onClick={() => downloadPdf(form)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title={form.status === "finalized" ? "Download PDF" : "Only finalized receipts can be printed"}
+                      disabled={form.status !== "finalized"}
+                      onClick={() => downloadPdf(form)}
+                    >
                       <FileDown className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Delete" onClick={() => handleDelete(form)}>

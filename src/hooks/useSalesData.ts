@@ -284,6 +284,50 @@ export function useCustomerBalances(): QueryResult<CustomerBalance[]> {
   return { data, isLoading, error };
 }
 
+/**
+ * Store-wide credit wallet ledger (top-ups, sale deductions, overpay credits,
+ * adjustments), newest first.
+ */
+export function useCreditTopups(): QueryResult<CreditTopup[]> {
+  const { user, claimsReady } = useAuth();
+  const { storeId } = useBusiness();
+  const { isDemo } = useDemo();
+  const [data, setData] = useState<CreditTopup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (isDemo) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    if (!user || !storeId || !claimsReady) {
+      if (!claimsReady || !user) setIsLoading(false);
+      setData([]);
+      return;
+    }
+    const q = query(
+      collection(db, "credit_topups"),
+      where("storeId", "==", storeId),
+      orderBy("createdAt", "desc")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const rows: CreditTopup[] = [];
+      snapshot.forEach((docc) => rows.push({ id: docc.id, ...docc.data() } as CreditTopup));
+      setData(rows);
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Credit top-ups listener error:", err);
+      setError(err);
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [isDemo, user, storeId, claimsReady]);
+
+  return { data, isLoading, error };
+}
+
 export function useSalesMutations() {
   const { user, claims } = useAuth();
   const { storeId, ownerId } = useBusiness();

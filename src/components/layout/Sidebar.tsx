@@ -25,6 +25,7 @@ import {
   Activity,
   Store,
   Radar,
+  Wallet,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -117,6 +118,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
         { label: "Sales History", href: "/app/sales-history", icon: History },
         { label: "Sales Analytics", href: "/app/sales-analytics", icon: TrendingUp, permKey: "canViewAnalytics" },
         { label: sector.labels.customers, href: "/app/customers", icon: Users },
+        { label: "Store Credits", href: "/app/store-credits", icon: Wallet },
         { label: sector.labels.catalog, href: "/app/catalog", icon: sector.icons.catalog, permKey: "canManageItems" },
         { label: sector.labels.movements, href: "/app/movements", icon: ArrowLeftRight, permKey: "canLogMovements" },
         { label: "Locations", href: "/app/locations", icon: MapPin, permKey: "canManageItems" },

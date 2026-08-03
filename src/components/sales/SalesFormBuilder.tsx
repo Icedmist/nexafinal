@@ -12,13 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useItems } from "@/hooks/useInventoryData";
-import { useCustomerBalance, useSales, useDebtPayments, useImportedDebts } from "@/hooks/useSalesData";
+import { useCustomerBalance, useSales, useDebtPayments, useImportedDebts, useSalesMutations } from "@/hooks/useSalesData";
 import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
 import { getSaleOutstanding } from "@/lib/credit-sale";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useRole } from "@/hooks/useRole";
-import type { Item, SaleLineItem, SalesForm, FormTransactionType } from "@/types/inventory";
+import type { Item, SaleLineItem, SalesForm, FormTransactionType, SaleTransaction } from "@/types/inventory";
 
 const NAIRA = "₦";
 const PAGE_SIZE = 50;
@@ -67,6 +67,7 @@ const signatureFrom = (form: SalesForm | null, defaultTaxRate: number) =>
     discount: form?.discountAmountNgn ? String(form.discountAmountNgn) : "",
     taxRate: form?.taxRate !== undefined ? String(form.taxRate) : String(defaultTaxRate ?? 0),
     status: form?.status ?? "draft",
+    total: form?.totalNgn ?? 0,
     rows: (form?.items || []).map((li) => [li.itemId, li.itemName, li.sku, li.quantity, li.unitPriceNgn]),
   });
 
@@ -87,6 +88,7 @@ export function SalesFormBuilder({
 
   const { data: forms } = useSalesForms();
   const { saveForm, updateForm, logFormActivity } = useSalesFormMutations();
+  const { addSale } = useSalesMutations();
 
   const [formType, setFormType] = useState<FormTransactionType>(editingForm?.formType ?? "receipt");
   const [customerName, setCustomerName] = useState(editingForm?.customerName ?? "");
@@ -101,6 +103,8 @@ export function SalesFormBuilder({
   const [rows, setRows] = useState<FormRow[]>(() => toRows(editingForm, []));
   const [page, setPage] = useState(0);
   const [saving, setSaving] = useState(false);
+  // Optional manual override for the final total (e.g. rounding, a set price).
+  const [totalOverride, setTotalOverride] = useState<string | null>(null);
   const [isPriceEditingLocked] = useState(profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true);
   const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
 
@@ -109,7 +113,27 @@ export function SalesFormBuilder({
 
   const defaultTaxRate = profile?.storeDetails?.taxRate ?? 0;
 
-  const currentSignature = () =>
+  const subtotal = useMemo(() => rows.reduce((s, r) => s + (r.unitPriceNgn || 0) * (r.quantity || 0), 0), [rows]);
+  const discountAmount = useMemo(() => {
+    const amt = parseFloat(discount) || 0;
+    return Math.min(Math.max(0, amt), subtotal);
+  }, [discount, subtotal]);
+  const taxRateNum = useMemo(() => {
+    const parsed = parseFloat(taxRate);
+    return isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }, [taxRate]);
+  const taxAmount = (subtotal - discountAmount) * (taxRateNum / 100);
+  const total = subtotal - discountAmount + taxAmount;
+  // Manual total override (the cashier can set the printed total directly).
+  const effectiveTotal = (() => {
+    if (totalOverride !== null) {
+      const n = parseFloat(totalOverride);
+      if (!isNaN(n) && n >= 0) return n;
+    }
+    return total;
+  })();
+
+  const currentSignature = (statusOverride?: "draft" | "finalized") =>
     JSON.stringify({
       formType,
       customerName,
@@ -118,7 +142,8 @@ export function SalesFormBuilder({
       notes,
       discount,
       taxRate,
-      status,
+      status: statusOverride ?? status,
+      total: effectiveTotal,
       rows: rows.map((r) => [r.itemId, r.itemName, r.sku, r.quantity, r.unitPriceNgn]),
     });
   const savedSignatureRef = useRef<string>(signatureFrom(editingForm, defaultTaxRate));
@@ -244,18 +269,6 @@ export function SalesFormBuilder({
     setRowSearch((prev) => ({ ...prev, [key]: "" }));
   };
 
-  const subtotal = useMemo(() => rows.reduce((s, r) => s + (r.unitPriceNgn || 0) * (r.quantity || 0), 0), [rows]);
-  const discountAmount = useMemo(() => {
-    const amt = parseFloat(discount) || 0;
-    return Math.min(Math.max(0, amt), subtotal);
-  }, [discount, subtotal]);
-  const taxRateNum = useMemo(() => {
-    const parsed = parseFloat(taxRate);
-    return isNaN(parsed) ? 0 : Math.max(0, parsed);
-  }, [taxRate]);
-  const taxAmount = (subtotal - discountAmount) * (taxRateNum / 100);
-  const total = subtotal - discountAmount + taxAmount;
-
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -296,7 +309,7 @@ export function SalesFormBuilder({
     return null;
   };
 
-  const buildBase = (formNumber: string) => {
+  const buildBase = (formNumber: string, formStatus: "draft" | "finalized" = status) => {
     const itemsList: SaleLineItem[] = rows.map((r) => ({
       itemId: r.itemId,
       itemName: r.itemName,
@@ -315,14 +328,17 @@ export function SalesFormBuilder({
       discountAmountNgn: discountAmount > 0 ? discountAmount : undefined,
       taxRate: taxRateNum > 0 ? taxRateNum : undefined,
       taxAmountNgn: taxAmount > 0 ? taxAmount : undefined,
-      totalNgn: total,
+      totalNgn: effectiveTotal,
       notes: notes.trim() || undefined,
-      status,
+      status: formStatus,
     };
   };
 
   /** Persist the current form (create if `target` is null, else update in place). */
-  const persist = async (target: SalesForm | null): Promise<SalesForm | null> => {
+  const persist = async (
+    target: SalesForm | null,
+    formStatus: "draft" | "finalized" = status
+  ): Promise<SalesForm | null> => {
     const err = validate();
     if (err) {
       toast.error(err);
@@ -332,15 +348,15 @@ export function SalesFormBuilder({
     try {
       let saved: SalesForm;
       if (target) {
-        const base = buildBase(target.formNumber);
+        const base = buildBase(target.formNumber, formStatus);
         await updateForm(target.id, base);
         saved = { ...target, ...base, updatedAt: new Date().toISOString() };
       } else {
-        const base = buildBase(nextFormNumber(forms, formType));
+        const base = buildBase(nextFormNumber(forms, formType), formStatus);
         saved = await saveForm(base as Omit<SalesForm, "id" | "storeId" | "branchId" | "recordedBy" | "recordedByName" | "createdAt" | "updatedAt">);
       }
       await logFormActivity(target ? "updated" : "created", saved);
-      savedSignatureRef.current = currentSignature();
+      savedSignatureRef.current = currentSignature(formStatus);
       return saved;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save form");
@@ -361,6 +377,7 @@ export function SalesFormBuilder({
     setTaxRate(form?.taxRate !== undefined ? String(form.taxRate) : String(defaultTaxRate));
     setStatus(form?.status ?? "draft");
     setRows(toRows(form, []));
+    setTotalOverride(null);
     setPage(0);
     setRowSearch({});
     setOpenSuggestions(null);
@@ -384,11 +401,54 @@ export function SalesFormBuilder({
     loadForm(form);
   };
 
+  /** Build a `sales` document from a finalized form (records + deducts stock). */
+  const buildSaleFromForm = (form: SalesForm): Omit<SaleTransaction, "id"> => ({
+    customerName: form.customerName,
+    customerPhone: form.customerPhone,
+    customerEmail: form.customerEmail,
+    items: form.items,
+    totalNgn: form.totalNgn,
+    subtotalNgn: form.subtotalNgn,
+    discountAmountNgn: form.discountAmountNgn,
+    taxAmountNgn: form.taxAmountNgn,
+    taxRate: form.taxRate,
+    amountPaidNgn: form.totalNgn,
+    changeGivenNgn: 0,
+    remainingBalanceNgn: 0,
+    paymentStatus: "paid",
+    paymentMethod: "cash",
+    isCreditSale: false,
+    saleType: "retail",
+    status: "completed",
+    createdAt: new Date().toISOString(),
+  });
+
   const handleSave = async (finalize: boolean) => {
-    const saved = await persist(activeForm);
+    if (finalize && rows.some((r) => !r.itemId?.trim())) {
+      toast.error("Every line item must be selected from the catalog to finalize — stock is deducted from catalog products.");
+      return;
+    }
+    const nextStatus = finalize ? "finalized" : status;
+    const saved = await persist(activeForm, nextStatus);
     if (!saved) return;
+    setStatus(nextStatus);
     if (finalize) {
-      toast.success(`Form ${saved.formNumber} finalized`);
+      if (saved.saleId) {
+        toast.info(`Form ${saved.formNumber} is already finalized and recorded.`);
+        onSaved(saved);
+        return;
+      }
+      try {
+        const saleRef = await addSale(buildSaleFromForm(saved));
+        const saleId = saleRef?.id;
+        if (saleId) {
+          await updateForm(saved.id, { saleId });
+          saved.saleId = saleId;
+        }
+        toast.success(`Form ${saved.formNumber} finalized — recorded as sale & stock deducted`);
+      } catch (err) {
+        toast.error(`Form saved as finalized, but recording the sale failed: ${err instanceof Error ? err.message : "unknown error"}`);
+      }
       onSaved(saved);
     } else {
       setActiveForm(saved);
@@ -397,6 +457,10 @@ export function SalesFormBuilder({
   };
 
   const handleDownloadPdf = async () => {
+    if (status !== "finalized") {
+      toast.error("Only finalized receipts can be printed. Finalize the form first.");
+      return;
+    }
     const err = validate();
     if (err) {
       toast.error(err);
@@ -415,6 +479,8 @@ export function SalesFormBuilder({
     const taxLabel = taxRateNum > 0 ? `VAT ${taxRateNum}%` : "No VAT";
 
     const typeLabel = FORM_TYPES.find((t) => t.id === formType)?.label || "Form";
+    const completed = status === "finalized";
+    const statusLabel = completed ? "COMPLETED" : "DRAFT";
 
     // Header
     doc.setFillColor(13, 27, 42);
@@ -436,9 +502,18 @@ export function SalesFormBuilder({
     doc.setTextColor(255);
     doc.text(`# ${activeForm?.formNumber || nextFormNumber(forms, formType)}`, w - margin, 12, { align: "right" });
     doc.text(new Date().toLocaleDateString("en-NG"), w - margin, 18, { align: "right" });
-    doc.text(`Type: ${typeLabel}`, w - margin, 26, { align: "right" });
+    doc.text(`Type: ${typeLabel} • ${statusLabel}`, w - margin, 26, { align: "right" });
 
-    y = 38;
+    // Status banner
+    doc.setFillColor(completed ? 6 : 180, completed ? 150 : 140, completed ? 84 : 30);
+    doc.rect(margin, 31.5, contentWidth, 6, "F");
+    doc.setTextColor(255);
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.text(completed ? "TRANSACTION COMPLETED" : "DRAFT — NOT YET COMPLETED", w / 2, 36, { align: "center" });
+    doc.setTextColor(20);
+
+    y = 43;
 
     // Customer block
     doc.setTextColor(20);
@@ -519,7 +594,7 @@ export function SalesFormBuilder({
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("TOTAL", margin + contentWidth - 60, y);
-    doc.text(NAIRA + total.toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
+    doc.text(NAIRA + effectiveTotal.toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
     y += 8;
 
     if (notes.trim()) {
@@ -530,7 +605,7 @@ export function SalesFormBuilder({
     }
 
     // Footer
-    y = 280;
+    y = 276;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(120);
@@ -540,7 +615,12 @@ export function SalesFormBuilder({
       y,
       { align: "center" }
     );
-    doc.text("This is a " + typeLabel.toLowerCase() + " document. Thank you!", w / 2, y + 4, { align: "center" });
+    doc.text(
+      `Status: ${statusLabel}  •  Recorded by: ${user?.displayName || user?.email?.split("@")[0] || "Staff"}  •  ${typeLabel.toLowerCase()} document. Thank you!`,
+      w / 2,
+      y + 4,
+      { align: "center" }
+    );
 
     doc.save(`${activeForm?.formNumber || nextFormNumber(forms, formType)}-${formType.toUpperCase()}.pdf`);
     toast.success("PDF downloaded");
@@ -562,6 +642,13 @@ export function SalesFormBuilder({
             <h1 className="text-lg font-semibold flex items-center gap-2">
               <FileText className={cn("h-5 w-5", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
               {activeForm ? `Editing ${activeForm.formNumber}` : "New Sales Form / Receipt"}
+              {status === "finalized" ? (
+                <Badge className="gap-1 text-[10px] bg-emerald-600 hover:bg-emerald-600">
+                  <CheckCircle2 className="h-3 w-3" /> Completed
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px]">Draft</Badge>
+              )}
               {dirty && <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40">unsaved</Badge>}
             </h1>
             <p className="text-xs text-muted-foreground">
@@ -588,7 +675,14 @@ export function SalesFormBuilder({
             <Button variant="outline" size="sm" onClick={onExit} className="gap-1.5">
               <X className="h-3.5 w-3.5" /> Back
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadPdf} className="gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={status !== "finalized"}
+              title={status === "finalized" ? "Download PDF" : "Only finalized receipts can be printed. Finalize the form first."}
+              className="gap-1.5"
+            >
               <FileDown className="h-3.5 w-3.5" /> Download PDF
             </Button>
             <Button variant="outline" size="sm" onClick={() => handleSave(false)} disabled={saving} className="gap-1.5">
@@ -719,9 +813,25 @@ export function SalesFormBuilder({
               <Input type="number" min="0" max="100" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} placeholder="0" className="h-8 font-mono text-xs" />
             </div>
             <Separator />
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold">Total</span>
-              <span className="font-mono font-black text-base">{NAIRA}{total.toLocaleString("en-NG")}</span>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Total ({NAIRA}) — overrides calculation</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={totalOverride !== null ? totalOverride : String(Math.round(effectiveTotal))}
+                onChange={(e) => setTotalOverride(e.target.value)}
+                placeholder={String(Math.round(effectiveTotal))}
+                className="h-9 font-mono text-right font-bold text-sm"
+              />
+              {totalOverride !== null && (
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>Auto: {NAIRA}{total.toLocaleString("en-NG")}</span>
+                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setTotalOverride(null)}>
+                    Reset to auto
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="text-[10px] text-muted-foreground italic">
               VAT: +{NAIRA}{taxAmount.toLocaleString("en-NG")} • {rows.length} line item{rows.length !== 1 ? "s" : ""}

@@ -122,6 +122,7 @@ export function useSalesFormMutations() {
       totalNgn: data.totalNgn,
       notes: data.notes ?? null,
       status: data.status,
+      saleId: data.saleId ?? null,
       recordedBy: data.recordedBy,
       recordedByName: data.recordedByName,
       createdAt: data.createdAt,
