@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocFromCache, updateDoc, runTransaction } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, increment, setDoc, getDoc, getDocs, getDocFromCache, updateDoc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -10,6 +10,7 @@ import { MovementType } from "@/types/inventory";
 import { isAdminRole } from "@/lib/roles";
 import { notifyActivity, notifyInventoryAlert } from "@/lib/notification-service";
 import { cleanFirestoreData } from "@/utils/cleanFirestoreData";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 
 interface QueryResult<T> {
   data: T;
@@ -497,12 +498,17 @@ export function useSalesMutations() {
     customerName: string; 
     amountNgn: number; 
     notes?: string;
+    paymentMethod?: string;
   }) => {
     if (!user || !storeId) throw new Error("Authentication required");
     
     const paymentRef = doc(collection(db, "debt_payments"));
     const paymentData = {
-      ...payment,
+      customerPhone: payment.customerPhone,
+      customerName: payment.customerName,
+      amountNgn: payment.amountNgn,
+      ...(payment.notes ? { notes: payment.notes } : {}),
+      ...(payment.paymentMethod ? { paymentMethod: payment.paymentMethod } : {}),
       storeId,
       // Normalize branchId to match queries (non-admin listeners expect "none" when no branch)
       branchId: effectiveBranch || "none",
@@ -587,6 +593,9 @@ export function useSalesMutations() {
     customerName?: string;
     deltaNgn: number;
     type: CreditTopup["type"];
+    method?: CreditTopup["method"];
+    topupTotalNgn?: number;
+    debtClearedNgn?: number;
     branchId?: string | null;
     saleId?: string;
     notes?: string;
@@ -594,12 +603,12 @@ export function useSalesMutations() {
     if (!user || !storeId) throw new Error("Authentication required");
     const phone = args.customerPhone?.trim();
     if (!phone || phone.length < 6) throw new Error("A valid customer phone number is required.");
-    if (!args.deltaNgn) return;
+    if (!args.deltaNgn && !args.debtClearedNgn) return;
 
     const balanceKey = `${storeId}_${phone}`;
     const balanceRef = doc(db, "customer_credits", balanceKey);
     const ledgerRef = doc(collection(db, "credit_topups"));
-    const branchId = canJumpBranch ? effectiveBranchId : (claims?.branchId ?? null);
+    const branchId = args.branchId !== undefined ? args.branchId : (canJumpBranch ? effectiveBranchId : (claims?.branchId ?? null));
     const now = new Date().toISOString();
     const loggedByName = user.displayName || user.email?.split("@")[0] || "Staff";
 
@@ -609,21 +618,23 @@ export function useSalesMutations() {
       const next = current + args.deltaNgn;
       const final = Math.max(0, next);
 
-      if (snap.exists()) {
-        tx.update(balanceRef, {
-          balanceNgn: final,
-          customerName: args.customerName?.trim() || snap.data().customerName || "",
-          storeId,
-          updatedAt: now,
-        });
-      } else {
-        tx.set(balanceRef, {
-          customerPhone: phone,
-          customerName: args.customerName?.trim() || "Customer",
-          balanceNgn: final,
-          storeId,
-          updatedAt: now,
-        });
+      if (args.deltaNgn !== 0) {
+        if (snap.exists()) {
+          tx.update(balanceRef, {
+            balanceNgn: final,
+            customerName: args.customerName?.trim() || snap.data().customerName || "",
+            storeId,
+            updatedAt: now,
+          });
+        } else {
+          tx.set(balanceRef, {
+            customerPhone: phone,
+            customerName: args.customerName?.trim() || "Customer",
+            balanceNgn: final,
+            storeId,
+            updatedAt: now,
+          });
+        }
       }
 
       tx.set(ledgerRef, {
@@ -631,6 +642,9 @@ export function useSalesMutations() {
         customerName: args.customerName?.trim() || "Customer",
         amountNgn: args.deltaNgn,
         type: args.type,
+        method: args.method || null,
+        topupTotalNgn: args.topupTotalNgn ?? null,
+        debtClearedNgn: args.debtClearedNgn ?? null,
         storeId,
         branchId,
         saleId: args.saleId || null,
@@ -644,20 +658,68 @@ export function useSalesMutations() {
     return balanceRef.id;
   };
 
-  /** Customer tops up their wallet (money given to the store ahead of time). */
+  /**
+   * Customer tops up their wallet (money given to the store ahead of time).
+   * Any existing debt is cleared first: the top-up pays down the customer's
+   * outstanding balance before the remainder becomes spendable credit. Returns
+   * how much was applied to credit and how much cleared the debt.
+   */
   const topUpCustomerCredit = async (args: {
     customerPhone: string;
     customerName?: string;
     amountNgn: number;
     notes?: string;
-  }) => {
-    return adjustCustomerCredit({
-      customerPhone: args.customerPhone,
+  }): Promise<{ appliedToCredit: number; clearedDebt: number }> => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    const phone = args.customerPhone?.trim();
+    if (!phone || phone.length < 6) throw new Error("A valid customer phone number is required.");
+    const amount = Math.abs(Number(args.amountNgn) || 0);
+    if (amount <= 0) throw new Error("A top-up amount greater than zero is required.");
+
+    // Outstanding debt = unpaid credit sales + opening debts − payments received.
+    let debt = 0;
+    const salesSnap = await getDocs(
+      query(collection(db, "sales"), where("storeId", "==", storeId), where("customerPhone", "==", phone))
+    );
+    salesSnap.forEach((d) => {
+      const s = d.data() as SaleTransaction;
+      if (s.isCreditSale) debt += getSaleOutstanding(s);
+    });
+    const debtsSnap = await getDocs(
+      query(collection(db, "debt_records"), where("storeId", "==", storeId), where("customerPhone", "==", phone))
+    );
+    debtsSnap.forEach((d) => { debt += Number(d.data().amountNgn) || 0; });
+    const paySnap = await getDocs(
+      query(collection(db, "debt_payments"), where("storeId", "==", storeId), where("customerPhone", "==", phone))
+    );
+    paySnap.forEach((d) => { debt -= Number(d.data().amountNgn) || 0; });
+
+    const outstanding = Math.max(0, debt);
+    const clearedDebt = Math.min(amount, outstanding);
+    const toCredit = amount - clearedDebt;
+
+    if (clearedDebt > 0) {
+      await recordDebtPayment({
+        customerPhone: phone,
+        customerName: args.customerName?.trim() || "Customer",
+        amountNgn: clearedDebt,
+        paymentMethod: "store_credit",
+        notes: args.notes ? `Cleared by store credit top-up: ${args.notes}` : "Cleared by store credit top-up",
+      });
+    }
+
+    await adjustCustomerCredit({
+      customerPhone: phone,
       customerName: args.customerName,
-      deltaNgn: Math.abs(Number(args.amountNgn) || 0),
+      deltaNgn: toCredit,
       type: "topup",
+      method: "manual",
+      topupTotalNgn: amount,
+      debtClearedNgn: clearedDebt,
       notes: args.notes,
     });
+
+    return { appliedToCredit: toCredit, clearedDebt };
   };
 
   /**
@@ -699,6 +761,7 @@ export function useSalesMutations() {
         customerName: args.customerName?.trim() || "Customer",
         amountNgn: -applied,
         type: "sale_deduction",
+        method: "sale_deduction",
         storeId,
         branchId,
         saleId: args.saleId,
@@ -727,6 +790,7 @@ export function useSalesMutations() {
       customerName: args.customerName,
       deltaNgn: Math.abs(Number(args.amountNgn) || 0),
       type: "overpay_credit",
+      method: "overpay",
       saleId: args.saleId,
       notes: `Overpayment parked to credit from sale ${args.saleId}`,
     });

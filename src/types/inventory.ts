@@ -473,6 +473,8 @@ export interface DebtPayment {
   branchId: string | null;
   createdAt: string;
   notes?: string;
+  /** How the payment was received (e.g. cash, transfer, store_credit). */
+  paymentMethod?: string;
 }
 
 /**
@@ -500,6 +502,12 @@ export interface CreditTopup {
   /** Signed: positive = money added, negative = deducted by a sale/withdrawal. */
   amountNgn: number;
   type: "topup" | "sale_deduction" | "overpay_credit" | "adjustment";
+  /** How the credit was created: manual top-up or excess parked from a sale overpay. */
+  method?: "manual" | "overpay" | "sale_deduction" | "adjustment";
+  /** Full amount of a manual top-up (before any debt was cleared). */
+  topupTotalNgn?: number;
+  /** Portion of a manual top-up applied to clear the customer's existing debt. */
+  debtClearedNgn?: number;
   storeId: string;
   branchId: string | null;
   saleId?: string;

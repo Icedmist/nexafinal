@@ -105,6 +105,30 @@
         { "fieldPath": "storeId", "order": "ASCENDING" },
         { "fieldPath": "customerPhone", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "storeId", "order": "ASCENDING" },
+        { "fieldPath": "customerPhone", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "debt_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "storeId", "order": "ASCENDING" },
+        { "fieldPath": "customerPhone", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "debt_payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "storeId", "order": "ASCENDING" },
+        { "fieldPath": "customerPhone", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
