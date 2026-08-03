@@ -9,14 +9,16 @@ import tailwindcss from "@tailwindcss/vite";
 //
 // A PWA-style service worker is emitted at build time. It precaches only the
 // JavaScript/CSS chunks required by the enabled routes (dashboard, sales,
-// catalog) plus their shared dependencies. Offline navigation is limited to
-// those three pages — every other route is served a "not available offline"
-// response when the network is down.
+// catalog, forms, store-credits) plus their shared dependencies. Offline
+// navigation is limited to those pages — every other route is served a
+// "not available offline" response when the network is down.
 // ---------------------------------------------------------------------------
 const ENABLED_ROUTE_FILES = [
   /src\/routes\/app\.dashboard\.tsx$/,
   /src\/routes\/app\.sales\.tsx$/,
   /src\/routes\/app\.catalog\.tsx$/,
+  /src\/routes\/app\.forms\.tsx$/,
+  /src\/routes\/app\.store-credits\.tsx$/,
 ];
 
 const SW_TEMPLATE = `
@@ -24,7 +26,7 @@ const SW_TEMPLATE = `
 const CACHE = "__NEXA_CACHE_VERSION__";
 const PRECACHE = __NEXA_PRECACHE__;
 
-const ENABLED_PAGES = new Set(["/app/sales", "/app/dashboard", "/app/catalog"]);
+const ENABLED_PAGES = new Set(["/app/sales", "/app/dashboard", "/app/catalog", "/app/forms", "/app/store-credits"]);
 const NAVIGATION_URL = "/";
 const STATIC_RE = /\\.(js|css|woff2?|svg|png|jpe?g|webp|gif|ico|webmanifest)$/;
 const STATIC_PREFIXES = ["/assets/"];
@@ -64,7 +66,7 @@ function notAvailableOffline() {
     "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Not available offline</title></head>" +
     "<body style='font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0;background:#0b0b10;color:#f5f5f4'>" +
     "<div style='text-align:center;padding:24px'><h1 style='margin:0 0 8px'>Not available offline</h1>" +
-    "<p style='margin:0;color:#a1a1aa'>Only Sales, Dashboard and Catalog are enabled for offline use.</p></div></body></html>",
+    "<p style='margin:0;color:#a1a1aa'>Only Sales, Dashboard, Catalog, Forms and Store Credits are enabled for offline use.</p></div></body></html>",
     { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } }
   );
 }

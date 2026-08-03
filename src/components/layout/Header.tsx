@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Plus, Menu, User, LogOut, Settings, ChevronDown, ScanBarcode, Wifi, WifiOff, Building2 } from "lucide-react";
+import { Search, Plus, Menu, User, LogOut, Settings, ChevronDown, ScanBarcode, Wifi, WifiOff, Building2, Loader2 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useStoreBranches } from "@/hooks/useStaffData";
+import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -95,32 +96,30 @@ export function Header({ sidebarCollapsed = false, onToggleSidebar }: { sidebarC
     fetchAllStores();
   }, [isSystemAdmin]);
 
-  // Safe connectivity indicator — reads browser online/offline state only.
+  // Safe connectivity indicator — reads browser online/offline state and uses
+  // Firestore's waitForPendingWrites to detect when queued writes finish syncing.
   // IMPORTANT: We do NOT call Firestore disableNetwork()/enableNetwork() here
-  // because those APIs trigger the known firebase-js-sdk #9172 WebChannel
-  // race condition that causes "Unexpected state (ID: ca9)" assertion failures.
-  const [isOfflineMode, setIsOfflineMode] = useState(() => {
-    return typeof navigator !== "undefined" ? !navigator.onLine : false;
-  });
+  // because those APIs trigger the known firebase-js-sdk #9172 WebChannel race
+  // condition that causes "Unexpected state (ID: ca9)" assertion failures.
+  const { status: offlineStatus } = useOfflineStatus();
 
+  const prevStatusRef = useRef(offlineStatus);
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOfflineMode(false);
-      toast.success("Internet connection restored! Synced with database.");
-    };
-    
-    const handleOffline = () => {
-      setIsOfflineMode(true);
-      toast.warning("No internet connection detected. Operating in Offline Mode.");
-    };
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = offlineStatus;
+    if (prev === offlineStatus) return;
+    if (offlineStatus === "offline") {
+      toast.warning("No internet — changes are saved on this device and will sync when you're back online.");
+      return;
+    }
+    if (offlineStatus === "syncing") {
+      toast.success("Internet restored — syncing your changes…");
+      return;
+    }
+    if (offlineStatus === "online" && prev === "syncing") {
+      toast.success("All changes synced with the database.");
+    }
+  }, [offlineStatus]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -235,15 +234,22 @@ export function Header({ sidebarCollapsed = false, onToggleSidebar }: { sidebarC
           <div 
             className={cn(
               "h-10 px-3 gap-2 rounded-xl flex items-center transition-all duration-300 text-xs font-black uppercase tracking-widest border cursor-default",
-              isOfflineMode 
+              offlineStatus === "offline"
                 ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                : offlineStatus === "syncing"
+                  ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
             )}
           >
-            {isOfflineMode ? (
+            {offlineStatus === "offline" ? (
               <>
                 <WifiOff className="h-4 w-4 text-amber-400 animate-pulse" />
                 <span className="hidden sm:inline">Offline</span>
+              </>
+            ) : offlineStatus === "syncing" ? (
+              <>
+                <Loader2 className="h-4 w-4 text-sky-400 animate-spin" />
+                <span className="hidden sm:inline">Syncing…</span>
               </>
             ) : (
               <>

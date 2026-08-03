@@ -21,6 +21,7 @@ import { NotificationPermissionPrompt } from "@/components/notifications/Notific
 import { AIAssistantWidget } from "@/components/layout/AIAssistantWidget";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import { SubscriptionWarningBanner } from "@/components/layout/SubscriptionWarningBanner";
+import { OfflineBanner } from "@/components/offline/OfflineBanner";
 import { useDemo } from "@/hooks/useDemo";
 import { MemberOnboarding } from "@/components/onboarding/MemberOnboarding";
 import { useStaff, useStaffMutations } from "@/hooks/useStaffData";
@@ -262,6 +263,7 @@ export function AppLayout() {
               </div>
             )}
             <Header sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed((v) => !v)} />
+            <OfflineBanner />
             <SubscriptionWarningBanner />
             <main className={cn(
               "flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8",
