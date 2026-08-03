@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus, Minus, Trash2, FileDown, Save, Search, User, Phone, Users,
   Wallet, AlertTriangle, Printer, Copy, FileText, ShoppingCart, X, CheckCircle2,
@@ -153,6 +154,11 @@ export function SalesFormBuilder({
   const [rowSearch, setRowSearch] = useState<Record<string, string>>({});
   const [openSuggestions, setOpenSuggestions] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  // The suggestions render through a portal (the table sits inside overflow
+  // containers that would otherwise clip the dropdown), so we track the input's
+  // position in the viewport and follow it while scrolling.
+  const suggestionListRef = useRef<HTMLDivElement>(null);
+  const [suggestionPos, setSuggestionPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Existing-customer recognition in the customer fields
   const [customerOpen, setCustomerOpen] = useState(false);
@@ -284,10 +290,14 @@ export function SalesFormBuilder({
       .slice(0, 8);
   };
 
+  const openSuggs = openSuggestions ? suggestionsFor(openSuggestions) : [];
+
   // Close suggestions when clicking outside
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      const inSearch = searchRef.current && searchRef.current.contains(e.target as Node);
+      const inSuggestions = suggestionListRef.current && suggestionListRef.current.contains(e.target as Node);
+      if (!inSearch && !inSuggestions) {
         setOpenSuggestions(null);
       }
       if (customerRef.current && !customerRef.current.contains(e.target as Node)) {
@@ -297,6 +307,27 @@ export function SalesFormBuilder({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  // Track the active row's input position so the portal dropdown follows it.
+  useEffect(() => {
+    if (!openSuggestions) {
+      setSuggestionPos(null);
+      return;
+    }
+    const update = () => {
+      const el = searchRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setSuggestionPos({ top: rect.bottom, left: rect.left, width: rect.width });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [openSuggestions]);
 
   const validate = (): string | null => {
     if (rows.length === 0) return "Add at least one line item.";
@@ -874,7 +905,6 @@ export function SalesFormBuilder({
                 )}
                 {pageRows.map((r, idx) => {
                   const globalIdx = page * PAGE_SIZE + idx;
-                  const sugg = suggestionsFor(r.key);
                   return (
                     <tr key={r.key} className="border-b border-border/40 last:border-0">
                       <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{globalIdx + 1}</td>
@@ -900,9 +930,9 @@ export function SalesFormBuilder({
                             placeholder="Search product by name / SKU…"
                             className="pl-8 h-9 text-xs"
                           />
-                          {openSuggestions === r.key && sugg.length > 0 && (
+                          {openSuggestions === r.key && openSuggs.length > 0 && (
                             <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg p-1 max-h-56 overflow-y-auto">
-                              {sugg.map((s) => (
+                              {openSuggs.map((s) => (
                                 <button
                                   key={s.id}
                                   type="button"
@@ -984,6 +1014,29 @@ export function SalesFormBuilder({
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Payment terms, delivery instructions…" className="h-9" />
         </div>
       </div>
+
+      {/* Product suggestions render through a portal so the overflow containers
+          around the line-item table can't clip the dropdown. */}
+      {openSuggs.length > 0 && suggestionPos && createPortal(
+        <div
+          ref={suggestionListRef}
+          className="fixed z-50 mt-1 rounded-lg border border-border bg-card shadow-lg p-1 max-h-56 overflow-y-auto"
+          style={{ top: suggestionPos.top, left: suggestionPos.left, width: suggestionPos.width }}
+        >
+          {openSuggs.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => (openSuggestions ? pickItem(openSuggestions, s) : undefined)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
+            >
+              <span className="font-medium truncate flex-1">{s.name}</span>
+              <span className="font-mono text-muted-foreground shrink-0">{NAIRA}{s.sellingPrice?.toLocaleString("en-NG")}</span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
