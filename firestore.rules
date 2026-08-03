@@ -214,7 +214,8 @@ service cloud.firestore {
         (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
         isAdmin()
       );
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // SALES FORMS / RECEIPTS: saved line-item documents (receipts, proforma

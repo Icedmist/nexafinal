@@ -18,7 +18,8 @@ import {
   MapPin,
   Globe,
   Map,
-  Trash2
+  Trash2,
+  Eraser
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ const systemAdminLinks: NavItem[] = [
   { label: "Categories", href: "/system-admin/categories", icon: PieChart },
   { label: "Attribution", href: "/system-admin/attribution", icon: Globe },
   { label: "Operations", href: "/system-admin/operations", icon: MapPin },
+  { label: "Data Wipe", href: "/system-admin/wipe", icon: Eraser },
   { label: "Store Map", href: "/system-admin/map", icon: Map },
 ];
 

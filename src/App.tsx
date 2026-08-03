@@ -64,6 +64,7 @@ const SystemDrugLibraryPage = lazy(() => import('./routes/system-admin.drug-libr
 const SystemCategoriesPage = lazy(() => import('./routes/system-admin.categories'));
 const SystemAttributionPage = lazy(() => import('./routes/system-admin.attribution'));
 const SystemOperationsPage = lazy(() => import('./routes/system-admin.operations'));
+const SystemWipePage = lazy(() => import('./routes/system-admin.wipe'));
 const SystemMapPage = lazy(() => import('./routes/system-admin.map'));
 
 
@@ -156,6 +157,7 @@ function App() {
               <Route path="categories" element={<SystemCategoriesPage />} />
               <Route path="attribution" element={<SystemAttributionPage />} />
               <Route path="operations" element={<SystemOperationsPage />} />
+              <Route path="wipe" element={<SystemWipePage />} />
               <Route path="map" element={<SystemMapPage />} />
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>
