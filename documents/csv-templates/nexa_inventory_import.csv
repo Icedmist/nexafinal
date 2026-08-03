@@ -1,0 +1,6 @@
+Name,SKU,Description,Category,Supplier,Location,Quantity,Reorder Point,Unit,Unit Cost,Retail Price,Wholesale Price,Barcode
+"Indomie Chicken Noodle 70g",IDM-0701,"Instant chicken noodles","Groceries","Dufil Prima Foods","Main Branch",150,40,pack,120,180,160,615100012345
+"Golden Penny Sugar 500g",GPS-0501,"Refined white granulated sugar","Provisions","Flour Mills of Nigeria","Bodija Branch",60,15,pack,900,1100,1000,615100022345
+"Peak Full Cream Milk 350g",PKM-0350,"Evaporated milk tin","Provisions","FrieslandCampina","Dugbe Branch",45,10,tin,2100,2400,2250,615100032345
+"Indomie Instant Noodles 70g",IDM-1002,"Chicken flavour","Groceries","Dufil Prima Foods","Main Branch",200,30,pack,110,170,160,615100042345
+"Blue Band Margarine 240g",BLU-0240,"Soft spread margarine jar","Provisions","PZ Cussons Nigeria","Apapa Branch",60,12,jar,400,800,750,615100052345
