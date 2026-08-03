@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useItems } from "@/hooks/useInventoryData";
-import { useCustomerBalance, useSales, useDebtPayments } from "@/hooks/useSalesData";
+import { useCustomerBalance, useSales, useDebtPayments, useImportedDebts } from "@/hooks/useSalesData";
 import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
 import { getSaleOutstanding } from "@/lib/credit-sale";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -55,6 +56,20 @@ function toRows(form: SalesForm | null, fallback: FormRow[]): FormRow[] {
   }));
 }
 
+/** Stable "clean" signature of a saved form, used to detect unsaved edits. */
+const signatureFrom = (form: SalesForm | null, defaultTaxRate: number) =>
+  JSON.stringify({
+    formType: form?.formType ?? "receipt",
+    customerName: form?.customerName ?? "",
+    customerPhone: form?.customerPhone ?? "",
+    customerEmail: form?.customerEmail ?? "",
+    notes: form?.notes ?? "",
+    discount: form?.discountAmountNgn ? String(form.discountAmountNgn) : "",
+    taxRate: form?.taxRate !== undefined ? String(form.taxRate) : String(defaultTaxRate ?? 0),
+    status: form?.status ?? "draft",
+    rows: (form?.items || []).map((li) => [li.itemId, li.itemName, li.sku, li.quantity, li.unitPriceNgn]),
+  });
+
 export function SalesFormBuilder({
   editingForm,
   onSaved,
@@ -89,14 +104,39 @@ export function SalesFormBuilder({
   const [isPriceEditingLocked] = useState(profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true);
   const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
 
+  // The form currently being edited (allows switching between saved forms).
+  const [activeForm, setActiveForm] = useState<SalesForm | null>(editingForm);
+
+  const defaultTaxRate = profile?.storeDetails?.taxRate ?? 0;
+
+  const currentSignature = () =>
+    JSON.stringify({
+      formType,
+      customerName,
+      customerPhone,
+      customerEmail,
+      notes,
+      discount,
+      taxRate,
+      status,
+      rows: rows.map((r) => [r.itemId, r.itemName, r.sku, r.quantity, r.unitPriceNgn]),
+    });
+  const savedSignatureRef = useRef<string>(signatureFrom(editingForm, defaultTaxRate));
+  const dirty = currentSignature() !== savedSignatureRef.current;
+
   // Live per-row product autocomplete
   const [rowSearch, setRowSearch] = useState<Record<string, string>>({});
   const [openSuggestions, setOpenSuggestions] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  // Existing-customer recognition in the customer fields
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const customerRef = useRef<HTMLDivElement>(null);
+
   const { balance: customerCredit } = useCustomerBalance(customerPhone?.trim() || null);
   const { data: sales = [] } = useSales();
   const { data: payments = [] } = useDebtPayments();
+  const { data: importedDebts = [] } = useImportedDebts();
 
   const customerBalanceInfo: CustomerBalanceInfo = useMemo(() => {
     const qPhone = customerPhone.trim();
@@ -112,6 +152,58 @@ export function SalesFormBuilder({
     })();
     return { credit: customerCredit, debit };
   }, [customerPhone, customerCredit, sales, payments]);
+
+  // Every known customer (from sales, debt payments, and imported debtors),
+  // keyed by phone so a returning customer is recognised when typing a name.
+  const customersList = useMemo(() => {
+    const map = new Map<string, { name: string; phone: string; email?: string; createdAt?: string }>();
+    const add = (phone: string | null | undefined, name: string | null | undefined, email?: string | null | undefined, createdAt?: string) => {
+      const p = phone?.trim();
+      if (!p) return;
+      const n = name?.trim() || "Customer";
+      const existing = map.get(p);
+      if (!existing || (createdAt && (!existing.createdAt || createdAt > existing.createdAt))) {
+        map.set(p, { name: n, phone: p, email: email || undefined, createdAt });
+      }
+    };
+    for (const s of sales) add(s.customerPhone, s.customerName, s.customerEmail, s.createdAt);
+    for (const p of payments) add(p.customerPhone, p.customerName, undefined, p.createdAt);
+    for (const d of importedDebts) add(d.customerPhone, d.customerName, undefined, d.createdAt);
+    return Array.from(map.values());
+  }, [sales, payments, importedDebts]);
+
+  const customerSuggestions = useMemo(() => {
+    const qPhone = customerPhone.trim().toLowerCase();
+    const qName = customerName.trim().toLowerCase();
+    if (!qPhone && !qName) return [];
+    const exact = customersList.find(
+      (c) => c.phone === customerPhone.trim() && c.name === customerName.trim()
+    );
+    return customersList
+      .filter((c) => {
+        const matchPhone = qPhone && c.phone.toLowerCase().includes(qPhone);
+        const matchName = qName && c.name.toLowerCase().includes(qName);
+        return (matchPhone || matchName) && c !== exact;
+      })
+      .slice(0, 8);
+  }, [customersList, customerPhone, customerName]);
+
+  const handleCustomerPick = (c: { name: string; phone: string; email?: string }) => {
+    setCustomerName(c.name);
+    setCustomerPhone(c.phone);
+    setCustomerEmail(c.email || "");
+    setCustomerOpen(false);
+  };
+
+  const handleCustomerPhoneInput = (value: string) => {
+    setCustomerPhone(value);
+    const match = value.trim().length >= 8 ? customersList.find((c) => c.phone === value.trim()) : undefined;
+    if (match) {
+      setCustomerName(match.name);
+      setCustomerEmail(match.email || "");
+    }
+    setCustomerOpen(true);
+  };
 
   const addRow = () => {
     setRows((prev) => [
@@ -185,6 +277,9 @@ export function SalesFormBuilder({
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setOpenSuggestions(null);
       }
+      if (customerRef.current && !customerRef.current.contains(e.target as Node)) {
+        setCustomerOpen(false);
+      }
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
@@ -193,7 +288,7 @@ export function SalesFormBuilder({
   const validate = (): string | null => {
     if (rows.length === 0) return "Add at least one line item.";
     for (const r of rows) {
-      if (!r.itemId) return "Every line must have a product selected.";
+      if (!r.itemName.trim()) return "Every line needs a product name.";
       if (!(r.quantity > 0)) return "Every line needs a quantity greater than zero.";
       if (!(r.unitPriceNgn >= 0)) return "Every line needs a valid unit price.";
     }
@@ -201,52 +296,103 @@ export function SalesFormBuilder({
     return null;
   };
 
-  const handleSave = async (finalize: boolean) => {
+  const buildBase = (formNumber: string) => {
+    const itemsList: SaleLineItem[] = rows.map((r) => ({
+      itemId: r.itemId,
+      itemName: r.itemName,
+      sku: r.sku,
+      quantity: r.quantity,
+      unitPriceNgn: r.unitPriceNgn,
+    }));
+    return {
+      formNumber,
+      formType,
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      customerEmail: customerEmail.trim() || undefined,
+      items: itemsList,
+      subtotalNgn: subtotal,
+      discountAmountNgn: discountAmount > 0 ? discountAmount : undefined,
+      taxRate: taxRateNum > 0 ? taxRateNum : undefined,
+      taxAmountNgn: taxAmount > 0 ? taxAmount : undefined,
+      totalNgn: total,
+      notes: notes.trim() || undefined,
+      status,
+    };
+  };
+
+  /** Persist the current form (create if `target` is null, else update in place). */
+  const persist = async (target: SalesForm | null): Promise<SalesForm | null> => {
     const err = validate();
     if (err) {
       toast.error(err);
-      return;
+      return null;
     }
     setSaving(true);
     try {
-      const itemsList: SaleLineItem[] = rows.map((r) => ({
-        itemId: r.itemId,
-        itemName: r.itemName,
-        sku: r.sku,
-        quantity: r.quantity,
-        unitPriceNgn: r.unitPriceNgn,
-      }));
-
-      const base = {
-        formNumber: editingForm?.formNumber || nextFormNumber(forms, formType),
-        formType,
-        customerName: customerName.trim() || undefined,
-        customerPhone: customerPhone.trim() || undefined,
-        customerEmail: customerEmail.trim() || undefined,
-        items: itemsList,
-        subtotalNgn: subtotal,
-        discountAmountNgn: discountAmount > 0 ? discountAmount : undefined,
-        taxRate: taxRateNum > 0 ? taxRateNum : undefined,
-        taxAmountNgn: taxAmount > 0 ? taxAmount : undefined,
-        totalNgn: total,
-        notes: notes.trim() || undefined,
-        status: (finalize ? "finalized" : "draft") as SalesForm["status"],
-      };
-
       let saved: SalesForm;
-      if (editingForm) {
-        await updateForm(editingForm.id, base);
-        saved = { ...editingForm, ...base, updatedAt: new Date().toISOString() };
+      if (target) {
+        const base = buildBase(target.formNumber);
+        await updateForm(target.id, base);
+        saved = { ...target, ...base, updatedAt: new Date().toISOString() };
       } else {
+        const base = buildBase(nextFormNumber(forms, formType));
         saved = await saveForm(base as Omit<SalesForm, "id" | "storeId" | "branchId" | "recordedBy" | "recordedByName" | "createdAt" | "updatedAt">);
       }
-      await logFormActivity(finalize ? "created" : "updated", saved);
-      toast.success(finalize ? `Form ${saved.formNumber} saved` : `Draft ${saved.formNumber} saved`);
-      onSaved(saved);
+      await logFormActivity(target ? "updated" : "created", saved);
+      savedSignatureRef.current = currentSignature();
+      return saved;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save form");
+      return null;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const loadForm = useCallback((form: SalesForm | null) => {
+    setActiveForm(form);
+    setFormType(form?.formType ?? "receipt");
+    setCustomerName(form?.customerName ?? "");
+    setCustomerPhone(form?.customerPhone ?? "");
+    setCustomerEmail(form?.customerEmail ?? "");
+    setNotes(form?.notes ?? "");
+    setDiscount(form?.discountAmountNgn ? String(form.discountAmountNgn) : "");
+    setTaxRate(form?.taxRate !== undefined ? String(form.taxRate) : String(defaultTaxRate));
+    setStatus(form?.status ?? "draft");
+    setRows(toRows(form, []));
+    setPage(0);
+    setRowSearch({});
+    setOpenSuggestions(null);
+    setCustomerOpen(false);
+    savedSignatureRef.current = signatureFrom(form, defaultTaxRate);
+  }, [defaultTaxRate]);
+
+  const handleSwitchForm = async (form: SalesForm | null) => {
+    if (form?.id === activeForm?.id) return;
+    if (dirty) {
+      const shouldSave = activeForm
+        ? window.confirm(`Save changes to ${activeForm.formNumber} before switching?`)
+        : window.confirm("This form has unsaved changes. Discard them and switch?");
+      if (!shouldSave) return;
+      if (activeForm) {
+        const saved = await persist(activeForm);
+        if (!saved) return;
+        toast.success(`Draft ${saved.formNumber} saved`);
+      }
+    }
+    loadForm(form);
+  };
+
+  const handleSave = async (finalize: boolean) => {
+    const saved = await persist(activeForm);
+    if (!saved) return;
+    if (finalize) {
+      toast.success(`Form ${saved.formNumber} finalized`);
+      onSaved(saved);
+    } else {
+      setActiveForm(saved);
+      toast.success(`Draft ${saved.formNumber} saved`);
     }
   };
 
@@ -288,7 +434,7 @@ export function SalesFormBuilder({
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(255);
-    doc.text(`# ${editingForm?.formNumber || nextFormNumber(forms, formType)}`, w - margin, 12, { align: "right" });
+    doc.text(`# ${activeForm?.formNumber || nextFormNumber(forms, formType)}`, w - margin, 12, { align: "right" });
     doc.text(new Date().toLocaleDateString("en-NG"), w - margin, 18, { align: "right" });
     doc.text(`Type: ${typeLabel}`, w - margin, 26, { align: "right" });
 
@@ -396,7 +542,7 @@ export function SalesFormBuilder({
     );
     doc.text("This is a " + typeLabel.toLowerCase() + " document. Thank you!", w / 2, y + 4, { align: "center" });
 
-    doc.save(`${editingForm?.formNumber || nextFormNumber(forms, formType)}-${formType.toUpperCase()}.pdf`);
+    doc.save(`${activeForm?.formNumber || nextFormNumber(forms, formType)}-${formType.toUpperCase()}.pdf`);
     toast.success("PDF downloaded");
   };
 
@@ -415,13 +561,30 @@ export function SalesFormBuilder({
           <div>
             <h1 className="text-lg font-semibold flex items-center gap-2">
               <FileText className={cn("h-5 w-5", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
-              {editingForm ? `Editing ${editingForm.formNumber}` : "New Sales Form / Receipt"}
+              {activeForm ? `Editing ${activeForm.formNumber}` : "New Sales Form / Receipt"}
+              {dirty && <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40">unsaved</Badge>}
             </h1>
             <p className="text-xs text-muted-foreground">
-              Fill a line-item document (no inventory is deducted). Save it, reopen it, or export as PDF.
+              Fill a line-item document (no inventory is deducted). Save it as a draft, switch between forms, or export as PDF.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={activeForm?.id ?? "__new__"}
+              onValueChange={(v) => handleSwitchForm(v === "__new__" ? null : (forms?.find((f) => f.id === v) ?? null))}
+            >
+              <SelectTrigger className="h-9 w-56 text-xs">
+                <SelectValue placeholder={activeForm ? activeForm.formNumber : "New form"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__new__">+ New form / receipt</SelectItem>
+                {forms?.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.formNumber} — {f.customerName || "Walk-in"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button variant="outline" size="sm" onClick={onExit} className="gap-1.5">
               <X className="h-3.5 w-3.5" /> Back
             </Button>
@@ -471,25 +634,63 @@ export function SalesFormBuilder({
               <Users className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">Customer Details</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="e.g. Chidi Okonkwo" className="pl-9 h-9" />
+            <div ref={customerRef} className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={customerName}
+                      onChange={(e) => {
+                        setCustomerName(e.target.value);
+                        setCustomerOpen(true);
+                      }}
+                      onFocus={() => {
+                        if (customerName.trim() || customerPhone.trim()) setCustomerOpen(true);
+                      }}
+                      placeholder="e.g. Chidi Okonkwo"
+                      className="pl-9 h-9"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Phone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={customerPhone}
+                      onChange={(e) => handleCustomerPhoneInput(e.target.value)}
+                      onFocus={() => {
+                        if (customerName.trim() || customerPhone.trim()) setCustomerOpen(true);
+                      }}
+                      placeholder="08012345678"
+                      className="pl-9 h-9 font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email (optional)</Label>
+                  <Input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="customer@example.com" className="h-9" />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Phone</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="08012345678" className="pl-9 h-9 font-mono" />
+              {customerOpen && customerSuggestions.length > 0 && (
+                <div className="absolute z-30 mt-1 w-full rounded-lg border border-border bg-card shadow-lg p-1 max-h-56 overflow-y-auto">
+                  <p className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">Returning customers</p>
+                  {customerSuggestions.map((c) => (
+                    <button
+                      key={c.phone}
+                      type="button"
+                      onClick={() => handleCustomerPick(c)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
+                    >
+                      <User className="h-3 w-3 text-muted-foreground" />
+                      <span className="font-medium truncate flex-1">{c.name}</span>
+                      <span className="font-mono text-muted-foreground shrink-0">{c.phone}</span>
+                    </button>
+                  ))}
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Email (optional)</Label>
-                <Input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="customer@example.com" className="h-9" />
-              </div>
+              )}
             </div>
             {customerPhone.trim().length >= 8 && (
               <div className="flex flex-wrap gap-2">
@@ -571,7 +772,7 @@ export function SalesFormBuilder({
                         <div className="relative" ref={r.key === openSuggestions ? searchRef : undefined}>
                           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                           <Input
-                            value={rowSearch[r.key] ?? r.itemName}
+                            value={rowSearch[r.key]?.trim() ? rowSearch[r.key] : r.itemName}
                             onChange={(e) => {
                               setRowSearch((prev) => ({ ...prev, [r.key]: e.target.value }));
                               if (r.itemId && e.target.value === r.itemName) return;
