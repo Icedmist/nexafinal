@@ -50,6 +50,41 @@ export interface SaleLineItem {
   kitchenNote?: string;
 }
 
+/**
+ * Transaction type for a sales form / receipt document. The selected type is
+ * printed on the PDF header and stored with the form.
+ */
+export type FormTransactionType = "receipt" | "proforma" | "delivery_note" | "credit_note";
+
+/**
+ * A saved sales form / receipt: a fillable line-item document (one customer,
+ * many items) that can be reopened, printed, or exported as PDF. Unlike a sale,
+ * a form does not decrement inventory and is not a completed transaction — it is
+ * a paper-trail document (proforma invoice, delivery note, credit note, receipt).
+ */
+export interface SalesForm {
+  id: string;
+  storeId: string;
+  branchId?: string | null;
+  formNumber: string;
+  formType: FormTransactionType;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  items: SaleLineItem[];
+  subtotalNgn: number;
+  discountAmountNgn?: number;
+  taxRate?: number;
+  taxAmountNgn?: number;
+  totalNgn: number;
+  notes?: string;
+  status: "draft" | "finalized";
+  recordedBy?: string;
+  recordedByName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 export interface SaleTransaction {
   id: string;

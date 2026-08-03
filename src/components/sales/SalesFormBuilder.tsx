@@ -1,0 +1,678 @@
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import {
+  Plus, Minus, Trash2, FileDown, Save, Search, User, Phone, Users,
+  Wallet, AlertTriangle, Printer, Copy, FileText, ShoppingCart, X, CheckCircle2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { useItems } from "@/hooks/useInventoryData";
+import { useCustomerBalance, useSales, useDebtPayments } from "@/hooks/useSalesData";
+import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
+import { getSaleOutstanding } from "@/lib/credit-sale";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useRole } from "@/hooks/useRole";
+import type { Item, SaleLineItem, SalesForm, FormTransactionType } from "@/types/inventory";
+
+const NAIRA = "₦";
+const PAGE_SIZE = 50;
+
+const FORM_TYPES: { id: FormTransactionType; label: string; hint: string }[] = [
+  { id: "receipt", label: "Receipt", hint: "Proof of payment issued to a customer" },
+  { id: "proforma", label: "Proforma Invoice", hint: "Quotation before goods are delivered" },
+  { id: "delivery_note", label: "Delivery Note", hint: "Goods handed over with the order" },
+  { id: "credit_note", label: "Credit Note", hint: "Amount owed back to the customer" },
+];
+
+interface FormRow {
+  key: string;
+  itemId: string;
+  itemName: string;
+  sku: string;
+  quantity: number;
+  unitPriceNgn: number;
+}
+
+interface CustomerBalanceInfo {
+  credit: number;
+  debit: number;
+}
+
+function toRows(form: SalesForm | null, fallback: FormRow[]): FormRow[] {
+  if (!form || form.items.length === 0) return fallback;
+  return form.items.map((li) => ({
+    key: `${li.itemId}-${li.sku}-${Date.now()}-${Math.random()}`,
+    itemId: li.itemId,
+    itemName: li.itemName,
+    sku: li.sku,
+    quantity: li.quantity,
+    unitPriceNgn: li.unitPriceNgn,
+  }));
+}
+
+export function SalesFormBuilder({
+  editingForm,
+  onSaved,
+  onExit,
+}: {
+  editingForm: SalesForm | null;
+  onSaved: (form: SalesForm) => void;
+  onExit: () => void;
+}) {
+  const { data: items } = useItems();
+  const { profile } = useBusiness();
+  const { user } = useAuth();
+  const { isAdmin, isManager } = useRole();
+  const businessType = profile?.businessType || "retail";
+
+  const { data: forms } = useSalesForms();
+  const { saveForm, updateForm, logFormActivity } = useSalesFormMutations();
+
+  const [formType, setFormType] = useState<FormTransactionType>(editingForm?.formType ?? "receipt");
+  const [customerName, setCustomerName] = useState(editingForm?.customerName ?? "");
+  const [customerPhone, setCustomerPhone] = useState(editingForm?.customerPhone ?? "");
+  const [customerEmail, setCustomerEmail] = useState(editingForm?.customerEmail ?? "");
+  const [notes, setNotes] = useState(editingForm?.notes ?? "");
+  const [discount, setDiscount] = useState<string>(editingForm?.discountAmountNgn ? String(editingForm.discountAmountNgn) : "");
+  const [taxRate, setTaxRate] = useState<string>(
+    editingForm?.taxRate !== undefined ? String(editingForm.taxRate) : String(profile?.storeDetails?.taxRate ?? 0)
+  );
+  const [status, setStatus] = useState<"draft" | "finalized">(editingForm?.status ?? "draft");
+  const [rows, setRows] = useState<FormRow[]>(() => toRows(editingForm, []));
+  const [page, setPage] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [isPriceEditingLocked] = useState(profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true);
+  const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
+
+  // Live per-row product autocomplete
+  const [rowSearch, setRowSearch] = useState<Record<string, string>>({});
+  const [openSuggestions, setOpenSuggestions] = useState<string | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const { balance: customerCredit } = useCustomerBalance(customerPhone?.trim() || null);
+  const { data: sales = [] } = useSales();
+  const { data: payments = [] } = useDebtPayments();
+
+  const customerBalanceInfo: CustomerBalanceInfo = useMemo(() => {
+    const qPhone = customerPhone.trim();
+    const debit = (() => {
+      if (!qPhone || qPhone.length < 8) return 0;
+      const creditSales = sales
+        .filter((s) => s.isCreditSale && s.customerPhone === qPhone)
+        .reduce((sum, s) => sum + getSaleOutstanding(s), 0);
+      const cleared = payments
+        .filter((p) => p.customerPhone === qPhone)
+        .reduce((sum, p) => sum + p.amountNgn, 0);
+      return Math.max(0, creditSales - cleared);
+    })();
+    return { credit: customerCredit, debit };
+  }, [customerPhone, customerCredit, sales, payments]);
+
+  const addRow = () => {
+    setRows((prev) => [
+      ...prev,
+      {
+        key: `row-${Date.now()}-${Math.random()}`,
+        itemId: "",
+        itemName: "",
+        sku: "",
+        quantity: 1,
+        unitPriceNgn: 0,
+      },
+    ]);
+    setPage(Math.floor(rows.length / PAGE_SIZE));
+  };
+
+  const removeRow = (key: string) => {
+    setRows((prev) => {
+      const next = prev.filter((r) => r.key !== key);
+      const maxPage = Math.max(0, Math.floor((next.length - 1) / PAGE_SIZE));
+      if (page > maxPage) setPage(maxPage);
+      return next;
+    });
+  };
+
+  const updateRow = (key: string, patch: Partial<FormRow>) => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  };
+
+  const pickItem = (key: string, item: Item) => {
+    updateRow(key, {
+      itemId: item.id,
+      itemName: item.name,
+      sku: item.sku || "",
+      unitPriceNgn: item.sellingPrice || 0,
+    });
+    setOpenSuggestions(null);
+    setRowSearch((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const subtotal = useMemo(() => rows.reduce((s, r) => s + (r.unitPriceNgn || 0) * (r.quantity || 0), 0), [rows]);
+  const discountAmount = useMemo(() => {
+    const amt = parseFloat(discount) || 0;
+    return Math.min(Math.max(0, amt), subtotal);
+  }, [discount, subtotal]);
+  const taxRateNum = useMemo(() => {
+    const parsed = parseFloat(taxRate);
+    return isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }, [taxRate]);
+  const taxAmount = (subtotal - discountAmount) * (taxRateNum / 100);
+  const total = subtotal - discountAmount + taxAmount;
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const suggestionsFor = (key: string): Item[] => {
+    const q = (rowSearch[key] || "").trim().toLowerCase();
+    if (!q) return [];
+    return (items || [])
+      .filter((i) =>
+        i.name.toLowerCase().includes(q) ||
+        (i.sku && i.sku.toLowerCase().includes(q)) ||
+        (i.barcode && i.barcode.toLowerCase().includes(q))
+      )
+      .slice(0, 8);
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setOpenSuggestions(null);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const validate = (): string | null => {
+    if (rows.length === 0) return "Add at least one line item.";
+    for (const r of rows) {
+      if (!r.itemId) return "Every line must have a product selected.";
+      if (!(r.quantity > 0)) return "Every line needs a quantity greater than zero.";
+      if (!(r.unitPriceNgn >= 0)) return "Every line needs a valid unit price.";
+    }
+    if (customerPhone && customerPhone.trim().length < 8) return "Enter a valid customer phone number.";
+    return null;
+  };
+
+  const handleSave = async (finalize: boolean) => {
+    const err = validate();
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    setSaving(true);
+    try {
+      const itemsList: SaleLineItem[] = rows.map((r) => ({
+        itemId: r.itemId,
+        itemName: r.itemName,
+        sku: r.sku,
+        quantity: r.quantity,
+        unitPriceNgn: r.unitPriceNgn,
+      }));
+
+      const base = {
+        formNumber: editingForm?.formNumber || nextFormNumber(forms, formType),
+        formType,
+        customerName: customerName.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        customerEmail: customerEmail.trim() || undefined,
+        items: itemsList,
+        subtotalNgn: subtotal,
+        discountAmountNgn: discountAmount > 0 ? discountAmount : undefined,
+        taxRate: taxRateNum > 0 ? taxRateNum : undefined,
+        taxAmountNgn: taxAmount > 0 ? taxAmount : undefined,
+        totalNgn: total,
+        notes: notes.trim() || undefined,
+        status: (finalize ? "finalized" : "draft") as SalesForm["status"],
+      };
+
+      let saved: SalesForm;
+      if (editingForm) {
+        await updateForm(editingForm.id, base);
+        saved = { ...editingForm, ...base, updatedAt: new Date().toISOString() };
+      } else {
+        saved = await saveForm(base as Omit<SalesForm, "id" | "storeId" | "branchId" | "recordedBy" | "recordedByName" | "createdAt" | "updatedAt">);
+      }
+      await logFormActivity(finalize ? "created" : "updated", saved);
+      toast.success(finalize ? `Form ${saved.formNumber} saved` : `Draft ${saved.formNumber} saved`);
+      onSaved(saved);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save form");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    const err = validate();
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const w = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const contentWidth = w - margin * 2;
+    let y = 18;
+
+    const storeName = profile?.storeDetails?.name || "My Store";
+    const storePhone = profile?.storeDetails?.phone || "";
+    const storeAddress = profile?.storeDetails?.address || "";
+    const taxLabel = taxRateNum > 0 ? `VAT ${taxRateNum}%` : "No VAT";
+
+    const typeLabel = FORM_TYPES.find((t) => t.id === formType)?.label || "Form";
+
+    // Header
+    doc.setFillColor(13, 27, 42);
+    doc.rect(0, 0, w, 30, "F");
+    doc.setTextColor(255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(storeName, margin, 12);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text([storePhone, storeAddress].filter(Boolean).join("  •  "), margin, 18);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(typeLabel.toUpperCase(), margin, 26);
+
+    // Form meta on the right
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(255);
+    doc.text(`# ${editingForm?.formNumber || nextFormNumber(forms, formType)}`, w - margin, 12, { align: "right" });
+    doc.text(new Date().toLocaleDateString("en-NG"), w - margin, 18, { align: "right" });
+    doc.text(`Type: ${typeLabel}`, w - margin, 26, { align: "right" });
+
+    y = 38;
+
+    // Customer block
+    doc.setTextColor(20);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("BILL TO / CUSTOMER", margin, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    if (customerName.trim() || customerPhone.trim()) {
+      doc.text(customerName.trim() || "—", margin, y);
+      y += 5;
+      if (customerPhone.trim()) {
+        doc.text(`Phone: ${customerPhone.trim()}`, margin, y);
+        y += 5;
+      }
+      if (customerEmail.trim()) {
+        doc.text(`Email: ${customerEmail.trim()}`, margin, y);
+        y += 5;
+      }
+      doc.text(`Credit: ${NAIRA}${customerBalanceInfo.credit.toLocaleString()}   Debit: ${NAIRA}${customerBalanceInfo.debit.toLocaleString()}`, margin, y);
+      y += 5;
+    } else {
+      doc.text("Walk-in / No customer recorded", margin, y);
+      y += 5;
+    }
+    y += 4;
+
+    // Items table header
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y, contentWidth, 7, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("#", margin + 2, y + 4.5);
+    doc.text("ITEM", margin + 10, y + 4.5);
+    doc.text("QTY", margin + contentWidth - 52, y + 4.5);
+    doc.text("UNIT", margin + contentWidth - 34, y + 4.5);
+    doc.text("AMOUNT", margin + contentWidth - 8, y + 4.5, { align: "right" });
+    y += 9;
+
+    doc.setFont("helvetica", "normal");
+    rows.forEach((r, idx) => {
+      if (y > 265) {
+        doc.addPage();
+        y = 18;
+      }
+      doc.setFontSize(8.5);
+      doc.text(String(idx + 1), margin + 2, y);
+      doc.text(r.itemName.slice(0, 42), margin + 10, y);
+      doc.text(String(r.quantity), margin + contentWidth - 52, y);
+      doc.text(NAIRA + r.unitPriceNgn.toLocaleString("en-NG"), margin + contentWidth - 34, y);
+      doc.text(NAIRA + (r.unitPriceNgn * r.quantity).toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
+      y += 6;
+    });
+
+    y += 4;
+
+    // Totals
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Subtotal", margin + contentWidth - 60, y);
+    doc.text(NAIRA + subtotal.toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
+    y += 5;
+    if (discountAmount > 0) {
+      doc.text("Discount", margin + contentWidth - 60, y);
+      doc.text("-" + NAIRA + discountAmount.toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
+      y += 5;
+    }
+    if (taxRateNum > 0) {
+      doc.text(`VAT (${taxRateNum}%)`, margin + contentWidth - 60, y);
+      doc.text("+" + NAIRA + taxAmount.toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
+      y += 5;
+    }
+    doc.setDrawColor(20);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, margin + contentWidth, y);
+    y += 6;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("TOTAL", margin + contentWidth - 60, y);
+    doc.text(NAIRA + total.toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
+    y += 8;
+
+    if (notes.trim()) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.text(`Notes: ${notes.trim()}`, margin, y);
+      y += 5;
+    }
+
+    // Footer
+    y = 280;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text(
+      `Generated by NEXA Store OS  •  ${storeName}  •  ${new Date().toLocaleString("en-NG")}  •  Transaction type: ${typeLabel}`,
+      w / 2,
+      y,
+      { align: "center" }
+    );
+    doc.text("This is a " + typeLabel.toLowerCase() + " document. Thank you!", w / 2, y + 4, { align: "center" });
+
+    doc.save(`${editingForm?.formNumber || nextFormNumber(forms, formType)}-${formType.toUpperCase()}.pdf`);
+    toast.success("PDF downloaded");
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && openSuggestions) {
+      const sugg = suggestionsFor(openSuggestions);
+      if (sugg.length > 0) pickItem(openSuggestions, sugg[0]);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Header: type + actions */}
+      <div className="border-b border-border bg-card px-4 py-3 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold flex items-center gap-2">
+              <FileText className={cn("h-5 w-5", businessType === "restaurant" ? "text-emerald-600" : "text-primary")} />
+              {editingForm ? `Editing ${editingForm.formNumber}` : "New Sales Form / Receipt"}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Fill a line-item document (no inventory is deducted). Save it, reopen it, or export as PDF.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onExit} className="gap-1.5">
+              <X className="h-3.5 w-3.5" /> Back
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDownloadPdf} className="gap-1.5">
+              <FileDown className="h-3.5 w-3.5" /> Download PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleSave(false)} disabled={saving} className="gap-1.5">
+              <Save className="h-3.5 w-3.5" /> Save Draft
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className={cn("gap-1.5", businessType === "restaurant" && "bg-emerald-600 hover:bg-emerald-700")}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Finalize & Save"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Transaction type selector */}
+        <div className="flex flex-wrap gap-2">
+          {FORM_TYPES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setFormType(t.id)}
+              title={t.hint}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all",
+                formType === t.id
+                  ? (businessType === "restaurant" ? "border-emerald-600 bg-emerald-500/10 text-emerald-600" : "border-primary bg-primary/10 text-primary")
+                  : "border-border text-muted-foreground hover:border-border/70"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        {/* Customer details */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Customer Details</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="e.g. Chidi Okonkwo" className="pl-9 h-9" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Phone</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="08012345678" className="pl-9 h-9 font-mono" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email (optional)</Label>
+                <Input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="customer@example.com" className="h-9" />
+              </div>
+            </div>
+            {customerPhone.trim().length >= 8 && (
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="gap-1 text-emerald-700 bg-emerald-500/10 border-emerald-500/30">
+                  <Wallet className="h-3 w-3" /> Credit: {NAIRA}{customerBalanceInfo.credit.toLocaleString("en-NG")}
+                </Badge>
+                <Badge variant="outline" className={cn("gap-1", customerBalanceInfo.debit > 0 ? "text-destructive bg-destructive/10 border-destructive/30" : "text-muted-foreground")}>
+                  <AlertTriangle className="h-3 w-3" /> Debit: {NAIRA}{customerBalanceInfo.debit.toLocaleString("en-NG")}
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          {/* Totals summary */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-mono font-semibold">{NAIRA}{subtotal.toLocaleString("en-NG")}</span>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Discount ({NAIRA})</Label>
+              <Input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0" className="h-8 font-mono text-xs" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">VAT rate (%)</Label>
+              <Input type="number" min="0" max="100" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} placeholder="0" className="h-8 font-mono text-xs" />
+            </div>
+            <Separator />
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold">Total</span>
+              <span className="font-mono font-black text-base">{NAIRA}{total.toLocaleString("en-NG")}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground italic">
+              VAT: +{NAIRA}{taxAmount.toLocaleString("en-NG")} • {rows.length} line item{rows.length !== 1 ? "s" : ""}
+            </div>
+          </div>
+        </div>
+
+        {/* Line item grid */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Line Items</h3>
+              <Badge variant="secondary" className="font-mono text-[10px]">{rows.length} rows</Badge>
+            </div>
+            <Button size="sm" variant="outline" onClick={addRow} className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Add Line
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/40">
+                  <th className="px-3 py-2 w-10">#</th>
+                  <th className="px-3 py-2 min-w-[260px]">Product</th>
+                  <th className="px-3 py-2 w-28">Qty</th>
+                  <th className="px-3 py-2 w-36">Unit Price ({NAIRA})</th>
+                  <th className="px-3 py-2 w-32 text-right">Amount</th>
+                  <th className="px-3 py-2 w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-10 text-center text-xs text-muted-foreground">
+                      No line items yet. Add a product to get started.
+                    </td>
+                  </tr>
+                )}
+                {pageRows.map((r, idx) => {
+                  const globalIdx = page * PAGE_SIZE + idx;
+                  const sugg = suggestionsFor(r.key);
+                  return (
+                    <tr key={r.key} className="border-b border-border/40 last:border-0">
+                      <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{globalIdx + 1}</td>
+                      <td className="px-3 py-2">
+                        <div className="relative" ref={r.key === openSuggestions ? searchRef : undefined}>
+                          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            value={rowSearch[r.key] ?? r.itemName}
+                            onChange={(e) => {
+                              setRowSearch((prev) => ({ ...prev, [r.key]: e.target.value }));
+                              if (r.itemId && e.target.value === r.itemName) return;
+                              if (e.target.value !== r.itemName || !r.itemId) {
+                                setOpenSuggestions(r.key);
+                                if (r.itemId) {
+                                  updateRow(r.key, { itemId: "", itemName: e.target.value, sku: "" });
+                                }
+                              }
+                            }}
+                            onFocus={() => {
+                              if ((rowSearch[r.key] ?? "").trim()) setOpenSuggestions(r.key);
+                            }}
+                            onKeyDown={handleRowKeyDown}
+                            placeholder="Search product by name / SKU…"
+                            className="pl-8 h-9 text-xs"
+                          />
+                          {openSuggestions === r.key && sugg.length > 0 && (
+                            <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg p-1 max-h-56 overflow-y-auto">
+                              {sugg.map((s) => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => pickItem(r.key, s)}
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
+                                >
+                                  <span className="font-medium truncate flex-1">{s.name}</span>
+                                  <span className="font-mono text-muted-foreground shrink-0">{NAIRA}{s.sellingPrice?.toLocaleString("en-NG")}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateRow(r.key, { quantity: Math.max(1, (r.quantity || 1) - 1) })}>
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={r.quantity}
+                            onChange={(e) => updateRow(r.key, { quantity: parseInt(e.target.value, 10) || 0 })}
+                            className="h-7 w-14 text-center font-mono text-xs px-1"
+                          />
+                          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateRow(r.key, { quantity: (r.quantity || 1) + 1 })}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={r.unitPriceNgn}
+                          disabled={!canEditPrice}
+                          onChange={(e) => updateRow(r.key, { unitPriceNgn: parseFloat(e.target.value) || 0 })}
+                          className="h-7 font-mono text-xs text-right"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-xs font-bold">
+                        {NAIRA}{((r.unitPriceNgn || 0) * (r.quantity || 0)).toLocaleString("en-NG")}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeRow(r.key)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination for >50 items */}
+          {rows.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
+              <span className="text-xs text-muted-foreground font-mono">
+                Page {page + 1} of {pageCount}
+              </span>
+              <div className="flex gap-1.5">
+                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
+                  Prev
+                </Button>
+                <Button variant="outline" size="sm" disabled={page >= pageCount - 1} onClick={() => setPage(page + 1)}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Notes */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">Notes (printed on the form)</Label>
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Payment terms, delivery instructions…" className="h-9" />
+        </div>
+      </div>
+    </div>
+  );
+}

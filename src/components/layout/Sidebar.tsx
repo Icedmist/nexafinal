@@ -113,6 +113,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
       items: [
         { label: sector.labels.dashboard, href: "/app/dashboard", icon: LayoutDashboard },
         { label: sector.labels.sales, href: "/app/sales", icon: ShoppingCart },
+        { label: "Forms / Receipts", href: "/app/forms", icon: ClipboardList },
         { label: "Sales History", href: "/app/sales-history", icon: History },
         { label: "Sales Analytics", href: "/app/sales-analytics", icon: TrendingUp, permKey: "canViewAnalytics" },
         { label: sector.labels.customers, href: "/app/customers", icon: Users },

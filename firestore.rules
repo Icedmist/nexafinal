@@ -183,6 +183,50 @@ service cloud.firestore {
       );
     }
     
+    // CUSTOMER CREDIT: store prepaid balances. Docs are keyed `${storeId}_${phone}`.
+    // Reads must tolerate not-yet-created docs (resource == null) because the
+    // mutations read the balance inside a transaction before the very first write.
+    match /customer_credits/{docId} {
+      allow read: if isAuth() && (
+        resource == null ||
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        isAdmin()
+      );
+      allow create: if isAuth() && (
+        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
+        isAdmin()
+      );
+      allow update: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // CREDIT TOPUP LEDGER: immutable audit trail of every balance movement.
+    match /credit_topups/{docId} {
+      allow read: if isAuth() && (
+        resource == null ||
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        isAdmin()
+      );
+      allow create: if isAuth() && (
+        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
+        isAdmin()
+      );
+      allow update, delete: if false;
+    }
+
+    // SALES FORMS / RECEIPTS: saved line-item documents (receipts, proforma
+    // invoices, delivery notes, credit notes). Store-scoped; no inventory impact.
+    match /sales_forms/{formId} {
+      allow read, create, update, delete: if isAuth() && (
+        (getStoreId() != null &&
+          (request.resource.data.storeId == getStoreId() || resource.data.storeId == getStoreId())) ||
+        isAdmin()
+      );
+    }
+
     // ACTIVITY LOGS: Logging only
     match /activity_logs/{logId} {
       allow create: if isAuth();
