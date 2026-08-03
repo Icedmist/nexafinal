@@ -54,7 +54,7 @@ function StoreCreditsPage() {
   const { data: payments } = useDebtPayments();
   const { data: importedDebts } = useImportedDebts();
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useCustomerBalances();
-  const { data: topups, isLoading: topupsLoading } = useCreditTopups();
+  const { data: topups, isLoading: topupsLoading, error: topupsError } = useCreditTopups();
   const { data: locations } = useLocations();
   const { topUpCustomerCredit } = useSalesMutations();
 
@@ -446,6 +446,10 @@ function StoreCreditsPage() {
         <CardContent>
           {topupsLoading ? (
             <ListSkeleton items={6} />
+          ) : topupsError ? (
+            <div className="py-10 text-center text-sm text-destructive">
+              Couldn't load credit history: {topupsError.message}
+            </div>
           ) : recentTopups.length === 0 ? (
             <EmptyState
               icon={History}

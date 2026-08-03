@@ -677,22 +677,24 @@ export function useSalesMutations() {
     if (amount <= 0) throw new Error("A top-up amount greater than zero is required.");
 
     // Outstanding debt = unpaid credit sales + opening debts − payments received.
+    // Filtered client-side on storeId queries so no additional composite indexes
+    // are required (single-field storeId filters work with default indexes).
     let debt = 0;
-    const salesSnap = await getDocs(
-      query(collection(db, "sales"), where("storeId", "==", storeId), where("customerPhone", "==", phone))
-    );
+    const salesSnap = await getDocs(query(collection(db, "sales"), where("storeId", "==", storeId)));
     salesSnap.forEach((d) => {
       const s = d.data() as SaleTransaction;
-      if (s.isCreditSale) debt += getSaleOutstanding(s);
+      if (s.customerPhone?.trim() === phone && s.isCreditSale) debt += getSaleOutstanding(s);
     });
-    const debtsSnap = await getDocs(
-      query(collection(db, "debt_records"), where("storeId", "==", storeId), where("customerPhone", "==", phone))
-    );
-    debtsSnap.forEach((d) => { debt += Number(d.data().amountNgn) || 0; });
-    const paySnap = await getDocs(
-      query(collection(db, "debt_payments"), where("storeId", "==", storeId), where("customerPhone", "==", phone))
-    );
-    paySnap.forEach((d) => { debt -= Number(d.data().amountNgn) || 0; });
+    const debtsSnap = await getDocs(query(collection(db, "debt_records"), where("storeId", "==", storeId)));
+    debtsSnap.forEach((d) => {
+      const x = d.data();
+      if (x.customerPhone?.trim() === phone) debt += Number(x.amountNgn) || 0;
+    });
+    const paySnap = await getDocs(query(collection(db, "debt_payments"), where("storeId", "==", storeId)));
+    paySnap.forEach((d) => {
+      const x = d.data();
+      if (x.customerPhone?.trim() === phone) debt -= Number(x.amountNgn) || 0;
+    });
 
     const outstanding = Math.max(0, debt);
     const clearedDebt = Math.min(amount, outstanding);
