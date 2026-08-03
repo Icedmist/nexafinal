@@ -7,6 +7,7 @@ import {
   useSalesMutations,
 } from "@/hooks/useSalesData";
 import { useLocations } from "@/hooks/useInventoryData";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,13 +57,15 @@ function StoreCreditsPage() {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useCustomerBalances();
   const { data: topups, isLoading: topupsLoading, error: topupsError } = useCreditTopups();
   const { data: locations } = useLocations();
+  const { data: branches } = useStoreBranches();
   const { topUpCustomerCredit } = useSalesMutations();
 
   const branchNames = useMemo(() => {
     const m = new Map<string, string>();
     (locations || []).forEach((l) => m.set(l.id, l.name));
+    (branches || []).forEach((b) => m.set(b.id, b.name));
     return m;
-  }, [locations]);
+  }, [locations, branches]);
 
   const [search, setSearch] = useState("");
   const [target, setTarget] = useState<CreditEntry | null>(null);
@@ -464,7 +467,7 @@ function StoreCreditsPage() {
                 const methodMeta = t.method ? METHOD_LABELS[t.method] : null;
                 const methodLabel = methodMeta?.label || meta.label;
                 const branchLabel = t.branchId && t.branchId !== "none"
-                  ? (branchNames.get(t.branchId) || t.branchId)
+                  ? (branchNames.get(t.branchId) || "Main Branch")
                   : "Admin";
                 return (
                   <div key={t.id} className="flex items-start gap-3 rounded-xl border border-border bg-card px-3 py-2.5">

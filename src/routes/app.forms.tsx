@@ -9,6 +9,7 @@ import { ListSkeleton } from "@/components/shared/skeletons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
+import { useStoreBranches } from "@/hooks/useStaffData";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { SalesFormBuilder } from "@/components/sales/SalesFormBuilder";
 import type { SalesForm, FormTransactionType } from "@/types/inventory";
@@ -29,6 +30,12 @@ function FormsPage() {
   const businessType = profile?.businessType || "retail";
   const { data: forms, isLoading } = useSalesForms();
   const { deleteForm, bulkDeleteForms, logFormActivity } = useSalesFormMutations();
+  const { data: branches } = useStoreBranches();
+
+  const branchNameFor = (branchId?: string | null) =>
+    branchId && branchId !== "none"
+      ? (branches.find((b) => b.id === branchId)?.name || "Main Branch")
+      : "Admin";
 
   const [search, setSearch] = useState("");
   const [openForm, setOpenForm] = useState<SalesForm | null>(null);
@@ -95,6 +102,7 @@ function FormsPage() {
     const taxRateNum = form.taxRate || 0;
     const completed = form.status === "finalized";
     const statusLabel = completed ? "COMPLETED" : "DRAFT";
+    const branchName = branchNameFor(form.branchId);
 
     doc.setFillColor(13, 27, 42);
     doc.rect(0, 0, w, 30, "F");
@@ -104,7 +112,7 @@ function FormsPage() {
     doc.text(storeName, margin, 12);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text([storePhone, storeAddress].filter(Boolean).join("  •  "), margin, 18);
+    doc.text([branchName !== "Admin" ? `Branch: ${branchName}` : "", storePhone, storeAddress].filter(Boolean).join("  •  "), margin, 18);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(typeLabel.toUpperCase(), margin, 26);
@@ -220,7 +228,7 @@ function FormsPage() {
       { align: "center" }
     );
     doc.text(
-      `Status: ${statusLabel}  •  Recorded by: ${form.recordedByName || "Staff"}  •  ${typeLabel.toLowerCase()} document. Thank you!`,
+      `Status: ${statusLabel}  •  Recorded by: ${form.recordedByName || "Staff"}  •  Branch: ${branchName}  •  ${typeLabel.toLowerCase()} document. Thank you!`,
       w / 2,
       y + 4,
       { align: "center" }

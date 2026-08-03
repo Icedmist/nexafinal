@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { useItems } from "@/hooks/useInventoryData";
 import { useCustomerBalance, useSales, useDebtPayments, useImportedDebts, useSalesMutations } from "@/hooks/useSalesData";
 import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
+import { useStoreBranches } from "@/hooks/useStaffData";
+import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { getSaleOutstanding } from "@/lib/credit-sale";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
@@ -86,6 +88,13 @@ export function SalesFormBuilder({
   const { user } = useAuth();
   const { isAdmin, isManager } = useRole();
   const businessType = profile?.businessType || "retail";
+  const { data: branches } = useStoreBranches();
+  const { effectiveBranchId } = useEffectiveBranch();
+
+  const branchNameFor = (branchId?: string | null) =>
+    branchId && branchId !== "none"
+      ? (branches.find((b) => b.id === branchId)?.name || "Main Branch")
+      : "Admin";
 
   const { data: forms } = useSalesForms();
   const { saveForm, updateForm, logFormActivity } = useSalesFormMutations();
@@ -433,27 +442,35 @@ export function SalesFormBuilder({
     loadForm(form);
   };
 
-  /** Build a `sales` document from a finalized form (records + deducts stock). */
-  const buildSaleFromForm = (form: SalesForm): Omit<SaleTransaction, "id"> => ({
-    customerName: form.customerName,
-    customerPhone: form.customerPhone,
-    customerEmail: form.customerEmail,
-    items: form.items,
-    totalNgn: form.totalNgn,
-    subtotalNgn: form.subtotalNgn,
-    discountAmountNgn: form.discountAmountNgn,
-    taxAmountNgn: form.taxAmountNgn,
-    taxRate: form.taxRate,
-    amountPaidNgn: form.totalNgn,
-    changeGivenNgn: 0,
-    remainingBalanceNgn: 0,
-    paymentStatus: "paid",
-    paymentMethod: "cash",
-    isCreditSale: false,
-    saleType: "retail",
-    status: "completed",
-    createdAt: new Date().toISOString(),
-  });
+  /** Build a `sales` document from a finalized form (records + deducts stock).
+   *  A manual total/price override below the computed total is recorded as
+   *  customer debt (credit sale); the discount stays a discount. */
+  const buildSaleFromForm = (form: SalesForm): Omit<SaleTransaction, "id"> => {
+    const computedTotal = (form.subtotalNgn ?? 0) - (form.discountAmountNgn ?? 0) + (form.taxAmountNgn ?? 0);
+    const charged = form.totalNgn ?? computedTotal;
+    const onCredit = !!form.customerPhone?.trim() && computedTotal > charged;
+    const overrideDebt = onCredit ? computedTotal - charged : 0;
+    return {
+      customerName: form.customerName,
+      customerPhone: form.customerPhone,
+      customerEmail: form.customerEmail,
+      items: form.items,
+      totalNgn: onCredit ? computedTotal : charged,
+      subtotalNgn: form.subtotalNgn,
+      discountAmountNgn: form.discountAmountNgn,
+      taxAmountNgn: form.taxAmountNgn,
+      taxRate: form.taxRate,
+      amountPaidNgn: charged,
+      changeGivenNgn: 0,
+      remainingBalanceNgn: overrideDebt,
+      paymentStatus: onCredit ? "incomplete" : "paid",
+      paymentMethod: "cash",
+      isCreditSale: onCredit,
+      saleType: "retail",
+      status: "completed",
+      createdAt: new Date().toISOString(),
+    };
+  };
 
   const handleSave = async (finalize: boolean) => {
     if (finalize && rows.some((r) => !r.itemId?.trim())) {
@@ -471,13 +488,19 @@ export function SalesFormBuilder({
         return;
       }
       try {
-        const saleRef = await addSale(buildSaleFromForm(saved));
+        const salePayload = buildSaleFromForm(saved);
+        const saleRef = await addSale(salePayload);
         const saleId = saleRef?.id;
         if (saleId) {
           await updateForm(saved.id, { saleId });
           saved.saleId = saleId;
         }
-        toast.success(`Form ${saved.formNumber} finalized — recorded as sale & stock deducted`);
+        const overrideDebt = (salePayload.isCreditSale && (salePayload.remainingBalanceNgn ?? 0) > 0)
+          ? (salePayload.remainingBalanceNgn ?? 0)
+          : 0;
+        toast.success(overrideDebt > 0
+          ? `Form ${saved.formNumber} finalized — ${NAIRA}${overrideDebt.toLocaleString("en-NG")} recorded as ${saved.customerName || "customer"}'s debt`
+          : `Form ${saved.formNumber} finalized — recorded as sale & stock deducted`);
       } catch (err) {
         toast.error(`Form saved as finalized, but recording the sale failed: ${err instanceof Error ? err.message : "unknown error"}`);
       }
@@ -498,6 +521,8 @@ export function SalesFormBuilder({
         createdAt: saved.createdAt,
         balanceCredit: customerBalanceInfo.credit,
         balanceDebit: customerBalanceInfo.debit,
+        branchName: branchNameFor(saved.branchId),
+        recordedByName: saved.recordedByName || user?.displayName || user?.email?.split("@")[0] || "Staff",
       });
       toast.success("Receipt PDF downloaded");
       onSaved(saved);
@@ -524,6 +549,8 @@ export function SalesFormBuilder({
     createdAt?: string;
     balanceCredit?: number;
     balanceDebit?: number;
+    branchName?: string;
+    recordedByName?: string;
   }) => {
     const formType = src.formType;
     const customerName = src.customerName || "";
@@ -539,6 +566,8 @@ export function SalesFormBuilder({
     const effectiveTotal = src.total;
     const customerBalanceInfo = { credit: src.balanceCredit || 0, debit: src.balanceDebit || 0 };
     const formNumber = src.formNumber;
+    const branchName = src.branchName || "";
+    const recordedByName = src.recordedByName || "";
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const w = doc.internal.pageSize.getWidth();
@@ -564,7 +593,7 @@ export function SalesFormBuilder({
     doc.text(storeName, margin, 12);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text([storePhone, storeAddress].filter(Boolean).join("  •  "), margin, 18);
+    doc.text([branchName ? `Branch: ${branchName}` : "", storePhone, storeAddress].filter(Boolean).join("  •  "), margin, 18);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(typeLabel.toUpperCase(), margin, 26);
@@ -689,7 +718,7 @@ export function SalesFormBuilder({
       { align: "center" }
     );
     doc.text(
-      `Status: ${statusLabel}  •  Recorded by: ${user?.displayName || user?.email?.split("@")[0] || "Staff"}  •  ${typeLabel.toLowerCase()} document. Thank you!`,
+      `Status: ${statusLabel}  •  Recorded by: ${recordedByName || user?.displayName || user?.email?.split("@")[0] || "Staff"}  •  Branch: ${branchName || "—"}  •  ${typeLabel.toLowerCase()} document. Thank you!`,
       w / 2,
       y + 4,
       { align: "center" }
@@ -724,6 +753,8 @@ export function SalesFormBuilder({
       status,
       balanceCredit: customerBalanceInfo.credit,
       balanceDebit: customerBalanceInfo.debit,
+      branchName: branchNameFor(activeForm?.branchId ?? effectiveBranchId),
+      recordedByName: activeForm?.recordedByName || user?.displayName || user?.email?.split("@")[0] || "Staff",
     });
     toast.success("PDF downloaded");
   };
