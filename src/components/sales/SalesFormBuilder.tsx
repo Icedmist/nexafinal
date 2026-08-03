@@ -481,6 +481,25 @@ export function SalesFormBuilder({
       } catch (err) {
         toast.error(`Form saved as finalized, but recording the sale failed: ${err instanceof Error ? err.message : "unknown error"}`);
       }
+      await renderPdf({
+        formNumber: saved.formNumber,
+        formType: saved.formType,
+        customerName: saved.customerName,
+        customerPhone: saved.customerPhone,
+        customerEmail: saved.customerEmail,
+        items: toRows(saved, []),
+        subtotal: saved.subtotalNgn ?? 0,
+        discount: saved.discountAmountNgn ?? 0,
+        taxRate: saved.taxRate ?? 0,
+        taxAmount: saved.taxAmountNgn ?? 0,
+        total: saved.totalNgn ?? 0,
+        notes: saved.notes,
+        status: "finalized",
+        createdAt: saved.createdAt,
+        balanceCredit: customerBalanceInfo.credit,
+        balanceDebit: customerBalanceInfo.debit,
+      });
+      toast.success("Receipt PDF downloaded");
       onSaved(saved);
     } else {
       setActiveForm(saved);
@@ -488,16 +507,38 @@ export function SalesFormBuilder({
     }
   };
 
-  const handleDownloadPdf = async () => {
-    if (status !== "finalized") {
-      toast.error("Only finalized receipts can be printed. Finalize the form first.");
-      return;
-    }
-    const err = validate();
-    if (err) {
-      toast.error(err);
-      return;
-    }
+  const renderPdf = async (src: {
+    formNumber: string;
+    formType: FormTransactionType;
+    customerName?: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    items: FormRow[];
+    subtotal: number;
+    discount: number;
+    taxRate: number;
+    taxAmount: number;
+    total: number;
+    notes?: string;
+    status: "draft" | "finalized";
+    createdAt?: string;
+    balanceCredit?: number;
+    balanceDebit?: number;
+  }) => {
+    const formType = src.formType;
+    const customerName = src.customerName || "";
+    const customerPhone = src.customerPhone || "";
+    const customerEmail = src.customerEmail || "";
+    const notes = src.notes || "";
+    const taxRateNum = src.taxRate;
+    const status = src.status;
+    const rows = src.items;
+    const subtotal = src.subtotal;
+    const discountAmount = src.discount;
+    const taxAmount = src.taxAmount;
+    const effectiveTotal = src.total;
+    const customerBalanceInfo = { credit: src.balanceCredit || 0, debit: src.balanceDebit || 0 };
+    const formNumber = src.formNumber;
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const w = doc.internal.pageSize.getWidth();
@@ -532,8 +573,8 @@ export function SalesFormBuilder({
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(255);
-    doc.text(`# ${activeForm?.formNumber || nextFormNumber(forms, formType)}`, w - margin, 12, { align: "right" });
-    doc.text(new Date().toLocaleDateString("en-NG"), w - margin, 18, { align: "right" });
+    doc.text(`# ${formNumber}`, w - margin, 12, { align: "right" });
+    doc.text((src.createdAt ? new Date(src.createdAt) : new Date()).toLocaleDateString("en-NG"), w - margin, 18, { align: "right" });
     doc.text(`Type: ${typeLabel} • ${statusLabel}`, w - margin, 26, { align: "right" });
 
     // Status banner
@@ -654,7 +695,36 @@ export function SalesFormBuilder({
       { align: "center" }
     );
 
-    doc.save(`${activeForm?.formNumber || nextFormNumber(forms, formType)}-${formType.toUpperCase()}.pdf`);
+    doc.save(`${formNumber}-${formType.toUpperCase()}.pdf`);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (status !== "finalized") {
+      toast.error("Only finalized receipts can be printed. Finalize the form first.");
+      return;
+    }
+    const err = validate();
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    await renderPdf({
+      formNumber: activeForm?.formNumber || nextFormNumber(forms, formType),
+      formType,
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      customerEmail: customerEmail.trim() || undefined,
+      items: rows,
+      subtotal,
+      discount: discountAmount,
+      taxRate: taxRateNum,
+      taxAmount,
+      total: effectiveTotal,
+      notes: notes.trim() || undefined,
+      status,
+      balanceCredit: customerBalanceInfo.credit,
+      balanceDebit: customerBalanceInfo.debit,
+    });
     toast.success("PDF downloaded");
   };
 
