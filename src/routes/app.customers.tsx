@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { toast } from "sonner";
 import { CreditCard, DollarSign } from "lucide-react";
 import { normalizePhone } from "@/lib/utils";
-import { getSaleOutstanding } from "@/lib/credit-sale";
+import { getSaleOutstanding, netCustomerBalance } from "@/lib/credit-sale";
 import { DebtClearingHistory } from "@/components/sales/DebtClearingHistory";
 import { DebtReportModal } from "@/components/sales/DebtReportModal";
 import { DebtorImportModal } from "@/components/sales/DebtorImportModal";
@@ -185,8 +185,9 @@ function CustomersPage() {
       const credit = Number(b.balanceNgn) || 0;
       const record = map.get(key);
       if (record) {
-        record.creditBalance += credit;
-        record.debtBalance = Math.max(0, record.debtBalance - credit);
+        const { credit: netCredit, debit: netDebit } = netCustomerBalance(record.creditBalance + credit, record.debtBalance);
+        record.creditBalance = netCredit;
+        record.debtBalance = netDebit;
       } else {
         map.set(key, {
           name: b.customerName?.trim() || "Customer",

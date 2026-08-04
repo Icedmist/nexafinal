@@ -694,7 +694,11 @@ export function SalesFormBuilder({
         doc.text(`Email: ${customerEmail.trim()}`, margin, y);
         y += 5;
       }
-      doc.text(`Credit: ${NAIRA}${customerBalanceInfo.credit.toLocaleString()}   Debit: ${NAIRA}${customerBalanceInfo.debit.toLocaleString()}`, margin, y);
+      if (customerBalanceInfo.credit > 0) {
+        doc.text(`Balance: ${NAIRA}${customerBalanceInfo.credit.toLocaleString()} credit`, margin, y);
+      } else if (customerBalanceInfo.debit > 0) {
+        doc.text(`Balance: ${NAIRA}${customerBalanceInfo.debit.toLocaleString()} outstanding`, margin, y);
+      }
       y += 5;
     } else {
       doc.text("Walk-in / No customer recorded", margin, y);
@@ -1000,12 +1004,19 @@ export function SalesFormBuilder({
             </div>
             {customerPhone.trim().length >= 8 && (
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="gap-1 text-emerald-700 bg-emerald-500/10 border-emerald-500/30">
-                  <Wallet className="h-3 w-3" /> Credit: {NAIRA}{customerBalanceInfo.credit.toLocaleString("en-NG")}
-                </Badge>
-                <Badge variant="outline" className={cn("gap-1", customerBalanceInfo.debit > 0 ? "text-destructive bg-destructive/10 border-destructive/30" : "text-muted-foreground")}>
-                  <AlertTriangle className="h-3 w-3" /> Debit: {NAIRA}{customerBalanceInfo.debit.toLocaleString("en-NG")}
-                </Badge>
+                {customerBalanceInfo.credit > 0 ? (
+                  <Badge variant="outline" className="gap-1 text-emerald-700 bg-emerald-500/10 border-emerald-500/30">
+                    <Wallet className="h-3 w-3" /> Credit balance: {NAIRA}{customerBalanceInfo.credit.toLocaleString("en-NG")}
+                  </Badge>
+                ) : customerBalanceInfo.debit > 0 ? (
+                  <Badge variant="outline" className="gap-1 text-destructive bg-destructive/10 border-destructive/30">
+                    <AlertTriangle className="h-3 w-3" /> Owes: {NAIRA}{customerBalanceInfo.debit.toLocaleString("en-NG")}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1 text-muted-foreground">
+                    <Wallet className="h-3 w-3" /> No balance
+                  </Badge>
+                )}
               </div>
             )}
           </div>
