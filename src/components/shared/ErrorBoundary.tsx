@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -44,9 +45,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <CardContent className="flex flex-col items-center justify-center py-10 px-4 text-center">
             <AlertTriangle className="h-10 w-10 text-destructive/70 mb-3" strokeWidth={1.5} />
             <h3 className="text-base font-semibold text-foreground">Something went wrong</h3>
-            {isDev && this.state.error && (
-              <p className="mt-1 max-w-md text-xs text-destructive font-mono break-all">
-                {this.state.error.message}
+            {this.state.error && (
+              <p className={cn("mt-1 max-w-md text-xs font-mono break-all", isDev ? "text-destructive" : "text-muted-foreground")}>
+                {this.state.error.message || "No error message"}
               </p>
             )}
             <p className="mt-1 text-sm text-muted-foreground">
