@@ -40,6 +40,14 @@ service cloud.firestore {
       return isAuth() && getStoreId() != null && getStoreId() == storeId;
     }
 
+    // "Owns this store" fallback: lets a store OWNER (tracked on the store doc,
+    // which is authoritative even when they lack a storeId custom claim) read the
+    // store's data. Restores owner dashboards without opening anonymous reads.
+    function ownsStore(resource) {
+      return isAuth() && resource.data.storeId != null &&
+        get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid;
+    }
+
     // STORES: Publicly readable for tenant resolution (subdomain/slug lookup) and
     // for the public storefront (store name, contact details, and the payment
     // instructions customers need to transfer funds). Storefront writes remain
@@ -93,6 +101,7 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if isAuth() && (
         isStoreScoped(resource.data.storeId) ||
+        ownsStore(resource) ||
         isAdmin()
       );
       allow create, delete: if isAuth() && (
@@ -115,6 +124,7 @@ service cloud.firestore {
     match /categories/{categoryId} {
       allow read: if isAuth() && (
         isStoreScoped(resource.data.storeId) ||
+        ownsStore(resource) ||
         isAdmin()
       );
       allow write: if isAuth() && (
@@ -132,6 +142,7 @@ service cloud.firestore {
       allow create: if true;
       allow read: if isAuth() && (
         isStoreScoped(resource.data.storeId) ||
+        ownsStore(resource) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         isAdmin()
       );
@@ -147,6 +158,7 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        ownsStore(resource) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         isAdmin()
       );
@@ -190,6 +202,7 @@ service cloud.firestore {
       allow read: if isAuth() && (
         resource == null ||
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        ownsStore(resource) ||
         isAdmin()
       );
       allow create: if isAuth() && (
@@ -208,6 +221,7 @@ service cloud.firestore {
       allow read: if isAuth() && (
         resource == null ||
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        ownsStore(resource) ||
         isAdmin()
       );
       allow create: if isAuth() && (
@@ -224,6 +238,7 @@ service cloud.firestore {
       allow read, create, update, delete: if isAuth() && (
         (getStoreId() != null &&
           (request.resource.data.storeId == getStoreId() || resource.data.storeId == getStoreId())) ||
+        ownsStore(resource) ||
         isAdmin()
       );
     }
@@ -234,11 +249,13 @@ service cloud.firestore {
       allow create: if isAuth();
       allow read: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        ownsStore(resource) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         isAdmin()
       );
       allow delete: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        ownsStore(resource) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         isAdmin()
       );
