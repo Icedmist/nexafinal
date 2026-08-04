@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -40,6 +41,8 @@ export interface ValidatedRow {
   data: Record<string, string>;
   errors: string[];
   warnings: string[];
+  /** How to fix each error, so row-level rejections are actionable. */
+  fixes: string[];
 }
 
 export interface CSVImportResult {
@@ -189,11 +192,13 @@ function validateRows(
   return mappedRows.map((row) => {
     const errors: string[] = [];
     const warnings: string[] = [];
+    const fixes: string[] = [];
 
     // Required fields
     for (const f of fields) {
       if (f.required && !row[f.key]?.trim()) {
         errors.push(`Missing required field: ${f.label}`);
+        fixes.push(`Fill in the "${f.label}" column for this row`);
       }
     }
 
@@ -201,7 +206,10 @@ function validateRows(
     for (const f of fields) {
       if (f.numeric && row[f.key]?.trim()) {
         const v = Number(row[f.key]);
-        if (isNaN(v)) errors.push(`${f.label} must be a number`);
+        if (isNaN(v)) {
+          errors.push(`${f.label} must be a number`);
+          fixes.push(`Use digits only in "${f.label}" (e.g. 1500 — no currency symbols, commas or spaces)`);
+        }
       }
     }
 
@@ -225,7 +233,7 @@ function validateRows(
       warnings.push(`New supplier: "${sup}"`);
     }
 
-    return { data: row, errors, warnings };
+    return { data: row, errors, warnings, fixes };
   });
 }
 
@@ -252,6 +260,148 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
+// ─── Result panel: shows accepted vs rejected rows with reasons ───────────
+
+function ResultPanel({
+  entityName,
+  result,
+  resultRows,
+  previewKeys,
+  mappingLabels,
+  onDownloadRejected,
+}: {
+  entityName: string;
+  result: CSVImportResult;
+  resultRows: ValidatedRow[] | null;
+  previewKeys: string[];
+  mappingLabels: Record<string, string>;
+  onDownloadRejected: () => void;
+}) {
+  const rejected = (resultRows || []).filter((r) => r.errors.length > 0);
+  const showKeys = previewKeys.slice(0, 4);
+
+  const allRejected = result.created === 0 && result.failed > 0;
+
+  return (
+    <div className="w-full space-y-5">
+      {allRejected ? (
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-destructive/10 text-destructive shadow-lg shadow-destructive/10">
+            <XCircle className="h-10 w-10" />
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-2xl font-black tracking-tight text-foreground">Import Rejected</p>
+            <p className="text-sm font-medium text-muted-foreground max-w-sm mx-auto">
+              {rejected.length} row{rejected.length !== 1 ? "s" : ""} could not be imported.
+              {result.error && (
+                <span className="block mt-2 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs font-bold text-destructive text-left">
+                  {result.error}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-500 shadow-lg shadow-emerald-500/10">
+            <CheckCircle2 className="h-10 w-10" />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-2xl font-black tracking-tight text-foreground">
+              Import {result.failed > 0 ? "Completed With Some Rejections" : "Successful"}
+            </p>
+            <p className="text-sm font-medium text-muted-foreground">
+              Added <span className="text-foreground font-black">{result.created}</span> {entityName}
+              {rejected.length > 0 && (
+                <> · <span className="text-destructive font-black">{rejected.length}</span> skipped</>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Per-row breakdown: accepted vs rejected with reasons + fixes */}
+      {resultRows && resultRows.length > 0 && (
+        <div className="rounded-2xl border-2 border-border overflow-hidden">
+          <div className="flex items-center justify-between gap-2 px-4 py-2 bg-muted/50 border-b-2 border-border">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Import breakdown ({resultRows.length} rows)
+            </p>
+            {rejected.length > 0 && (
+              <Button size="sm" variant="outline" className="h-7 gap-1 text-[11px] font-bold" onClick={onDownloadRejected}>
+                <Download className="h-3.5 w-3.5" /> Download {rejected.length} rejected
+              </Button>
+            )}
+          </div>
+          <ScrollArea className="max-h-[38vh] w-full">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="border-b-2">
+                  <TableHead className="w-12 text-[10px] font-black uppercase">#</TableHead>
+                  {showKeys.length > 0
+                    ? showKeys.map((k) => (
+                        <TableHead key={k} className="text-[10px] font-black uppercase">{mappingLabels[k]}</TableHead>
+                      ))
+                    : null}
+                  <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
+                  {rejected.some((r) => r.errors.length) && (
+                    <TableHead className="text-[10px] font-black uppercase">Why rejected</TableHead>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resultRows.map((row, idx) => {
+                  const err = row.errors.length > 0;
+                  const warn = row.warnings.length > 0;
+                  return (
+                    <TableRow key={idx} className={`border-b ${err ? "bg-destructive/5" : warn ? "bg-amber-500/5" : "hover:bg-muted/20"}`}>
+                      <TableCell className="text-[10px] font-mono font-bold text-muted-foreground">{idx + 1}</TableCell>
+                      {showKeys.map((k) => (
+                        <TableCell key={k} className="text-xs font-medium max-w-[110px] truncate">
+                          {row.data[k] || <span className="text-muted-foreground/30">—</span>}
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        {err ? (
+                          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-[10px]">Rejected</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-emerald-600/10 text-emerald-700 border-emerald-500/30 text-[10px]">Accepted</Badge>
+                        )}
+                      </TableCell>
+                      {rejected.some((r) => r.errors.length) && (
+                        <TableCell className="text-[10px]">
+                          {err ? (
+                            <div className="space-y-0.5 max-w-[220px]">
+                              {row.errors.map((e, i) => (
+                                <div key={i} className="text-destructive font-bold">{e}</div>
+                              ))}
+                              {row.fixes.map((f, i) => (
+                                <div key={i} className="text-muted-foreground">Fix: {f}</div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-emerald-700 font-semibold">Imported</span>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </div>
+      )}
+
+      {rejected.length > 0 && !allRejected && (
+        <p className="text-[10px] font-black text-muted-foreground text-center uppercase tracking-widest">
+          Download the rejected rows above, fix them in the CSV, and re-import.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────
 
 export function CSVImportSheet({
@@ -273,6 +423,9 @@ export function CSVImportSheet({
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<CSVImportResult | null>(null);
+  // Full row classification captured at import time, used to show accepted vs
+  // rejected rows on the result screen and to let the user download rejections.
+  const [resultRows, setResultRows] = useState<ValidatedRow[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const totalSteps = 4; // upload → mapping → validation → execute
@@ -287,6 +440,7 @@ export function CSVImportSheet({
     setIsImporting(false);
     setImportProgress(0);
     setImportResult(null);
+    setResultRows(null);
   }, []);
 
   const handleFile = useCallback(
@@ -376,6 +530,9 @@ export function CSVImportSheet({
     setStep(4);
     setIsImporting(true);
     setImportProgress(0);
+    // Keep the full classified set (valid + rejected) so the result screen can
+    // show exactly what was accepted and what was rejected, and why.
+    setResultRows(validatedRows);
     try {
       // Simulate progress ticks for UX (actual import is batch)
       const progressInterval = setInterval(() => {
@@ -391,7 +548,30 @@ export function CSVImportSheet({
     } finally {
       setIsImporting(false);
     }
-  }, [onImport]);
+  }, [onImport, validatedRows]);
+
+  // Export every rejected row as CSV with the reason + how to fix it.
+  const downloadRejected = useCallback(() => {
+    const rejected = resultRows ? resultRows.filter((r) => r.errors.length > 0) : [];
+    if (rejected.length === 0) return;
+    const previewKeys = fields.filter((f) => mapping[f.key]).map((f) => f.key);
+    const headers = [...previewKeys.map((k) => fields.find((f) => f.key === k)?.label || k), "Error(s)", "How to fix"];
+    const escape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const csvContent = [
+      headers.join(","),
+      ...rejected.map((r) =>
+        [...previewKeys.map((k) => r.data[k] ?? ""), r.errors.join(" | "), r.fixes.join(" | ")].map(escape).join(","),
+      ),
+    ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nexa_rejected_rows.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${rejected.length} rejected row${rejected.length !== 1 ? "s" : ""} with reasons`);
+  }, [resultRows, fields, mapping]);
 
   return (
     <Dialog
@@ -653,42 +833,14 @@ export function CSVImportSheet({
                     </div>
                   </>
                 ) : importResult ? (
-                  importResult.created === 0 && importResult.failed > 0 ? (
-                    <>
-                      <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-destructive/10 text-destructive shadow-lg shadow-destructive/10">
-                        <XCircle className="h-10 w-10" />
-                      </div>
-                      <div className="text-center space-y-2">
-                        <p className="text-2xl font-black tracking-tight text-foreground">Import Rejected</p>
-                        <p className="text-sm font-medium text-muted-foreground max-w-xs mx-auto">
-                          {importResult.failed} row{importResult.failed !== 1 ? "s" : ""} could not be imported.
-                          {importResult.error && (
-                            <span className="block mt-2 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs font-bold text-destructive text-left">
-                              {importResult.error}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-500 shadow-lg shadow-emerald-500/10">
-                        <CheckCircle2 className="h-10 w-10" />
-                      </div>
-                      <div className="text-center space-y-2">
-                        <p className="text-2xl font-black tracking-tight text-foreground">Import Successful</p>
-                        <p className="text-sm font-medium text-muted-foreground max-w-xs mx-auto">
-                          We've successfully added <span className="text-foreground font-black">{importResult.created}</span> {entityName} to your catalog.
-                          {importResult.failed > 0 && (
-                            <span className="block mt-2 text-destructive font-bold">
-                              {importResult.failed} rows failed to process.
-                              {importResult.error && <span className="block mt-1 font-medium">{importResult.error}</span>}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </>
-                  )
+                  <ResultPanel
+                    entityName={entityName}
+                    result={importResult}
+                    resultRows={resultRows}
+                    previewKeys={previewFields.map((f) => f.key)}
+                    mappingLabels={Object.fromEntries(previewFields.map((f) => [f.key, f.label]))}
+                    onDownloadRejected={downloadRejected}
+                  />
                 ) : null}
               </div>
             )}

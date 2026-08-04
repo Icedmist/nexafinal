@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ListSkeleton } from "@/components/shared/skeletons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { netCustomerBalance, getSaleOutstanding } from "@/lib/credit-sale";
 import type { CreditTopup } from "@/types/inventory";
 
 const NAIRA = "₦";
@@ -46,6 +47,7 @@ interface CreditEntry {
   phone: string;
   email?: string;
   balanceNgn: number;
+  debtNgn?: number;
 }
 
 export default StoreCreditsPage;
@@ -101,15 +103,38 @@ function StoreCreditsPage() {
 
   const entries: CreditEntry[] = useMemo(() => {
     const map = new Map<string, CreditEntry>();
+    // Outstanding debt per customer = unpaid credit sales + opening debts −
+    // payments received − debt cleared by top-ups (payments include those).
+    const debtByPhone = new Map<string, number>();
+    const addDebt = (phone: string, amount: number) => {
+      const p = phone?.trim();
+      if (!p) return;
+      debtByPhone.set(p, (debtByPhone.get(p) || 0) + amount);
+    };
+    for (const s of sales || []) {
+      if (s.customerPhone && s.isCreditSale) addDebt(s.customerPhone, getSaleOutstanding(s));
+    }
+    for (const d of importedDebts || []) addDebt(d.customerPhone || "", Number(d.amountNgn) || 0);
+    for (const p of payments || []) addDebt(p.customerPhone || "", -p.amountNgn);
+
+    const setEntry = (phone: string, name: string, email?: string, credit?: number) => {
+      const lower = phone.toLowerCase();
+      const debit = Math.max(0, debtByPhone.get(lower) || 0);
+      const { credit: netCredit, debit: netDebit } = netCustomerBalance(credit ?? 0, debit);
+      map.set(lower, {
+        key: phone,
+        name,
+        phone,
+        email,
+        balanceNgn: netCredit,
+        debtNgn: netDebit,
+      });
+    };
+
     for (const b of balances || []) {
       const phone = b.customerPhone?.trim();
       if (!phone) continue;
-      map.set(phone.toLowerCase(), {
-        key: phone,
-        name: b.customerName?.trim() || "Customer",
-        phone,
-        balanceNgn: Number(b.balanceNgn) || 0,
-      });
+      setEntry(phone, b.customerName?.trim() || "Customer", undefined, Number(b.balanceNgn) || 0);
     }
     for (const c of directory) {
       const phone = c.phone?.trim();
@@ -119,17 +144,11 @@ function StoreCreditsPage() {
         if (!existing.email && c.email) existing.email = c.email;
         if (existing.name === "Customer" && c.name?.trim()) existing.name = c.name.trim();
       } else {
-        map.set(phone.toLowerCase(), {
-          key: phone,
-          name: c.name?.trim() || "Customer",
-          phone,
-          email: c.email,
-          balanceNgn: 0,
-        });
+        setEntry(phone, c.name || "Customer", c.email);
       }
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [balances, directory]);
+  }, [balances, directory, sales, payments, importedDebts]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -141,8 +160,8 @@ function StoreCreditsPage() {
     );
   }, [entries, search]);
 
-  const totalOutstanding = (balances || []).reduce((sum, b) => sum + (Number(b.balanceNgn) || 0), 0);
-  const customersWithCredit = (balances || []).filter((b) => Number(b.balanceNgn) > 0).length;
+  const totalOutstanding = entries.reduce((sum, e) => sum + Math.max(0, e.balanceNgn), 0);
+  const customersWithCredit = entries.filter((e) => e.balanceNgn > 0).length;
 
   const openTopUp = (e: CreditEntry) => {
     setTarget(e);
@@ -378,11 +397,22 @@ function StoreCreditsPage() {
                   <span
                     className={cn(
                       "text-sm font-mono font-black shrink-0",
-                      e.balanceNgn > 0 ? "text-emerald-600" : "text-muted-foreground"
+                      (e.debtNgn || 0) > 0 ? "text-destructive" : e.balanceNgn > 0 ? "text-emerald-600" : "text-muted-foreground"
                     )}
                   >
-                    {e.balanceNgn > 0 && <ArrowDownLeft className="inline h-3.5 w-3.5 mr-1" />}
-                    {NAIRA}{(e.balanceNgn || 0).toLocaleString("en-NG")}
+                    {(e.debtNgn || 0) > 0 ? (
+                      <>
+                        <ArrowUpRight className="inline h-3.5 w-3.5 mr-1" />
+                        {NAIRA}{(e.debtNgn || 0).toLocaleString("en-NG")} owed
+                      </>
+                    ) : e.balanceNgn > 0 ? (
+                      <>
+                        <ArrowDownLeft className="inline h-3.5 w-3.5 mr-1" />
+                        {NAIRA}{(e.balanceNgn || 0).toLocaleString("en-NG")}
+                      </>
+                    ) : (
+                      NAIRA + "0"
+                    )}
                   </span>
                   <Button size="sm" variant="outline" className="shrink-0" onClick={() => openTopUp(e)}>
                     <Plus className="h-3.5 w-3.5 mr-1" /> Top Up

@@ -17,7 +17,7 @@ import { useCustomerBalance, useSales, useDebtPayments, useImportedDebts, useSal
 import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
-import { getSaleOutstanding } from "@/lib/credit-sale";
+import { getSaleOutstanding, netCustomerBalance } from "@/lib/credit-sale";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useRole } from "@/hooks/useRole";
@@ -207,7 +207,9 @@ export function SalesFormBuilder({
         .reduce((sum, p) => sum + p.amountNgn, 0);
       return Math.max(0, creditSales - cleared);
     })();
-    return { credit: customerCredit, debit };
+    // Debit is auto-deducted from credit (and vice versa) so the form only ever
+    // surfaces a single net balance per customer.
+    return netCustomerBalance(customerCredit, debit);
   }, [customerPhone, customerCredit, sales, payments]);
 
   // Every known customer (from sales, debt payments, and imported debtors),

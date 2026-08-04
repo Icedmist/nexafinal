@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FileText, Plus, Pencil, Trash2, FileDown, Copy, Search, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileText, Plus, Pencil, Trash2, FileDown, Copy, Search, Lock, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,11 @@ import { ListSkeleton } from "@/components/shared/skeletons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
+import { useSales } from "@/hooks/useSalesData";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { SalesFormBuilder } from "@/components/sales/SalesFormBuilder";
-import type { SalesForm, FormTransactionType } from "@/types/inventory";
+import type { SalesForm, FormTransactionType, SaleTransaction } from "@/types/inventory";
 
 const NAIRA = "₦";
 
@@ -31,6 +32,15 @@ function FormsPage() {
   const { data: forms, isLoading } = useSalesForms();
   const { deleteForm, bulkDeleteForms, logFormActivity } = useSalesFormMutations();
   const { data: branches } = useStoreBranches();
+  // Every sale recorded from a finalized form is kept on the forms page so staff
+  // can see the full transaction trail right where the form lives.
+  const { data: sales } = useSales();
+  const saleById = useMemo(() => {
+    const m = new Map<string, SaleTransaction>();
+    for (const s of sales || []) m.set(s.id, s);
+    return m;
+  }, [sales]);
+  const recordedCount = useMemo(() => (forms || []).filter((f) => f.status === "finalized" && f.saleId).length, [forms]);
 
   const branchNameFor = (branchId?: string | null) =>
     branchId && branchId !== "none"
@@ -268,10 +278,16 @@ function FormsPage() {
               Sales Forms & Receipts
             </h1>
             <p className="text-xs text-muted-foreground">
-              Fill line-item documents (receipts, proforma invoices, delivery & credit notes), save them, and export as PDF.
+              Fill line-item documents (receipts, proforma invoices, delivery & credit notes), save them, and export as PDF. Every finalized form is recorded here as a sale.
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {recordedCount > 0 && (
+              <Badge variant="outline" className="gap-1.5 px-2.5 py-1 text-emerald-700 bg-emerald-500/10 border-emerald-500/30">
+                <ReceiptText className="h-3.5 w-3.5" />
+                {recordedCount} sale{recordedCount !== 1 ? "s" : ""} recorded
+              </Badge>
+            )}
             {selected.size > 0 && (
               <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="gap-1.5">
                 <Trash2 className="h-3.5 w-3.5" /> Delete {selected.size}
@@ -329,7 +345,12 @@ function FormsPage() {
                       {form.customerName || "Walk-in"} {form.customerPhone ? `• ${form.customerPhone}` : ""} • {new Date(form.createdAt).toLocaleDateString("en-NG")}
                     </p>
                   </div>
-                  <span className="font-mono font-bold text-sm shrink-0">{NAIRA}{(form.totalNgn || 0).toLocaleString("en-NG")}</span>
+                  <div className="shrink-0 text-right">
+                    <span className="font-mono font-bold text-sm block">{NAIRA}{(form.totalNgn || 0).toLocaleString("en-NG")}</span>
+                    {form.status === "finalized" && form.saleId && saleById.get(form.saleId) && (
+                      <SaleRecordLine sale={saleById.get(form.saleId)!} />
+                    )}
+                  </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {form.status === "finalized" ? (
                       <span title="Completed — this form is locked and can no longer be edited" className="flex h-7 w-7 items-center justify-center text-emerald-600">
@@ -361,5 +382,23 @@ function FormsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/** Compact line showing the sale recorded for a finalized form. */
+function SaleRecordLine({ sale }: { sale: SaleTransaction }) {
+  const method = sale.paymentMethod ? { cash: "Cash", transfer: "Transfer", card: "Card" }[sale.paymentMethod] : "—";
+  const debt = sale.remainingBalanceNgn || 0;
+  return (
+    <span className="flex items-center justify-end gap-1 text-[10px] font-semibold text-emerald-700">
+      <ReceiptText className="h-3 w-3" />
+      {method}
+      {debt > 0 ? (
+        <span className="text-destructive font-bold">debt {NAIRA}{debt.toLocaleString("en-NG")}</span>
+      ) : (
+        <span className="text-emerald-700">paid</span>
+      )}
+      <span className="text-muted-foreground font-normal">• {sale.recordedByName || "Staff"}</span>
+    </span>
   );
 }

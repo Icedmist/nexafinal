@@ -21,3 +21,19 @@ export function getSaleOutstanding(sale: SaleDebtShape): number {
   }
   return sale.totalNgn;
 }
+
+/**
+ * Net a customer's store credit against their debt: a debtor balance cancels
+ * against wallet credit first, so a customer never shows both a credit and a
+ * debit at once. Returns the netted credit and netted debit (at most one is
+ * ever non-zero).
+ *
+ *   credit = 5000, debit = 3000  ->  { credit: 2000, debit: 0 }
+ *   credit = 2000, debit = 5000  ->  { credit: 0,    debit: 3000 }
+ */
+export function netCustomerBalance(credit: number, debit: number): { credit: number; debit: number } {
+  const c = Math.max(0, Number(credit) || 0);
+  const d = Math.max(0, Number(debit) || 0);
+  if (c >= d) return { credit: c - d, debit: 0 };
+  return { credit: 0, debit: d - c };
+}
