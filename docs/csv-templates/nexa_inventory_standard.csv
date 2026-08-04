@@ -1,0 +1,6 @@
+name,sku,sellingPrice,costPrice,stockQuantity,category,supplier,reorderLevel,barcode,description
+"Indomie Chicken Noodle 70g",IDM-0701,180,120,"120","Groceries","Dufil",20,615100000100,"Instant noodles, chicken flavour"
+"Golden Penny Sugar 500g",GPS-0501,1100,900,60,"Provisions","Flour Mills",15,615100000200,"Refined white sugar packets"
+"Peak Full Cream Milk 350g",PKM-0350,2400,1700,45,"Provisions","FrieslandCampina",8,615100000300,"Evaporated full cream milk tin"
+"Gala Famous Cupcake",GAL-0100,500,400,150,"Snacks","Feeding Flow",30,615100000400,"Savoury snack rolls"
+"Blue Band Margarine 240g",BLU-0240,800,600,40,"Provisions","Mariar",12,615100000500,"Soft spread margarine jar"

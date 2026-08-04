@@ -98,7 +98,7 @@ export function SalesFormBuilder({
 
   const { data: forms } = useSalesForms();
   const { saveForm, updateForm, logFormActivity } = useSalesFormMutations();
-  const { addSale } = useSalesMutations();
+  const { addSale, adjustCustomerCredit } = useSalesMutations();
 
   const [formType, setFormType] = useState<FormTransactionType>(editingForm?.formType ?? "receipt");
   const [customerName, setCustomerName] = useState(editingForm?.customerName ?? "");
@@ -115,6 +115,9 @@ export function SalesFormBuilder({
   const [saving, setSaving] = useState(false);
   // Optional manual override for the final total (e.g. rounding, a set price).
   const [totalOverride, setTotalOverride] = useState<string | null>(null);
+  // Payment capture at finalize time (not persisted to the form, only to the sale).
+  const [paymentMethod, setPaymentMethod] = useState<NonNullable<SaleTransaction["paymentMethod"]>>("cash");
+  const [amountReceived, setAmountReceived] = useState<string>("");
   const [isPriceEditingLocked] = useState(profile?.settings?.lockPriceAtCheckout ?? profile?.storeDetails?.lockPriceAtCheckout ?? true);
   const canEditPrice = !isPriceEditingLocked || isAdmin || isManager;
   const isFinalized = status === "finalized";
@@ -143,6 +146,19 @@ export function SalesFormBuilder({
     }
     return total;
   })();
+
+  // Payment helpers. Cash change is never handed back — an overpayment against a
+  // known customer is parked into their store credit, matching the POS checkout.
+  // "Overpay" is measured against the COMPUTED total so that extra money which
+  // actually pays down an override-created debt is never parked as credit.
+  const received = (() => {
+    const n = parseFloat(amountReceived);
+    if (!isNaN(n) && n >= 0) return n;
+    return 0;
+  })();
+  const cashierOverallPaid = received > 0 ? received : 0;
+  const overpayToCredit = customerPhone.trim() && cashierOverallPaid > total ? cashierOverallPaid - total : 0;
+  const cashChange = Math.max(0, cashierOverallPaid - effectiveTotal);
 
   const currentSignature = (statusOverride?: "draft" | "finalized") =>
     JSON.stringify({
@@ -419,6 +435,8 @@ export function SalesFormBuilder({
     setStatus(form?.status ?? "draft");
     setRows(toRows(form, []));
     setTotalOverride(null);
+    setAmountReceived("");
+    setPaymentMethod("cash");
     setPage(0);
     setRowSearch({});
     setOpenSuggestions(null);
@@ -444,28 +462,38 @@ export function SalesFormBuilder({
 
   /** Build a `sales` document from a finalized form (records + deducts stock).
    *  A manual total/price override below the computed total is recorded as
-   *  customer debt (credit sale); the discount stays a discount. */
-  const buildSaleFromForm = (form: SalesForm): Omit<SaleTransaction, "id"> => {
-    const computedTotal = (form.subtotalNgn ?? 0) - (form.discountAmountNgn ?? 0) + (form.taxAmountNgn ?? 0);
-    const charged = form.totalNgn ?? computedTotal;
-    const onCredit = !!form.customerPhone?.trim() && computedTotal > charged;
-    const overrideDebt = onCredit ? computedTotal - charged : 0;
+   *  customer debt (credit sale); the discount stays a discount. An explicit
+   *  "amount received" that is less than the total also leaves the remainder
+   *  as customer debt; an overpayment is never returned as cash change for a
+   *  known customer (the surplus is parked into their store credit instead). */
+  const buildSaleFromForm = (
+    form: SalesForm,
+    payment: { method: NonNullable<SaleTransaction["paymentMethod"]>; received: number }
+  ): Omit<SaleTransaction, "id"> => {
+    const fullTotal = (form.subtotalNgn ?? 0) - (form.discountAmountNgn ?? 0) + (form.taxAmountNgn ?? 0);
+    // `charged` is the printed total on the form. A manual override below the
+    // computed total records the difference as customer debt automatically.
+    const charged = form.totalNgn ?? fullTotal;
+    const hasCustomer = !!form.customerPhone?.trim();
+    const received = payment.received > 0 ? payment.received : charged;
+    const paid = Math.min(received, fullTotal);
+    const debt = hasCustomer ? Math.max(0, fullTotal - received) : 0;
     return {
       customerName: form.customerName,
       customerPhone: form.customerPhone,
       customerEmail: form.customerEmail,
       items: form.items,
-      totalNgn: onCredit ? computedTotal : charged,
+      totalNgn: debt > 0 ? fullTotal : charged,
       subtotalNgn: form.subtotalNgn,
       discountAmountNgn: form.discountAmountNgn,
       taxAmountNgn: form.taxAmountNgn,
       taxRate: form.taxRate,
-      amountPaidNgn: charged,
-      changeGivenNgn: 0,
-      remainingBalanceNgn: overrideDebt,
-      paymentStatus: onCredit ? "incomplete" : "paid",
-      paymentMethod: "cash",
-      isCreditSale: onCredit,
+      amountPaidNgn: paid,
+      changeGivenNgn: hasCustomer ? 0 : Math.max(0, received - charged),
+      remainingBalanceNgn: debt,
+      paymentStatus: debt > 0 ? "incomplete" : "paid",
+      paymentMethod: payment.method,
+      isCreditSale: debt > 0,
       saleType: "retail",
       status: "completed",
       createdAt: new Date().toISOString(),
@@ -488,8 +516,15 @@ export function SalesFormBuilder({
         return;
       }
       try {
-        const salePayload = buildSaleFromForm(saved);
-        const saleRef = await addSale(salePayload);
+        const isReturn = saved.formType === "credit_note";
+        // Credit notes are customer returns — they restock the catalog instead
+        // of recording a paid sale. Proforma/delivery notes still record a sale.
+        const salePayload = buildSaleFromForm(saved, {
+          method: paymentMethod,
+          received: cashierOverallPaid,
+        });
+        if (isReturn) salePayload.saleType = "return";
+        const saleRef = await addSale(salePayload, { restock: isReturn });
         const saleId = saleRef?.id;
         if (saleId) {
           await updateForm(saved.id, { saleId });
@@ -498,9 +533,25 @@ export function SalesFormBuilder({
         const overrideDebt = (salePayload.isCreditSale && (salePayload.remainingBalanceNgn ?? 0) > 0)
           ? (salePayload.remainingBalanceNgn ?? 0)
           : 0;
-        toast.success(overrideDebt > 0
-          ? `Form ${saved.formNumber} finalized — ${NAIRA}${overrideDebt.toLocaleString("en-NG")} recorded as ${saved.customerName || "customer"}'s debt`
-          : `Form ${saved.formNumber} finalized — recorded as sale & stock deducted`);
+        // Park an overpayment into a known customer's store credit (no cash change).
+        if (!isReturn && overpayToCredit > 0 && customerPhone.trim()) {
+          await adjustCustomerCredit({
+            customerPhone,
+            customerName: saved.customerName || "Customer",
+            deltaNgn: overpayToCredit,
+            type: "overpay_credit",
+            method: "overpay",
+            saleId,
+            notes: `Overpayment parked to credit from form ${saved.formNumber}`,
+          });
+        }
+        if (isReturn) {
+          toast.success(`Credit note ${saved.formNumber} finalized — ${NAIRA}${(saved.totalNgn ?? 0).toLocaleString("en-NG")} recorded & returned to catalog stock`);
+        } else if (overrideDebt > 0) {
+          toast.success(`Form ${saved.formNumber} finalized — ${NAIRA}${overrideDebt.toLocaleString("en-NG")} recorded as ${saved.customerName || "customer"}'s debt`);
+        } else {
+          toast.success(`Form ${saved.formNumber} finalized — recorded as sale & stock deducted`);
+        }
       } catch (err) {
         toast.error(`Form saved as finalized, but recording the sale failed: ${err instanceof Error ? err.message : "unknown error"}`);
       }
@@ -516,6 +567,7 @@ export function SalesFormBuilder({
         taxRate: saved.taxRate ?? 0,
         taxAmount: saved.taxAmountNgn ?? 0,
         total: saved.totalNgn ?? 0,
+        paymentMethod,
         notes: saved.notes,
         status: "finalized",
         createdAt: saved.createdAt,
@@ -544,6 +596,7 @@ export function SalesFormBuilder({
     taxRate: number;
     taxAmount: number;
     total: number;
+    paymentMethod?: NonNullable<SaleTransaction["paymentMethod"]>;
     notes?: string;
     status: "draft" | "finalized";
     createdAt?: string;
@@ -564,6 +617,9 @@ export function SalesFormBuilder({
     const discountAmount = src.discount;
     const taxAmount = src.taxAmount;
     const effectiveTotal = src.total;
+    const paymentMethodLabel = src.paymentMethod
+      ? ({ cash: "Cash", transfer: "Transfer", card: "Card" } as const)[src.paymentMethod]
+      : null;
     const customerBalanceInfo = { credit: src.balanceCredit || 0, debit: src.balanceDebit || 0 };
     const formNumber = src.formNumber;
     const branchName = src.branchName || "";
@@ -697,7 +753,14 @@ export function SalesFormBuilder({
     doc.setFontSize(11);
     doc.text("TOTAL", margin + contentWidth - 60, y);
     doc.text(NAIRA + effectiveTotal.toLocaleString("en-NG"), margin + contentWidth - 8, y, { align: "right" });
-    y += 8;
+    y += 6;
+    if (paymentMethodLabel && !customerBalanceInfo.debit) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(90);
+      doc.text(`Method: ${paymentMethodLabel}`, margin + contentWidth - 60, y);
+    }
+    y += 2;
 
     if (notes.trim()) {
       doc.setFont("helvetica", "italic");
@@ -981,6 +1044,54 @@ export function SalesFormBuilder({
                 </div>
               )}
             </div>
+            <Separator />
+            {formType !== "credit_note" && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] text-muted-foreground">Payment method</Label>
+                  <Select
+                    value={paymentMethod}
+                    onValueChange={(v) => setPaymentMethod(v as NonNullable<SaleTransaction["paymentMethod"]>)}
+                    disabled={isFinalized}
+                  >
+                    <SelectTrigger className="h-8 w-40 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="transfer">Transfer</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Amount received ({NAIRA}) — leave empty to charge the full total</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={amountReceived}
+                    onChange={(e) => setAmountReceived(e.target.value)}
+                    disabled={isFinalized}
+                    placeholder={String(Math.round(effectiveTotal))}
+                    className="h-8 font-mono text-xs"
+                  />
+                  {cashChange > 0 && (
+                    <p className="text-[10px] text-emerald-600">
+                      Change: {NAIRA}{cashChange.toLocaleString("en-NG")}
+                      {customerPhone.trim()
+                        ? " → parked to customer store credit"
+                        : " (add a customer to park overpayment as store credit)"}
+                    </p>
+                  )}
+                  {received > 0 && received < effectiveTotal && customerPhone.trim() && (
+                    <p className="text-[10px] text-amber-600">
+                      Balance {NAIRA}{(effectiveTotal - received).toLocaleString("en-NG")} recorded as customer debt
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="text-[10px] text-muted-foreground italic">
               VAT: +{NAIRA}{taxAmount.toLocaleString("en-NG")} • {rows.length} line item{rows.length !== 1 ? "s" : ""}
             </div>

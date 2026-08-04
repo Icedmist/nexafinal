@@ -2291,3 +2291,6 @@ export const dailyActivitySummary = onSchedule({
     console.error("[DailySummary] Fatal error in daily summary job:", error);
   }
 });
+
+// Feature 11 — server-side stock & debt ledger callables (recordsale, settlecredit)
+export * from "./ledger";

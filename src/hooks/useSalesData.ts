@@ -11,6 +11,29 @@ import { isAdminRole } from "@/lib/roles";
 import { notifyActivity, notifyInventoryAlert } from "@/lib/notification-service";
 import { cleanFirestoreData } from "@/utils/cleanFirestoreData";
 import { getSaleOutstanding } from "@/lib/credit-sale";
+import { functions } from "@/lib/firebase";
+
+/**
+ * Feature 11: prefer the server-side ledger callables when online. Cloud
+ * Functions own the authoritative stock deduction / debt settlement, which
+ * removes the client-side write races. On any failure (offline, function not
+ * yet deployed, permission) we fall back to the local write path so sales are
+ * never blocked — matching the offline-first plan.
+ */
+async function callWithFallback<TResult>(
+  name: string,
+  payload: Record<string, unknown>,
+  fallback: () => Promise<TResult>
+): Promise<TResult> {
+  try {
+    const { httpsCallable } = await import("firebase/functions");
+    const fn = httpsCallable(functions, name);
+    const res = await fn(payload);
+    return res.data as TResult;
+  } catch {
+    return fallback();
+  }
+}
 
 interface QueryResult<T> {
   data: T;
@@ -335,7 +358,8 @@ export function useSalesMutations() {
   const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const effectiveBranch = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
-  const addSale = async (sale: Omit<SaleTransaction, "id">) => {
+  const localAddSale = async (sale: Omit<SaleTransaction, "id">, opts?: { restock?: boolean }) => {
+    const restock = !!opts?.restock;
     if (!user || !storeId) {
       throw new Error("Authentication required to record sales. Please sign in.");
     }
@@ -394,12 +418,22 @@ export function useSalesMutations() {
         if (!productSnap.exists()) {
           throw new Error(`Product not found: ${item.itemId}`);
         }
-        const productData: any = productSnap.data();
+        const productData = productSnap.data() as { storeId?: string; name?: string; currentStock?: number };
         if (!productData.storeId) {
           throw new Error(`Product ${item.itemId} is missing storeId; cannot update inventory.`);
         }
         if (productData.storeId !== saleData.storeId) {
           throw new Error(`Product ${item.itemId} belongs to a different store (${productData.storeId}).`);
+        }
+        // Reflect the server-ledger stock guard in the offline/fallback path so
+        // the client never oversells when Cloud Functions are unreachable.
+        if (!restock) {
+          const conversionFactor = item.conversionFactor || 1;
+          const needed = item.quantity * conversionFactor;
+          const available = Number(productData.currentStock) || 0;
+          if (available < needed) {
+            throw new Error(`Insufficient stock for ${productData.name || item.itemId}: only ${available} available, ${needed} required.`);
+          }
         }
       }
 
@@ -410,12 +444,12 @@ export function useSalesMutations() {
         const productRef = doc(db, "products", item.itemId);
 
         // Calculate real decrement amount based on unit conversion
-        const conversionFactor = (item as any).conversionFactor || 1;
-        const decrementAmount = item.quantity * conversionFactor;
+        const conversionFactor = item.conversionFactor || 1;
+        const deltaAmount = item.quantity * conversionFactor;
 
-        // Decrement stock
+        // Apply stock change: sales deduct, returns (credit notes) add back.
         batch.update(productRef, {
-          currentStock: increment(-decrementAmount),
+          currentStock: increment(restock ? deltaAmount : -deltaAmount),
           updatedAt: new Date().toISOString()
         });
 
@@ -423,11 +457,13 @@ export function useSalesMutations() {
         const movementRef = doc(collection(db, "movements"));
         const movementData = cleanFirestoreData({
           itemId: item.itemId,
-          type: MovementType.Shipped,
-          quantity: decrementAmount,
-          unitUsed: (item as any).selectedUnit || null,
-          reference: `Sale: ${saleRef.id}`,
-          notes: `Customer: ${sale.customerName || "Walk-in"}`,
+          type: restock ? MovementType.Received : MovementType.Shipped,
+          quantity: deltaAmount,
+          unitUsed: item.selectedUnit || null,
+          reference: restock ? `Return: ${saleRef.id}` : `Sale: ${saleRef.id}`,
+          notes: restock
+            ? `Returned to stock via ${sale.customerName ? `credit note for ${sale.customerName}` : "credit note"}`
+            : `Customer: ${sale.customerName || "Walk-in"}`,
           storeId: saleData.storeId,
           branchId: effectiveBranch || null,
           ownerId: user.uid,
@@ -443,11 +479,13 @@ export function useSalesMutations() {
 
       // 3. Trigger Notifications
       await notifyActivity({
-        type: "sale",
-        category: "sales",
+        type: restock ? "movement" : "sale",
+        category: restock ? "inventory" : "sales",
         severity: "low",
-        title: "New Sale Recorded",
-        message: `${saleData.recordedByName} recorded a sale of ${saleData.totalNgn.toLocaleString()} NGN for ${saleData.customerName || "Walk-in Customer"}.`,
+        title: restock ? "Product Returned to Stock" : "New Sale Recorded",
+        message: restock
+          ? `${saleData.recordedByName} logged a credit-note return (${saleData.totalNgn.toLocaleString()} NGN) for ${saleData.customerName || "Customer"}, stock returned to catalog.`
+          : `${saleData.recordedByName} recorded a sale of ${saleData.totalNgn.toLocaleString()} NGN for ${saleData.customerName || "Walk-in Customer"}.`,
         userId: user.uid,
         userEmail: user.email || "",
         storeId: saleData.storeId,
@@ -455,7 +493,8 @@ export function useSalesMutations() {
         metadata: { saleId: saleRef.id, total: saleData.totalNgn }
       });
 
-      // 4. Check for low stock on all items in this sale
+      // 4. Only check for low stock on sales (returns replenish, never reduce)
+      if (!restock) {
       for (const item of sale.items) {
         const productRef = doc(db, "products", item.itemId);
         let productSnap;
@@ -465,7 +504,7 @@ export function useSalesMutations() {
           productSnap = await getDoc(productRef);
         }
         if (productSnap.exists()) {
-          const product = productSnap.data() as any;
+          const product = productSnap.data() as { currentStock?: number; reorderPoint?: number; name?: string; unit?: string };
           const currentStock = product.currentStock || 0;
           const reorderPoint = product.reorderPoint || 5; // Fallback to 5 if not set
 
@@ -482,15 +521,30 @@ export function useSalesMutations() {
           }
         }
       }
+      }
 
       return { id: saleRef.id };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to record sale:", error);
-      if (error?.code === "permission-denied") {
+      const err = error as { code?: string; message?: string };
+      if (err.code === "permission-denied") {
         throw new Error("You don't have permission to record sales. Contact your administrator.");
       }
-      throw new Error(error?.message || "Failed to record sale. Please check your inventory and try again.");
+      throw new Error(err.message || "Failed to record sale. Please check your inventory and try again.");
     }
+  };
+
+  /** Feature 11: record the sale through the server ledger when online. */
+  const addSale = async (sale: Omit<SaleTransaction, "id">, opts?: { restock?: boolean }) => {
+    if (!user || !storeId) {
+      throw new Error("Authentication required to record sales. Please sign in.");
+    }
+    const result = await callWithFallback<{ id?: string; saleId?: string }>(
+      "recordsale",
+      { ...sale, storeId, branchId: effectiveBranch, restock: !!opts?.restock },
+      async () => localAddSale(sale, opts)
+    );
+    return { id: result.saleId ?? result.id };
   };
 
   const recordDebtPayment = async (payment: { 
@@ -664,7 +718,7 @@ export function useSalesMutations() {
    * outstanding balance before the remainder becomes spendable credit. Returns
    * how much was applied to credit and how much cleared the debt.
    */
-  const topUpCustomerCredit = async (args: {
+  const localTopUpCustomerCredit = async (args: {
     customerPhone: string;
     customerName?: string;
     amountNgn: number;
@@ -722,6 +776,21 @@ export function useSalesMutations() {
     });
 
     return { appliedToCredit: toCredit, clearedDebt };
+  };
+
+  /** Feature 11: settle top-ups through the server ledger when online. */
+  const topUpCustomerCredit = async (args: {
+    customerPhone: string;
+    customerName?: string;
+    amountNgn: number;
+    notes?: string;
+  }): Promise<{ appliedToCredit: number; clearedDebt: number }> => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    return callWithFallback(
+      "settlecredit",
+      { ...args, storeId },
+      () => localTopUpCustomerCredit(args)
+    );
   };
 
   /**

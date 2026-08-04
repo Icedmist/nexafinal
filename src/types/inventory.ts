@@ -105,7 +105,7 @@ export interface SaleTransaction {
   paymentMethod?: "cash" | "transfer" | "card";
   isCreditSale?: boolean;
   paymentStatus?: "paid" | "incomplete";
-  saleType?: "retail" | "wholesale" | "mixed";
+  saleType?: "retail" | "wholesale" | "mixed" | "return";
   branchId?: string | null;
   recordedBy?: string;
   recordedByName?: string;
