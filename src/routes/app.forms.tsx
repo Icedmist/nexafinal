@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FileText, Plus, Pencil, Trash2, FileDown, Copy, Search, Lock, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ListSkeleton } from "@/components/shared/skeletons";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, normalizePhone } from "@/lib/utils";
 import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/useSalesForms";
 import { useSales } from "@/hooks/useSalesData";
 import { useStoreBranches } from "@/hooks/useStaffData";
@@ -23,6 +23,43 @@ const FORM_TYPE_LABELS: Record<FormTransactionType, string> = {
   delivery_note: "Delivery Note",
   credit_note: "Credit Note",
 };
+
+/**
+ * Resolve the sale that a finalized form recorded. New forms carry the sale id
+ * on the form itself; legacy finalized forms (finalized before sale tracking)
+ * have no link, so we best-effort match against the store's sales by item set,
+ * total, customer, and finalize time. Returns undefined when nothing matches.
+ */
+function resolveSaleForForm(form: SalesForm, sales: SaleTransaction[]): SaleTransaction | undefined {
+  if (form.saleId) {
+    return sales.find((s) => s.id === form.saleId);
+  }
+  if (form.status !== "finalized") return undefined;
+  const formItemIds = (form.items || []).map((i) => i.itemId).filter(Boolean);
+  if (formItemIds.length === 0) return undefined;
+  const formItemSet = new Set(formItemIds);
+  const formPhone = normalizePhone(form.customerPhone);
+  const finalizeAt = new Date(form.updatedAt || form.createdAt).getTime();
+  const candidates = (sales || []).filter((s) => {
+    const saleItemIds = (s.items || []).map((i) => i.itemId);
+    if (saleItemIds.length !== formItemIds.length) return false;
+    if (!saleItemIds.every((id) => formItemSet.has(id))) return false;
+    if ((s.totalNgn ?? 0) !== (form.totalNgn ?? 0)) return false;
+    const salePhone = normalizePhone(s.customerPhone);
+    if (formPhone && salePhone && formPhone !== salePhone) return false;
+    if (!formPhone && salePhone) return false;
+    return true;
+  });
+  if (candidates.length === 0) return undefined;
+  candidates.sort((a, b) => {
+    const da = Math.abs(new Date(a.createdAt).getTime() - finalizeAt);
+    const db = Math.abs(new Date(b.createdAt).getTime() - finalizeAt);
+    return da - db;
+  });
+  const best = candidates[0];
+  const bestGap = Math.abs(new Date(best.createdAt).getTime() - finalizeAt);
+  return bestGap <= 2 * 60 * 60 * 1000 ? best : undefined;
+}
 
 export default FormsPage;
 
@@ -40,7 +77,14 @@ function FormsPage() {
     for (const s of sales || []) m.set(s.id, s);
     return m;
   }, [sales]);
-  const recordedCount = useMemo(() => (forms || []).filter((f) => f.status === "finalized" && f.saleId).length, [forms]);
+  const resolveSale = useCallback((form: SalesForm) => {
+    if (form.saleId) return saleById.get(form.saleId);
+    return resolveSaleForForm(form, sales || []);
+  }, [saleById, sales]);
+  const recordedCount = useMemo(
+    () => (forms || []).filter((f) => f.status === "finalized" && resolveSale(f)).length,
+    [forms, resolveSale]
+  );
 
   const branchNameFor = (branchId?: string | null) =>
     branchId && branchId !== "none"
@@ -347,8 +391,8 @@ function FormsPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <span className="font-mono font-bold text-sm block">{NAIRA}{(form.totalNgn || 0).toLocaleString("en-NG")}</span>
-                    {form.status === "finalized" && form.saleId && saleById.get(form.saleId) && (
-                      <SaleRecordLine sale={saleById.get(form.saleId)!} />
+                    {form.status === "finalized" && resolveSale(form) && (
+                      <SaleRecordLine sale={resolveSale(form)!} />
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -387,6 +431,15 @@ function FormsPage() {
 
 /** Compact line showing the sale recorded for a finalized form. */
 function SaleRecordLine({ sale }: { sale: SaleTransaction }) {
+  if (sale.saleType === "return") {
+    return (
+      <span className="flex items-center justify-end gap-1 text-[10px] font-semibold text-amber-700">
+        <ReceiptText className="h-3 w-3" />
+        returned to stock
+        <span className="text-muted-foreground font-normal">• {sale.recordedByName || "Staff"}</span>
+      </span>
+    );
+  }
   const method = sale.paymentMethod ? { cash: "Cash", transfer: "Transfer", card: "Card" }[sale.paymentMethod] : "—";
   const debt = sale.remainingBalanceNgn || 0;
   return (
