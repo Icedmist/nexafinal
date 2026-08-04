@@ -226,12 +226,22 @@ export default function SystemAdminWipe() {
       await reauthenticateWithCredential(auth.currentUser!, cred);
 
       let grandTotal = 0;
+      const failures: string[] = [];
       for (const t of selectedTargets) {
-        const n = await wipeTarget(t);
-        setDone((prev) => ({ ...prev, [t.id]: n }));
-        grandTotal += n;
+        try {
+          const n = await wipeTarget(t);
+          setDone((prev) => ({ ...prev, [t.id]: n }));
+          grandTotal += n;
+        } catch (err) {
+          console.error(`Wipe failed for ${t.label}:`, err);
+          failures.push(t.label);
+        }
       }
-      toast.success(`Data wipe complete — ${grandTotal.toLocaleString()} document(s) deleted.`);
+      if (failures.length > 0) {
+        toast.warning(`Wipe finished but these could not be cleared: ${failures.join(", ")}. Check your rules/permissions.`);
+      } else {
+        toast.success(`Data wipe complete — ${grandTotal.toLocaleString()} document(s) deleted.`);
+      }
       setCounts({});
       setPassword("");
     } catch (err) {

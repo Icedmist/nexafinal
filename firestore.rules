@@ -228,10 +228,16 @@ service cloud.firestore {
       );
     }
 
-    // ACTIVITY LOGS: Logging only
+    // ACTIVITY LOGS: Logging only. Deletes are reserved for system admins / the
+    // store owner so the system-admin data wipe can fully clear this collection.
     match /activity_logs/{logId} {
       allow create: if isAuth();
       allow read: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
+        isAdmin()
+      );
+      allow delete: if isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         isAdmin()
