@@ -41,6 +41,15 @@ interface QueryResult<T> {
   error: Error | null;
 }
 
+/**
+ * Sales records created before the `recordsale` ledger started persisting line
+ * items carry only `itemIds`, not an `items` array. Normalize on read so any UI
+ * that renders sale.items can iterate safely instead of crashing.
+ */
+export function normalizeSale<T extends { items?: unknown }>(raw: T): T {
+  return { ...raw, items: Array.isArray(raw.items) ? raw.items : [] };
+}
+
 export function useSales(): QueryResult<SaleTransaction[]> {
   const { user, claims, claimsReady } = useAuth();
   const { storeId, ownerId } = useBusiness();
@@ -81,7 +90,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const sales: SaleTransaction[] = [];
       snapshot.forEach((doc) => {
-        sales.push({ ...doc.data(), id: doc.id } as SaleTransaction);
+        sales.push(normalizeSale({ ...doc.data(), id: doc.id } as SaleTransaction));
       });
 
       // Sort client-side by createdAt descending to avoid composite index requirements

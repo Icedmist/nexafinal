@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useDemo } from "@/hooks/useDemo";
+import { normalizeSale } from "@/hooks/useSalesData";
 import type { StockMovement, SaleTransaction } from "@/types/inventory";
 
 export interface HistoryEntry {
@@ -55,7 +56,7 @@ export function useItemHistory(itemId: string) {
     });
 
     const unsubS = onSnapshot(sQuery, (snap) => {
-      setSales(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as SaleTransaction)));
+      setSales(snap.docs.map(doc => normalizeSale({ ...doc.data(), id: doc.id } as SaleTransaction)));
     });
 
     setIsLoading(false);
