@@ -15,7 +15,7 @@ import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
 import { useSalesMutations, useSales, useDebtPayments, useCustomerBalance } from "@/hooks/useSalesData";
 import { notifyActivity } from "@/lib/notification-service";
-import { validatePromo, usePromo } from "@/lib/promos";
+import { validatePromo, redeemPromo } from "@/lib/promos";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useRole } from "@/hooks/useRole";
@@ -353,7 +353,7 @@ export function SalesStepCheckout({
       const sale = { id: docRef?.id || `sale-${Date.now()}`, ...saleData };
       setLastSale(sale);
 
-      if (promoApplied && promoCode) usePromo(promoCode);
+      if (promoApplied && promoCode) redeemPromo(promoCode);
 
       // Deduct the customer's prepaid credit that covered part of this sale.
       if (creditToApply > 0 && customerPhone.trim()) {

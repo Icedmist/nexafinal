@@ -43,7 +43,7 @@ export function validatePromo(code: string): PromoCode | null {
   return promo;
 }
 
-export function usePromo(code: string): void {
+export function redeemPromo(code: string): void {
   const promos = loadPromos();
   const promo = promos.find((p) => p.code.toUpperCase() === code.toUpperCase());
   if (promo) {

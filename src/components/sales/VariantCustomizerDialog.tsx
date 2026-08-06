@@ -38,11 +38,9 @@ export function VariantCustomizerDialog({
     }
   }, [item, open]);
 
-  if (!item) return null;
-
   // Get unique values for each attribute
   const getAttributeValues = (attribute: string): string[] => {
-    if (!item.variants) return [];
+    if (!item?.variants) return [];
     const values = new Set<string>();
     item.variants.forEach(v => {
       const val = v.attributes[attribute];
@@ -52,7 +50,7 @@ export function VariantCustomizerDialog({
   };
 
   // Get current attribute values from variantAttributes
-  const attributes = item.variantAttributes || [];
+  const attributes = item?.variantAttributes || [];
   const [selectedAttributeValues, setSelectedAttributeValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -67,6 +65,8 @@ export function VariantCustomizerDialog({
       setSelectedAttributeValues(initial);
     }
   }, [item, open]);
+
+  if (!item) return null;
 
   const handleAdd = () => {
     const config = {
