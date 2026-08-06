@@ -82,6 +82,9 @@ exports.recordsale = (0, https_1.onCall)({ cors: true }, async (request) => {
     delete saleDoc.storeId;
     delete saleDoc.branchId;
     saleDoc.itemIds = items.map((i) => i.itemId);
+    // Persist the full line items so UIs (dashboards, sales history) that render
+    // sale.itemNames can iterate safely; itemIds remains for array-contains queries.
+    saleDoc.items = items;
     saleDoc.storeId = storeId;
     saleDoc.branchId = data.branchId ?? null;
     saleDoc.ownerId = uid;
