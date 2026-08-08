@@ -399,7 +399,7 @@ export function useSalesMutations() {
       const saleRef = doc(collection(db, "sales"));
       const rawSaleData = {
         ...sale,
-        itemIds: sale.items.map((i) => i.itemId),
+        itemIds: sale.items.filter((i) => i.itemId).map((i) => i.itemId),
         storeId: storeId || claims?.storeId, // CRITICAL: Must include storeId for Firestore rules
         branchId: effectiveBranch || null,
         ownerId: user.uid,
@@ -417,6 +417,7 @@ export function useSalesMutations() {
 
       // Validate that every product belongs to the same store (pre-flight check to avoid permission-denied)
       for (const item of sale.items) {
+        if (item.isOutOfCatalog) continue;
         const productRef = doc(db, "products", item.itemId);
         let productSnap;
         try {
@@ -450,6 +451,7 @@ export function useSalesMutations() {
 
       // 2. Update Product Inventory and Record Movements
       sale.items.forEach((item) => {
+        if (item.isOutOfCatalog) return;
         const productRef = doc(db, "products", item.itemId);
 
         // Calculate real decrement amount based on unit conversion
@@ -505,6 +507,7 @@ export function useSalesMutations() {
       // 4. Only check for low stock on sales (returns replenish, never reduce)
       if (!restock) {
       for (const item of sale.items) {
+        if (item.isOutOfCatalog) continue;
         const productRef = doc(db, "products", item.itemId);
         let productSnap;
         try {

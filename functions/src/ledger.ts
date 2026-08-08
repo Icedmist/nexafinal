@@ -23,6 +23,7 @@ interface SaleItemInput {
   quantity: number;
   conversionFactor?: number;
   selectedUnit?: string | null;
+  isOutOfCatalog?: boolean;
 }
 
 interface RecordsaleInput {
@@ -90,8 +91,11 @@ export const recordsale = onCall({ cors: true }, async (request) => {
     throw new HttpsError("invalid-argument", "A sale must contain at least one line item.");
   }
   for (const item of items) {
-    if (!item.itemId || !(item.quantity > 0)) {
-      throw new HttpsError("invalid-argument", "Each line item needs a catalog product and a positive quantity.");
+    if (!(item.quantity > 0)) {
+      throw new HttpsError("invalid-argument", "Each line item needs a positive quantity.");
+    }
+    if (!item.isOutOfCatalog && !item.itemId) {
+      throw new HttpsError("invalid-argument", "Each catalog line item needs a product.");
     }
   }
 
@@ -108,7 +112,7 @@ export const recordsale = onCall({ cors: true }, async (request) => {
   delete saleDoc.restock;
   delete saleDoc.storeId;
   delete saleDoc.branchId;
-  saleDoc.itemIds = items.map((i) => i.itemId);
+  saleDoc.itemIds = items.filter((i) => i.itemId).map((i) => i.itemId);
   // Persist the full line items so UIs (dashboards, sales history) that render
   // sale.itemNames can iterate safely; itemIds remains for array-contains queries.
   saleDoc.items = items;
@@ -124,6 +128,9 @@ export const recordsale = onCall({ cors: true }, async (request) => {
     await db.runTransaction(async (tx) => {
       const productSnaps: Array<{ item: SaleItemInput; data: any; delta: number }> = [];
       for (const item of items) {
+        // Freeform/out-of-catalog lines (e.g. a new product on a sales form) are
+        // recorded with the sale but do not affect inventory.
+        if (item.isOutOfCatalog) continue;
         const ref = db.collection("products").doc(item.itemId);
         const snap = await tx.get(ref);
         if (!snap.exists) {

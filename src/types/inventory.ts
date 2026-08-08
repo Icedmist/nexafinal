@@ -42,6 +42,10 @@ export interface SaleLineItem {
   conversionFactor?: number;
   salePriceMode?: "retail" | "wholesale";
   customPriceNgn?: number;
+  /** True when the line was added to a sales form as a freeform product that
+   *  does not exist in the store catalog. Such lines are recorded with the sale
+   *  but do not touch inventory (no stock deduction / movement). */
+  isOutOfCatalog?: boolean;
   // Restaurant-specific fields
   size?: string;
   sizePrice?: number;
@@ -114,6 +118,10 @@ export interface SaleTransaction {
   collectionCode?: string;
   status?: "completed" | "pending_pickup" | "picked_up";
   isPublicOrder?: boolean;
+  /** How/whether this sale was created — "form" for sales from finalized sales
+   *  forms (also carries formNumber), otherwise a normal POS/other sale. */
+  source?: "form" | "csv";
+  formNumber?: string;
   // Restaurant-specific fields
   orderType?: OrderType;
   tableNumber?: string;

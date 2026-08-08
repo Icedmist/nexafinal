@@ -40,6 +40,8 @@ interface FormRow {
   sku: string;
   quantity: number;
   unitPriceNgn: number;
+  /** True when this line is a freeform product not present in the store catalog. */
+  isOutOfCatalog: boolean;
 }
 
 interface CustomerBalanceInfo {
@@ -56,6 +58,7 @@ function toRows(form: SalesForm | null, fallback: FormRow[]): FormRow[] {
     sku: li.sku,
     quantity: li.quantity,
     unitPriceNgn: li.unitPriceNgn,
+    isOutOfCatalog: !!li.isOutOfCatalog,
   }));
 }
 
@@ -274,6 +277,7 @@ export function SalesFormBuilder({
         sku: "",
         quantity: 1,
         unitPriceNgn: 0,
+        isOutOfCatalog: false,
       },
     ]);
     setPage(Math.floor(rows.length / PAGE_SIZE));
@@ -298,6 +302,7 @@ export function SalesFormBuilder({
       itemName: item.name,
       sku: item.sku || "",
       unitPriceNgn: item.sellingPrice || 0,
+      isOutOfCatalog: false,
     });
     setOpenSuggestions(null);
     setRowSearch((prev) => ({ ...prev, [key]: "" }));
@@ -375,6 +380,7 @@ export function SalesFormBuilder({
       sku: r.sku,
       quantity: r.quantity,
       unitPriceNgn: r.unitPriceNgn,
+      isOutOfCatalog: (r.isOutOfCatalog && !!r.itemName.trim()) || undefined,
     }));
     return {
       formNumber,
@@ -498,13 +504,15 @@ export function SalesFormBuilder({
       isCreditSale: debt > 0,
       saleType: "retail",
       status: "completed",
+      source: "form",
+      formNumber: form.formNumber,
       createdAt: new Date().toISOString(),
     };
   };
 
   const handleSave = async (finalize: boolean) => {
-    if (finalize && rows.some((r) => !r.itemId?.trim())) {
-      toast.error("Every line item must be selected from the catalog to finalize — stock is deducted from catalog products.");
+    if (finalize && rows.some((r) => !r.itemName?.trim())) {
+      toast.error("Every line item needs a product name. Give each custom/out-of-catalog line a name.");
       return;
     }
     const nextStatus = finalize ? "finalized" : status;
@@ -1188,6 +1196,27 @@ export function SalesFormBuilder({
                             </div>
                           )}
                         </div>
+                        {(r.isOutOfCatalog && r.itemName.trim()) && (
+                          <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded px-1.5 py-0.5">
+                            <Plus className="h-3 w-3" /> New product (not in catalog)
+                          </span>
+                        )}
+                        {!r.itemId && !r.isOutOfCatalog && !isFinalized && (rowSearch[r.key]?.trim() || r.itemName.trim()) && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="mt-1 h-6 px-2 text-[10px] text-amber-700 hover:text-amber-800 gap-1"
+                            onClick={() =>
+                              updateRow(r.key, {
+                                isOutOfCatalog: true,
+                                itemName: (rowSearch[r.key]?.trim() || r.itemName).trim(),
+                              })
+                            }
+                          >
+                            <Plus className="h-3 w-3" /> Add as new product (not in catalog)
+                          </Button>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1">

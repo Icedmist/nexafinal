@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { exportSalesHistoryPDF } from "@/lib/pdf-export";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check, ShoppingBag, Package, Layers, RefreshCw, FileEdit, Search } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, X, Wallet, Upload, Eye, Check, ShoppingBag, Package, Layers, RefreshCw, FileEdit, Search, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -538,6 +538,14 @@ export function SalesHistoryPage() {
                       <ModeIcon className="h-3 w-3" />
                       {saleMode}
                     </span>
+                    {sale.source === "form" && (
+                      <span
+                        className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-400/30 text-emerald-700 bg-emerald-500/5 dark:text-emerald-400"
+                        title={sale.formNumber ? `Created from form ${sale.formNumber}` : "Created from a sales form"}
+                      >
+                        <FileText className="h-3 w-3" /> Form{sale.formNumber ? ` #${sale.formNumber}` : ""}
+                      </span>
+                    )}
                     <span className={cn(
                       "text-[11px] font-mono font-medium uppercase tracking-wider",
                       sale.hasRefund ? "text-destructive font-bold" : "text-muted-foreground"
