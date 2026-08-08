@@ -101,7 +101,7 @@ export function SalesFormBuilder({
 
   const { data: forms } = useSalesForms();
   const { saveForm, updateForm, logFormActivity } = useSalesFormMutations();
-  const { addSale, adjustCustomerCredit } = useSalesMutations();
+  const { addSale, adjustCustomerCredit, applyStoreCreditToDebt } = useSalesMutations();
 
   const [formType, setFormType] = useState<FormTransactionType>(editingForm?.formType ?? "receipt");
   const [customerName, setCustomerName] = useState(editingForm?.customerName ?? "");
@@ -555,12 +555,30 @@ export function SalesFormBuilder({
             notes: `Overpayment parked to credit from form ${saved.formNumber}`,
           });
         }
+        // After recording, net the customer's store credit against any debt:
+        // an overpayment's credit clears existing debt first (only the excess
+        // stays as credit), and an underpayment's debt is paid down by any
+        // credit the customer already holds.
+        let creditClearedByStore = 0;
+        if (!isReturn && customerPhone.trim() && (overrideDebt > 0 || overpayToCredit > 0)) {
+          const net = await applyStoreCreditToDebt({
+            customerPhone: customerPhone.trim(),
+            customerName: saved.customerName || "Customer",
+            notes: `Recorded from form ${saved.formNumber} (${NAIRA}${(salePayload.totalNgn ?? 0).toLocaleString("en-NG")})`,
+          });
+          creditClearedByStore = net.clearedDebt;
+        }
         if (isReturn) {
           toast.success(`Credit note ${saved.formNumber} finalized — ${NAIRA}${(saved.totalNgn ?? 0).toLocaleString("en-NG")} recorded & returned to catalog stock`);
-        } else if (overrideDebt > 0) {
-          toast.success(`Form ${saved.formNumber} finalized — ${NAIRA}${overrideDebt.toLocaleString("en-NG")} recorded as ${saved.customerName || "customer"}'s debt`);
         } else {
-          toast.success(`Form ${saved.formNumber} finalized — recorded as sale & stock deducted`);
+          const netDebt = Math.max(0, overrideDebt - creditClearedByStore);
+          if (netDebt > 0) {
+            toast.success(`Form ${saved.formNumber} finalized — ${NAIRA}${netDebt.toLocaleString("en-NG")} recorded as ${saved.customerName || "customer"}'s debt`);
+          } else if (creditClearedByStore > 0) {
+            toast.success(`Form ${saved.formNumber} finalized — debt cleared by ${saved.customerName || "customer"}'s store credit (${NAIRA}${creditClearedByStore.toLocaleString("en-NG")})`);
+          } else {
+            toast.success(`Form ${saved.formNumber} finalized — recorded as sale & stock deducted`);
+          }
         }
       } catch (err) {
         toast.error(`Form saved as finalized, but recording the sale failed: ${err instanceof Error ? err.message : "unknown error"}`);

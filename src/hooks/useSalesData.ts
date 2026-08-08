@@ -725,6 +725,30 @@ export function useSalesMutations() {
   };
 
   /**
+   * Outstanding debt for a customer = unpaid credit sales + opening debts −
+   * payments received/credit clearances.
+   */
+  const fetchOutstandingDebt = async (phone: string): Promise<number> => {
+    let debt = 0;
+    const salesSnap = await getDocs(query(collection(db, "sales"), where("storeId", "==", storeId)));
+    salesSnap.forEach((d) => {
+      const s = d.data() as SaleTransaction;
+      if (s.customerPhone?.trim() === phone && s.isCreditSale) debt += getSaleOutstanding(s);
+    });
+    const debtsSnap = await getDocs(query(collection(db, "debt_records"), where("storeId", "==", storeId)));
+    debtsSnap.forEach((d) => {
+      const x = d.data();
+      if (x.customerPhone?.trim() === phone) debt += Number(x.amountNgn) || 0;
+    });
+    const paySnap = await getDocs(query(collection(db, "debt_payments"), where("storeId", "==", storeId)));
+    paySnap.forEach((d) => {
+      const x = d.data();
+      if (x.customerPhone?.trim() === phone) debt -= Number(x.amountNgn) || 0;
+    });
+    return Math.max(0, debt);
+  };
+
+  /**
    * Customer tops up their wallet (money given to the store ahead of time).
    * Any existing debt is cleared first: the top-up pays down the customer's
    * outstanding balance before the remainder becomes spendable credit. Returns
@@ -742,27 +766,7 @@ export function useSalesMutations() {
     const amount = Math.abs(Number(args.amountNgn) || 0);
     if (amount <= 0) throw new Error("A top-up amount greater than zero is required.");
 
-    // Outstanding debt = unpaid credit sales + opening debts − payments received.
-    // Filtered client-side on storeId queries so no additional composite indexes
-    // are required (single-field storeId filters work with default indexes).
-    let debt = 0;
-    const salesSnap = await getDocs(query(collection(db, "sales"), where("storeId", "==", storeId)));
-    salesSnap.forEach((d) => {
-      const s = d.data() as SaleTransaction;
-      if (s.customerPhone?.trim() === phone && s.isCreditSale) debt += getSaleOutstanding(s);
-    });
-    const debtsSnap = await getDocs(query(collection(db, "debt_records"), where("storeId", "==", storeId)));
-    debtsSnap.forEach((d) => {
-      const x = d.data();
-      if (x.customerPhone?.trim() === phone) debt += Number(x.amountNgn) || 0;
-    });
-    const paySnap = await getDocs(query(collection(db, "debt_payments"), where("storeId", "==", storeId)));
-    paySnap.forEach((d) => {
-      const x = d.data();
-      if (x.customerPhone?.trim() === phone) debt -= Number(x.amountNgn) || 0;
-    });
-
-    const outstanding = Math.max(0, debt);
+    const outstanding = await fetchOutstandingDebt(phone);
     const clearedDebt = Math.min(amount, outstanding);
     const toCredit = amount - clearedDebt;
 
@@ -803,6 +807,55 @@ export function useSalesMutations() {
       { ...args, storeId },
       () => localTopUpCustomerCredit(args)
     );
+  };
+
+  /**
+   * Reduce the amount owed by a known customer by automatically applying their
+   * existing store credit against their outstanding debt (credit clears debt,
+   * like a top-up but in reverse). Returns how much debt was cleared and how
+   * much credit remains.
+   */
+  const applyStoreCreditToDebt = async (args: {
+    customerPhone: string;
+    customerName?: string;
+    notes?: string;
+  }): Promise<{ clearedDebt: number; remainingCredit: number }> => {
+    if (!user || !storeId) throw new Error("Authentication required");
+    const phone = args.customerPhone?.trim();
+    if (!phone || phone.length < 6) {
+      return { clearedDebt: 0, remainingCredit: 0 };
+    }
+
+    const balanceRef = doc(db, "customer_credits", `${storeId}_${phone}`);
+    const snap = await getDoc(balanceRef);
+    const balance = snap.exists() ? Number(snap.data().balanceNgn) || 0 : 0;
+    if (balance <= 0) return { clearedDebt: 0, remainingCredit: 0 };
+
+    const outstanding = await fetchOutstandingDebt(phone);
+    const clearedDebt = Math.min(balance, outstanding);
+    if (clearedDebt <= 0) return { clearedDebt: 0, remainingCredit: balance };
+
+    if (clearedDebt > 0) {
+      await recordDebtPayment({
+        customerPhone: phone,
+        customerName: args.customerName?.trim() || "Customer",
+        amountNgn: clearedDebt,
+        paymentMethod: "store_credit",
+        notes: args.notes ? `Cleared by store credit: ${args.notes}` : "Cleared by store credit",
+      });
+    }
+
+    await adjustCustomerCredit({
+      customerPhone: phone,
+      customerName: args.customerName,
+      deltaNgn: -clearedDebt,
+      type: "debt_clear",
+      method: "debt_clear",
+      debtClearedNgn: clearedDebt,
+      notes: args.notes || "Debt cleared with store credit",
+    });
+
+    return { clearedDebt, remainingCredit: Math.max(0, balance - clearedDebt) };
   };
 
   /**
@@ -879,5 +932,5 @@ export function useSalesMutations() {
     });
   };
 
-  return { addSale, recordDebtPayment, updateSaleStatus, importDebtors, adjustCustomerCredit, topUpCustomerCredit, applyBalanceToSale: applyCustomerBalanceToSale, addOverpayCredit };
+  return { addSale, recordDebtPayment, updateSaleStatus, importDebtors, adjustCustomerCredit, topUpCustomerCredit, applyStoreCreditToDebt, applyBalanceToSale: applyCustomerBalanceToSale, addOverpayCredit };
 }

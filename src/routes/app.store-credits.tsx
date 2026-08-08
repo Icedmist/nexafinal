@@ -25,6 +25,7 @@ const TOPUP_TYPE_LABELS: Record<CreditTopup["type"], { label: string; credit: bo
   topup: { label: "Top-up", credit: true },
   sale_deduction: { label: "Sale deduction", credit: false },
   overpay_credit: { label: "Overpay → credit", credit: true },
+  debt_clear: { label: "Credit cleared debt", credit: false },
   adjustment: { label: "Adjustment", credit: false },
 };
 

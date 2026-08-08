@@ -509,9 +509,9 @@ export interface CreditTopup {
   customerName: string;
   /** Signed: positive = money added, negative = deducted by a sale/withdrawal. */
   amountNgn: number;
-  type: "topup" | "sale_deduction" | "overpay_credit" | "adjustment";
-  /** How the credit was created: manual top-up or excess parked from a sale overpay. */
-  method?: "manual" | "overpay" | "sale_deduction" | "adjustment";
+  type: "topup" | "sale_deduction" | "overpay_credit" | "debt_clear" | "adjustment";
+  /** How the credit was created: manual top-up, excess parked from a sale overpay, or used to clear debt. */
+  method?: "manual" | "overpay" | "sale_deduction" | "debt_clear" | "adjustment";
   /** Full amount of a manual top-up (before any debt was cleared). */
   topupTotalNgn?: number;
   /** Portion of a manual top-up applied to clear the customer's existing debt. */
