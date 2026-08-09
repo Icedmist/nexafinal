@@ -1,17 +1,55 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Printer, Download, MessageCircle, UserCircle, Receipt } from "lucide-react";
+import { Printer, Download, MessageCircle, UserCircle, Receipt, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import type { SaleTransaction } from "@/types/inventory";
+import type { SaleTransaction, DebtPayment, ImportedDebt } from "@/types/inventory";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { ensureDate } from "@/lib/date-utils";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useSales, useDebtPayments, useImportedDebts } from "@/hooks/useSalesData";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 import { cn } from "@/lib/utils";
+
+interface DebtInfo {
+  remainingThisSale: number;
+  totalOutstanding: number;
+  payments: DebtPayment[];
+}
+
+function buildDebtInfo(
+  sale: SaleTransaction,
+  allSales: SaleTransaction[],
+  payments: DebtPayment[],
+  importedDebts: ImportedDebt[]
+): DebtInfo | null {
+  const phone = sale.customerPhone?.trim().toLowerCase();
+  if (!phone || !sale.isCreditSale) return null;
+
+  const totalSaleOutstanding = allSales
+    .filter((s) => s.customerPhone?.trim().toLowerCase() === phone)
+    .reduce((sum, s) => sum + getSaleOutstanding(s), 0);
+
+  const importedTotal = importedDebts
+    .filter((d) => d.customerPhone?.trim().toLowerCase() === phone)
+    .reduce((sum, d) => sum + (Number(d.amountNgn) || 0), 0);
+
+  const paid = payments
+    .filter((p) => p.customerPhone?.trim().toLowerCase() === phone)
+    .reduce((sum, p) => sum + (Number(p.amountNgn) || 0), 0);
+
+  return {
+    remainingThisSale: getSaleOutstanding(sale),
+    totalOutstanding: Math.max(0, totalSaleOutstanding + importedTotal - paid),
+    payments: payments
+      .filter((p) => p.customerPhone?.trim().toLowerCase() === phone)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+  };
+}
 
 
 const NAIRA = "₦";
@@ -20,7 +58,7 @@ function fmtNgn(amount: number): string {
   return `${NAIRA}${amount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
 }
 
-function buildReceiptText(sale: SaleTransaction, storeName: string, address: string, branchName?: string, storePhone?: string): string {
+function buildReceiptText(sale: SaleTransaction, storeName: string, address: string, branchName?: string, storePhone?: string, debtInfo?: DebtInfo): string {
   const lines: string[] = [];
   lines.push(`🧾 *${storeName}*`);
   if (branchName) lines.push(`*Branch: ${branchName}*`);
@@ -72,6 +110,25 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
     lines.push("");
     lines.push("_⚠️ PARTIAL PAYMENT — Balance outstanding_");
   }
+
+  if (debtInfo) {
+    lines.push("");
+    lines.push("─────────────────");
+    lines.push("*📋 DEBT & PAYMENTS*");
+    lines.push(`Balance remaining (this sale): ${fmtNgn(debtInfo.remainingThisSale)}`);
+    if (debtInfo.payments.length > 0) {
+      lines.push("");
+      lines.push("*Payments received:*");
+      debtInfo.payments.forEach((p) => {
+        const when = format(ensureDate(p.createdAt), "dd MMM yyyy, HH:mm");
+        const via = p.paymentMethod ? ` (${p.paymentMethod})` : "";
+        lines.push(`• ${fmtNgn(p.amountNgn)}${via} — ${when}`);
+      });
+    } else {
+      lines.push("No debt payments recorded yet.");
+    }
+    lines.push(`*Total debt across all sales: ${fmtNgn(debtInfo.totalOutstanding)}*`);
+  }
   
   lines.push("");
   lines.push("Thank you for your purchase! 🙏");
@@ -85,7 +142,8 @@ async function generateReceiptPDF(
   address: string, 
   branchName?: string,
   storePhone?: string,
-  receiptFooter?: string
+  receiptFooter?: string,
+  debtInfo?: DebtInfo
 ): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
   
@@ -140,6 +198,13 @@ async function generateReceiptPDF(
   if (sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn)) estimatedHeight += 20;
   estimatedHeight += 12; // Grand total
   if (sale.amountPaidNgn) estimatedHeight += 15;
+
+  // Debt & payments section
+  if (debtInfo) {
+    estimatedHeight += 15;
+    const paymentLines = debtInfo.payments.length > 0 ? debtInfo.payments.length * 4 : 4;
+    estimatedHeight += Math.max(10, paymentLines);
+  }
   
   // Footer
   estimatedHeight += 15;
@@ -359,6 +424,57 @@ async function generateReceiptPDF(
 
   y += 5;
 
+  // Debt & payments section
+  if (debtInfo) {
+    doc.setLineWidth(0.3);
+    doc.line(lm, y, rm, y);
+    y += 5;
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("DEBT & PAYMENTS", lm, y);
+    y += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.text("Balance remaining (this sale):", lm, y);
+    doc.setFont("helvetica", "bold");
+    doc.text(fmtNgn(debtInfo.remainingThisSale), rm, y, { align: "right" });
+    y += 5;
+    doc.setFont("helvetica", "normal");
+
+    if (debtInfo.payments.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Payments received:", lm, y);
+      y += 4;
+      doc.setFont("helvetica", "normal");
+      debtInfo.payments.forEach((p) => {
+        const when = format(ensureDate(p.createdAt), "dd MMM yyyy");
+        const via = p.paymentMethod ? ` (${p.paymentMethod})` : "";
+        doc.setFontSize(6.5);
+        doc.text(`${fmtNgn(p.amountNgn)}${via}  ${when}`, lm + 2, y);
+        y += 4;
+      });
+      doc.setFontSize(8);
+    } else {
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "italic");
+      doc.text("No debt payments recorded yet.", lm + 2, y);
+      y += 4;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+    }
+
+    doc.setLineWidth(0.1);
+    doc.line(lm, y - 1, rm, y - 1);
+    y += 3;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(180, 80, 0);
+    doc.text("Total debt across all sales:", lm, y);
+    doc.text(fmtNgn(debtInfo.totalOutstanding), rm, y, { align: "right" });
+    doc.setTextColor(0);
+    y += 6;
+  }
+
   // Footer
   doc.setFontSize(8);
   doc.setFont("helvetica", "italic");
@@ -400,6 +516,15 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const address = branch?.location || profile?.storeDetails?.address || "";
   const storePhone = profile?.storeDetails?.phone || "";
 
+  const { data: allSales } = useSales();
+  const { data: payments } = useDebtPayments();
+  const { data: importedDebts } = useImportedDebts();
+
+  const debtInfo = useMemo(
+    () => buildDebtInfo(sale, allSales || [], payments || [], importedDebts || []),
+    [sale, allSales, payments, importedDebts]
+  );
+
   const [downloading, setDownloading] = useState(false);
 
   const handlePrint = () => window.print();
@@ -413,7 +538,8 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
         address, 
         branch?.name,
         profile?.storeDetails?.phone,
-        profile?.storeDetails?.receiptFooter
+        profile?.storeDetails?.receiptFooter,
+        debtInfo || undefined
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -431,7 +557,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   };
 
   const handleWhatsAppText = () => {
-    const text = buildReceiptText(sale, storeName, address, branch?.name, profile?.storeDetails?.phone);
+    const text = buildReceiptText(sale, storeName, address, branch?.name, profile?.storeDetails?.phone, debtInfo || undefined);
     let phone = sale.customerPhone?.replace(/\D/g, "") ?? "";
     
     if (!phone) {
@@ -619,6 +745,36 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                     </div>
                   </div>
 
+                  {debtInfo && (
+                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Wallet className={cn("h-4 w-4", businessType === "restaurant" ? "text-emerald-600" : "text-amber-600")} />
+                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Debt & Payments</h4>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                        <span>Balance remaining (this sale)</span>
+                        <span className="font-mono text-amber-600 dark:text-amber-400">{fmtNgn(debtInfo.remainingThisSale)}</span>
+                      </div>
+                      {debtInfo.payments.length > 0 ? (
+                        <div className="space-y-1 pt-1 border-t border-amber-500/20">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Payments received</p>
+                          {debtInfo.payments.map((p) => (
+                            <div key={p.id} className="flex justify-between items-center text-[10px]">
+                              <span className="font-mono font-bold">{fmtNgn(p.amountNgn)}{p.paymentMethod ? ` (${p.paymentMethod})` : ""}</span>
+                              <span className="text-[9px] text-muted-foreground font-bold">{format(ensureDate(p.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic">No debt payments recorded yet.</p>
+                      )}
+                      <div className="flex justify-between items-center text-[11px] font-black uppercase tracking-widest bg-amber-500/10 rounded-lg px-2 py-1.5 border border-amber-500/20">
+                        <span className="flex items-center gap-1">💳 Total debt across all sales</span>
+                        <span className="font-mono">{fmtNgn(debtInfo.totalOutstanding)}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {profile?.storeDetails?.receiptFooter && (
                     <p className="text-[10px] text-center font-bold text-muted-foreground italic px-4">
                       "{profile.storeDetails.receiptFooter}"
@@ -755,6 +911,33 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
             </div>
           )}
         </div>
+
+        {debtInfo && (
+          <div className="border-t border-black border-dashed pt-2 mt-2 space-y-1 text-[10px]">
+            <p className="font-black uppercase">DEBT &amp; PAYMENTS</p>
+            <div className="flex justify-between">
+              <span>BALANCE REMAINING (THIS SALE):</span>
+              <span className="font-bold">{fmtNgn(debtInfo.remainingThisSale)}</span>
+            </div>
+            {debtInfo.payments.length > 0 ? (
+              <div className="px-1 space-y-0.5">
+                <span className="font-bold">PAYMENTS RECEIVED:</span>
+                {debtInfo.payments.map((p) => (
+                  <div key={p.id} className="flex justify-between">
+                    <span>{fmtNgn(p.amountNgn)}{p.paymentMethod ? ` (${p.paymentMethod})` : ""}</span>
+                    <span>{format(ensureDate(p.createdAt), "dd MMM yyyy, HH:mm")}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="italic">NO DEBT PAYMENTS RECORDED YET</p>
+            )}
+            <div className="flex justify-between font-black">
+              <span>TOTAL DEBT ACROSS ALL SALES:</span>
+              <span>{fmtNgn(debtInfo.totalOutstanding)}</span>
+            </div>
+          </div>
+        )}
 
         <div className="text-center text-[10px] space-y-2 mt-10">
           <p>THANK YOU FOR YOUR PATRONAGE! 🙏</p>
