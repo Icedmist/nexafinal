@@ -477,6 +477,7 @@ export function SalesHistoryPage() {
             const hasWholesale = sale.items.some(i => i.salePriceMode === "wholesale");
             const saleMode = hasRetail && hasWholesale ? "Mixed" : hasWholesale ? "Wholesale" : "Retail";
             const ModeIcon = hasRetail && hasWholesale ? Layers : hasWholesale ? Package : ShoppingBag;
+            const hasOutOfCatalog = sale.items.some(i => i.isOutOfCatalog);
 
             return (
             <Card
@@ -544,6 +545,14 @@ export function SalesHistoryPage() {
                         title={sale.formNumber ? `Created from form ${sale.formNumber}` : "Created from a sales form"}
                       >
                         <FileText className="h-3 w-3" /> Form{sale.formNumber ? ` #${sale.formNumber}` : ""}
+                      </span>
+                    )}
+                    {hasOutOfCatalog && (
+                      <span
+                        className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-400/30 text-amber-700 bg-amber-500/5 dark:text-amber-400"
+                        title="This sale includes items not in your catalog"
+                      >
+                        <ShoppingBag className="h-3 w-3" /> Off-Catalog
                       </span>
                     )}
                     <span className={cn(
@@ -699,9 +708,21 @@ export function SalesHistoryPage() {
                 <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Items Purchased</h4>
                 <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
                   {selectedSale.items.map((li, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/50 bg-muted/10 hover:bg-muted/20 transition-colors">
+                    <div key={idx} className={cn(
+                      "flex items-center justify-between gap-3 p-3 rounded-xl border hover:bg-muted/20 transition-colors",
+                      li.isOutOfCatalog
+                        ? "border-amber-500/30 bg-amber-500/5"
+                        : "border-border/50 bg-muted/10"
+                    )}>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate text-foreground">{li.itemName}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-bold truncate text-foreground">{li.itemName}</p>
+                          {li.isOutOfCatalog && (
+                            <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded px-1 py-0.5 dark:text-amber-400">
+                              Not in Catalog
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] font-bold text-muted-foreground">{li.quantity} x {fmtNgn(li.unitPriceNgn)}</p>
                       </div>
                       <span className="font-mono text-sm font-black text-foreground shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
