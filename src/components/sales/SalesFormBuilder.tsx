@@ -101,7 +101,10 @@ export function SalesFormBuilder({
 
   const { data: forms } = useSalesForms();
   const { saveForm, updateForm, logFormActivity } = useSalesFormMutations();
-  const { addSale, adjustCustomerCredit, applyStoreCreditToDebt } = useSalesMutations();
+  const { addSale, adjustCustomerCredit, applyStoreCreditToDebt, applyBalanceToSale, recordDebtPayment } = useSalesMutations();
+
+  const [useCredit, setUseCredit] = useState<boolean>(false);
+  const [includeDebt, setIncludeDebt] = useState<boolean>(false);
 
   const [formType, setFormType] = useState<FormTransactionType>(editingForm?.formType ?? "receipt");
   const [customerName, setCustomerName] = useState(editingForm?.customerName ?? "");
@@ -150,18 +153,27 @@ export function SalesFormBuilder({
     return total;
   })();
 
-  // Payment helpers. Cash change is never handed back — an overpayment against a
-  // known customer is parked into their store credit, matching the POS checkout.
-  // "Overpay" is measured against the COMPUTED total so that extra money which
-  // actually pays down an override-created debt is never parked as credit.
-  const received = (() => {
-    const n = parseFloat(amountReceived);
-    if (!isNaN(n) && n >= 0) return n;
-    return 0;
-  })();
-  const cashierOverallPaid = received > 0 ? received : 0;
-  const overpayToCredit = customerPhone.trim() && cashierOverallPaid > total ? cashierOverallPaid - total : 0;
-  const cashChange = Math.max(0, cashierOverallPaid - effectiveTotal);
+  const { balance: customerCredit } = useCustomerBalance(customerPhone?.trim() || null);
+  const { data: sales = [] } = useSales();
+  const { data: payments = [] } = useDebtPayments();
+  const { data: importedDebts = [] } = useImportedDebts();
+
+  const customerBalanceInfo: CustomerBalanceInfo = useMemo(() => {
+    const qPhone = customerPhone.trim();
+    const debit = (() => {
+      if (!qPhone || qPhone.length < 8) return 0;
+      const creditSales = sales
+        .filter((s) => s.isCreditSale && s.customerPhone === qPhone)
+        .reduce((sum, s) => sum + getSaleOutstanding(s), 0);
+      const cleared = payments
+        .filter((p) => p.customerPhone === qPhone)
+        .reduce((sum, p) => sum + p.amountNgn, 0);
+      return Math.max(0, creditSales - cleared);
+    })();
+    // Debit is auto-deducted from credit (and vice versa) so the form only ever
+    // surfaces a single net balance per customer.
+    return netCustomerBalance(customerCredit, debit);
+  }, [customerPhone, customerCredit, sales, payments]);
 
   const currentSignature = (statusOverride?: "draft" | "finalized") =>
     JSON.stringify({
@@ -193,27 +205,21 @@ export function SalesFormBuilder({
   const [customerOpen, setCustomerOpen] = useState(false);
   const customerRef = useRef<HTMLDivElement>(null);
 
-  const { balance: customerCredit } = useCustomerBalance(customerPhone?.trim() || null);
-  const { data: sales = [] } = useSales();
-  const { data: payments = [] } = useDebtPayments();
-  const { data: importedDebts = [] } = useImportedDebts();
+  // Payment helpers. Cash change is never handed back — an overpayment against a
+  // known customer is parked into their store credit, matching the POS checkout.
+  // "Overpay" is measured against the COMPUTED total so that extra money which
+  // actually pays down an override-created debt is never parked as credit.
+  const creditToApply = useCredit && customerBalanceInfo.credit > 0 ? Math.min(customerBalanceInfo.credit, effectiveTotal) : 0;
+  const cashOwedAfterCredit = Math.max(0, effectiveTotal - creditToApply);
 
-  const customerBalanceInfo: CustomerBalanceInfo = useMemo(() => {
-    const qPhone = customerPhone.trim();
-    const debit = (() => {
-      if (!qPhone || qPhone.length < 8) return 0;
-      const creditSales = sales
-        .filter((s) => s.isCreditSale && s.customerPhone === qPhone)
-        .reduce((sum, s) => sum + getSaleOutstanding(s), 0);
-      const cleared = payments
-        .filter((p) => p.customerPhone === qPhone)
-        .reduce((sum, p) => sum + p.amountNgn, 0);
-      return Math.max(0, creditSales - cleared);
-    })();
-    // Debit is auto-deducted from credit (and vice versa) so the form only ever
-    // surfaces a single net balance per customer.
-    return netCustomerBalance(customerCredit, debit);
-  }, [customerPhone, customerCredit, sales, payments]);
+  const received = (() => {
+    const n = parseFloat(amountReceived);
+    if (!isNaN(n) && n >= 0) return n;
+    return 0;
+  })();
+  const cashierOverallPaid = received > 0 ? received : (amountReceived === "0" ? 0 : cashOwedAfterCredit);
+  const overpayToCredit = customerPhone.trim() && cashierOverallPaid > total ? cashierOverallPaid - total : 0;
+  const cashChange = Math.max(0, cashierOverallPaid - cashOwedAfterCredit);
 
   // Every known customer (from sales, debt payments, and imported debtors),
   // keyed by phone so a returning customer is recognised when typing a name.
@@ -547,9 +553,33 @@ export function SalesFormBuilder({
           await updateForm(saved.id, { saleId });
           saved.saleId = saleId;
         }
+        // Deduct applied customer store credit if checked
+        if (!isReturn && useCredit && creditToApply > 0 && customerPhone.trim() && saleId) {
+          const applied = await applyBalanceToSale({
+            customerPhone: customerPhone.trim(),
+            customerName: saved.customerName || "Customer",
+            amountNgn: creditToApply,
+            saleId: saleId,
+          });
+          if (applied > 0) {
+            toast.success(`${NAIRA}${applied.toLocaleString("en-NG")} deducted from customer store credit`);
+          }
+        }
+
+        // Record debt settlement if checked
+        if (!isReturn && includeDebt && customerBalanceInfo.debit > 0 && customerPhone.trim()) {
+          await recordDebtPayment({
+            customerPhone: customerPhone.trim(),
+            customerName: saved.customerName || "Customer",
+            amountNgn: customerBalanceInfo.debit,
+            notes: `Auto-settled with finalized form ${saved.formNumber}`,
+          });
+          toast.success(`Previous debt of ${NAIRA}${customerBalanceInfo.debit.toLocaleString("en-NG")} cleared!`);
+        }
         const overrideDebt = (salePayload.isCreditSale && (salePayload.remainingBalanceNgn ?? 0) > 0)
           ? (salePayload.remainingBalanceNgn ?? 0)
           : 0;
+
         // Park an overpayment into a known customer's store credit (no cash change).
         if (!isReturn && overpayToCredit > 0 && customerPhone.trim()) {
           await adjustCustomerCredit({
@@ -1036,18 +1066,59 @@ export function SalesFormBuilder({
               )}
             </div>
             {customerPhone.trim().length >= 8 && (
-              <div className="flex flex-wrap gap-2">
-                {customerBalanceInfo.credit > 0 ? (
-                  <Badge variant="outline" className="gap-1 text-emerald-700 bg-emerald-500/10 border-emerald-500/30">
-                    <Wallet className="h-3 w-3" /> Credit balance: {NAIRA}{customerBalanceInfo.credit.toLocaleString("en-NG")}
-                  </Badge>
-                ) : customerBalanceInfo.debit > 0 ? (
-                  <Badge variant="outline" className="gap-1 text-destructive bg-destructive/10 border-destructive/30">
-                    <AlertTriangle className="h-3 w-3" /> Owes: {NAIRA}{customerBalanceInfo.debit.toLocaleString("en-NG")}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="gap-1 text-muted-foreground">
-                    <Wallet className="h-3 w-3" /> No balance
+              <div className="space-y-2 pt-1">
+                {customerBalanceInfo.credit > 0 && (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
+                      <span className="flex items-center gap-1.5 text-xs font-semibold">
+                        <Wallet className="h-4 w-4 shrink-0" />
+                        Store Credit Available
+                      </span>
+                      <span className="font-mono text-xs font-bold">{NAIRA}{customerBalanceInfo.credit.toLocaleString("en-NG")}</span>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={useCredit}
+                        onChange={(e) => setUseCredit(e.target.checked)}
+                        disabled={isFinalized}
+                        className="rounded border-emerald-500/40 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      Use credit towards this purchase
+                    </label>
+                    {useCredit && creditToApply > 0 && (
+                      <p className="text-[11px] text-emerald-700 font-medium">
+                        Applying {NAIRA}{creditToApply.toLocaleString("en-NG")} credit • Cash due: {NAIRA}{cashOwedAfterCredit.toLocaleString("en-NG")}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {customerBalanceInfo.debit > 0 && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-destructive">
+                      <span className="flex items-center gap-1.5 text-xs font-semibold">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        Outstanding Customer Debt
+                      </span>
+                      <span className="font-mono text-xs font-bold">{NAIRA}{customerBalanceInfo.debit.toLocaleString("en-NG")}</span>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={includeDebt}
+                        onChange={(e) => setIncludeDebt(e.target.checked)}
+                        disabled={isFinalized}
+                        className="rounded border-destructive/40 text-destructive focus:ring-destructive"
+                      />
+                      Settle previous debt in this transaction
+                    </label>
+                  </div>
+                )}
+
+                {customerBalanceInfo.credit <= 0 && customerBalanceInfo.debit <= 0 && (
+                  <Badge variant="outline" className="gap-1 text-muted-foreground text-[10px]">
+                    <Wallet className="h-3 w-3" /> No store credit or debt balance
                   </Badge>
                 )}
               </div>
@@ -1092,15 +1163,79 @@ export function SalesFormBuilder({
             </div>
             <Separator />
             {formType !== "credit_note" && (
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3 pt-2">
+                {/* Debt Mode Toggler */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                      <Wallet className="h-3.5 w-3.5 text-primary" />
+                      Payment & Debt Toggler
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">Select payment mode</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={amountReceived === "" || (received >= effectiveTotal && amountReceived !== "0") ? "default" : "outline"}
+                      disabled={isFinalized}
+                      className={cn(
+                        "h-8 text-[11px] gap-1 px-1.5 font-medium transition-all",
+                        (amountReceived === "" || (received >= effectiveTotal && amountReceived !== "0")) &&
+                          "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                      )}
+                      onClick={() => setAmountReceived("")}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">Paid in Full</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={amountReceived !== "" && received > 0 && received < effectiveTotal ? "default" : "outline"}
+                      disabled={isFinalized}
+                      className={cn(
+                        "h-8 text-[11px] gap-1 px-1.5 font-medium transition-all",
+                        amountReceived !== "" && received > 0 && received < effectiveTotal &&
+                          "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                      )}
+                      onClick={() => {
+                        if (amountReceived === "" || amountReceived === "0" || received >= effectiveTotal) {
+                          setAmountReceived(String(Math.round(effectiveTotal / 2)));
+                        }
+                      }}
+                    >
+                      <Wallet className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">Partial Debt</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={amountReceived === "0" ? "default" : "outline"}
+                      disabled={isFinalized}
+                      className={cn(
+                        "h-8 text-[11px] gap-1 px-1.5 font-medium transition-all",
+                        amountReceived === "0" && "bg-destructive hover:bg-destructive/90 text-white shadow-sm"
+                      )}
+                      onClick={() => setAmountReceived("0")}
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">Full Debt</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
                   <Label className="text-[11px] text-muted-foreground">Payment method</Label>
                   <Select
                     value={paymentMethod}
                     onValueChange={(v) => setPaymentMethod(v as NonNullable<SaleTransaction["paymentMethod"]>)}
                     disabled={isFinalized}
                   >
-                    <SelectTrigger className="h-8 w-40 text-xs">
+                    <SelectTrigger className="h-8 w-36 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1110,8 +1245,15 @@ export function SalesFormBuilder({
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Amount received ({NAIRA}) — leave empty to charge the full total</Label>
+                  <Label className="text-[11px] text-muted-foreground">
+                    {amountReceived === "0"
+                      ? `Amount received (${NAIRA}0 — 100% Credit Sale)`
+                      : received > 0 && received < effectiveTotal
+                      ? `Amount paid now (${NAIRA})`
+                      : `Amount received (${NAIRA}) — leave empty for full total`}
+                  </Label>
                   <Input
                     type="number"
                     min="0"
@@ -1122,17 +1264,53 @@ export function SalesFormBuilder({
                     placeholder={String(Math.round(effectiveTotal))}
                     className="h-8 font-mono text-xs"
                   />
+
+                  {/* Real-time Debt Indicators */}
+                  {amountReceived === "0" && (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-2 space-y-0.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-destructive">
+                        <span className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          100% Credit (Full Debt)
+                        </span>
+                        <span className="font-mono">{NAIRA}{effectiveTotal.toLocaleString("en-NG")}</span>
+                      </div>
+                      <p className="text-[10px] text-destructive/90">
+                        Entire total of {NAIRA}{effectiveTotal.toLocaleString("en-NG")} recorded as debt.
+                      </p>
+                    </div>
+                  )}
+
+                  {amountReceived !== "" && received > 0 && received < effectiveTotal && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 space-y-0.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-400">
+                        <span className="flex items-center gap-1.5">
+                          <Wallet className="h-3.5 w-3.5 shrink-0" />
+                          Partial Debt
+                        </span>
+                        <span className="font-mono">Debt: {NAIRA}{(effectiveTotal - received).toLocaleString("en-NG")}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>Paid Now: <strong className="font-mono text-foreground">{NAIRA}{received.toLocaleString("en-NG")}</strong></span>
+                        <span>Remaining Debt: <strong className="font-mono text-amber-700 dark:text-amber-400">{NAIRA}{(effectiveTotal - received).toLocaleString("en-NG")}</strong></span>
+                      </div>
+                    </div>
+                  )}
+
+                  {(amountReceived === "0" || (received > 0 && received < effectiveTotal)) && !customerPhone.trim() && !customerName.trim() && (
+                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1 pt-0.5">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      Add customer name or phone to attach this debt to a customer account.
+                    </p>
+                  )}
+
                   {cashChange > 0 && (
-                    <p className="text-[10px] text-emerald-600">
+                    <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 shrink-0" />
                       Change: {NAIRA}{cashChange.toLocaleString("en-NG")}
                       {customerPhone.trim()
                         ? " → parked to customer store credit"
                         : " (add a customer to park overpayment as store credit)"}
-                    </p>
-                  )}
-                  {received > 0 && received < effectiveTotal && customerPhone.trim() && (
-                    <p className="text-[10px] text-amber-600">
-                      Balance {NAIRA}{(effectiveTotal - received).toLocaleString("en-NG")} recorded as customer debt
                     </p>
                   )}
                 </div>
@@ -1151,6 +1329,19 @@ export function SalesFormBuilder({
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">Line Items</h3>
               <Badge variant="secondary" className="font-mono text-[10px]">{rows.length} rows</Badge>
+              {amountReceived === "0" ? (
+                <Badge variant="destructive" className="gap-1 text-[10px] animate-pulse">
+                  <AlertTriangle className="h-3 w-3" /> Full Debt
+                </Badge>
+              ) : amountReceived !== "" && received > 0 && received < effectiveTotal ? (
+                <Badge className="gap-1 text-[10px] bg-amber-600 hover:bg-amber-700 text-white animate-pulse">
+                  <Wallet className="h-3 w-3" /> Partial Debt ({NAIRA}{(effectiveTotal - received).toLocaleString("en-NG")})
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="gap-1 text-[10px] text-emerald-700 bg-emerald-500/10 border-emerald-500/30">
+                  <CheckCircle2 className="h-3 w-3" /> Paid in Full
+                </Badge>
+              )}
             </div>
             <Button size="sm" variant="outline" onClick={addRow} disabled={isFinalized} className="gap-1.5">
               <Plus className="h-3.5 w-3.5" /> Add Line
