@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Plus, Minus, Trash2, FileDown, Save, Search, User, Phone, Users,
-  Wallet, AlertTriangle, Printer, Copy, FileText, ShoppingCart, X, CheckCircle2, Lock,
+  Wallet, AlertTriangle, Printer, Copy, FileText, ShoppingCart, X, CheckCircle2, Lock, Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -294,6 +294,13 @@ export function SalesFormBuilder({
 
   const updateRow = (key: string, patch: Partial<FormRow>) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  };
+
+  /** Look up the current stock of an item by its ID. */
+  const getItemStock = (itemId: string): number | null => {
+    if (!itemId) return null;
+    const found = (items || []).find((i) => i.id === itemId);
+    return found ? found.currentStock : null;
   };
 
   const pickItem = (key: string, item: Item) => {
@@ -1208,12 +1215,37 @@ export function SalesFormBuilder({
                                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
                                 >
                                   <span className="font-medium truncate flex-1">{s.name}</span>
+                                  <span className={cn(
+                                    "inline-flex items-center gap-0.5 text-[10px] font-semibold shrink-0",
+                                    (s.currentStock ?? 0) > 0 ? "text-emerald-600" : "text-destructive"
+                                  )}>
+                                    <Package className="h-3 w-3" />
+                                    {(s.currentStock ?? 0) > 0 ? s.currentStock : "Out"}
+                                  </span>
                                   <span className="font-mono text-muted-foreground shrink-0">{NAIRA}{s.sellingPrice?.toLocaleString("en-NG")}</span>
                                 </button>
                               ))}
                             </div>
                           )}
                         </div>
+                        {r.itemId && !r.isOutOfCatalog && (() => {
+                          const stock = getItemStock(r.itemId);
+                          if (stock === null) return null;
+                          const isLow = stock > 0 && stock <= 5;
+                          return (
+                            <span className={cn(
+                              "mt-1 inline-flex items-center gap-1 text-[10px] font-semibold rounded px-1.5 py-0.5",
+                              stock <= 0
+                                ? "text-destructive bg-destructive/10 border border-destructive/30"
+                                : isLow
+                                  ? "text-amber-700 bg-amber-500/10 border border-amber-500/30"
+                                  : "text-emerald-700 bg-emerald-500/10 border border-emerald-500/30"
+                            )}>
+                              <Package className="h-3 w-3" />
+                              {stock <= 0 ? "Out of stock" : `${stock} in stock`}
+                            </span>
+                          );
+                        })()}
                         {(r.isOutOfCatalog && r.itemName.trim()) && (
                           <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded px-1.5 py-0.5">
                             <Plus className="h-3 w-3" /> New product (not in catalog)
@@ -1321,6 +1353,13 @@ export function SalesFormBuilder({
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
             >
               <span className="font-medium truncate flex-1">{s.name}</span>
+              <span className={cn(
+                "inline-flex items-center gap-0.5 text-[10px] font-semibold shrink-0",
+                (s.currentStock ?? 0) > 0 ? "text-emerald-600" : "text-destructive"
+              )}>
+                <Package className="h-3 w-3" />
+                {(s.currentStock ?? 0) > 0 ? s.currentStock : "Out"}
+              </span>
               <span className="font-mono text-muted-foreground shrink-0">{NAIRA}{s.sellingPrice?.toLocaleString("en-NG")}</span>
             </button>
           ))}
