@@ -495,10 +495,9 @@ export function SalesFormBuilder({
     // `charged` is the printed total on the form. A manual override below the
     // computed total records the difference as customer debt automatically.
     const charged = form.totalNgn ?? fullTotal;
-    const hasCustomer = !!form.customerPhone?.trim();
-    const received = payment.received > 0 ? payment.received : charged;
+    const received = Math.max(0, payment.received);
     const paid = Math.min(received, fullTotal);
-    const debt = hasCustomer ? Math.max(0, fullTotal - received) : 0;
+    const debt = Math.max(0, fullTotal - received);
     return {
       customerName: form.customerName,
       customerPhone: form.customerPhone,
@@ -510,7 +509,7 @@ export function SalesFormBuilder({
       taxAmountNgn: form.taxAmountNgn,
       taxRate: form.taxRate,
       amountPaidNgn: paid,
-      changeGivenNgn: hasCustomer ? 0 : Math.max(0, received - charged),
+      changeGivenNgn: Math.max(0, received - charged),
       remainingBalanceNgn: debt,
       paymentStatus: debt > 0 ? "incomplete" : "paid",
       paymentMethod: payment.method,
