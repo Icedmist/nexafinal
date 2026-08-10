@@ -443,11 +443,12 @@ function SaleRecordLine({ sale }: { sale: SaleTransaction }) {
   }
   const method = sale.paymentMethod ? { cash: "Cash", transfer: "Transfer", card: "Card" }[sale.paymentMethod] : "—";
   const debt = getSaleOutstanding(sale);
+  const isDebt = debt > 0;
   return (
-    <span className="flex items-center justify-end gap-1 text-[10px] font-semibold text-emerald-700">
-      <ReceiptText className="h-3 w-3" />
+    <span className="flex items-center justify-end gap-1 text-[10px] font-semibold text-foreground">
+      <ReceiptText className={cn("h-3 w-3", isDebt ? "text-destructive" : "text-emerald-700")} />
       {method}
-      {debt > 0 ? (
+      {isDebt ? (
         <span className="text-destructive font-bold">debt {NAIRA}{debt.toLocaleString("en-NG")}</span>
       ) : (
         <span className="text-emerald-700">paid</span>
