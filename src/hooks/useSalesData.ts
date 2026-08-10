@@ -117,7 +117,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     });
 
     return () => unsubscribe();
-  }, [isDemo, user, storeId, claimsReady, claims?.branchId, canJumpBranch, effectiveBranchId]);
+  }, [isDemo, user, storeId, claims?.storeId, targetStoreId, claimsReady, claims?.branchId, canJumpBranch, effectiveBranchId]);
 
   return { data, isLoading, error };
 }

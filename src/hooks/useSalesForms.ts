@@ -84,7 +84,7 @@ export function useSalesForms(): QueryResult<SalesForm> {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [isDemo, user, storeId, claimsReady]);
+  }, [isDemo, user, storeId, claims?.storeId, claimsReady, targetStoreId]);
 
   return { data, isLoading, error };
 }
@@ -98,7 +98,7 @@ export function useSalesFormMutations() {
 
   /** Create a new form, then finalize/update in place. Returns the saved form. */
   const saveForm = async (form: Omit<SalesForm, "id" | "storeId" | "branchId" | "recordedBy" | "recordedByName" | "createdAt" | "updatedAt">): Promise<SalesForm> => {
-    if (!user || !storeId) throw new Error("Authentication required to save forms.");
+    if (!user || !targetStoreId) throw new Error("Authentication required to save forms.");
     const formRef = doc(collection(db, "sales_forms"));
     const now = new Date().toISOString();
     const data: SalesForm = {
@@ -141,14 +141,14 @@ export function useSalesFormMutations() {
 
   /** Update an existing form's contents (reopen → edit → save). */
   const updateForm = async (formId: string, updates: Partial<Omit<SalesForm, "id" | "storeId" | "createdAt">>) => {
-    if (!user || !storeId) throw new Error("Authentication required to update forms.");
+    if (!user || !targetStoreId) throw new Error("Authentication required to update forms.");
     const cleaned = cleanFirestoreData({ ...updates, updatedAt: new Date().toISOString() });
     await updateDoc(doc(db, "sales_forms", formId), cleaned);
   };
 
   /** Permanently delete a form document. */
   const deleteForm = async (formId: string) => {
-    if (!user || !storeId) throw new Error("Authentication required.");
+    if (!user || !targetStoreId) throw new Error("Authentication required.");
     const { deleteDoc } = await import("firebase/firestore");
     await deleteDoc(doc(db, "sales_forms", formId));
   };
@@ -164,8 +164,8 @@ export function useSalesFormMutations() {
         message: `${form.formNumber} (${form.formType}) ${kind}.`,
         userId: user?.uid || "unknown",
         userEmail: user?.email || "unknown",
-        storeId: (storeId || claims?.storeId) as string,
-        branchId: claims?.branchId,
+        storeId: targetStoreId as string,
+        branchId: effectiveBranch || claims?.branchId,
         metadata: { formNumber: form.formNumber, formType: form.formType, total: form.totalNgn },
       });
     } catch (err) {
@@ -175,7 +175,7 @@ export function useSalesFormMutations() {
 
   /** Bulk delete used for the list page. */
   const bulkDeleteForms = async (ids: string[]) => {
-    if (!user || !storeId) throw new Error("Authentication required.");
+    if (!user || !targetStoreId) throw new Error("Authentication required.");
     if (ids.length === 0) return;
     const batch = writeBatch(db);
     ids.forEach((id) => batch.delete(doc(db, "sales_forms", id)));
@@ -184,8 +184,8 @@ export function useSalesFormMutations() {
 
   /** Fetch all form numbers for a store (used to derive the next number). */
   const listFormNumbers = async (): Promise<string[]> => {
-    if (!user || !storeId) return [];
-    const q = query(collection(db, "sales_forms"), where("storeId", "==", storeId));
+    if (!user || !targetStoreId) return [];
+    const q = query(collection(db, "sales_forms"), where("storeId", "==", targetStoreId));
     const snap = await getDocs(q);
     return snap.docs.map((d) => (d.data().formNumber as string) || "");
   };
