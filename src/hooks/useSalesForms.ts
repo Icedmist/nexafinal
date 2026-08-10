@@ -94,6 +94,7 @@ export function useSalesFormMutations() {
   const { storeId, ownerId } = useBusiness();
   const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const effectiveBranch = canJumpBranch ? effectiveBranchId : claims?.branchId;
+  const targetStoreId = storeId || claims?.storeId || null;
 
   /** Create a new form, then finalize/update in place. Returns the saved form. */
   const saveForm = async (form: Omit<SalesForm, "id" | "storeId" | "branchId" | "recordedBy" | "recordedByName" | "createdAt" | "updatedAt">): Promise<SalesForm> => {
@@ -102,7 +103,7 @@ export function useSalesFormMutations() {
     const now = new Date().toISOString();
     const data: SalesForm = {
       ...form,
-      storeId,
+      storeId: targetStoreId,
       branchId: effectiveBranch || null,
       recordedBy: user.uid,
       recordedByName: user.displayName || user.email?.split("@")[0] || "Staff",
