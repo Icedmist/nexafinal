@@ -78,19 +78,30 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     const isAdmin = ((isAdminRole(claims?.role)) || (user && ownerId && user.uid === ownerId)) && !canJumpBranch;
     const userBranchId = canJumpBranch ? effectiveBranchId : claims?.branchId;
 
-    let q = query(
+    const matchesBranchScope = (saleBranchId?: string | null) => {
+      if (isAdmin) return true;
+
+      const normalizedSaleBranchId = saleBranchId ?? null;
+      const normalizedUserBranchId = userBranchId ?? null;
+
+      return (
+        normalizedSaleBranchId === normalizedUserBranchId ||
+        normalizedSaleBranchId === "none" ||
+        normalizedSaleBranchId === null
+      );
+    };
+
+    const q = query(
       collection(db, "sales"),
       where("storeId", "==", storeId)
     );
 
-    if (!isAdmin) {
-      q = query(q, where("branchId", "==", userBranchId || "none"));
-    }
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const sales: SaleTransaction[] = [];
       snapshot.forEach((doc) => {
-        sales.push(normalizeSale({ ...doc.data(), id: doc.id } as SaleTransaction));
+        const sale = normalizeSale({ ...doc.data(), id: doc.id } as SaleTransaction);
+        if (!matchesBranchScope(sale.branchId)) return;
+        sales.push(sale);
       });
 
       // Sort client-side by createdAt descending to avoid composite index requirements
