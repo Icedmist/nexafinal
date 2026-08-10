@@ -63,9 +63,18 @@ export function useSalesForms(): QueryResult<SalesForm> {
       setIsLoading(false);
       return;
     }
-    if (!user || !targetStoreId || !claimsReady) {
-      if (!claimsReady || !user) setIsLoading(false);
+    if (!user) {
       setData([]);
+      setIsLoading(false);
+      return;
+    }
+    if (!claimsReady) {
+      setIsLoading(true);
+      return;
+    }
+    if (!targetStoreId) {
+      setData([]);
+      setIsLoading(false);
       return;
     }
     const q = query(

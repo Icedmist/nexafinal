@@ -67,12 +67,18 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       return;
     }
 
-    // Wait for claims to ensure we filter correctly for branch-assigned staff
-    if (!user || !targetStoreId || !claimsReady) {
-      if (!claimsReady || !user) {
-        setData([]);
-        setIsLoading(false);
-      }
+    if (!user) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    if (!claimsReady) {
+      setIsLoading(true);
+      return;
+    }
+    if (!targetStoreId) {
+      setData([]);
+      setIsLoading(false);
       return;
     }
 
