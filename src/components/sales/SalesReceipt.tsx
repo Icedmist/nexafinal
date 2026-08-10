@@ -581,6 +581,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
     () => buildDebtInfo(sale, allSales || [], payments || [], importedDebts || []),
     [sale, allSales, payments, importedDebts]
   );
+  const outstanding = getSaleOutstanding(sale);
 
   const [downloading, setDownloading] = useState(false);
 
@@ -781,10 +782,10 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                             <span>Amount Paid</span>
                             <span className="font-mono">{fmtNgn(sale.amountPaidNgn)}</span>
                           </div>
-                          {(sale as any).remainingBalanceNgn > 0 ? (
+                          {outstanding > 0 ? (
                             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest bg-white/10 rounded-lg px-2 py-1.5">
                               <span className="flex items-center gap-1">⚠️ Balance Due (Debt)</span>
-                              <span className="font-mono">{fmtNgn((sale as any).remainingBalanceNgn)}</span>
+                              <span className="font-mono">{fmtNgn(outstanding)}</span>
                             </div>
                           ) : (sale as any).creditAddedNgn > 0 ? (
                             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest bg-emerald-500/20 rounded-lg px-2 py-1.5">
@@ -946,11 +947,11 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
                 <span>AMOUNT PAID:</span>
                 <span>{fmtNgn(sale.amountPaidNgn)}</span>
               </div>
-              {(sale as any).remainingBalanceNgn > 0 ? (
+              {outstanding > 0 ? (
                 <>
                   <div className="flex justify-between font-black">
                     <span>BALANCE DUE (DEBT):</span>
-                    <span>{fmtNgn((sale as any).remainingBalanceNgn)}</span>
+                    <span>{fmtNgn(outstanding)}</span>
                   </div>
                   <p className="text-[9px] italic text-center mt-1">** PARTIAL PAYMENT — Balance outstanding **</p>
                 </>
