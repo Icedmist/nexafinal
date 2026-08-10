@@ -119,12 +119,15 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
   lines.push("");
   lines.push("─────────────────");
   const remainBal = outstanding;
-  if (sale.isCreditSale && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0)) {
+  const isPartialStatus = sale.amountPaidNgn && sale.amountPaidNgn > 0 && remainBal > 0;
+  const isFullDebtStatus = remainBal > 0 && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0);
+
+  if (isFullDebtStatus) {
     lines.push("*🔴 STATUS: UNPAID — FULL DEBT*");
     lines.push(`Outstanding: ${fmtNgn(remainBal)}`);
-  } else if (sale.isCreditSale && sale.amountPaidNgn && sale.amountPaidNgn > 0 && remainBal > 0) {
+  } else if (isPartialStatus) {
     lines.push("*🟡 STATUS: PARTIAL PAYMENT*");
-    lines.push(`Paid: ${fmtNgn(sale.amountPaidNgn)} · Remaining: ${fmtNgn(remainBal)}`);
+    lines.push(`Paid: ${fmtNgn(sale.amountPaidNgn || 0)} · Remaining: ${fmtNgn(remainBal)}`);
   } else {
     lines.push("*🟢 STATUS: PAID IN FULL*");
     lines.push(`Total: ${fmtNgn(sale.totalNgn)}`);
@@ -448,9 +451,9 @@ async function generateReceiptPDF(
   // ── TRANSACTION STATUS BANNER ──
   {
     const outstanding = getSaleOutstanding(sale);
-    const isPaid = !sale.isCreditSale && outstanding <= 0;
-    const isPartial = sale.isCreditSale && sale.amountPaidNgn && sale.amountPaidNgn > 0 && outstanding > 0;
-    const isFullDebt = sale.isCreditSale && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0);
+    const isPartial = sale.amountPaidNgn && sale.amountPaidNgn > 0 && outstanding > 0;
+    const isFullDebt = outstanding > 0 && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0);
+    const isPaid = !isPartial && !isFullDebt;
 
     // Banner background
     const bgR = isPaid ? 6 : isPartial ? 200 : 180;
