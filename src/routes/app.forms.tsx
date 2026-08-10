@@ -39,6 +39,11 @@ function resolveSaleForForm(form: SalesForm, sales: SaleTransaction[]): SaleTran
     if (byId) return byId;
   }
 
+  if (form.formNumber) {
+    const byFormNumber = sales.find((s) => s.formNumber === form.formNumber && s.source === "form");
+    if (byFormNumber) return byFormNumber;
+  }
+
   const formItemIds = (form.items || []).map((i) => i.itemId).filter(Boolean);
   if (formItemIds.length === 0) return undefined;
 
