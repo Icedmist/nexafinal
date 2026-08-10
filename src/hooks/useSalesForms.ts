@@ -45,9 +45,14 @@ export function nextFormNumber(existing: SalesForm[], type: FormTransactionType)
  * reopen, and reprint documents.
  */
 export function useSalesForms(): QueryResult<SalesForm> {
-  const { user, claimsReady } = useAuth();
+  const { user, claimsReady, claims } = useAuth();
   const { storeId } = useBusiness();
   const { isDemo } = useDemo();
+  // Prefer explicit BusinessContext.storeId, but fall back to the user's
+  // claim-based storeId so pages still load while the business profile is
+  // initializing (prevents the UI from showing "No sales forms yet" when
+  // the tenant/profile hasn't finished subscribing).
+  const targetStoreId = storeId || claims?.storeId || null;
   const [data, setData] = useState<SalesForm[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -58,14 +63,14 @@ export function useSalesForms(): QueryResult<SalesForm> {
       setIsLoading(false);
       return;
     }
-    if (!user || !storeId || !claimsReady) {
+    if (!user || !targetStoreId || !claimsReady) {
       if (!claimsReady || !user) setIsLoading(false);
       setData([]);
       return;
     }
     const q = query(
       collection(db, "sales_forms"),
-      where("storeId", "==", storeId),
+      where("storeId", "==", targetStoreId),
       orderBy("createdAt", "desc")
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {

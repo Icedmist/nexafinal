@@ -55,6 +55,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
   const { storeId, ownerId } = useBusiness();
   const { isDemo } = useDemo();
   const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
+  const targetStoreId = storeId || claims?.storeId || null;
   const [data, setData] = useState<SaleTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -67,7 +68,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
     }
 
     // Wait for claims to ensure we filter correctly for branch-assigned staff
-    if (!user || !storeId || !claimsReady) {
+    if (!user || !targetStoreId || !claimsReady) {
       if (!claimsReady || !user) {
         setData([]);
         setIsLoading(false);
@@ -91,9 +92,9 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       );
     };
 
-    const q = query(
+    let q = query(
       collection(db, "sales"),
-      where("storeId", "==", storeId)
+      where("storeId", "==", targetStoreId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
