@@ -377,6 +377,16 @@ function FormsPage() {
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by number, customer, phone…" className="pl-8 h-9" />
         </div>
 
+        {showDebug && (
+          <div className="mb-4">
+            <div className="rounded-md bg-muted p-3 text-xs font-mono overflow-auto max-h-48">
+              <pre className="whitespace-pre-wrap">
+{JSON.stringify({ claims: claims || null, storeId: profile?.id || null, formsCount: (forms || []).length, salesCount: (sales || []).length, firstForm: forms?.[0] ?? null, firstSale: sales?.[0] ?? null }, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <ListSkeleton items={6} />
         ) : filtered.length === 0 ? (
