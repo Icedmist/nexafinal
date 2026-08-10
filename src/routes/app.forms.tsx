@@ -120,7 +120,6 @@ function FormsPage() {
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { claims } = useAuth();
-  const [showDebug, setShowDebug] = useState(false);
 
   const filtered = (forms || []).filter((f) => {
     const q = search.trim().toLowerCase();
@@ -358,9 +357,6 @@ function FormsPage() {
                 {recordedCount} sale{recordedCount !== 1 ? "s" : ""} recorded
               </Badge>
             )}
-            <Button size="sm" variant="outline" onClick={() => setShowDebug((v) => !v)} className="ml-2">
-              {showDebug ? "Hide Debug" : "Show Debug"}
-            </Button>
             {selected.size > 0 && (
               <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="gap-1.5">
                 <Trash2 className="h-3.5 w-3.5" /> Delete {selected.size}
@@ -377,15 +373,6 @@ function FormsPage() {
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by number, customer, phone…" className="pl-8 h-9" />
         </div>
 
-        {showDebug && (
-          <div className="mb-4">
-            <div className="rounded-md bg-muted p-3 text-xs font-mono overflow-auto max-h-48">
-              <pre className="whitespace-pre-wrap">
-{JSON.stringify({ claims: claims || null, storeId: profile?.id || null, formsCount: (forms || []).length, salesCount: (sales || []).length, firstForm: forms?.[0] ?? null, firstSale: sales?.[0] ?? null }, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
 
         {isLoading ? (
           <ListSkeleton items={6} />
@@ -405,13 +392,6 @@ function FormsPage() {
               <CardTitle className="text-sm">Saved Forms ({filtered.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {showDebug && (
-                <div className="rounded-md bg-muted p-3 text-xs font-mono overflow-auto max-h-48 mb-2">
-                  <pre className="whitespace-pre-wrap">
-{JSON.stringify({ claims: claims || null, storeId: profile?.id || null, formsCount: (forms || []).length, salesCount: (sales || []).length, firstForm: forms?.[0] ?? null, firstSale: sales?.[0] ?? null }, null, 2)}
-                  </pre>
-                </div>
-              )}
               {filtered.map((form) => (
                 <div key={form.id} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
                   <input
