@@ -32,31 +32,43 @@ const FORM_TYPE_LABELS: Record<FormTransactionType, string> = {
  * total, customer, and finalize time. Returns undefined when nothing matches.
  */
 function resolveSaleForForm(form: SalesForm, sales: SaleTransaction[]): SaleTransaction | undefined {
+  if (!form || form.status !== "finalized") return undefined;
+
   if (form.saleId) {
-    return sales.find((s) => s.id === form.saleId);
+    const byId = sales.find((s) => s.id === form.saleId);
+    if (byId) return byId;
   }
-  if (form.status !== "finalized") return undefined;
+
   const formItemIds = (form.items || []).map((i) => i.itemId).filter(Boolean);
   if (formItemIds.length === 0) return undefined;
+
   const formItemSet = new Set(formItemIds);
   const formPhone = normalizePhone(form.customerPhone);
   const finalizeAt = new Date(form.updatedAt || form.createdAt).getTime();
+
   const candidates = (sales || []).filter((s) => {
     const saleItemIds = (s.items || []).map((i) => i.itemId);
     if (saleItemIds.length !== formItemIds.length) return false;
     if (!saleItemIds.every((id) => formItemSet.has(id))) return false;
-    if ((s.totalNgn ?? 0) !== (form.totalNgn ?? 0)) return false;
+
+    const sameTotal = Math.abs((s.totalNgn ?? 0) - (form.totalNgn ?? 0)) <= 1;
+    if (!sameTotal) return false;
+
     const salePhone = normalizePhone(s.customerPhone);
     if (formPhone && salePhone && formPhone !== salePhone) return false;
     if (!formPhone && salePhone) return false;
+
     return true;
   });
+
   if (candidates.length === 0) return undefined;
+
   candidates.sort((a, b) => {
     const da = Math.abs(new Date(a.createdAt).getTime() - finalizeAt);
     const db = Math.abs(new Date(b.createdAt).getTime() - finalizeAt);
     return da - db;
   });
+
   const best = candidates[0];
   const bestGap = Math.abs(new Date(best.createdAt).getTime() - finalizeAt);
   return bestGap <= 2 * 60 * 60 * 1000 ? best : undefined;
@@ -79,8 +91,13 @@ function FormsPage() {
     return m;
   }, [sales]);
   const resolveSale = useCallback((form: SalesForm) => {
-    if (form.saleId) return saleById.get(form.saleId);
-    return resolveSaleForForm(form, sales || []);
+    if (form.saleId) {
+      const linkedSale = saleById.get(form.saleId);
+      if (linkedSale) return linkedSale;
+    }
+
+    const matched = resolveSaleForForm(form, sales || []);
+    return matched;
   }, [saleById, sales]);
   const recordedCount = useMemo(
     () => (forms || []).filter((f) => f.status === "finalized" && resolveSale(f)).length,
