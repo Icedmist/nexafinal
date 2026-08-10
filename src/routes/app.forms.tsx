@@ -442,7 +442,9 @@ function SaleRecordLine({ sale }: { sale: SaleTransaction }) {
     );
   }
   const method = sale.paymentMethod ? { cash: "Cash", transfer: "Transfer", card: "Card" }[sale.paymentMethod] : "—";
-  const debt = getSaleOutstanding(sale);
+  const debt = sale.remainingBalanceNgn && sale.remainingBalanceNgn > 0
+    ? sale.remainingBalanceNgn
+    : getSaleOutstanding(sale);
   return (
     <span className="flex items-center justify-end gap-1 text-[10px] font-semibold text-emerald-700">
       <ReceiptText className="h-3 w-3" />
