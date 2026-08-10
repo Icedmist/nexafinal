@@ -111,6 +111,21 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
     lines.push("_⚠️ PARTIAL PAYMENT — Balance outstanding_");
   }
 
+  // Transaction Status
+  lines.push("");
+  lines.push("─────────────────");
+  const remainBal = (sale as any).remainingBalanceNgn ?? 0;
+  if (sale.isCreditSale && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0)) {
+    lines.push("*🔴 STATUS: UNPAID — FULL DEBT*");
+    lines.push(`Outstanding: ${fmtNgn(remainBal)}`);
+  } else if (sale.isCreditSale && sale.amountPaidNgn && sale.amountPaidNgn > 0 && remainBal > 0) {
+    lines.push("*🟡 STATUS: PARTIAL PAYMENT*");
+    lines.push(`Paid: ${fmtNgn(sale.amountPaidNgn)} · Remaining: ${fmtNgn(remainBal)}`);
+  } else {
+    lines.push("*🟢 STATUS: PAID IN FULL*");
+    lines.push(`Total: ${fmtNgn(sale.totalNgn)}`);
+  }
+
   if (debtInfo) {
     lines.push("");
     lines.push("─────────────────");
@@ -198,6 +213,7 @@ async function generateReceiptPDF(
   if (sale.subtotalNgn && (sale.discountAmountNgn || sale.taxAmountNgn)) estimatedHeight += 20;
   estimatedHeight += 12; // Grand total
   if (sale.amountPaidNgn) estimatedHeight += 15;
+  estimatedHeight += 22; // Transaction status banner
 
   // Debt & payments section
   if (debtInfo) {
@@ -423,6 +439,42 @@ async function generateReceiptPDF(
   }
 
   y += 5;
+
+  // ── TRANSACTION STATUS BANNER ──
+  {
+    const remainBal = (sale as any).remainingBalanceNgn ?? 0;
+    const isPaid = !sale.isCreditSale && remainBal <= 0;
+    const isPartial = sale.isCreditSale && sale.amountPaidNgn && sale.amountPaidNgn > 0 && remainBal > 0;
+    const isFullDebt = sale.isCreditSale && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0);
+
+    // Banner background
+    const bgR = isPaid ? 6 : isPartial ? 200 : 180;
+    const bgG = isPaid ? 150 : isPartial ? 120 : 50;
+    const bgB = isPaid ? 84 : isPartial ? 0 : 0;
+    doc.setFillColor(bgR, bgG, bgB);
+    doc.roundedRect(lm, y, rm - lm, 14, 2, 2, "F");
+
+    doc.setTextColor(255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+
+    let statusLabel = "PAID IN FULL";
+    let statusDetail = `Total: ${fmtNgn(sale.totalNgn)}`;
+    if (isFullDebt) {
+      statusLabel = "⚠ UNPAID — FULL DEBT";
+      statusDetail = `Outstanding: ${fmtNgn(remainBal)}`;
+    } else if (isPartial) {
+      statusLabel = "⚠ PARTIAL PAYMENT";
+      statusDetail = `Paid: ${fmtNgn(sale.amountPaidNgn!)} · Remaining: ${fmtNgn(remainBal)}`;
+    }
+
+    doc.text(statusLabel, w / 2, y + 5.5, { align: "center" });
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text(statusDetail, w / 2, y + 10.5, { align: "center" });
+    doc.setTextColor(0);
+    y += 18;
+  }
 
   // Debt & payments section
   if (debtInfo) {

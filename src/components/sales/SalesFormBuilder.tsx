@@ -538,15 +538,15 @@ export function SalesFormBuilder({
         onSaved(saved);
         return;
       }
+      const isReturn = saved.formType === "credit_note";
+      const salePayload = buildSaleFromForm(saved, {
+        method: paymentMethod,
+        received: cashierOverallPaid,
+      });
+      if (isReturn) salePayload.saleType = "return";
       try {
-        const isReturn = saved.formType === "credit_note";
         // Credit notes are customer returns — they restock the catalog instead
         // of recording a paid sale. Proforma/delivery notes still record a sale.
-        const salePayload = buildSaleFromForm(saved, {
-          method: paymentMethod,
-          received: cashierOverallPaid,
-        });
-        if (isReturn) salePayload.saleType = "return";
         const saleRef = await addSale(salePayload, { restock: isReturn });
         const saleId = saleRef?.id;
         if (saleId) {
@@ -640,6 +640,9 @@ export function SalesFormBuilder({
         balanceDebit: customerBalanceInfo.debit,
         branchName: branchNameFor(saved.branchId),
         recordedByName: saved.recordedByName || user?.displayName || user?.email?.split("@")[0] || "Staff",
+        amountPaid: salePayload.amountPaidNgn ?? 0,
+        remainingBalance: salePayload.remainingBalanceNgn ?? 0,
+        isCreditSale: salePayload.isCreditSale ?? false,
       });
       toast.success("Receipt PDF downloaded");
       onSaved(saved);
@@ -669,6 +672,9 @@ export function SalesFormBuilder({
     balanceDebit?: number;
     branchName?: string;
     recordedByName?: string;
+    amountPaid?: number;
+    remainingBalance?: number;
+    isCreditSale?: boolean;
   }) => {
     const formType = src.formType;
     const customerName = src.customerName || "";
@@ -830,6 +836,44 @@ export function SalesFormBuilder({
       doc.text(`Method: ${paymentMethodLabel}`, margin + contentWidth - 60, y);
     }
     y += 2;
+
+    // ── TRANSACTION STATUS BANNER ──
+    if (completed) {
+      const remainBal = src.remainingBalance ?? 0;
+      const amtPaid = src.amountPaid ?? 0;
+      const credit = src.isCreditSale ?? false;
+      const isPaid = !credit && remainBal <= 0;
+      const isPartial = credit && amtPaid > 0 && remainBal > 0;
+      const isFullDebt = credit && amtPaid <= 0;
+
+      y += 4;
+      const bgR = isPaid ? 6 : isPartial ? 200 : 180;
+      const bgG = isPaid ? 150 : isPartial ? 120 : 50;
+      const bgB = isPaid ? 84 : isPartial ? 0 : 0;
+      doc.setFillColor(bgR, bgG, bgB);
+      doc.roundedRect(margin, y, contentWidth, 16, 2, 2, "F");
+
+      doc.setTextColor(255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+
+      let sLabel = "✓ PAID IN FULL";
+      let sDetail = `Total: ${NAIRA}${effectiveTotal.toLocaleString("en-NG")}`;
+      if (isFullDebt) {
+        sLabel = "⚠ UNPAID — FULL DEBT";
+        sDetail = `Outstanding: ${NAIRA}${remainBal.toLocaleString("en-NG")}`;
+      } else if (isPartial) {
+        sLabel = "⚠ PARTIAL PAYMENT";
+        sDetail = `Paid: ${NAIRA}${amtPaid.toLocaleString("en-NG")}  ·  Remaining: ${NAIRA}${remainBal.toLocaleString("en-NG")}`;
+      }
+
+      doc.text(sLabel, w / 2, y + 6.5, { align: "center" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(sDetail, w / 2, y + 12, { align: "center" });
+      doc.setTextColor(20);
+      y += 20;
+    }
 
     if (notes.trim()) {
       doc.setFont("helvetica", "italic");
