@@ -12,6 +12,7 @@ import { useSalesForms, useSalesFormMutations, nextFormNumber } from "@/hooks/us
 import { useSales } from "@/hooks/useSalesData";
 import { useStoreBranches } from "@/hooks/useStaffData";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { getSaleOutstanding } from "@/lib/credit-sale";
 import { SalesFormBuilder } from "@/components/sales/SalesFormBuilder";
 import type { SalesForm, FormTransactionType, SaleTransaction } from "@/types/inventory";
 
@@ -441,7 +442,7 @@ function SaleRecordLine({ sale }: { sale: SaleTransaction }) {
     );
   }
   const method = sale.paymentMethod ? { cash: "Cash", transfer: "Transfer", card: "Card" }[sale.paymentMethod] : "—";
-  const debt = sale.remainingBalanceNgn || 0;
+  const debt = getSaleOutstanding(sale);
   return (
     <span className="flex items-center justify-end gap-1 text-[10px] font-semibold text-emerald-700">
       <ReceiptText className="h-3 w-3" />
