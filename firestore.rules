@@ -234,12 +234,30 @@ service cloud.firestore {
 
     // SALES FORMS / RECEIPTS: saved line-item documents (receipts, proforma
     // invoices, delivery notes, credit notes). Store-scoped; no inventory impact.
+    // Rules are split per-operation because `resource.data` is unavailable on
+    // `create` (no existing doc) and `request.resource.data` is unavailable on
+    // `read`/`delete` (no incoming doc). Combining them caused silent permission
+    // denials for manager-role users.
     match /sales_forms/{formId} {
-      allow read, create, update, delete: if isAuth() && (
-        (getStoreId() != null &&
-          (request.resource.data.storeId == getStoreId() || resource.data.storeId == getStoreId())) ||
+      allow read: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
         ownsStore(resource) ||
-        isAdmin()
+        isManager()
+      );
+      allow create: if isAuth() && (
+        (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
+        isManager()
+      );
+      allow update: if isAuth() && (
+        (getStoreId() != null &&
+          (resource.data.storeId == getStoreId() || request.resource.data.storeId == getStoreId())) ||
+        ownsStore(resource) ||
+        isManager()
+      );
+      allow delete: if isAuth() && (
+        (getStoreId() != null && resource.data.storeId == getStoreId()) ||
+        ownsStore(resource) ||
+        isManager()
       );
     }
 

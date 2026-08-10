@@ -24,7 +24,7 @@ import { useRole } from "@/hooks/useRole";
 import type { Item, SaleLineItem, SalesForm, FormTransactionType, SaleTransaction } from "@/types/inventory";
 
 const NAIRA = "₦";
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 100;
 
 const FORM_TYPES: { id: FormTransactionType; label: string; hint: string }[] = [
   { id: "receipt", label: "Receipt", hint: "Proof of payment issued to a customer" },
@@ -1507,7 +1507,7 @@ export function SalesFormBuilder({
           {rows.length > PAGE_SIZE && (
             <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
               <span className="text-xs text-muted-foreground font-mono">
-                Page {page + 1} of {pageCount}
+                Page {page + 1} of {pageCount} · {rows.length} items total
               </span>
               <div className="flex gap-1.5">
                 <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
