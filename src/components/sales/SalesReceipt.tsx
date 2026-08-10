@@ -59,6 +59,7 @@ function fmtNgn(amount: number): string {
 }
 
 function buildReceiptText(sale: SaleTransaction, storeName: string, address: string, branchName?: string, storePhone?: string, debtInfo?: DebtInfo): string {
+  const outstanding = getSaleOutstanding(sale);
   const lines: string[] = [];
   lines.push(`🧾 *${storeName}*`);
   if (branchName) lines.push(`*Branch: ${branchName}*`);
@@ -97,8 +98,8 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
   
   if (sale.amountPaidNgn) {
     lines.push(`Amount Paid: ${fmtNgn(sale.amountPaidNgn)}`);
-    if ((sale as any).remainingBalanceNgn > 0) {
-      lines.push(`*⚠️ BALANCE DUE (DEBT): ${fmtNgn((sale as any).remainingBalanceNgn)}*`);
+    if (outstanding > 0) {
+      lines.push(`*⚠️ BALANCE DUE (DEBT): ${fmtNgn(outstanding)}*`);
     } else if ((sale as any).creditAddedNgn > 0) {
       lines.push(`*🎁 Store Credit Added: ${fmtNgn((sale as any).creditAddedNgn)}*`);
     } else {
@@ -106,7 +107,7 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
     }
   }
   
-  if ((sale as any).remainingBalanceNgn > 0) {
+  if (outstanding > 0) {
     lines.push("");
     lines.push("_⚠️ PARTIAL PAYMENT — Balance outstanding_");
   }
@@ -114,7 +115,7 @@ function buildReceiptText(sale: SaleTransaction, storeName: string, address: str
   // Transaction Status
   lines.push("");
   lines.push("─────────────────");
-  const remainBal = (sale as any).remainingBalanceNgn ?? 0;
+  const remainBal = outstanding;
   if (sale.isCreditSale && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0)) {
     lines.push("*🔴 STATUS: UNPAID — FULL DEBT*");
     lines.push(`Outstanding: ${fmtNgn(remainBal)}`);
@@ -407,16 +408,17 @@ async function generateReceiptPDF(
   y += 6;
 
   if (sale.amountPaidNgn) {
+    const outstanding = getSaleOutstanding(sale);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Amount Paid:", lm, y);
     doc.text(fmtNgn(sale.amountPaidNgn), rm, y, { align: "right" });
     y += 4;
-    if ((sale as any).remainingBalanceNgn > 0) {
+    if (outstanding > 0) {
       doc.setFont("helvetica", "bold");
       doc.setTextColor(180, 80, 0);
       doc.text("BALANCE DUE (DEBT):", lm, y);
-      doc.text(fmtNgn((sale as any).remainingBalanceNgn), rm, y, { align: "right" });
+      doc.text(fmtNgn(outstanding), rm, y, { align: "right" });
       doc.setTextColor(0);
       y += 5;
       doc.setFontSize(7);
@@ -442,9 +444,9 @@ async function generateReceiptPDF(
 
   // ── TRANSACTION STATUS BANNER ──
   {
-    const remainBal = (sale as any).remainingBalanceNgn ?? 0;
-    const isPaid = !sale.isCreditSale && remainBal <= 0;
-    const isPartial = sale.isCreditSale && sale.amountPaidNgn && sale.amountPaidNgn > 0 && remainBal > 0;
+    const outstanding = getSaleOutstanding(sale);
+    const isPaid = !sale.isCreditSale && outstanding <= 0;
+    const isPartial = sale.isCreditSale && sale.amountPaidNgn && sale.amountPaidNgn > 0 && outstanding > 0;
     const isFullDebt = sale.isCreditSale && (!sale.amountPaidNgn || sale.amountPaidNgn <= 0);
 
     // Banner background
@@ -462,10 +464,10 @@ async function generateReceiptPDF(
     let statusDetail = `Total: ${fmtNgn(sale.totalNgn)}`;
     if (isFullDebt) {
       statusLabel = "⚠ UNPAID — FULL DEBT";
-      statusDetail = `Outstanding: ${fmtNgn(remainBal)}`;
+      statusDetail = `Outstanding: ${fmtNgn(outstanding)}`;
     } else if (isPartial) {
       statusLabel = "⚠ PARTIAL PAYMENT";
-      statusDetail = `Paid: ${fmtNgn(sale.amountPaidNgn!)} · Remaining: ${fmtNgn(remainBal)}`;
+      statusDetail = `Paid: ${fmtNgn(sale.amountPaidNgn!)} · Remaining: ${fmtNgn(outstanding)}`;
     }
 
     doc.text(statusLabel, w / 2, y + 5.5, { align: "center" });
