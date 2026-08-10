@@ -28,7 +28,7 @@ function buildDebtInfo(
   importedDebts: ImportedDebt[]
 ): DebtInfo | null {
   const phone = sale.customerPhone?.trim().toLowerCase();
-  if (!phone || !sale.isCreditSale) return null;
+  if (!phone) return null;
 
   const totalSaleOutstanding = allSales
     .filter((s) => s.customerPhone?.trim().toLowerCase() === phone)
@@ -42,9 +42,12 @@ function buildDebtInfo(
     .filter((p) => p.customerPhone?.trim().toLowerCase() === phone)
     .reduce((sum, p) => sum + (Number(p.amountNgn) || 0), 0);
 
+  const outstanding = Math.max(0, totalSaleOutstanding + importedTotal - paid);
+  if (outstanding === 0 && getSaleOutstanding(sale) === 0) return null;
+
   return {
     remainingThisSale: getSaleOutstanding(sale),
-    totalOutstanding: Math.max(0, totalSaleOutstanding + importedTotal - paid),
+    totalOutstanding: outstanding,
     payments: payments
       .filter((p) => p.customerPhone?.trim().toLowerCase() === phone)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
