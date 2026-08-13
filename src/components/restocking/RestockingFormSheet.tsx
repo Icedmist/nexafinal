@@ -110,6 +110,8 @@ export function RestockingFormSheet({
             quantity: li.quantityOrdered,
             unitCost: li.unitCost,
             sellingPrice: li.sellingPrice || items.find(i => i.id === li.itemId)?.sellingPrice || 0,
+            selectedUnit: li.selectedUnit || items.find(i => i.id === li.itemId)?.unit || "",
+            conversionFactor: li.conversionFactor ?? 1,
           })),
         );
       } else {
@@ -143,6 +145,8 @@ export function RestockingFormSheet({
         quantityReceived: values.isInstant ? r.quantity : (existing?.quantityReceived ?? 0),
         unitCost: r.unitCost,
         sellingPrice: r.sellingPrice,
+        selectedUnit: r.selectedUnit,
+        conversionFactor: r.conversionFactor,
       };
     });
     const totalCost = poItems.reduce((s, i) => s + i.quantityOrdered * i.unitCost, 0);
