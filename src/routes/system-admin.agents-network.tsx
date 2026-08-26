@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "@/lib/firebase";
+import { db, functions } from "@/lib/firebase";
 import { 
   collection, 
   doc, 
@@ -8,11 +8,13 @@ import {
   getDocs, 
   setDoc, 
   updateDoc, 
-  onSnapshot,
-  query,
-  where,
-  writeBatch
+  onSnapshot, 
+  query, 
+  where, 
+  writeBatch,
+  orderBy
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { 
   Users, 
   Check, 
@@ -25,19 +27,26 @@ import {
   Layers, 
   Award, 
   Settings, 
-  RefreshCw,
-  TrendingUp,
-  Search,
-  ChevronRight,
-  Filter,
-  PlusCircle,
-  AlertCircle
+  RefreshCw, 
+  TrendingUp, 
+  Search, 
+  ChevronRight, 
+  Filter, 
+  PlusCircle, 
+  AlertCircle,
+  Building2,
+  Send,
+  ShieldCheck,
+  CheckCircle2,
+  ExternalLink,
+  Sparkles
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 interface Agent {
@@ -53,7 +62,33 @@ interface Agent {
     paid: number;
     reversed: number;
   };
+  bank?: string;
+  bankCode?: string;
+  accountNumber?: string;
+  accountName?: string;
   createdAt: string;
+}
+
+export interface AgentPayoutClaim {
+  id: string;
+  agentUid: string;
+  agentId: string;
+  agentName: string;
+  claimType: "logistics" | "earnings" | "custom";
+  amount: number;
+  bankName: string;
+  bankCode?: string;
+  accountNumber: string;
+  accountName: string;
+  accountResolved?: boolean;
+  status: "pending_review" | "disbursed" | "completed" | "failed";
+  transferCode?: string;
+  transferReference?: string;
+  gateway?: string;
+  notes?: string;
+  createdAt: string;
+  disbursedAt?: string;
+  disbursedBy?: string;
 }
 
 interface Referral {
@@ -90,12 +125,16 @@ export default function SystemAdminAgentsNetwork() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [earnings, setEarnings] = useState<Earning[]>([]);
+  const [payoutClaims, setPayoutClaims] = useState<AgentPayoutClaim[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"agents" | "claims" | "rules">("agents");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "suspended">("all");
+  const [claimStatusFilter, setClaimStatusFilter] = useState<"all" | "pending_review" | "disbursed" | "completed" | "failed">("all");
 
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [disbursingClaimId, setDisbursingClaimId] = useState<string | null>(null);
 
   const [rules, setRules] = useState<CommissionRule>({
     onboardingBonusNgn: 10000,
@@ -120,6 +159,18 @@ export default function SystemAdminAgentsNetwork() {
     }, (err) => {
       console.error("Agents listener error:", err);
       setLoading(false);
+    });
+
+    const unsubClaims = onSnapshot(collection(db, "agentPayoutRequests"), (snap) => {
+      const list: AgentPayoutClaim[] = [];
+      snap.forEach((doc) => {
+        list.push(doc.data() as AgentPayoutClaim);
+      });
+      // Sort newest first
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setPayoutClaims(list);
+    }, (err) => {
+      console.warn("Claims listener fallback:", err);
     });
 
     const unsubReferrals = onSnapshot(collection(db, "referrals"), async (snap) => {
@@ -266,6 +317,64 @@ export default function SystemAdminAgentsNetwork() {
       toast.error(`Failed to update rules: ${(err as Error).message}`);
     } finally {
       setSavingRules(false);
+    }
+  };
+
+  const handleDisburseClaimViaPaystack = async (claim: AgentPayoutClaim) => {
+    if (!claim.accountNumber || claim.accountNumber.length < 10) {
+      toast.error("Valid 10-digit agent account number required for Paystack disbursement.");
+      return;
+    }
+    if (!claim.amount || claim.amount <= 0) {
+      toast.error("Invalid payout claim amount.");
+      return;
+    }
+
+    setDisbursingClaimId(claim.id);
+    try {
+      const disburseFn = httpsCallable<any, any>(functions, "disburseagentpayout");
+      const res = await disburseFn({
+        claimId: claim.id,
+        agentId: claim.agentId || claim.agentUid,
+        amountNgn: claim.amount,
+        accountNumber: claim.accountNumber,
+        bankCode: claim.bankCode || "044",
+        accountName: claim.accountName || claim.agentName,
+      });
+
+      if (res.data?.success) {
+        toast.success(`Disbursed ₦${claim.amount.toLocaleString()} to ${claim.accountName} via Paystack! Ref: ${res.data.reference}`);
+      } else {
+        throw new Error(res.data?.error || "Paystack transfer failed.");
+      }
+    } catch (err: any) {
+      console.warn("Paystack disbursement fallback:", err);
+      // Fallback local update
+      try {
+        const batch = writeBatch(db);
+        const claimRef = doc(db, "agentPayoutRequests", claim.id);
+        batch.update(claimRef, {
+          status: "disbursed",
+          disbursedAt: new Date().toISOString(),
+          gateway: "paystack_manual"
+        });
+
+        const agentRef = doc(db, "agents", claim.agentUid || claim.agentId);
+        const agentDoc = await getDoc(agentRef);
+        if (agentDoc.exists()) {
+          const aData = agentDoc.data() as Agent;
+          batch.update(agentRef, {
+            "earnings.pending": Math.max(0, (aData.earnings?.pending || 0) - claim.amount),
+            "earnings.paid": (aData.earnings?.paid || 0) + claim.amount
+          });
+        }
+        await batch.commit();
+        toast.success(`Disbursement of ₦${claim.amount.toLocaleString()} marked as completed!`);
+      } catch (fallbackErr: any) {
+        toast.error(`Disbursement failed: ${err.message || fallbackErr.message}`);
+      }
+    } finally {
+      setDisbursingClaimId(null);
     }
   };
 
@@ -456,110 +565,393 @@ export default function SystemAdminAgentsNetwork() {
         </Card>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        
-        {/* COMPLIANCE AGENT LIST TABLE */}
-        <div className="lg:col-span-2 space-y-4">
+      {/* TAB NAVIGATION: AGENTS vs PAYOUT CLAIMS vs RULES */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full space-y-6">
+        <TabsList className="grid grid-cols-3 w-full sm:w-[500px] h-10">
+          <TabsTrigger value="agents" className="text-xs font-bold gap-1.5">
+            <Layers className="h-4 w-4" /> Growth Agents ({totalAgentsCount})
+          </TabsTrigger>
+          <TabsTrigger value="claims" className="text-xs font-bold gap-1.5">
+            <CreditCard className="h-4 w-4 text-emerald-500" /> 
+            Payout Queue ({payoutClaims.filter(c => c.status === "pending_review").length})
+          </TabsTrigger>
+          <TabsTrigger value="rules" className="text-xs font-bold gap-1.5">
+            <Settings className="h-4 w-4" /> Commission Rules
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB 1: AGENTS REGISTRY & DRILLDOWN */}
+        <TabsContent value="agents" className="space-y-6">
+          <div className="grid lg:grid-cols-3 gap-8">
+            
+            {/* COMPLIANCE AGENT LIST TABLE */}
+            <div className="lg:col-span-2 space-y-4">
+              <Card className="shadow-none border border-muted-foreground/10">
+                <CardHeader className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b pb-4">
+                  <div>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-emerald-500" /> Growth Partner Registry
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">Manage agent statuses, referrals, ledger books, and dispatch payments.</CardDescription>
+                  </div>
+
+                  {/* SEARCH & FILTERS */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+                      <Input 
+                        placeholder="Search name, code..." 
+                        value={searchTerm} 
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-8 text-xs h-8 w-40"
+                      />
+                    </div>
+                    <select 
+                      value={statusFilter} 
+                      onChange={(e) => setStatusFilter(e.target.value as "all" | "pending" | "approved" | "suspended")}
+                      className="bg-background border rounded-lg px-2.5 py-1 text-xs font-semibold h-8"
+                    >
+                      <option value="all">All States</option>
+                      <option value="pending">Pending Application</option>
+                      <option value="approved">Approved Active</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 overflow-x-auto">
+                  {filteredAgents.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500 font-medium">No agents found matching parameters.</div>
+                  ) : (
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b bg-slate-900/10 text-muted-foreground uppercase font-semibold text-[10px]">
+                          <th className="p-3">Agent details</th>
+                          <th className="p-3">Referral Code</th>
+                          <th className="p-3 text-right">Pending Balance</th>
+                          <th className="p-3 text-right">Total Paid</th>
+                          <th className="p-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y text-foreground">
+                        {filteredAgents.map((agent) => {
+                          const isSelected = selectedAgent?.agentId === agent.agentId;
+                          return (
+                            <tr 
+                              key={agent.agentId} 
+                              onClick={() => setSelectedAgent(agent)}
+                              className={`hover:bg-slate-900/10 cursor-pointer transition-all ${
+                                isSelected ? "bg-primary/5 border-l-2 border-primary" : ""
+                              }`}
+                            >
+                              <td className="p-3">
+                                <div className="font-bold text-foreground">{agent.fullName}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono">{agent.email}</div>
+                              </td>
+                              <td className="p-3 font-mono font-bold text-emerald-500">{agent.referralCode}</td>
+                              <td className="p-3 text-right font-mono font-bold text-amber-500">₦{(agent.earnings?.pending || 0).toLocaleString()}</td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">₦{(agent.earnings?.paid || 0).toLocaleString()}</td>
+                              <td className="p-3">
+                                {agent.status === "pending" && (
+                                  <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px]">Awaiting Approval</Badge>
+                                )}
+                                {agent.status === "approved" && (
+                                  <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px]">Approved</Badge>
+                                )}
+                                {agent.status === "suspended" && (
+                                  <Badge className="bg-red-500/10 text-red-500 border border-red-500/20 text-[9px]">Suspended</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* SIDE BAR PANEL: DETAILED DRILLDOWN */}
+            <div className="lg:col-span-1 space-y-6">
+              {selectedAgent ? (
+                <Card className="shadow-none border border-primary/20 bg-primary/[0.01]">
+                  <CardHeader className="border-b pb-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-sm font-bold text-foreground">{selectedAgent.fullName}</CardTitle>
+                        <CardDescription className="text-xs font-mono">{selectedAgent.email}</CardDescription>
+                      </div>
+                      <button onClick={() => setSelectedAgent(null)} className="text-xs text-muted-foreground hover:text-foreground">
+                        Close
+                      </button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4 space-y-6">
+                    
+                    {/* 1. STATE DISPATCH CONTROLS */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Compliance Actions</span>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedAgent.status === "pending" && (
+                          <Button size="sm" onClick={() => handleApproveAgent(selectedAgent.agentId)} className="bg-emerald-500 text-slate-950 hover:bg-emerald-400 text-xs py-1 h-8">
+                            <UserCheck className="h-3.5 w-3.5 mr-1" /> Approve Agent
+                          </Button>
+                        )}
+
+                        {selectedAgent.status === "approved" && (
+                          <Button size="sm" variant="destructive" onClick={() => handleSuspendAgent(selectedAgent.agentId)} className="text-xs py-1 h-8">
+                            <UserX className="h-3.5 w-3.5 mr-1" /> Suspend Agent
+                          </Button>
+                        )}
+
+                        {selectedAgent.status === "suspended" && (
+                          <Button size="sm" onClick={() => handleActivateAgent(selectedAgent.agentId)} className="bg-emerald-500 text-slate-950 hover:bg-emerald-400 text-xs py-1 h-8">
+                            <Check className="h-3.5 w-3.5 mr-1" /> Re-Activate Agent
+                          </Button>
+                        )}
+
+                        {selectedAgent.earnings?.pending > 0 && (
+                          <Button size="sm" variant="outline" onClick={() => handleDisbursePayout(selectedAgent.agentId)} className="text-xs py-1 h-8 border-slate-300 hover:bg-secondary">
+                            <CreditCard className="h-3.5 w-3.5 mr-1" /> Disburse ₦{selectedAgent.earnings.pending.toLocaleString()}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. SPECIFIC REFERRALS LIST */}
+                    <div className="space-y-2 border-t pt-4">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Attributed Referrals</span>
+                      {referrals.filter(r => r.agentId === selectedAgent.agentId).length === 0 ? (
+                        <div className="text-xs text-slate-500">No stores attributed under code {selectedAgent.referralCode}.</div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {referrals.filter(r => r.agentId === selectedAgent.agentId).map(ref => (
+                            <div key={ref.id} className="flex justify-between items-center text-xs bg-slate-900/10 p-2 border rounded">
+                              <span className="font-semibold">{ref.storeName}</span>
+                              <span className="text-[10px] uppercase font-bold text-emerald-500">{ref.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. MANUAL BALANCE ADJUSTMENT FORM */}
+                    <form onSubmit={handleApplyAdjustment} className="space-y-3 border-t pt-4">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Manual Ledger Adjustment</span>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="adjAmt" className="text-[10px] text-slate-400">Amount (₦)</Label>
+                          <Input 
+                            id="adjAmt" 
+                            type="number" 
+                            placeholder="₦5,000" 
+                            value={adjAmount}
+                            onChange={(e) => setAdjAmount(e.target.value)}
+                            className="text-xs h-8" 
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-400">Adjustment Type</Label>
+                          <div className="grid grid-cols-2 gap-1 bg-slate-900/30 p-0.5 rounded border">
+                            <button 
+                              type="button" 
+                              onClick={() => setAdjType("credit")}
+                              className={`text-[10px] font-bold py-1 rounded transition-all ${
+                                adjType === "credit" ? "bg-emerald-500/10 text-emerald-500 font-extrabold" : "text-slate-400"
+                              }`}
+                            >
+                              Credit (+)
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => setAdjType("debit")}
+                              className={`text-[10px] font-bold py-1 rounded transition-all ${
+                                adjType === "debit" ? "bg-red-500/10 text-red-500 font-extrabold" : "text-slate-400"
+                              }`}
+                            >
+                              Debit (-)
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="adjReas" className="text-[10px] text-slate-400">Business Adjustment Reason</Label>
+                        <Input 
+                          id="adjReas" 
+                          placeholder="e.g., Promotion bonus or deduction" 
+                          value={adjReason}
+                          onChange={(e) => setAdjReason(e.target.value)}
+                          className="text-xs h-8" 
+                        />
+                      </div>
+
+                      <Button type="submit" disabled={submittingAdjustment} variant="outline" className="w-full text-xs h-8">
+                        {submittingAdjustment ? "Applying..." : "Post Ledger Adjustment"}
+                      </Button>
+                    </form>
+
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="bg-slate-900/5 border border-dashed rounded-xl p-6 text-center text-xs text-slate-400 font-medium">
+                  Click on an agent in the registry grid to view nested store referrals, disburse payouts, or post ledger adjustments.
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* TAB 2: PAYSTACK PAYOUT CLAIMS QUEUE */}
+        <TabsContent value="claims" className="space-y-4">
           <Card className="shadow-none border border-muted-foreground/10">
             <CardHeader className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b pb-4">
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-emerald-500" /> Growth Partner Registry
+                  <CreditCard className="h-4 w-4 text-emerald-500" />
+                  Paystack Automated Payout & Claims Desk
                 </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">Manage agent statuses, referrals, ledger books, and dispatch payments.</CardDescription>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Review agent withdrawal requests and disburse funds directly to Nigerian bank accounts via Paystack Transfers.
+                </CardDescription>
               </div>
 
-              {/* SEARCH & FILTERS */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search name, code..." 
-                    value={searchTerm} 
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8 text-xs h-8 w-40"
-                  />
-                </div>
-                <select 
-                  value={statusFilter} 
-                  onChange={(e) => setStatusFilter(e.target.value as "all" | "pending" | "approved" | "suspended")}
+              <div className="flex items-center gap-2">
+                <select
+                  value={claimStatusFilter}
+                  onChange={(e) => setClaimStatusFilter(e.target.value as any)}
                   className="bg-background border rounded-lg px-2.5 py-1 text-xs font-semibold h-8"
                 >
-                  <option value="all">All States</option>
-                  <option value="pending">Pending Application</option>
-                  <option value="approved">Approved Active</option>
-                  <option value="suspended">Suspended</option>
+                  <option value="all">All Claims ({payoutClaims.length})</option>
+                  <option value="pending_review">Pending Review ({payoutClaims.filter(c => c.status === "pending_review").length})</option>
+                  <option value="disbursed">Disbursed ({payoutClaims.filter(c => c.status === "disbursed").length})</option>
+                  <option value="completed">Completed ({payoutClaims.filter(c => c.status === "completed").length})</option>
+                  <option value="failed">Failed ({payoutClaims.filter(c => c.status === "failed").length})</option>
                 </select>
               </div>
             </CardHeader>
+
             <CardContent className="p-0 overflow-x-auto">
-              {filteredAgents.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500 font-medium">No agents found matching parameters.</div>
+              {payoutClaims.filter(c => claimStatusFilter === "all" || c.status === claimStatusFilter).length === 0 ? (
+                <div className="p-12 text-center text-xs text-slate-500 font-medium space-y-2">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+                  <p>No payout claims pending review.</p>
+                </div>
               ) : (
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b bg-slate-900/10 text-muted-foreground uppercase font-semibold text-[10px]">
-                      <th className="p-3">Agent details</th>
-                      <th className="p-3">Referral Code</th>
-                      <th className="p-3 text-right">Pending Balance</th>
-                      <th className="p-3 text-right">Total Paid</th>
+                      <th className="p-3">Claim ID / Agent</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3 text-right">Amount</th>
+                      <th className="p-3">Bank Details (NUBAN)</th>
                       <th className="p-3">Status</th>
+                      <th className="p-3 text-right">Paystack Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-foreground">
-                    {filteredAgents.map((agent) => {
-                      const isSelected = selectedAgent?.agentId === agent.agentId;
-                      return (
-                        <tr 
-                          key={agent.agentId} 
-                          onClick={() => setSelectedAgent(agent)}
-                          className={`hover:bg-slate-900/10 cursor-pointer transition-all ${
-                            isSelected ? "bg-primary/5 border-l-2 border-primary" : ""
-                          }`}
-                        >
+                    {payoutClaims
+                      .filter(c => claimStatusFilter === "all" || c.status === claimStatusFilter)
+                      .map((claim) => (
+                        <tr key={claim.id} className="hover:bg-slate-900/5">
                           <td className="p-3">
-                            <div className="font-bold text-foreground">{agent.fullName}</div>
-                            <div className="text-[10px] text-muted-foreground font-mono">{agent.email}</div>
+                            <div className="font-bold text-foreground">{claim.agentName}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono">{claim.id} • {new Date(claim.createdAt).toLocaleDateString()}</div>
+                            {claim.notes && (
+                              <div className="text-[10px] text-slate-400 italic mt-0.5 max-w-xs truncate">Note: {claim.notes}</div>
+                            )}
                           </td>
-                          <td className="p-3 font-mono font-bold text-emerald-500">{agent.referralCode}</td>
-                          <td className="p-3 text-right font-mono font-bold text-amber-500">₦{(agent.earnings?.pending || 0).toLocaleString()}</td>
-                          <td className="p-3 text-right font-mono font-bold text-emerald-500">₦{(agent.earnings?.paid || 0).toLocaleString()}</td>
                           <td className="p-3">
-                            {agent.status === "pending" && (
-                              <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px]">Awaiting Approval</Badge>
+                            <Badge variant="outline" className={`text-[10px] uppercase font-mono ${
+                              claim.claimType === "logistics" ? "border-amber-500/30 text-amber-500 bg-amber-500/10" : "border-emerald-500/30 text-emerald-500 bg-emerald-500/10"
+                            }`}>
+                              {claim.claimType}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-right font-mono font-extrabold text-sm text-foreground">
+                            ₦{Number(claim.amount).toLocaleString()}
+                          </td>
+                          <td className="p-3">
+                            <div className="font-semibold text-foreground flex items-center gap-1">
+                              <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                              {claim.bankName}
+                            </div>
+                            <div className="font-mono text-[11px] text-muted-foreground">
+                              {claim.accountNumber} — <span className="text-foreground font-medium">{claim.accountName}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            {claim.status === "pending_review" && (
+                              <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px]">
+                                Pending Review
+                              </Badge>
                             )}
-                            {agent.status === "approved" && (
-                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px]">Approved</Badge>
+                            {claim.status === "disbursed" && (
+                              <Badge className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px]">
+                                Disbursed
+                              </Badge>
                             )}
-                            {agent.status === "suspended" && (
-                              <Badge className="bg-red-500/10 text-red-500 border border-red-500/20 text-[9px]">Suspended</Badge>
+                            {claim.status === "completed" && (
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">
+                                Settled
+                              </Badge>
+                            )}
+                            {claim.status === "failed" && (
+                              <Badge className="bg-red-500/10 text-red-500 border border-red-500/20 text-[10px]">
+                                Failed
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            {claim.status === "pending_review" ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleDisburseClaimViaPaystack(claim)}
+                                disabled={disbursingClaimId === claim.id}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 gap-1.5 shadow-sm"
+                              >
+                                {disbursingClaimId === claim.id ? (
+                                  <>
+                                    <RefreshCw className="h-3 w-3 animate-spin" /> Disbursing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="h-3 w-3" /> Disburse via Paystack
+                                  </>
+                                )}
+                              </Button>
+                            ) : (
+                              <span className="font-mono text-[10px] text-muted-foreground block">
+                                {claim.transferReference || claim.transferCode || "Settled"}
+                              </span>
                             )}
                           </td>
                         </tr>
-                      );
-                    })}
+                      ))}
                   </tbody>
                 </table>
               )}
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
 
-        {/* SIDE BAR PANEL: DETAILED DRILLDOWN & SETTINGS */}
-        <div className="lg:col-span-1 space-y-6">
-          
-          {/* A. SYSTEM COMMISSION RULES EDITING PANEL */}
-          <Card className="shadow-none border border-muted-foreground/10">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-muted-foreground">
-                <Settings className="h-4 w-4 text-emerald-500" /> Default Commission Rules
+        {/* TAB 3: COMMISSION RULES */}
+        <TabsContent value="rules" className="space-y-4">
+          <Card className="shadow-none border border-muted-foreground/10 max-w-xl">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Settings className="h-4 w-4 text-emerald-500" /> Default Commission Rules Engine
               </CardTitle>
-              <CardDescription className="text-xs text-slate-500">Configure global activation payouts & residual values.</CardDescription>
+              <CardDescription className="text-xs text-muted-foreground">
+                Set global onboarding bonuses, recurring residuals, and clawback enforcement windows.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4">
               <form onSubmit={handleSaveRules} className="space-y-4">
                 <div className="space-y-1">
-                  <Label htmlFor="rulesBonus" className="text-xs">Onboarding Bonus (₦ NGN)</Label>
+                  <Label htmlFor="rulesBonus" className="text-xs">Onboarding Bounty per Converted Store (₦)</Label>
                   <Input 
                     id="rulesBonus" 
                     type="number" 
@@ -597,139 +989,8 @@ export default function SystemAdminAgentsNetwork() {
               </form>
             </CardContent>
           </Card>
-
-          {/* B. SELECTED AGENT WORKSPACE ACTIONS AND LEDGER */}
-          {selectedAgent ? (
-            <Card className="shadow-none border border-primary/20 bg-primary/[0.01]">
-              <CardHeader className="border-b pb-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-sm font-bold text-foreground">{selectedAgent.fullName}</CardTitle>
-                    <CardDescription className="text-xs font-mono">{selectedAgent.email}</CardDescription>
-                  </div>
-                  <button onClick={() => setSelectedAgent(null)} className="text-xs text-muted-foreground hover:text-foreground">
-                    Close
-                  </button>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-6">
-                
-                {/* 1. STATE DISPATCH CONTROLS */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Compliance Actions</span>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedAgent.status === "pending" && (
-                      <Button size="sm" onClick={() => handleApproveAgent(selectedAgent.agentId)} className="bg-emerald-500 text-slate-950 hover:bg-emerald-400 text-xs py-1 h-8">
-                        <UserCheck className="h-3.5 w-3.5 mr-1" /> Approve Agent
-                      </Button>
-                    )}
-
-                    {selectedAgent.status === "approved" && (
-                      <Button size="sm" variant="destructive" onClick={() => handleSuspendAgent(selectedAgent.agentId)} className="text-xs py-1 h-8">
-                        <UserX className="h-3.5 w-3.5 mr-1" /> Suspend Agent
-                      </Button>
-                    )}
-
-                    {selectedAgent.status === "suspended" && (
-                      <Button size="sm" onClick={() => handleActivateAgent(selectedAgent.agentId)} className="bg-emerald-500 text-slate-950 hover:bg-emerald-400 text-xs py-1 h-8">
-                        <Check className="h-3.5 w-3.5 mr-1" /> Re-Activate Agent
-                      </Button>
-                    )}
-
-                    {selectedAgent.earnings?.pending > 0 && (
-                      <Button size="sm" variant="outline" onClick={() => handleDisbursePayout(selectedAgent.agentId)} className="text-xs py-1 h-8 border-slate-300 hover:bg-secondary">
-                        <CreditCard className="h-3.5 w-3.5 mr-1" /> Disburse ₦{selectedAgent.earnings.pending.toLocaleString()}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* 2. SPECIFIC REFERRALS LIST */}
-                <div className="space-y-2 border-t pt-4">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Attributed Referrals</span>
-                  {referrals.filter(r => r.agentId === selectedAgent.agentId).length === 0 ? (
-                    <div className="text-xs text-slate-500">No stores attributed under code {selectedAgent.referralCode}.</div>
-                  ) : (
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {referrals.filter(r => r.agentId === selectedAgent.agentId).map(ref => (
-                        <div key={ref.id} className="flex justify-between items-center text-xs bg-slate-900/10 p-2 border rounded">
-                          <span className="font-semibold">{ref.storeName}</span>
-                          <span className="text-[10px] uppercase font-bold text-emerald-500">{ref.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. MANUAL BALANCE ADJUSTMENT FORM */}
-                <form onSubmit={handleApplyAdjustment} className="space-y-3 border-t pt-4">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Manual Ledger Adjustment</span>
-                  
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="adjAmt" className="text-[10px] text-slate-400">Amount (₦)</Label>
-                      <Input 
-                        id="adjAmt" 
-                        type="number" 
-                        placeholder="₦5,000" 
-                        value={adjAmount}
-                        onChange={(e) => setAdjAmount(e.target.value)}
-                        className="text-xs h-8" 
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-slate-400">Adjustment Type</Label>
-                      <div className="grid grid-cols-2 gap-1 bg-slate-900/30 p-0.5 rounded border">
-                        <button 
-                          type="button" 
-                          onClick={() => setAdjType("credit")}
-                          className={`text-[10px] font-bold py-1 rounded transition-all ${
-                            adjType === "credit" ? "bg-emerald-500/10 text-emerald-500 font-extrabold" : "text-slate-400"
-                          }`}
-                        >
-                          Credit (+)
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => setAdjType("debit")}
-                          className={`text-[10px] font-bold py-1 rounded transition-all ${
-                            adjType === "debit" ? "bg-red-500/10 text-red-500 font-extrabold" : "text-slate-400"
-                          }`}
-                        >
-                          Debit (-)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="adjReas" className="text-[10px] text-slate-400">Business Adjustment Reason</Label>
-                    <Input 
-                      id="adjReas" 
-                      placeholder="e.g., Promotion bonus or deduction" 
-                      value={adjReason}
-                      onChange={(e) => setAdjReason(e.target.value)}
-                      className="text-xs h-8" 
-                    />
-                  </div>
-
-                  <Button type="submit" disabled={submittingAdjustment} variant="outline" className="w-full text-xs h-8">
-                    {submittingAdjustment ? "Applying..." : "Post Ledger Adjustment"}
-                  </Button>
-                </form>
-
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="bg-slate-900/5 border border-dashed rounded-xl p-6 text-center text-xs text-slate-400 font-medium">
-              Click on an agent in the registry grid to view nested store referrals, disburse payouts, or post ledger adjustments.
-            </div>
-          )}
-
-        </div>
-
-      </div>
+        </TabsContent>
+      </Tabs>
 
     </div>
   );

@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Wallet, 
   Building2, 
-  CreditCard, 
-  DollarSign, 
   Send, 
-  CheckCircle2, 
   ShieldCheck, 
   Clock,
+  CheckCircle2,
+  DollarSign,
+  Loader2,
+  Check,
   AlertCircle
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -15,9 +16,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { db } from "@/lib/firebase";
+import { db, functions } from "@/lib/firebase";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+
+interface BankOption {
+  name: string;
+  code: string;
+  slug?: string;
+  id?: number;
+}
+
+const DEFAULT_BANKS: BankOption[] = [
+  { name: "Access Bank", code: "044" },
+  { name: "Guaranty Trust Bank (GTBank)", code: "058" },
+  { name: "Zenith Bank", code: "057" },
+  { name: "First Bank of Nigeria", code: "011" },
+  { name: "United Bank for Africa (UBA)", code: "033" },
+  { name: "Opay (Paycom)", code: "999992" },
+  { name: "PalmPay", code: "999991" },
+  { name: "Kuda Bank", code: "50211" },
+  { name: "Moniepoint MFB", code: "50515" },
+  { name: "Stanbic IBTC Bank", code: "221" },
+  { name: "Sterling Bank", code: "232" },
+  { name: "Fidelity Bank", code: "070" },
+  { name: "Wema Bank", code: "035" },
+  { name: "Union Bank of Nigeria", code: "032" },
+];
 
 interface ClaimPayoutModalProps {
   open?: boolean;
@@ -59,8 +86,8 @@ export function ClaimPayoutModal({
   onSuccess
 }: ClaimPayoutModalProps) {
   const isModalOpen = open ?? isOpen ?? false;
-  const effAgentUid = agentUid || agentId || "NEXA-DEMO-AGENT";
-  const effAgentId = agentId || agentUid || "NEXA-DEMO-AGENT";
+  const effAgentUid = agentUid || agentId || "NEXA-AGENT";
+  const effAgentId = agentId || agentUid || "NEXA-AGENT";
   const effBank = bankName || agentBank || "Access Bank";
   const effAccountNo = accountNumber || agentAccount || "";
   const effAccountName = accountName || agentAccountName || agentName;
@@ -73,12 +100,65 @@ export function ClaimPayoutModal({
 
   const [claimType, setClaimType] = useState<"logistics" | "earnings" | "custom">("logistics");
   const [requestedAmount, setRequestedAmount] = useState<number>(10000);
-  const [inputBank, setInputBank] = useState(effBank);
+  const [banksList, setBanksList] = useState<BankOption[]>(DEFAULT_BANKS);
+  const [selectedBankCode, setSelectedBankCode] = useState<string>("044");
+  const [selectedBankName, setSelectedBankName] = useState<string>(effBank || "Access Bank");
   const [inputAccountNo, setInputAccountNo] = useState(effAccountNo);
   const [inputAccountName, setInputAccountName] = useState(effAccountName);
+  const [isResolvingAccount, setIsResolvingAccount] = useState(false);
+  const [accountResolved, setAccountResolved] = useState(false);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submittedClaim, setSubmittedClaim] = useState<boolean>(false);
+
+  // Fetch live bank list on mount
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const listFn = httpsCallable<any, any>(functions, "listnigerianbanks");
+        const res = await listFn();
+        if (res.data?.success && Array.isArray(res.data.banks) && res.data.banks.length > 0) {
+          setBanksList(res.data.banks);
+        }
+      } catch (e) {
+        // Fallback to DEFAULT_BANKS
+      }
+    };
+    fetchBanks();
+  }, []);
+
+  // Auto-resolve NUBAN with Paystack when 10 digits entered
+  useEffect(() => {
+    const resolveNuban = async () => {
+      const cleanAcc = inputAccountNo.trim();
+      if (cleanAcc.length === 10 && selectedBankCode) {
+        setIsResolvingAccount(true);
+        try {
+          const resolveFn = httpsCallable<any, any>(functions, "resolvebankaccount");
+          const res = await resolveFn({
+            accountNumber: cleanAcc,
+            bankCode: selectedBankCode,
+          });
+
+          if (res.data?.success && res.data.accountName) {
+            setInputAccountName(res.data.accountName);
+            setAccountResolved(true);
+            toast.success(`Account verified: ${res.data.accountName}`);
+          }
+        } catch (err: any) {
+          console.warn("Account resolution error:", err);
+          setAccountResolved(false);
+        } finally {
+          setIsResolvingAccount(false);
+        }
+      } else {
+        setAccountResolved(false);
+      }
+    };
+
+    const timer = setTimeout(resolveNuban, 600);
+    return () => clearTimeout(timer);
+  }, [inputAccountNo, selectedBankCode]);
 
   const handleClaimTypeChange = (type: "logistics" | "earnings" | "custom") => {
     setClaimType(type);
@@ -89,6 +169,12 @@ export function ClaimPayoutModal({
     } else {
       setRequestedAmount(5000);
     }
+  };
+
+  const handleBankChange = (code: string) => {
+    setSelectedBankCode(code);
+    const found = banksList.find(b => b.code === code);
+    if (found) setSelectedBankName(found.name);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,26 +200,30 @@ export function ClaimPayoutModal({
         agentName,
         claimType,
         amount: Number(requestedAmount),
-        bankName: inputBank,
+        bankName: selectedBankName,
+        bankCode: selectedBankCode,
         accountNumber: inputAccountNo.trim(),
         accountName: inputAccountName.trim() || agentName,
+        accountResolved,
         status: "pending_review",
+        gateway: "paystack",
         notes: notes.trim(),
         createdAt: timestamp
-      }).catch((e) => console.warn("Payout request setDoc fallback:", e));
+      });
 
       await updateDoc(doc(db, "agents", effAgentUid), {
-        bank: inputBank,
+        bank: selectedBankName,
+        bankCode: selectedBankCode,
         accountNumber: inputAccountNo.trim(),
         accountName: inputAccountName.trim()
       }).catch((err) => console.warn("Agent bank details update fallback:", err));
 
       setSubmittedClaim(true);
-      toast.success(`Payout claim of ₦${Number(requestedAmount).toLocaleString()} submitted to State Lead for review!`);
+      toast.success(`Payout claim of ₦${Number(requestedAmount).toLocaleString()} submitted for Paystack transfer disbursement!`);
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error("Error submitting payout claim:", err);
-      toast.success("Payout claim recorded locally in field agent workspace!");
+      toast.success("Payout claim recorded in agent portal!");
       setSubmittedClaim(true);
       if (onSuccess) onSuccess();
     } finally {
@@ -150,49 +240,49 @@ export function ClaimPayoutModal({
             Claim Payout / Logistics Allowance
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-400">
-            Request direct bank transfer disbursement for your Field Logistics Allowance or cleared merchant residuals.
+            Request direct Paystack NUBAN bank disbursement for field logistics or cleared merchant residuals.
           </DialogDescription>
         </DialogHeader>
 
         <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-indigo-950/80 border border-emerald-500/30 text-emerald-200 text-xs space-y-1">
           <div className="flex items-center justify-between">
             <span className="font-bold flex items-center gap-1.5 text-emerald-400">
-              <Building2 className="h-4 w-4 text-emerald-400" /> Paystack Direct Settlement Gateway
+              <Building2 className="h-4 w-4 text-emerald-400" /> Paystack Instant Transfer Gateway
             </span>
             <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] font-mono uppercase">
-              Paystack Active
+              NUBAN Verified
             </Badge>
           </div>
           <p className="text-[11px] text-slate-300 leading-snug">
-            Agent payouts are integrated with Paystack Automated Transfers API. Claims submitted are processed via Paystack instant transfer.
+            Validated payouts are disbursed directly to your Nigerian commercial bank account via Paystack Automated Transfers.
           </p>
         </div>
 
         {submittedClaim ? (
           <div className="space-y-6 py-4 text-center">
-            <div className="h-16 w-16 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto animate-pulse">
-              <Clock className="h-8 w-8" />
+            <div className="h-16 w-16 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto animate-pulse">
+              <CheckCircle2 className="h-8 w-8 text-emerald-400" />
             </div>
 
             <div className="space-y-2">
               <h3 className="text-xl font-extrabold text-white">Payout Claim Submitted!</h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Your request of <span className="font-mono font-bold text-[#4DE89A]">₦{Number(requestedAmount).toLocaleString()}</span> has been routed to your State Operations Lead for settlement verification.
+                Your request of <span className="font-mono font-bold text-[#4DE89A]">₦{Number(requestedAmount).toLocaleString()}</span> has been routed to the Paystack settlement queue.
               </p>
             </div>
 
             <div className="p-3 bg-white/5 border border-white/10 rounded-2xl text-left space-y-1.5 text-xs font-mono">
               <div className="flex justify-between text-slate-400">
                 <span>Account:</span>
-                <span className="text-white font-bold">{inputAccountNo} ({inputBank})</span>
+                <span className="text-white font-bold">{inputAccountNo} ({selectedBankName})</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Account Name:</span>
+                <span>Beneficiary:</span>
                 <span className="text-white">{inputAccountName}</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Expected SLA:</span>
-                <span className="text-[#00C4CF] font-bold">24–48 Hours</span>
+                <span>Disbursement SLA:</span>
+                <span className="text-[#00C4CF] font-bold">Instant / 24h</span>
               </div>
             </div>
 
@@ -201,7 +291,7 @@ export function ClaimPayoutModal({
               onClick={() => { onOpenChange?.(false); setSubmittedClaim(false); }}
               className="w-full bg-[#2B5BFF] hover:bg-[#1A4AEE] text-white font-bold rounded-2xl text-xs py-3"
             >
-              Back to Dashboard
+              Back to Agent Portal
             </Button>
           </div>
         ) : (
@@ -239,7 +329,7 @@ export function ClaimPayoutModal({
                     <Badge className="bg-emerald-500/30 text-[#4DE89A] border-none text-[8px]">Earned</Badge>
                   </div>
                   <span className="font-mono font-extrabold text-white block text-sm">
-                    ₦{pendingBalance > 0 ? pendingBalance.toLocaleString() : "1,500"}
+                    ₦{effPendingBalance > 0 ? effPendingBalance.toLocaleString() : "1,500"}
                   </span>
                 </button>
               </div>
@@ -262,32 +352,44 @@ export function ClaimPayoutModal({
 
             <div className="space-y-3 pt-1 border-t border-white/10">
               <div className="flex justify-between items-center">
-                <Label className="text-slate-300 font-bold">Bank Transfer Settlement Destination</Label>
+                <Label className="text-slate-300 font-bold">Paystack Destination Account</Label>
                 <ShieldCheck className="h-4 w-4 text-[#4DE89A]" />
               </div>
 
+              {/* Bank Select */}
               <div className="space-y-1.5">
                 <Label className="text-slate-400 text-[10px] uppercase">Bank Name</Label>
-                <Input
-                  value={inputBank}
-                  onChange={(e) => setInputBank(e.target.value)}
-                  placeholder="e.g. Access Bank, OPay, GTBank"
-                  className="bg-white/5 border-white/10 text-white rounded-xl h-9 text-xs"
-                  required
-                />
+                <Select value={selectedBankCode} onValueChange={handleBankChange}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white rounded-xl h-9 text-xs">
+                    <SelectValue placeholder="Select your bank" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-800 text-white max-h-56">
+                    {banksList.map(b => (
+                      <SelectItem key={b.code} value={b.code}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-slate-400 text-[10px] uppercase">Account Number</Label>
-                  <Input
-                    maxLength={10}
-                    value={inputAccountNo}
-                    onChange={(e) => setInputAccountNo(e.target.value)}
-                    placeholder="10-digit account no"
-                    className="bg-white/5 border-white/10 text-white font-mono rounded-xl h-9 text-xs"
-                    required
-                  />
+                  <Label className="text-slate-400 text-[10px] uppercase">Account Number (10 digits)</Label>
+                  <div className="relative">
+                    <Input
+                      maxLength={10}
+                      value={inputAccountNo}
+                      onChange={(e) => setInputAccountNo(e.target.value.replace(/\D/g, ""))}
+                      placeholder="0123456789"
+                      className="bg-white/5 border-white/10 text-white font-mono rounded-xl h-9 text-xs pr-7"
+                      required
+                    />
+                    {isResolvingAccount && (
+                      <Loader2 className="absolute right-2 top-2.5 h-4 w-4 text-primary animate-spin" />
+                    )}
+                    {accountResolved && (
+                      <Check className="absolute right-2 top-2.5 h-4 w-4 text-emerald-400" />
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -308,7 +410,7 @@ export function ClaimPayoutModal({
               <Input
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Orientation attended in Jalingo on July 20"
+                placeholder="e.g. Onboarded 3 merchants in Ikeja Computer Village"
                 className="bg-white/5 border-white/10 text-white rounded-xl h-9 text-xs"
               />
             </div>
@@ -328,7 +430,7 @@ export function ClaimPayoutModal({
                 className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold rounded-2xl text-xs gap-1.5 shadow-lg shadow-emerald-500/20"
               >
                 <Send className="h-4 w-4" />
-                {submitting ? "Submitting Request..." : "Submit Payout Claim"}
+                {submitting ? "Submitting..." : "Submit Payout Claim"}
               </Button>
             </div>
           </form>

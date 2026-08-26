@@ -56,7 +56,7 @@ export function SystemAdminLayout() {
   }
 
   return (
-    <div className="dark flex h-screen overflow-hidden bg-slate-900 text-slate-100">
+    <div className="dark flex h-screen overflow-hidden bg-background text-foreground">
       <aside className={cn(
         "hidden shrink-0 md:block transition-[width] duration-300 ease-in-out overflow-hidden",
         sidebarCollapsed ? "w-[76px]" : "w-[280px]"
@@ -66,7 +66,7 @@ export function SystemAdminLayout() {
       
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed((v) => !v)} />
-        <main className="flex-1 overflow-y-auto bg-slate-900">
+        <main className="flex-1 overflow-y-auto bg-background">
           <div className="mx-auto max-w-7xl p-6 md:p-10">
             <AnimatePresence mode="wait">
               <PageTransition key={location.pathname} routeKey={location.pathname}>

@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Pencil, Trash2, Check, X, Warehouse } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Warehouse, Lock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useLocationTree, type LocationTreeNode } from "@/hooks/useLocations";
 import { useItems } from "@/hooks/useInventoryData";
 import { useCreateLocation, useUpdateLocation, useDeleteLocation } from "@/hooks/useInventoryMutations";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { PaymentDialog } from "@/components/settings/PaymentDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +23,9 @@ export function LocationSettings() {
   const createLoc = useCreateLocation();
   const updateLoc = useUpdateLocation();
   const deleteLoc = useDeleteLocation();
+  const { flags } = useFeatureFlags();
 
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [addingParentId, setAddingParentId] = useState<string | null>(null);
@@ -35,7 +39,15 @@ export function LocationSettings() {
   const itemCountMap = new Map<string, number>();
   items.forEach((i) => { if (i.locationId) itemCountMap.set(i.locationId, (itemCountMap.get(i.locationId) ?? 0) + 1); });
 
+  const rootWarehousesCount = tree.length;
+  const maxAllowed = flags.maxBranches || 1;
+
   const handleAddRoot = () => {
+    if (rootWarehousesCount >= maxAllowed) {
+      toast.error(`Your ${flags.planName} allows up to ${maxAllowed} branch${maxAllowed > 1 ? "es" : ""}. Please upgrade to add more locations.`);
+      setUpgradeDialogOpen(true);
+      return;
+    }
     setAddingParentId("__root__");
     setNewName("");
   };
@@ -148,6 +160,12 @@ export function LocationSettings() {
       <div className="rounded-lg border border-border divide-y divide-border">
         {tree.map(renderNode)}
       </div>
+
+      <PaymentDialog
+        open={upgradeDialogOpen}
+        onOpenChange={setUpgradeDialogOpen}
+        targetTier="professional"
+      />
     </div>
   );
 }

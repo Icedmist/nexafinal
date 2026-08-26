@@ -26,7 +26,13 @@ import {
   ArrowUpRight,
   ChevronRight,
   Check,
-  Ban
+  Ban,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Lock,
+  KeyRound,
+  ShieldAlert
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,7 +46,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { collection, doc, getDocs, updateDoc, addDoc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import type { SubscriptionPlan, SubscriptionEvent, SubscriptionStatus, SubscriptionEventType, FeatureFlags } from "@/types/subscription";
 import { DEFAULT_PLANS } from "@/utils/subscriptionUtils";
@@ -49,7 +56,11 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, 
 
 export interface AdminStore {
   id: string;
+  name?: string;
+  businessName?: string;
   storeName?: string;
+  slug?: string;
+  businessType?: string;
   subscriptionTier?: string;
   subscriptionStatus?: SubscriptionStatus;
   currentPeriodEnd?: string | null;
@@ -82,13 +93,13 @@ export interface SubscriptionRequest {
 }
 
 // Seed data fallback
-const MOCK_STORES = [
-  { id: "store-1", storeName: "Main Warehouse", subscriptionTier: "starter", subscriptionStatus: "active" as SubscriptionStatus, currentPeriodEnd: "2026-08-12T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: true, ownerId: "user-01", storePhone: "+234 801 234 5678" },
-  { id: "store-2", storeName: "Ikeja Branch", subscriptionTier: "professional", subscriptionStatus: "active" as SubscriptionStatus, currentPeriodEnd: "2026-07-20T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: true, ownerId: "user-02", storePhone: "+234 802 345 6789" },
-  { id: "store-3", storeName: "Lekki Outlet", subscriptionTier: "enterprise", subscriptionStatus: "active" as SubscriptionStatus, currentPeriodEnd: "2026-08-01T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: true, ownerId: "user-03", storePhone: "+234 803 456 7890" },
-  { id: "store-4", storeName: "Abuja Distribution Hub", subscriptionTier: "professional", subscriptionStatus: "past_due" as SubscriptionStatus, currentPeriodEnd: "2026-06-25T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: false, ownerId: "user-07", storePhone: "+234 804 567 8901", dunningContactedAt: "2026-07-01T10:00:00Z" },
-  { id: "store-5", storeName: "Kano Retail Store", subscriptionTier: "starter", subscriptionStatus: "cancelled" as SubscriptionStatus, currentPeriodEnd: "2026-05-15T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: false, ownerId: "user-05", storePhone: "+234 805 678 9012" },
-  { id: "store-6", storeName: "Enugu Depot", subscriptionTier: "professional", subscriptionStatus: "trialing" as SubscriptionStatus, currentPeriodEnd: "2026-07-25T00:00:00Z", trialEndsAt: "2026-07-25T00:00:00Z", paymentMethodOnFile: false, ownerId: "user-04", storePhone: "+234 806 789 0123" },
+const MOCK_STORES: AdminStore[] = [
+  { id: "store-1", name: "Main Warehouse Hub", businessName: "Main Warehouse Hub", storeName: "Main Warehouse Hub", subscriptionTier: "starter", subscriptionStatus: "active" as SubscriptionStatus, currentPeriodEnd: "2026-08-12T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: true, ownerId: "user-01", storePhone: "+234 801 234 5678" },
+  { id: "store-2", name: "Ikeja Prime Pharmacy", businessName: "Ikeja Prime Pharmacy", storeName: "Ikeja Prime Pharmacy", subscriptionTier: "professional", subscriptionStatus: "active" as SubscriptionStatus, currentPeriodEnd: "2026-07-20T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: true, ownerId: "user-02", storePhone: "+234 802 345 6789" },
+  { id: "store-3", name: "Lekki Supermarket & Retail", businessName: "Lekki Supermarket & Retail", storeName: "Lekki Supermarket & Retail", subscriptionTier: "enterprise", subscriptionStatus: "active" as SubscriptionStatus, currentPeriodEnd: "2026-08-01T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: true, ownerId: "user-03", storePhone: "+234 803 456 7890" },
+  { id: "store-4", name: "Abuja Distribution Enterprise", businessName: "Abuja Distribution Enterprise", storeName: "Abuja Distribution Enterprise", subscriptionTier: "professional", subscriptionStatus: "past_due" as SubscriptionStatus, currentPeriodEnd: "2026-06-25T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: false, ownerId: "user-07", storePhone: "+234 804 567 8901", dunningContactedAt: "2026-07-01T10:00:00Z" },
+  { id: "store-5", name: "Kano Wholesale Depot", businessName: "Kano Wholesale Depot", storeName: "Kano Wholesale Depot", subscriptionTier: "starter", subscriptionStatus: "cancelled" as SubscriptionStatus, currentPeriodEnd: "2026-05-15T00:00:00Z", trialEndsAt: null, paymentMethodOnFile: false, ownerId: "user-05", storePhone: "+234 805 678 9012" },
+  { id: "store-6", name: "Enugu Agro Mart", businessName: "Enugu Agro Mart", storeName: "Enugu Agro Mart", subscriptionTier: "professional", subscriptionStatus: "trialing" as SubscriptionStatus, currentPeriodEnd: "2026-07-25T00:00:00Z", trialEndsAt: "2026-07-25T00:00:00Z", paymentMethodOnFile: false, ownerId: "user-04", storePhone: "+234 806 789 0123" },
 ];
 
 const MOCK_EVENTS: SubscriptionEvent[] = [
@@ -144,6 +155,78 @@ export default function SystemAdminSubscriptions() {
   const [overrideMaxBranches, setOverrideMaxBranches] = useState<"inherit" | "custom">("inherit");
   const [customMaxBranches, setCustomMaxBranches] = useState<number>(1);
 
+  // Direct Subscription Dates & Late Payment Warning states
+  const [directTier, setDirectTier] = useState<string>("starter");
+  const [directStatus, setDirectStatus] = useState<SubscriptionStatus>("active");
+  const [directPeriodEnd, setDirectPeriodEnd] = useState<string>("");
+  const [directTrialEnd, setDirectTrialEnd] = useState<string>("");
+  const [directWarningMsg, setDirectWarningMsg] = useState<string>("");
+  const [directWarningSeverity, setDirectWarningSeverity] = useState<"warning" | "critical" | "lockout">("warning");
+  const [directGracePeriodEnd, setDirectGracePeriodEnd] = useState<string>("");
+  const [savingDatesAndWarnings, setSavingDatesAndWarnings] = useState(false);
+
+  // System Admin Password Authorization States
+  interface PendingAuthAction {
+    type: "update_tier_status" | "save_dates_warnings" | "store_action" | "quick_change" | "request_approval";
+    title: string;
+    description: string;
+    storeName?: string;
+    targetTier?: string;
+    targetStatus?: SubscriptionStatus;
+    execute: () => Promise<void>;
+  }
+
+  const [pendingAuthAction, setPendingAuthAction] = useState<PendingAuthAction | null>(null);
+  const [authPassword, setAuthPassword] = useState("");
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [authError, setAuthError] = useState("");
+
+  const handleExecuteAuthorizedAction = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!pendingAuthAction) return;
+
+    if (!authPassword.trim()) {
+      setAuthError("Please enter your administrator password to authorize this action.");
+      return;
+    }
+
+    setIsAuthorizing(true);
+    setAuthError("");
+
+    try {
+      if (!isDemoMode && auth.currentUser && user?.email) {
+        try {
+          const cred = EmailAuthProvider.credential(user.email, authPassword.trim());
+          await reauthenticateWithCredential(auth.currentUser, cred);
+        } catch (authErr: any) {
+          if (authErr.code === "auth/wrong-password" || authErr.code === "auth/invalid-credential") {
+            setAuthError("Incorrect administrator password. Authorization rejected.");
+            setIsAuthorizing(false);
+            return;
+          } else if (authErr.code === "auth/user-mismatch" || authErr.code === "auth/invalid-email") {
+            setAuthError(authErr.message || "Authentication error.");
+            setIsAuthorizing(false);
+            return;
+          }
+          console.warn("Re-authentication note:", authErr.message);
+        }
+      }
+
+      // Execute authorized action
+      await pendingAuthAction.execute();
+      
+      setPendingAuthAction(null);
+      setAuthPassword("");
+      setAuthError("");
+    } catch (err: any) {
+      console.error("Action execution error:", err);
+      setAuthError(err.message || "Failed to execute authorized change.");
+    } finally {
+      setIsAuthorizing(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedStore) {
       const overrides = (selectedStore.featureFlagsOverride || {}) as Partial<FeatureFlags>;
@@ -179,6 +262,17 @@ export default function SystemAdminSubscriptions() {
         setOverrideMaxBranches("inherit");
         setCustomMaxBranches(1);
       }
+
+      // Initialize direct subscription dates & warnings
+      setDirectTier(selectedStore.subscriptionTier || "starter");
+      setDirectStatus((selectedStore.subscriptionStatus || "active") as SubscriptionStatus);
+      setDirectPeriodEnd(selectedStore.currentPeriodEnd ? selectedStore.currentPeriodEnd.split("T")[0] : "");
+      setDirectTrialEnd(selectedStore.trialEndsAt ? selectedStore.trialEndsAt.split("T")[0] : "");
+      
+      const lateWarning = (selectedStore.latePaymentWarning as Record<string, any> | undefined) || null;
+      setDirectWarningMsg(lateWarning?.message || "");
+      setDirectWarningSeverity(lateWarning?.severity || "warning");
+      setDirectGracePeriodEnd(lateWarning?.gracePeriodEndsAt ? lateWarning.gracePeriodEndsAt.split("T")[0] : "");
     }
   }, [selectedStore]);
 
@@ -253,6 +347,182 @@ export default function SystemAdminSubscriptions() {
     }
   };
 
+  const performSaveSubscriptionDatesAndWarnings = async () => {
+    if (!selectedStore) return;
+    setSavingDatesAndWarnings(true);
+
+    try {
+      const updates: Record<string, any> = {
+        subscriptionTier: directTier,
+        subscriptionStatus: directStatus,
+        "settings.planId": directTier,
+        "settings.planName": directTier.charAt(0).toUpperCase() + directTier.slice(1) + " Plan",
+        "settings.subscriptionStatus": directStatus,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (directPeriodEnd) {
+        updates.currentPeriodEnd = new Date(directPeriodEnd + "T23:59:59.000Z").toISOString();
+      } else {
+        updates.currentPeriodEnd = null;
+      }
+
+      if (directTrialEnd) {
+        updates.trialEndsAt = new Date(directTrialEnd + "T23:59:59.000Z").toISOString();
+      } else {
+        updates.trialEndsAt = null;
+      }
+
+      if (directWarningMsg.trim()) {
+        updates.latePaymentWarning = {
+          message: directWarningMsg.trim(),
+          severity: directWarningSeverity,
+          gracePeriodEndsAt: directGracePeriodEnd ? new Date(directGracePeriodEnd + "T23:59:59.000Z").toISOString() : null,
+          issuedAt: new Date().toISOString(),
+          issuedBy: user?.email || "system_admin"
+        };
+      } else {
+        updates.latePaymentWarning = null;
+      }
+
+      if (isDemoMode) {
+        const updatedStore = { ...selectedStore, ...updates };
+        setStores(stores.map(s => s.id === selectedStore.id ? updatedStore : s));
+        setSelectedStore(updatedStore);
+        toast.success("Subscription dates & warning settings updated (Sandbox)!");
+      } else {
+        await updateDoc(doc(db, "stores", selectedStore.id), updates);
+        
+        // Log event in subscriptionEvents
+        await addDoc(collection(db, "subscriptionEvents"), {
+          storeId: selectedStore.id,
+          eventType: "manual_override",
+          fromPlan: selectedStore.subscriptionTier || "unknown",
+          toPlan: directTier,
+          actorId: user?.email || "system_admin",
+          timestamp: new Date().toISOString(),
+          reason: `System Admin authorized date/status update (Expires: ${directPeriodEnd || "None"}, Status: ${directStatus})`
+        });
+
+        // Send high-priority in-app notification if warning configured
+        if (directWarningMsg.trim()) {
+          await addDoc(collection(db, "notifications"), {
+            storeId: selectedStore.id,
+            title: directWarningSeverity === "critical" ? "⚠️ Urgent: Subscription Delinquency Notice" : "Subscription Notice",
+            message: directWarningMsg.trim(),
+            type: "system",
+            severity: directWarningSeverity === "critical" ? "high" : "medium",
+            isRead: false,
+            link: "/app/settings",
+            createdAt: new Date().toISOString()
+          });
+        }
+
+        const updatedStore = { ...selectedStore, ...updates };
+        setStores(stores.map(s => s.id === selectedStore.id ? updatedStore : s));
+        setSelectedStore(updatedStore);
+        toast.success("Subscription dates & late payment warning saved to store!");
+      }
+    } catch (err) {
+      console.error("Failed to save subscription dates:", err);
+      toast.error(`Failed to update dates: ${(err as Error).message}`);
+    } finally {
+      setSavingDatesAndWarnings(false);
+    }
+  };
+
+  const handleSaveSubscriptionDatesAndWarnings = () => {
+    if (!selectedStore) return;
+    setPendingAuthAction({
+      type: "save_dates_warnings",
+      title: `Authorize Subscription Update for ${selectedStore.storeName || selectedStore.id}`,
+      description: `You are updating ${selectedStore.storeName || selectedStore.id} to Tier: "${directTier.toUpperCase()}" and Status: "${directStatus.toUpperCase()}". Enter your administrator password to proceed.`,
+      storeName: selectedStore.storeName || selectedStore.id,
+      targetTier: directTier,
+      targetStatus: directStatus,
+      execute: performSaveSubscriptionDatesAndWarnings
+    });
+  };
+
+  const executeQuickStoreUpdate = async (store: AdminStore, updates: Record<string, any>, auditReason: string) => {
+    try {
+      const updatedFields = {
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (isDemoMode) {
+        const updatedStore = { ...store, ...updatedFields };
+        setStores(stores.map(s => s.id === store.id ? updatedStore : s));
+        if (selectedStore?.id === store.id) setSelectedStore(updatedStore);
+        toast.success(`Store updated locally (Sandbox)!`);
+      } else {
+        await updateDoc(doc(db, "stores", store.id), updatedFields);
+
+        // Audit log in subscriptionEvents
+        await addDoc(collection(db, "subscriptionEvents"), {
+          storeId: store.id,
+          eventType: "manual_override",
+          fromPlan: store.subscriptionTier || "unknown",
+          toPlan: updates.subscriptionTier || store.subscriptionTier || "unknown",
+          actorId: user?.email || "system_admin",
+          timestamp: new Date().toISOString(),
+          reason: `Admin authorized with password: ${auditReason}`
+        });
+
+        const updatedStore = { ...store, ...updatedFields };
+        setStores(stores.map(s => s.id === store.id ? updatedStore : s));
+        if (selectedStore?.id === store.id) setSelectedStore(updatedStore);
+        toast.success(`Store updated successfully!`);
+      }
+    } catch (err: any) {
+      toast.error(`Update failed: ${err.message}`);
+    }
+  };
+
+  const handleQuickChangeTier = (store: AdminStore, newTier: string) => {
+    if (store.subscriptionTier === newTier) return;
+    setPendingAuthAction({
+      type: "quick_change",
+      title: `Authorize Tier Change: ${store.storeName || store.id}`,
+      description: `Change tier from ${(store.subscriptionTier || "starter").toUpperCase()} to ${newTier.toUpperCase()} for "${store.storeName || store.id}". Enter your administrator password.`,
+      storeName: store.storeName || store.id,
+      targetTier: newTier,
+      execute: async () => {
+        await executeQuickStoreUpdate(
+          store,
+          {
+            subscriptionTier: newTier,
+            "settings.planId": newTier,
+            "settings.planName": newTier.charAt(0).toUpperCase() + newTier.slice(1) + " Plan"
+          },
+          `Tier changed to ${newTier}`
+        );
+      }
+    });
+  };
+
+  const handleQuickChangeStatus = (store: AdminStore, newStatus: SubscriptionStatus) => {
+    if (store.subscriptionStatus === newStatus) return;
+    setPendingAuthAction({
+      type: "quick_change",
+      title: `Authorize Status Change: ${store.storeName || store.id}`,
+      description: `Change subscription status from ${(store.subscriptionStatus || "active").toUpperCase()} to ${newStatus.toUpperCase()} for "${store.storeName || store.id}". Enter your administrator password.`,
+      storeName: store.storeName || store.id,
+      targetStatus: newStatus,
+      execute: async () => {
+        await executeQuickStoreUpdate(
+          store,
+          {
+            subscriptionStatus: newStatus,
+            "settings.subscriptionStatus": newStatus
+          },
+          `Subscription status changed to ${newStatus}`
+        );
+      }
+    });
+  };
+
   // Dunning dialog
   const [isDunningDialogOpen, setIsDunningDialogOpen] = useState(false);
   const [dunningStore, setDunningStore] = useState<AdminStore | null>(null);
@@ -278,7 +548,14 @@ export default function SystemAdminSubscriptions() {
       const storesSnap = await getDocs(collection(db, "stores"));
       const loadedStores: AdminStore[] = [];
       storesSnap.forEach(doc => {
-        loadedStores.push({ id: doc.id, ...(doc.data() as Omit<AdminStore, "id">) });
+        const data = doc.data() as any;
+        const displayName = data.name || data.storeName || data.businessName || data.slug || "Unnamed Business";
+        loadedStores.push({ 
+          id: doc.id, 
+          ...data,
+          storeName: displayName,
+          businessName: displayName,
+        });
       });
 
       // 3. Fetch events
@@ -431,8 +708,13 @@ export default function SystemAdminSubscriptions() {
   // Stores filter
   const filteredStores = useMemo(() => {
     return stores.filter(s => {
-      const matchesSearch = s.storeName?.toLowerCase().includes(storeSearch.toLowerCase()) ||
-                            s.id?.toLowerCase().includes(storeSearch.toLowerCase());
+      const searchLower = storeSearch.toLowerCase().trim();
+      const matchesSearch = !searchLower ||
+                            s.storeName?.toLowerCase().includes(searchLower) ||
+                            s.businessName?.toLowerCase().includes(searchLower) ||
+                            (s as any).name?.toLowerCase().includes(searchLower) ||
+                            (s as any).slug?.toLowerCase().includes(searchLower) ||
+                            s.id?.toLowerCase().includes(searchLower);
       const matchesStatus = statusFilter === "all" || s.subscriptionStatus === statusFilter;
       const matchesTier = tierFilter === "all" || s.subscriptionTier === tierFilter;
       return matchesSearch && matchesStatus && matchesTier;
@@ -541,7 +823,7 @@ export default function SystemAdminSubscriptions() {
   };
 
   // Store action updates (manual override, extend trial, cancellation, toggle billing)
-  const handleStoreBillingAction = async (actionType: SubscriptionEventType) => {
+  const performStoreBillingAction = async (actionType: SubscriptionEventType) => {
     if (!selectedStore) return;
     if (!actionReason) {
       toast.error("A reason/audit comment is required to record this change.");
@@ -596,7 +878,7 @@ export default function SystemAdminSubscriptions() {
       toPlan: targetTier,
       actorId: user?.email || "nexatechnologies.dev@gmail.com",
       timestamp: new Date().toISOString(),
-      reason: actionReason
+      reason: `Authorized by password: ${actionReason}`
     };
 
     try {
@@ -632,7 +914,14 @@ export default function SystemAdminSubscriptions() {
         const refreshedStoreSnap = await getDocs(collection(db, "stores"));
         refreshedStoreSnap.forEach(doc => {
           if (doc.id === selectedStore.id) {
-            setSelectedStore({ id: doc.id, ...(doc.data() as Omit<AdminStore, "id">) });
+            const data = doc.data() as any;
+            const displayName = data.name || data.storeName || data.businessName || data.slug || "Unnamed Business";
+            setSelectedStore({ 
+              id: doc.id, 
+              ...data,
+              storeName: displayName,
+              businessName: displayName,
+            });
           }
         });
       }
@@ -642,6 +931,21 @@ export default function SystemAdminSubscriptions() {
       const error = err as Error;
       toast.error(`Failed to record action: ${error.message}`);
     }
+  };
+
+  const handleStoreBillingAction = (actionType: SubscriptionEventType) => {
+    if (!selectedStore) return;
+    if (!actionReason) {
+      toast.error("A reason/audit comment is required to record this change.");
+      return;
+    }
+    setPendingAuthAction({
+      type: "store_action",
+      title: `Authorize Action: ${actionType.toUpperCase().replace("_", " ")}`,
+      description: `You are applying action '${actionType}' on ${selectedStore.storeName || selectedStore.id}. Reason: "${actionReason}". Enter your administrator password to proceed.`,
+      storeName: selectedStore.storeName || selectedStore.id,
+      execute: () => performStoreBillingAction(actionType)
+    });
   };
 
   // Toggle store payment method on file
@@ -1294,21 +1598,21 @@ export default function SystemAdminSubscriptions() {
           <div className="p-3 bg-secondary/10 border-b flex items-center gap-2">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search by store name or ID..."
+              placeholder="Search by business name, tier, or domain..."
               value={storeSearch}
               onChange={(e) => setStoreSearch(e.target.value)}
-              className="h-8 text-xs flex-1 max-w-sm border-neutral-200"
+              className="h-8 text-xs flex-1 max-w-sm border-input bg-background"
             />
           </div>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs font-bold">Store Branch Name</TableHead>
-                  <TableHead className="text-xs font-bold">Plan Allocation</TableHead>
+                <TableRow className="border-b border-border">
+                  <TableHead className="text-xs font-bold">Business Name</TableHead>
+                  <TableHead className="text-xs font-bold">Subscription Tier</TableHead>
                   <TableHead className="text-xs font-bold text-center">Status</TableHead>
-                  <TableHead className="text-xs font-bold text-center">Payment Info</TableHead>
-                  <TableHead className="text-xs font-bold">Current Cycle Ends</TableHead>
+                  <TableHead className="text-xs font-bold text-center">Payment Gateway</TableHead>
+                  <TableHead className="text-xs font-bold">Cycle Expiry</TableHead>
                   <TableHead className="text-xs font-bold text-right pr-6">Manage</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1317,50 +1621,83 @@ export default function SystemAdminSubscriptions() {
                   filteredStores.map((store) => {
                     const plan = plans.find(p => p.planId === store.subscriptionTier) || DEFAULT_PLANS.find(p => p.planId === store.subscriptionTier) || DEFAULT_PLANS[0];
                     return (
-                      <TableRow key={store.id} className="hover:bg-secondary/10 border-b">
+                      <TableRow key={store.id} className="hover:bg-muted/30 border-b border-border transition-colors">
                         <TableCell className="py-3.5">
-                          <div>
-                            <span className="font-bold text-xs block text-foreground">{store.storeName || "Unnamed Store"}</span>
-                            <span className="font-mono text-[9px] text-muted-foreground block uppercase">{store.id}</span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-sm text-foreground">
+                              {store.businessName || store.storeName || (store as any).name || "Unnamed Business"}
+                            </span>
+                            {store.businessType && (
+                              <span className="text-[10px] text-muted-foreground capitalize font-medium">
+                                {store.businessType}
+                              </span>
+                            )}
+                            {store.storePhone && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5 font-mono">
+                                <Phone className="h-2.5 w-2.5" /> {store.storePhone}
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="py-3.5">
-                          <Badge variant="outline" className="font-semibold text-xs border-sky-500/15 bg-sky-500/5 text-sky-600">
-                            {plan.name}
-                          </Badge>
+                          <Select
+                            value={store.subscriptionTier || "starter"}
+                            onValueChange={(newTier) => handleQuickChangeTier(store, newTier)}
+                          >
+                            <SelectTrigger className="h-7 text-xs font-semibold w-[135px] border-sky-500/25 bg-sky-500/5 text-sky-700 dark:text-sky-300">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {plans.map((p) => (
+                                <SelectItem key={p.planId} value={p.planId} className="text-xs font-medium">
+                                  {p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-center py-3.5">
-                          {store.subscriptionStatus === "active" && (
-                            <Badge className="bg-emerald-500 text-white font-semibold text-[10px] capitalize px-2 py-0.5">Active</Badge>
-                          )}
-                          {store.subscriptionStatus === "trialing" && (
-                            <div className="flex flex-col items-center gap-1">
-                              <Badge className="bg-blue-600 text-white font-semibold text-[10px] capitalize px-2 py-0.5">
-                                Free Trial
-                              </Badge>
-                              {store.trialEndsAt && (
-                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full font-mono">
-                                  {Math.max(0, Math.ceil((new Date(store.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days left
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {store.subscriptionStatus === "past_due" && (
-                            <Badge className="bg-red-500 text-white font-semibold text-[10px] capitalize px-2 py-0.5 animate-pulse">Past Due</Badge>
-                          )}
-                          {store.subscriptionStatus === "cancelled" && (
-                            <Badge className="bg-neutral-400 text-white font-semibold text-[10px] capitalize px-2 py-0.5">Cancelled</Badge>
-                          )}
+                          <Select
+                            value={store.subscriptionStatus || "active"}
+                            onValueChange={(newStatus) => handleQuickChangeStatus(store, newStatus as SubscriptionStatus)}
+                          >
+                            <SelectTrigger className={`h-7 text-[11px] font-bold w-[125px] mx-auto ${
+                              store.subscriptionStatus === "active" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                              store.subscriptionStatus === "trialing" ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400" :
+                              store.subscriptionStatus === "past_due" ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 animate-pulse" :
+                              "border-neutral-400/30 bg-neutral-400/10 text-neutral-600 dark:text-neutral-400"
+                            }`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active" className="text-xs text-emerald-600 font-semibold">Active</SelectItem>
+                              <SelectItem value="trialing" className="text-xs text-blue-600 font-semibold">Free Trial</SelectItem>
+                              <SelectItem value="past_due" className="text-xs text-red-600 font-semibold">Past Due</SelectItem>
+                              <SelectItem value="cancelled" className="text-xs text-neutral-500 font-semibold">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-center py-3.5">
                           {store.paymentMethodOnFile ? (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0 h-5 font-mono">CC Active</Badge>
+                            <Badge variant="secondary" className="bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 text-[9px] px-1.5 py-0 h-5 font-mono">
+                              Card Active
+                            </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-muted-foreground text-[9px] px-1.5 py-0 h-5 font-mono">Transfer / No CC</Badge>
+                            <Badge variant="outline" className="text-muted-foreground text-[9px] px-1.5 py-0 h-5 font-mono">
+                              Dynamic Transfer
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground py-3.5">
-                          {store.currentPeriodEnd ? new Date(store.currentPeriodEnd).toLocaleDateString() : (store.trialEndsAt ? new Date(store.trialEndsAt).toLocaleDateString() : "N/A")}
+                          {store.currentPeriodEnd ? (
+                            <span>{new Date(store.currentPeriodEnd).toLocaleDateString()}</span>
+                          ) : store.trialEndsAt ? (
+                            <div className="text-[11px] text-blue-600 dark:text-blue-400 font-sans">
+                              Trial: {new Date(store.trialEndsAt).toLocaleDateString()}
+                            </div>
+                          ) : (
+                            "N/A"
+                          )}
                         </TableCell>
                         <TableCell className="text-right py-3.5 pr-6">
                           <div className="flex items-center justify-end gap-1.5">
@@ -1463,11 +1800,11 @@ export default function SystemAdminSubscriptions() {
                     </TableCell>
                     <TableCell className="text-right py-4 pr-6">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Button onClick={() => startEditPlan(p)} variant="outline" size="icon" className="h-7 w-7 border-neutral-200">
-                          <Edit2 className="h-3.5 w-3.5 text-sky-600" />
+                        <Button onClick={() => startEditPlan(p)} variant="outline" size="icon" className="h-7 w-7 border-border hover:bg-muted/40">
+                          <Edit2 className="h-3.5 w-3.5 text-primary" />
                         </Button>
-                        <Button onClick={() => handleDeletePlan(p.planId)} variant="outline" size="icon" className="h-7 w-7 border-neutral-200">
-                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        <Button onClick={() => handleDeletePlan(p.planId)} variant="outline" size="icon" className="h-7 w-7 border-border hover:bg-destructive/10">
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>
@@ -1627,60 +1964,60 @@ export default function SystemAdminSubscriptions() {
 
       {/* A. PLAN CREATION/EDITING DIALOG */}
       <Dialog open={isPlanFormOpen} onOpenChange={setIsPlanFormOpen}>
-        <DialogContent className="max-w-md">
-          <form onSubmit={handleSavePlan}>
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-1.5">
-                <Layers className="h-4 w-4 text-sky-500" />
+        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl p-4 sm:p-6 text-foreground">
+          <form onSubmit={handleSavePlan} className="space-y-4">
+            <DialogHeader className="text-left space-y-1.5">
+              <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Layers className="h-4 w-4 text-primary" />
                 {editingPlan ? `Edit Subscription Plan: ${editingPlan.name}` : "Create New Subscription Plan"}
               </DialogTitle>
-              <DialogDescription className="text-xs">
+              <DialogDescription className="text-xs text-muted-foreground">
                 Configure underlying rules, sorting priorities, and specific client feature-flags.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-4 text-xs">
+            <div className="space-y-3.5 py-2 text-xs">
               {/* Plan ID */}
-              <div className="space-y-1">
-                <Label htmlFor="p_id" className="text-xs font-semibold">Plan ID (Unique string key, e.g. "professional_tier")</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="p_id" className="text-xs font-semibold text-foreground">Plan ID (Unique string key, e.g. "professional_tier")</Label>
                 <Input
                   id="p_id"
                   disabled={!!editingPlan}
                   value={planId}
                   onChange={(e) => setPlanId(e.target.value)}
                   placeholder="starter_annual"
-                  className="h-8 text-xs border-neutral-200"
+                  className="h-9 text-xs border-input bg-background font-mono text-foreground"
                 />
               </div>
 
               {/* Plan Name */}
-              <div className="space-y-1">
-                <Label htmlFor="p_name" className="text-xs font-semibold">Plan Human-Readable Display Name</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="p_name" className="text-xs font-semibold text-foreground">Plan Human-Readable Display Name</Label>
                 <Input
                   id="p_name"
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
                   placeholder="Professional Plus Plan"
-                  className="h-8 text-xs border-neutral-200"
+                  className="h-9 text-xs border-input bg-background text-foreground"
                 />
               </div>
 
               {/* Price & Billing Cycle */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="p_price" className="text-xs font-semibold">Base Price (₦ NGN)</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_price" className="text-xs font-semibold text-foreground">Base Price (₦ NGN)</Label>
                   <Input
                     id="p_price"
                     type="number"
                     value={planPrice}
                     onChange={(e) => setPlanPrice(e.target.value)}
-                    className="h-8 text-xs border-neutral-200"
+                    className="h-9 text-xs border-input bg-background font-mono text-foreground"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="p_cycle" className="text-xs font-semibold">Billing Frequency</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_cycle" className="text-xs font-semibold text-foreground">Billing Frequency</Label>
                   <Select value={planCycle} onValueChange={(val: "monthly" | "yearly") => setPlanCycle(val)}>
-                    <SelectTrigger id="p_cycle" className="h-8 text-xs">
+                    <SelectTrigger id="p_cycle" className="h-9 text-xs border-input bg-background text-foreground">
                       <SelectValue placeholder="Frequency" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1692,73 +2029,73 @@ export default function SystemAdminSubscriptions() {
               </div>
 
               {/* Sort Order & Active */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="p_sort" className="text-xs font-semibold">Catalog Sort Priority</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_sort" className="text-xs font-semibold text-foreground">Catalog Sort Priority</Label>
                   <Input
                     id="p_sort"
                     type="number"
                     value={planSortOrder}
                     onChange={(e) => setPlanSortOrder(e.target.value)}
-                    className="h-8 text-xs border-neutral-200"
+                    className="h-9 text-xs border-input bg-background font-mono text-foreground"
                   />
                 </div>
-                <div className="flex items-center justify-between border rounded-lg p-2 bg-neutral-50 h-8 self-end">
-                  <span className="font-semibold text-xs">Publish Active</span>
+                <div className="flex items-center justify-between border border-border rounded-xl p-2.5 bg-muted/30 h-9 self-end">
+                  <span className="font-semibold text-xs text-foreground">Publish Active</span>
                   <Switch checked={planIsActive} onCheckedChange={setPlanIsActive} />
                 </div>
               </div>
 
               {/* Feature Flags Checklist */}
-              <div className="border border-neutral-200/60 rounded-xl p-3 bg-secondary/5 space-y-3">
-                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b pb-1.5">Target Client Feature-Flags</span>
+              <div className="border border-border rounded-xl p-3.5 bg-muted/20 space-y-3">
+                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b border-border pb-1.5">Target Client Feature-Flags</span>
                 
                 {/* Multi-Tier Pricing Mode */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <Label htmlFor="f_pricing" className="text-xs font-semibold block">Multi-Tier Pricing Mode</Label>
+                    <Label htmlFor="f_pricing" className="text-xs font-semibold block text-foreground">Multi-Tier Pricing Mode</Label>
                     <span className="text-[10px] text-muted-foreground">Allows merchants to define distinct pricing tiers.</span>
                   </div>
                   <Switch checked={flagPricingMode} onCheckedChange={setFlagPricingMode} id="f_pricing" />
                 </div>
 
                 {/* Cross-Branch Visibility */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <Label htmlFor="f_cross" className="text-xs font-semibold block">Cross-Branch Visibility</Label>
+                    <Label htmlFor="f_cross" className="text-xs font-semibold block text-foreground">Cross-Branch Visibility</Label>
                     <span className="text-[10px] text-muted-foreground">Permit stock analysis across stores.</span>
                   </div>
                   <Switch checked={flagCrossBranch} onCheckedChange={setFlagCrossBranch} id="f_cross" />
                 </div>
 
                 {/* B2B Marketplace */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <Label htmlFor="f_b2b" className="text-xs font-semibold block">B2B Supplier Marketplace</Label>
+                    <Label htmlFor="f_b2b" className="text-xs font-semibold block text-foreground">B2B Supplier Marketplace</Label>
                     <span className="text-[10px] text-muted-foreground">Enable direct connection to regional wholesale suppliers.</span>
                   </div>
                   <Switch checked={flagB2B} onCheckedChange={setFlagB2B} id="f_b2b" />
                 </div>
 
                 {/* Max Allowed Branches */}
-                <div className="space-y-1 border-t pt-2.5">
-                  <Label htmlFor="f_max" className="text-xs font-semibold block">Maximum Branches Allowed</Label>
+                <div className="space-y-1.5 border-t border-border pt-2.5">
+                  <Label htmlFor="f_max" className="text-xs font-semibold block text-foreground">Maximum Branches Allowed</Label>
                   <Input
                     id="f_max"
                     type="number"
                     value={flagMaxBranches}
                     onChange={(e) => setFlagMaxBranches(e.target.value)}
-                    className="h-8 text-xs border-neutral-200 mt-1"
+                    className="h-8 text-xs border-input bg-background font-mono text-foreground mt-1"
                   />
                 </div>
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2 border-t border-border">
               <DialogClose asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs">Cancel</Button>
+                <Button variant="outline" size="sm" className="h-9 text-xs w-full sm:w-auto">Cancel</Button>
               </DialogClose>
-              <Button type="submit" size="sm" className="h-8 text-xs bg-primary text-white">
+              <Button type="submit" size="sm" className="h-9 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md shadow-primary/20 w-full sm:w-auto">
                 Save Subscription Plan
               </Button>
             </DialogFooter>
@@ -1768,13 +2105,13 @@ export default function SystemAdminSubscriptions() {
 
       {/* B. STORE DETAIL SHEET (OVERRIDE, TRIALS, EVENTS LIST) */}
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader className="border-b pb-4">
-            <SheetTitle className="text-base font-bold flex items-center gap-1.5 text-foreground">
-              <Building2 className="h-5 w-5 text-sky-500" />
-              {selectedStore?.storeName} — Subscription Desk
+        <SheetContent className="w-full sm:max-w-xl max-w-full overflow-y-auto p-4 sm:p-6 bg-background text-foreground border-l border-border">
+          <SheetHeader className="border-b border-border pb-4 text-left">
+            <SheetTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <Building2 className="h-5 w-5 text-primary" />
+              {selectedStore?.businessName || selectedStore?.storeName || "Business"} — Subscription Desk
             </SheetTitle>
-            <SheetDescription className="text-xs">
+            <SheetDescription className="text-xs text-muted-foreground">
               System root desk for managing merchant licensing, manual tiers, and trial properties.
             </SheetDescription>
           </SheetHeader>
@@ -1783,16 +2120,16 @@ export default function SystemAdminSubscriptions() {
             <div className="space-y-6 py-4 text-xs">
               
               {/* Core billing overview */}
-              <div className="grid grid-cols-2 gap-3.5 bg-secondary/10 p-4 border border-border rounded-xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-card p-4 border border-border rounded-2xl shadow-sm">
                 <div>
-                  <span className="text-[10px] text-muted-foreground uppercase block font-medium">Licensed Plan</span>
+                  <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Licensed Plan</span>
                   <span className="text-sm font-extrabold text-foreground mt-0.5 block capitalize">
                     {selectedStore.subscriptionTier}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground uppercase block font-medium">Payment Status</span>
-                  <span className="text-sm font-extrabold text-foreground mt-0.5 block flex items-center gap-1 capitalize">
+                  <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Payment Status</span>
+                  <span className="text-sm font-extrabold text-foreground mt-0.5 block flex items-center gap-1.5 capitalize">
                     {selectedStore.subscriptionStatus === "active" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
                     {selectedStore.subscriptionStatus === "trialing" && <Clock className="h-4 w-4 text-sky-500" />}
                     {selectedStore.subscriptionStatus === "past_due" && <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />}
@@ -1800,39 +2137,174 @@ export default function SystemAdminSubscriptions() {
                     {selectedStore.subscriptionStatus}
                   </span>
                 </div>
-                <div className="border-t pt-2 mt-2">
-                  <span className="text-[10px] text-muted-foreground uppercase block font-medium">Current Term Ends</span>
+                <div className="border-t border-border pt-2.5 mt-1 sm:col-span-1">
+                  <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Current Term Ends</span>
                   <span className="font-mono text-xs text-foreground block mt-0.5">
-                    {selectedStore.currentPeriodEnd ? new Date(selectedStore.currentPeriodEnd).toLocaleString() : "None"}
+                    {selectedStore.currentPeriodEnd ? new Date(selectedStore.currentPeriodEnd).toLocaleDateString() : "None"}
                   </span>
                 </div>
-                <div className="border-t pt-2 mt-2">
-                  <span className="text-[10px] text-muted-foreground uppercase block font-medium">Auto-Renew Credit Card</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs font-bold">{selectedStore.paymentMethodOnFile ? "Card Registered" : "No Card File"}</span>
-                    <Button onClick={handleTogglePaymentMethod} variant="link" size="sm" className="h-5 p-0 text-sky-500 font-bold">
+                <div className="border-t border-border pt-2.5 mt-1 sm:col-span-1">
+                  <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Auto-Renew Status</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs font-bold text-foreground">{selectedStore.paymentMethodOnFile ? "Card Registered" : "Dynamic Transfer"}</span>
+                    <Button onClick={handleTogglePaymentMethod} variant="ghost" size="sm" className="h-6 px-2 text-primary font-bold text-xs hover:bg-primary/10">
                       Toggle
                     </Button>
                   </div>
                 </div>
               </div>
 
+              {/* DIRECT SUBSCRIPTION DATES & LATE PAYMENT WARNING CONTROLLER */}
+              <div className="border border-border rounded-2xl p-4 bg-card shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-2.5">
+                  <span className="font-bold text-xs uppercase text-foreground tracking-wider flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    Subscription Dates & Late Payment Notice
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5">
+                    Admin Root Control
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground -mt-2 leading-relaxed">
+                  Directly configure subscription expiry, trial deadlines, payment status, and send late payment warnings/banners to store managers.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Tier */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="direct_tier" className="text-[11px] font-semibold text-foreground">Subscription Tier</Label>
+                    <Select value={directTier} onValueChange={setDirectTier}>
+                      <SelectTrigger id="direct_tier" className="h-9 text-xs border-input bg-background text-foreground">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="starter">Starter (₦3,500/mo)</SelectItem>
+                        <SelectItem value="professional">Professional (₦6,500/mo)</SelectItem>
+                        <SelectItem value="enterprise">Enterprise (₦45,000/mo)</SelectItem>
+                        <SelectItem value="premium">Premium</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="direct_status" className="text-[11px] font-semibold text-foreground">Payment Status</Label>
+                    <Select value={directStatus} onValueChange={(val) => setDirectStatus(val as SubscriptionStatus)}>
+                      <SelectTrigger id="direct_status" className="h-9 text-xs border-input bg-background text-foreground">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active (Paid)</SelectItem>
+                        <SelectItem value="trialing">Trialing</SelectItem>
+                        <SelectItem value="past_due">Past Due (Delinquent)</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Subscription End Date */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="direct_period_end" className="text-[11px] font-semibold text-foreground">Subscription Expiry Date</Label>
+                    <Input
+                      id="direct_period_end"
+                      type="date"
+                      value={directPeriodEnd}
+                      onChange={(e) => setDirectPeriodEnd(e.target.value)}
+                      className="h-9 text-xs border-input bg-background text-foreground"
+                    />
+                  </div>
+
+                  {/* Trial End Date */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="direct_trial_end" className="text-[11px] font-semibold text-foreground">Trial Expiry Date</Label>
+                    <Input
+                      id="direct_trial_end"
+                      type="date"
+                      value={directTrialEnd}
+                      onChange={(e) => setDirectTrialEnd(e.target.value)}
+                      className="h-9 text-xs border-input bg-background text-foreground"
+                    />
+                  </div>
+                </div>
+
+                {/* Late Payment Warning & Grace Period */}
+                <div className="space-y-2 border-t border-border pt-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="direct_warning_msg" className="text-[11px] font-semibold flex items-center gap-1.5 text-amber-500">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Late Payment Warning Banner (Visible to Store)
+                    </Label>
+                  </div>
+                  <Textarea
+                    id="direct_warning_msg"
+                    placeholder="e.g. Your Pro subscription expired on July 10. Please renew within 3 days to avoid store lockout."
+                    value={directWarningMsg}
+                    onChange={(e) => setDirectWarningMsg(e.target.value)}
+                    className="text-xs min-h-[60px] resize-none border-input bg-background text-foreground"
+                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="direct_severity" className="text-[10px] text-muted-foreground font-semibold">Warning Severity</Label>
+                      <Select value={directWarningSeverity} onValueChange={(val) => setDirectWarningSeverity(val as any)}>
+                        <SelectTrigger id="direct_severity" className="h-8 text-xs border-input bg-background text-foreground">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="warning">Notice / Reminder (Yellow)</SelectItem>
+                          <SelectItem value="critical">Critical Urgent Notice (Red)</SelectItem>
+                          <SelectItem value="lockout">Grace Period Lockout Countdown</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="direct_grace" className="text-[10px] text-muted-foreground font-semibold">Grace Period End Date</Label>
+                      <Input
+                        id="direct_grace"
+                        type="date"
+                        value={directGracePeriodEnd}
+                        onChange={(e) => setDirectGracePeriodEnd(e.target.value)}
+                        className="h-8 text-xs border-input bg-background text-foreground"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <Button
+                    onClick={handleSaveSubscriptionDatesAndWarnings}
+                    disabled={savingDatesAndWarnings}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 px-4 gap-1.5 shadow-md shadow-primary/20 w-full sm:w-auto"
+                  >
+                    {savingDatesAndWarnings ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5" /> Save Subscription Dates & Warnings
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
               {/* STORE CUSTOM FEATURE FLAG OVERRIDES */}
-              <div className="border border-neutral-200/60 rounded-xl p-4 bg-secondary/5 space-y-4">
-                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b pb-1.5 flex items-center gap-1.5">
-                  <Settings2 className="h-4 w-4 text-sky-500" />
+              <div className="border border-border rounded-2xl p-4 bg-card shadow-sm space-y-4">
+                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b border-border pb-1.5 flex items-center gap-1.5">
+                  <Settings2 className="h-4 w-4 text-primary" />
                   Store-Specific Feature Overrides
                 </span>
                 <p className="text-[11px] text-muted-foreground -mt-2 leading-relaxed">
                   Directly override active features and subscription tier limits for this specific store. When overridden, these settings take precedence.
                 </p>
 
-                <div className="space-y-3.5">
+                <div className="space-y-3">
                   {/* 1. Pricing Mode Override */}
-                  <div className="grid grid-cols-2 gap-2 items-center">
-                    <Label htmlFor="override_pricing" className="text-xs font-semibold">Multi-Tier Pricing Mode</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                    <Label htmlFor="override_pricing" className="text-xs font-semibold text-foreground">Multi-Tier Pricing Mode</Label>
                     <Select value={overridePricingMode} onValueChange={(val) => setOverridePricingMode(val as "inherit" | "force_true" | "force_false")}>
-                      <SelectTrigger id="override_pricing" className="h-8 text-xs">
+                      <SelectTrigger id="override_pricing" className="h-8 text-xs border-input bg-background text-foreground">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1844,10 +2316,10 @@ export default function SystemAdminSubscriptions() {
                   </div>
 
                   {/* 2. Cross-Branch Override */}
-                  <div className="grid grid-cols-2 gap-2 items-center">
-                    <Label htmlFor="override_cross" className="text-xs font-semibold">Cross-Branch Visibility</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                    <Label htmlFor="override_cross" className="text-xs font-semibold text-foreground">Cross-Branch Visibility</Label>
                     <Select value={overrideCrossBranch} onValueChange={(val) => setOverrideCrossBranch(val as "inherit" | "force_true" | "force_false")}>
-                      <SelectTrigger id="override_cross" className="h-8 text-xs">
+                      <SelectTrigger id="override_cross" className="h-8 text-xs border-input bg-background text-foreground">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1859,10 +2331,10 @@ export default function SystemAdminSubscriptions() {
                   </div>
 
                   {/* 3. B2B Marketplace Override */}
-                  <div className="grid grid-cols-2 gap-2 items-center">
-                    <Label htmlFor="override_b2b" className="text-xs font-semibold">B2B Wholesale Marketplace</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                    <Label htmlFor="override_b2b" className="text-xs font-semibold text-foreground">B2B Wholesale Marketplace</Label>
                     <Select value={overrideB2B} onValueChange={(val) => setOverrideB2B(val as "inherit" | "force_true" | "force_false")}>
-                      <SelectTrigger id="override_b2b" className="h-8 text-xs">
+                      <SelectTrigger id="override_b2b" className="h-8 text-xs border-input bg-background text-foreground">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1875,10 +2347,10 @@ export default function SystemAdminSubscriptions() {
 
                   {/* 4. Max Branches Override */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2 items-center">
-                      <Label htmlFor="override_branches" className="text-xs font-semibold">Branches Limit Option</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                      <Label htmlFor="override_branches" className="text-xs font-semibold text-foreground">Branches Limit Option</Label>
                       <Select value={overrideMaxBranches} onValueChange={(val) => setOverrideMaxBranches(val as "inherit" | "custom")}>
-                        <SelectTrigger id="override_branches" className="h-8 text-xs">
+                        <SelectTrigger id="override_branches" className="h-8 text-xs border-input bg-background text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1889,8 +2361,8 @@ export default function SystemAdminSubscriptions() {
                     </div>
 
                     {overrideMaxBranches === "custom" && (
-                      <div className="grid grid-cols-2 gap-2 items-center">
-                        <Label htmlFor="custom_branches_val" className="text-xs font-semibold pl-2 text-muted-foreground">Custom Max Branches</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                        <Label htmlFor="custom_branches_val" className="text-xs font-semibold text-muted-foreground sm:pl-2">Custom Max Branches</Label>
                         <Input
                           id="custom_branches_val"
                           type="number"
@@ -1898,7 +2370,7 @@ export default function SystemAdminSubscriptions() {
                           max={999}
                           value={customMaxBranches}
                           onChange={(e) => setCustomMaxBranches(parseInt(e.target.value) || 1)}
-                          className="h-8 text-xs border-neutral-200"
+                          className="h-8 text-xs border-input bg-background text-foreground font-mono"
                         />
                       </div>
                     )}
@@ -1908,7 +2380,7 @@ export default function SystemAdminSubscriptions() {
                 <div className="flex justify-end pt-2">
                   <Button
                     onClick={handleSaveStoreOverrides}
-                    className="bg-sky-500 hover:bg-sky-600 text-white text-xs h-8 px-4"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-4 w-full sm:w-auto"
                   >
                     Save Feature Overrides
                   </Button>
@@ -1916,18 +2388,18 @@ export default function SystemAdminSubscriptions() {
               </div>
 
               {/* CHECKOUT PRICE EDITING APPROVAL */}
-              <div className="border border-neutral-200/60 rounded-xl p-4 bg-secondary/5 space-y-3">
-                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b pb-1.5 flex items-center gap-1.5">
-                  <Settings2 className="h-4 w-4 text-sky-500" />
+              <div className="border border-border rounded-2xl p-4 bg-card shadow-sm space-y-3">
+                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b border-border pb-1.5 flex items-center gap-1.5">
+                  <Settings2 className="h-4 w-4 text-primary" />
                   Checkout Price Editing Approval
                 </span>
                 <p className="text-[11px] text-muted-foreground -mt-2 leading-relaxed">
                   Cashiers can edit item prices at checkout only when approved here. Unapproved stores keep price editing hidden in the POS.
                 </p>
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 p-3">
                   <div className="space-y-0.5">
-                    <span className="text-xs font-bold">Allow price editing at checkout</span>
-                    <span className={`block text-[10px] font-black uppercase tracking-wider ${priceOverrideApproved ? "text-emerald-600" : "text-amber-600"}`}>
+                    <span className="text-xs font-bold text-foreground">Allow price editing at checkout</span>
+                    <span className={`block text-[10px] font-black uppercase tracking-wider ${priceOverrideApproved ? "text-emerald-500" : "text-amber-500"}`}>
                       {priceOverrideApproved ? "Approved for this store" : "Locked for this store"}
                     </span>
                   </div>
@@ -1935,7 +2407,7 @@ export default function SystemAdminSubscriptions() {
                     onClick={handleTogglePriceOverride}
                     variant={priceOverrideApproved ? "destructive" : "default"}
                     size="sm"
-                    className="h-8 text-xs"
+                    className="h-8 text-xs font-bold"
                   >
                     {priceOverrideApproved ? "Revoke Approval" : "Approve Price Editing"}
                   </Button>
@@ -1943,27 +2415,27 @@ export default function SystemAdminSubscriptions() {
               </div>
 
               {/* AUDIT ACTIONS COMPILER */}
-              <div className="border border-neutral-200/60 rounded-xl p-4 bg-secondary/5 space-y-4">
-                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b pb-1.5">Trigger Subscription Adjustment</span>
+              <div className="border border-border rounded-2xl p-4 bg-card shadow-sm space-y-4">
+                <span className="font-bold text-xs uppercase text-primary tracking-wider block border-b border-border pb-1.5">Trigger Subscription Adjustment</span>
                 
                 {/* 1. Audit reasoning comments (REQUIRED) */}
-                <div className="space-y-1">
-                  <Label htmlFor="audit_reason" className="text-xs font-semibold">Change Reason & Comments (REQUIRED FOR TIMELINE AUDIT)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="audit_reason" className="text-xs font-semibold text-foreground">Change Reason & Comments (REQUIRED FOR TIMELINE AUDIT)</Label>
                   <Textarea
                     id="audit_reason"
                     placeholder="Merchant requested discount, or manually overridden to Enterprise as enterprise tier partner deal..."
                     value={actionReason}
                     onChange={(e) => setActionReason(e.target.value)}
-                    className="h-16 text-xs border-neutral-200"
+                    className="h-16 text-xs border-input bg-background text-foreground"
                   />
                 </div>
 
                 {/* 2. Plan Manual Override */}
-                <div className="grid grid-cols-[3fr_1fr] gap-2 items-end border-t pt-3 mt-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="m_plan" className="text-xs font-semibold block">Manual Plan Override Tier</Label>
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-end border-t border-border pt-3 mt-3">
+                  <div className="space-y-1.5 flex-1">
+                    <Label htmlFor="m_plan" className="text-xs font-semibold block text-foreground">Manual Plan Override Tier</Label>
                     <Select value={overridePlan} onValueChange={setOverridePlan}>
-                      <SelectTrigger id="m_plan" className="h-8 text-xs">
+                      <SelectTrigger id="m_plan" className="h-9 text-xs border-input bg-background text-foreground">
                         <SelectValue placeholder="Select target plan" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1975,27 +2447,27 @@ export default function SystemAdminSubscriptions() {
                   </div>
                   <Button
                     onClick={() => handleStoreBillingAction("manual_override")}
-                    className="bg-primary text-white text-xs h-8"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 w-full sm:w-auto px-4"
                   >
                     Set Tier
                   </Button>
                 </div>
 
                 {/* 3. Trial Extension */}
-                <div className="grid grid-cols-[2fr_1fr_1fr] gap-2 items-end border-t pt-3 mt-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="trial_end_dt" className="text-xs font-semibold">Current Trial Expiration</Label>
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-end border-t border-border pt-3 mt-3">
+                  <div className="space-y-1.5 flex-1">
+                    <Label htmlFor="trial_end_dt" className="text-xs font-semibold text-foreground">Current Trial Expiration</Label>
                     <Input
                       id="trial_end_dt"
                       disabled
                       value={selectedStore.trialEndsAt ? new Date(selectedStore.trialEndsAt).toLocaleDateString() : "No Trial Active"}
-                      className="h-8 text-xs border-neutral-200"
+                      className="h-9 text-xs border-input bg-muted font-mono text-muted-foreground"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="trial_days" className="text-xs font-semibold">Add Days</Label>
+                  <div className="space-y-1.5 w-full sm:w-28">
+                    <Label htmlFor="trial_days" className="text-xs font-semibold text-foreground">Add Days</Label>
                     <Select value={trialExtensionDays} onValueChange={setTrialExtensionDays}>
-                      <SelectTrigger id="trial_days" className="h-8 text-xs">
+                      <SelectTrigger id="trial_days" className="h-9 text-xs border-input bg-background text-foreground">
                         <SelectValue placeholder="Days" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2007,19 +2479,19 @@ export default function SystemAdminSubscriptions() {
                   </div>
                   <Button
                     onClick={() => handleStoreBillingAction("trial_extension")}
-                    className="bg-sky-500 hover:bg-sky-600 text-white text-xs h-8"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 w-full sm:w-auto px-4"
                   >
                     Extend
                   </Button>
                 </div>
 
                 {/* 4. Quick Actions */}
-                <div className="flex flex-wrap items-center gap-2 border-t pt-3 mt-3 justify-end">
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 mt-3 justify-end">
                   <Button
                     onClick={() => handleSendTrialNotification(selectedStore)}
                     variant="outline"
                     size="sm"
-                    className="h-8 text-xs text-sky-600 border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-950 gap-1.5 font-bold"
+                    className="h-9 text-xs text-sky-500 border-sky-500/30 hover:bg-sky-500/10 gap-1.5 font-bold w-full sm:w-auto"
                   >
                     <Mail className="h-3.5 w-3.5" /> Send Expiry Warning (Gmail + In-App)
                   </Button>
@@ -2028,14 +2500,14 @@ export default function SystemAdminSubscriptions() {
                       onClick={() => handleStoreBillingAction("cancellation")}
                       variant="destructive"
                       size="sm"
-                      className="h-8 text-xs"
+                      className="h-9 text-xs font-bold w-full sm:w-auto"
                     >
                       Cancel Subscription
                     </Button>
                   ) : (
                     <Button
                       onClick={() => handleStoreBillingAction("reactivation")}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-8 text-xs"
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-9 text-xs font-bold w-full sm:w-auto"
                     >
                       Reactivate License
                     </Button>
@@ -2044,15 +2516,15 @@ export default function SystemAdminSubscriptions() {
               </div>
 
               {/* TIMELINE OF EVENTS SPECIFIC TO STORE */}
-              <div className="space-y-3.5 border-t pt-4">
+              <div className="space-y-3.5 border-t border-border pt-4">
                 <span className="font-bold text-xs uppercase text-primary tracking-wider block">Store Subscription Audit Timeline</span>
                 
                 {storeSpecificEvents.length > 0 ? (
-                  <div className="relative border-l border-neutral-200 ml-3.5 pl-4 space-y-4">
+                  <div className="relative border-l border-border ml-3.5 pl-4 space-y-4">
                     {storeSpecificEvents.map((evt) => (
                       <div key={evt.id} className="relative">
                         {/* Event bullet */}
-                        <div className="absolute -left-[23px] top-0.5 bg-neutral-100 rounded-full h-3 w-3 border border-neutral-400 flex items-center justify-center" />
+                        <div className="absolute -left-[23px] top-0.5 bg-muted rounded-full h-3 w-3 border border-border flex items-center justify-center" />
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="font-extrabold text-foreground capitalize text-[11px]">
@@ -2074,7 +2546,7 @@ export default function SystemAdminSubscriptions() {
                     ))}
                   </div>
                 ) : (
-                  <p className="py-6 text-center text-muted-foreground text-xs bg-neutral-50 rounded-lg">
+                  <p className="py-6 text-center text-muted-foreground text-xs bg-muted/20 border border-dashed border-border rounded-xl">
                     No timeline logs generated for this merchant yet.
                   </p>
                 )}
@@ -2087,30 +2559,30 @@ export default function SystemAdminSubscriptions() {
 
       {/* C. DUNNING OUTREACH DIALOG */}
       <Dialog open={isDunningDialogOpen} onOpenChange={setIsDunningDialogOpen}>
-        <DialogContent className="max-w-md">
-          <form onSubmit={handleSubmitDunningOutreach}>
-            <DialogHeader>
-              <DialogTitle className="text-sm font-bold flex items-center gap-1.5 text-red-500">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl p-4 sm:p-6 text-foreground">
+          <form onSubmit={handleSubmitDunningOutreach} className="space-y-4">
+            <DialogHeader className="text-left space-y-1.5">
+              <DialogTitle className="text-sm font-bold flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-4 w-4 animate-pulse" /> Log Past-Due Outreach Session
               </DialogTitle>
-              <DialogDescription className="text-xs">
+              <DialogDescription className="text-xs text-muted-foreground">
                 Log direct communication with delinquent accounts. This keeps our staff coordinated.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-4 text-xs">
-              <div className="bg-red-500/5 border border-red-500/10 p-3 rounded-lg text-red-600 space-y-1">
-                <span className="font-bold text-xs block">{dunningStore?.storeName}</span>
-                <p className="text-[10px] leading-normal font-medium">
-                  Currently Past-Due on their **{dunningStore?.subscriptionTier?.toUpperCase()}** license. Invoice was due on: **{dunningStore?.currentPeriodEnd ? new Date(dunningStore.currentPeriodEnd).toLocaleDateString() : "Immediate"}**.
+            <div className="space-y-3.5 py-2 text-xs">
+              <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-xl text-destructive space-y-1">
+                <span className="font-bold text-xs block text-foreground">{dunningStore?.businessName || dunningStore?.storeName}</span>
+                <p className="text-[10px] leading-normal font-medium text-muted-foreground">
+                  Currently Past-Due on their <strong className="text-foreground">{dunningStore?.subscriptionTier?.toUpperCase()}</strong> license. Invoice was due on: <strong className="text-foreground">{dunningStore?.currentPeriodEnd ? new Date(dunningStore.currentPeriodEnd).toLocaleDateString() : "Immediate"}</strong>.
                 </p>
               </div>
 
               {/* Outreach method */}
-              <div className="space-y-1">
-                <Label htmlFor="outreach_method" className="text-xs font-semibold">Contact Outreach Method</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="outreach_method" className="text-xs font-semibold text-foreground">Contact Outreach Method</Label>
                 <Select value={dunningMethod} onValueChange={(val: "email" | "whatsapp" | "phone") => setDunningMethod(val)}>
-                  <SelectTrigger id="outreach_method" className="h-8 text-xs">
+                  <SelectTrigger id="outreach_method" className="h-9 text-xs border-input bg-background text-foreground">
                     <SelectValue placeholder="Outreach Channel" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2122,24 +2594,127 @@ export default function SystemAdminSubscriptions() {
               </div>
 
               {/* Notes */}
-              <div className="space-y-1">
-                <Label htmlFor="outreach_notes" className="text-xs font-semibold">Detailed Conversation Notes</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="outreach_notes" className="text-xs font-semibold text-foreground">Detailed Conversation Notes</Label>
                 <Textarea
                   id="outreach_notes"
                   placeholder="Spoke with manager, they said the card expired. They promised to upload a new active payment card by tomorrow noon..."
                   value={dunningNotes}
                   onChange={(e) => setDunningNotes(e.target.value)}
-                  className="h-24 text-xs border-neutral-200"
+                  className="h-24 text-xs border-input bg-background text-foreground resize-none"
                 />
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2 border-t border-border">
               <DialogClose asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs">Cancel</Button>
+                <Button variant="outline" size="sm" className="h-9 text-xs w-full sm:w-auto">Cancel</Button>
               </DialogClose>
-              <Button type="submit" size="sm" className="h-8 text-xs bg-red-500 text-white hover:bg-red-600">
+              <Button type="submit" size="sm" className="h-9 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold w-full sm:w-auto">
                 Submit outreach log
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* PASSWORD AUTHORIZATION SECURITY MODAL */}
+      <Dialog
+        open={!!pendingAuthAction}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingAuthAction(null);
+            setAuthPassword("");
+            setAuthError("");
+          }
+        }}
+      >
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl p-4 sm:p-6 text-foreground">
+          <DialogHeader className="text-left space-y-2">
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl w-fit">
+              <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-[11px] font-bold tracking-wide uppercase font-mono">
+                Admin Password Authorization
+              </span>
+            </div>
+            <DialogTitle className="text-base font-bold text-foreground">
+              {pendingAuthAction?.title || "Authorization Required"}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
+              {pendingAuthAction?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleExecuteAuthorizedAction} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="admin_auth_pwd" className="text-xs font-semibold flex items-center justify-between text-foreground">
+                <span>Enter Admin Password</span>
+                <span className="text-[10px] text-muted-foreground font-mono">{user?.email || "superadmin"}</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="admin_auth_pwd"
+                  type={showAuthPassword ? "text" : "password"}
+                  value={authPassword}
+                  onChange={(e) => {
+                    setAuthPassword(e.target.value);
+                    setAuthError("");
+                  }}
+                  placeholder="Enter your administrator password..."
+                  className="h-10 text-xs pr-10 font-mono border-input bg-background text-foreground"
+                  autoFocus
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAuthPassword(!showAuthPassword)}
+                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                >
+                  {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+
+              {authError && (
+                <div className="p-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium flex items-center gap-1.5 mt-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground leading-normal">
+                This high-privilege action modifies store subscription lifecycle & billing access. Password confirmation is mandatory for system integrity.
+              </p>
+            </div>
+
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-3 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setPendingAuthAction(null);
+                  setAuthPassword("");
+                  setAuthError("");
+                }}
+                disabled={isAuthorizing}
+                className="h-9 text-xs w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isAuthorizing || !authPassword.trim()}
+                className="h-9 text-xs bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 font-bold shadow-md shadow-primary/20 w-full sm:w-auto"
+              >
+                {isAuthorizing ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Verifying Password...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-3.5 w-3.5" /> Authorize & Apply Change
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>

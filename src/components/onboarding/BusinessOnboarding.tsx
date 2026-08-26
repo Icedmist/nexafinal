@@ -665,25 +665,14 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Paystack Account Number</Label>
-                    <Input 
-                      value={paystackAccountNumber}
-                      onChange={e => setPaystackAccountNumber(e.target.value)}
-                      placeholder="5028910423"
-                      className="h-9 font-mono font-bold"
-                    />
+                <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-foreground">
+                    <CreditCard className="h-4 w-4 text-emerald-600" />
+                    Automated Dynamic Payments Enabled
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Account Beneficiary Name</Label>
-                    <Input 
-                      value={paystackAccountName || `${storeName || "My Store"} Operations`}
-                      onChange={e => setPaystackAccountName(e.target.value)}
-                      placeholder="e.g. Store Operations"
-                      className="h-9"
-                    />
-                  </div>
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    Customer and subscription payments use single-use dynamic one-time virtual accounts generated automatically per checkout session. No dedicated store NUBAN setup needed.
+                  </p>
                 </div>
 
                 <div className="space-y-2">

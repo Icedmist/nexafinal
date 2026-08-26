@@ -29,13 +29,18 @@ export interface BusinessProfile {
   ownerId?: string; // The root owner's UID
   subscriptionTier?: string;
   subscriptionStatus?: string;
+  currentPeriodEnd?: string | null;
   trialEndsAt?: string | null;
+  featureFlagsOverride?: Record<string, any>;
+  latePaymentWarning?: any;
+  paymentMethodOnFile?: boolean;
 }
 
 interface BusinessContextType {
   profile: BusinessProfile | null;
   loadingProfile: boolean;
   updateProfile: (updates: Partial<BusinessProfile>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
   ownerId: string | null;
   storeId: string | null;
   needsOnboarding: boolean;
@@ -54,6 +59,7 @@ const BusinessContext = createContext<BusinessContextType>({
   profile: null, 
   loadingProfile: true,
   updateProfile: async () => {},
+  refreshProfile: async () => {},
   ownerId: null,
   storeId: null,
   needsOnboarding: false,
@@ -351,6 +357,18 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await updateDoc(docRef, updates);
   };
 
+  const refreshProfile = async () => {
+    if (!storeId) return;
+    try {
+      const snap = await getDoc(doc(db, "stores", storeId));
+      if (snap.exists()) {
+        setProfile({ id: snap.id, ...snap.data() } as BusinessProfile);
+      }
+    } catch (e) {
+      console.warn("Failed to refresh profile:", e);
+    }
+  };
+
   // Merge store name into profile if profile is missing but store exists
   const effectiveProfile = profile || (store ? {
     id: store.id,
@@ -376,6 +394,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       profile: effectiveProfile, 
       loadingProfile, 
       updateProfile, 
+      refreshProfile,
       ownerId,
       storeId,
       needsOnboarding,

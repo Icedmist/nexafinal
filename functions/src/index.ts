@@ -6,20 +6,17 @@ import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { defineSecret } from "firebase-functions/params";
 import { sendEmailViaZoho } from "./utils/email";
-import { 
-  getAlertEmailTemplate, 
-  getReceiptEmailTemplate, 
-  getReportEmailTemplate,
-} from "./utils/email-template";
 import { getDailySummaryEmailTemplate, type DailySummaryData } from "./utils/daily-summary-template";
 import { encrypt } from "./utils/crypto";
 import { MoniepointIntegrationService } from "./utils/moniepoint-service";
+import { PaystackService } from "./utils/paystack-service";
 
 admin.initializeApp();
 
-// Secrets for Zoho email
+// Secrets
 const ZOHO_EMAIL = defineSecret("ZOHO_EMAIL");
 const ZOHO_PASSWORD = defineSecret("ZOHO_PASSWORD");
+const PAYSTACK_SECRET_KEY = defineSecret("PAYSTACK_SECRET_KEY");
 
 // Set global options to ensure all functions use the correct region and minimize resource usage
 setGlobalOptions({ 
@@ -682,146 +679,28 @@ export const sendcustomemail = onCall({
 
 /**
  * AUTO RECEIPT: Firestore Trigger (v2)
- * Sends an email receipt automatically if a customer email is provided during checkout.
+ * Note: Email sending for receipts has been disabled per system settings.
+ * In-app sale logging is preserved.
  */
 export const sendautoreceipt = onDocumentCreated({
   document: "sales/{saleId}",
-  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
 }, async (event) => {
-  const data = event.data?.data();
-  if (!data || !data.customerEmail || !data.storeId) return null;
-
-  try {
-    // 1. Get store details for branding
-    const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
-    const storeData = storeDoc.data();
-    
-    if (!storeData) {
-      console.warn(`Store not found for receipt: ${data.storeId}`);
-      return null;
-    }
-
-    // 2. Generate HTML using the new receipt template
-    const emailHtml = getReceiptEmailTemplate(data, storeData);
-    const title = `Receipt from ${storeData.name}`;
-
-    // 3. Send the email
-    const storePhone = (storeData as any).storeDetails?.phone;
-    await sendEmailViaZoho({
-      to: data.customerEmail,
-      subject: title,
-      text: `Your receipt from ${storeData.name} for ₦${data.totalNgn?.toLocaleString()}${storePhone ? `\nContact: ${storePhone}` : ""}`,
-      html: emailHtml,
-      fromName: storeData.name
-    });
-    
-    console.log(`Auto-receipt sent to ${data.customerEmail} for store ${storeData.name}`);
-  } catch (error) {
-    console.error("Auto-receipt failed:", error);
-  }
+  // Email sending for receipts disabled per system policy
   return null;
 });
 
 /**
  * ACTIVITY ALERTS: Firestore Trigger (v2)
- * Notifies the store owner about critical events like logins, inventory alerts,
- * and important operational changes (medium+ severity).
+ * Creates in-app notifications for critical events without sending email alerts.
  */
 export const onactivitycreated = onDocumentCreated({
   document: "activity_logs/{logId}",
-  secrets: [ZOHO_EMAIL, ZOHO_PASSWORD],
 }, async (event) => {
   const data = event.data?.data();
   if (!data || !data.storeId) return null;
 
   try {
-    // 1. Get store details for branding
-    const storeDoc = await admin.firestore().collection("stores").doc(data.storeId).get();
-    const storeData = storeDoc.data();
-    if (!storeData || !storeData.ownerId) return null;
-
-    // 2. Collect recipient emails scoped to this store: owner + managers/admins
-    const recipients: string[] = [];
-
-    try {
-      const owner = await admin.auth().getUser(storeData.ownerId);
-      if (owner.email) recipients.push(owner.email);
-    } catch (e) {
-      console.warn(`[ActivityNotify] Could not fetch owner for store ${data.storeId}:`, e);
-    }
-
-    const staffSnap = await admin.firestore().collection("staff")
-      .where("storeId", "==", data.storeId)
-      .where("role", "in", ["manager", "owner", "admin"])
-      .get();
-    for (const staffDoc of staffSnap.docs) {
-      const email = staffDoc.data().email;
-      if (email && !recipients.includes(email)) recipients.push(email);
-    }
-
-    if (recipients.length === 0) return null;
-
-    // 3. Determine if email should be sent
-    // Emails are triggered for: medium, high, critical severities, or security/procurement categories
-    const emailSeverities = ["medium", "high", "critical"];
-    const emailCategories = ["security", "procurement"];
-    const shouldSendEmail = emailSeverities.includes(data.severity) || 
-                           emailCategories.includes(data.category);
-
-    if (shouldSendEmail) {
-      let emailHtml = "";
-
-      // Build a severity-aware subject line
-      const severityPrefix: Record<string, string> = {
-        critical: "🔴 CRITICAL",
-        high: "🟠 ALERT",
-        medium: "🟡 NOTICE",
-      };
-      const prefix = severityPrefix[data.severity] || "📋 INFO";
-      const emailSubject = `${prefix} — ${data.title}`;
-
-      // Build the dashboard deep-link for CTA buttons
-      const storeSlug = storeData.slug || data.storeId;
-      const dashboardUrl = data.actionUrl 
-        ? `https://${storeSlug}.nexastoreos.com${data.actionUrl}`
-        : `https://${storeSlug}.nexastoreos.com/app/dashboard`;
-
-      // Choose template based on category
-      if (data.category === "sales" && data.type === "sale") {
-        emailHtml = getReceiptEmailTemplate(data.metadata?.order || {}, storeData);
-      } else if (data.category === "system" && data.type === "report") {
-        emailHtml = getReportEmailTemplate({
-          title: data.title,
-          period: data.metadata?.period || "Daily",
-          summary: data.message
-        });
-      } else {
-        emailHtml = getAlertEmailTemplate({
-          title: data.title,
-          severity: data.severity || "info",
-          details: data.message,
-          actionUrl: dashboardUrl,
-          actionLabel: data.actionLabel || "View in Dashboard",
-          performedBy: data.userEmail || "System",
-        });
-      }
-
-      for (const recipientEmail of recipients) {
-        try {
-          await sendEmailViaZoho({
-            to: recipientEmail,
-            subject: emailSubject,
-            text: data.message,
-            html: emailHtml
-          });
-        } catch (e) {
-          console.error(`[ActivityNotify] Email failed for ${recipientEmail}:`, e);
-        }
-      }
-    }
-
-    // 3. Create In-App Notification document
-    // Map activity categories to notification types for the UI
+    // Create In-App Notification document only (email notifications disabled)
     const categoryToType: Record<string, string> = {
       "inventory": "low_stock",
       "procurement": "inventory_request",
@@ -844,9 +723,9 @@ export const onactivitycreated = onDocumentCreated({
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    console.log(`Activity processed: ${data.category}/${data.type} [${data.severity}] (Email: ${shouldSendEmail})`);
+    console.log(`Activity processed (in-app notification): ${data.category}/${data.type} [${data.severity}]`);
   } catch (error) {
-    console.error("Failed to process activity log:", error);
+    console.error("Failed to process activity log notification:", error);
   }
   return null;
 });
@@ -2292,5 +2171,515 @@ export const dailyActivitySummary = onSchedule({
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYSTACK INTEGRATION: Subscriptions, Webhooks, Payouts, & NUBAN Validation
+// ═══════════════════════════════════════════════════════════════════════════
+
+const TIER_PRICING: Record<string, number> = {
+  starter: 3500,
+  professional: 6500,
+  enterprise: 45000,
+  premium: 45000,
+};
+
+/**
+ * INITIALIZE PAYSTACK SUBSCRIPTION: Callable Function (v2)
+ * Creates a Paystack checkout session for SaaS subscription upgrade or renewal.
+ */
+export const initializepaystacksubscription = onCall({ 
+  cors: true,
+  secrets: [PAYSTACK_SECRET_KEY],
+}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be logged in to initialize payment.');
+  }
+
+  const { storeId, targetTier, billingCycle = "monthly", callbackUrl } = request.data || {};
+  if (!storeId || typeof storeId !== "string") {
+    throw new HttpsError("invalid-argument", "Valid storeId is required.");
+  }
+  if (!targetTier || !["starter", "professional", "enterprise", "premium"].includes(targetTier)) {
+    throw new HttpsError("invalid-argument", "Valid targetTier (starter, professional, enterprise) is required.");
+  }
+
+  const callerEmail = request.auth.token.email || "merchant@nexastoreos.com";
+  const monthlyPriceNgn = TIER_PRICING[targetTier] || 3500;
+  const isYearly = billingCycle === "yearly";
+  const baseAmountNgn = isYearly ? monthlyPriceNgn * 10 : monthlyPriceNgn; // 2 months discount on yearly
+  
+  // Calculate Paystack transaction fee borne by the payer
+  // Paystack standard Nigeria processing fee: 1.5% + NGN 100 (for amounts >= NGN 2,500, capped at NGN 2,000)
+  let grossAmountNgn: number;
+  if (baseAmountNgn < 2500) {
+    grossAmountNgn = Math.ceil(baseAmountNgn / (1 - 0.015));
+  } else {
+    grossAmountNgn = Math.min(
+      Math.ceil((baseAmountNgn + 100) / (1 - 0.015)),
+      baseAmountNgn + 2000
+    );
+  }
+  const processingFeeNgn = grossAmountNgn - baseAmountNgn;
+  const amountInKobo = grossAmountNgn * 100;
+
+  try {
+    const initResult = await PaystackService.initializeTransaction({
+      email: callerEmail,
+      amountInKobo,
+      callbackUrl,
+      channels: ["card", "bank", "ussd", "bank_transfer", "qr"],
+      metadata: {
+        type: "subscription",
+        storeId,
+        targetTier,
+        billingCycle,
+        baseAmountNgn,
+        processingFeeNgn,
+        totalAmountNgn: grossAmountNgn,
+        feeBorneBy: "payer",
+        isOneTimeAccount: true,
+        userId: request.auth.uid,
+        userEmail: callerEmail,
+      }
+    });
+
+    // Record a pending subscription request for tracking
+    const requestRef = admin.firestore().collection("subscriptionRequests").doc(initResult.reference);
+    await requestRef.set({
+      id: initResult.reference,
+      storeId,
+      targetTier,
+      billingCycle,
+      baseAmountNgn,
+      processingFeeNgn,
+      amountNgn: grossAmountNgn,
+      reference: initResult.reference,
+      accessCode: initResult.accessCode,
+      status: "pending_payment",
+      createdAt: new Date().toISOString(),
+      initiatedBy: callerEmail,
+      gateway: "paystack",
+      feeBorneBy: "payer",
+      isOneTimeAccount: true
+    });
+
+    return {
+      success: true,
+      authorizationUrl: initResult.authorizationUrl,
+      accessCode: initResult.accessCode,
+      reference: initResult.reference,
+      baseAmountNgn,
+      processingFeeNgn,
+      totalAmountNgn: grossAmountNgn,
+      amountNgn: grossAmountNgn,
+    };
+  } catch (error: any) {
+    console.error("[InitializePaystackSubscription] Error:", error);
+    throw new HttpsError("internal", error.message || "Failed to initialize Paystack checkout.");
+  }
+});
+
+/**
+ * VERIFY PAYSTACK PAYMENT: Callable Function (v2)
+ * Verifies a transaction reference after client checkout and auto-activates the subscription.
+ */
+export const verifypaystackpayment = onCall({ 
+  cors: true,
+  secrets: [PAYSTACK_SECRET_KEY],
+}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be logged in to verify payment.');
+  }
+
+  const { reference, storeId: clientStoreId } = request.data || {};
+  if (!reference || typeof reference !== "string") {
+    throw new HttpsError("invalid-argument", "A valid transaction reference is required.");
+  }
+
+  try {
+    const verification = await PaystackService.verifyTransaction(reference);
+
+    if (verification.status !== "success") {
+      return {
+        success: false,
+        status: verification.status,
+        message: "Payment has not been completed successfully."
+      };
+    }
+
+    const metadata = verification.metadata || {};
+    const storeId = metadata.storeId || clientStoreId || request.auth.token.storeId;
+    const targetTier = metadata.targetTier || "professional";
+    const billingCycle = metadata.billingCycle || "monthly";
+
+    if (!storeId) {
+      throw new HttpsError("invalid-argument", "Could not associate transaction with a store tenant.");
+    }
+
+    const db = admin.firestore();
+    const durationDays = billingCycle === "yearly" ? 365 : 30;
+    const newPeriodEnd = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const batch = db.batch();
+    const storeRef = db.collection("stores").doc(storeId);
+
+    batch.update(storeRef, {
+      subscriptionTier: targetTier,
+      subscriptionStatus: "active",
+      currentPeriodEnd: newPeriodEnd,
+      paymentMethodOnFile: true,
+      latePaymentWarning: null, // Clear any past warnings
+      "settings.planId": targetTier,
+      "settings.planName": targetTier.charAt(0).toUpperCase() + targetTier.slice(1) + " Plan",
+      "settings.subscriptionStatus": "active",
+      updatedAt: new Date().toISOString()
+    });
+
+    // Update the subscriptionRequest record
+    const reqRef = db.collection("subscriptionRequests").doc(reference);
+    batch.set(reqRef, {
+      id: reference,
+      storeId,
+      targetTier,
+      amountNgn: verification.amount,
+      status: "completed",
+      verifiedAt: new Date().toISOString(),
+      channel: verification.channel,
+      gateway: "paystack"
+    }, { merge: true });
+
+    // Record audit event
+    const eventRef = db.collection("subscriptionEvents").doc();
+    batch.set(eventRef, {
+      id: eventRef.id,
+      storeId,
+      eventType: "upgrade",
+      fromPlan: "previous",
+      toPlan: targetTier,
+      actorId: request.auth.token.email || "system",
+      timestamp: new Date().toISOString(),
+      reason: `Paystack instant payment verified. Reference: ${reference}`
+    });
+
+    // Create in-app notification for the merchant
+    const notifRef = db.collection("notifications").doc();
+    batch.set(notifRef, {
+      storeId,
+      title: "Subscription Activated! ⚡",
+      message: `Your store has been upgraded to the ${targetTier.toUpperCase()} tier via Paystack. Active until ${new Date(newPeriodEnd).toLocaleDateString()}.`,
+      type: "system",
+      severity: "low",
+      isRead: false,
+      link: "/app/settings",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      status: "success",
+      targetTier,
+      currentPeriodEnd: newPeriodEnd,
+      amountNgn: verification.amount
+    };
+  } catch (error: any) {
+    console.error("[VerifyPaystackPayment] Error:", error);
+    throw new HttpsError("internal", error.message || "Failed to verify Paystack payment.");
+  }
+});
+
+/**
+ * RESOLVE BANK ACCOUNT: Callable Function (v2)
+ * Verifies 10-digit Nigerian NUBAN bank account with NIBSS via Paystack.
+ */
+export const resolvebankaccount = onCall({ 
+  cors: true,
+  secrets: [PAYSTACK_SECRET_KEY],
+}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be logged in.');
+  }
+
+  const { accountNumber, bankCode } = request.data || {};
+  if (!accountNumber || accountNumber.length < 10) {
+    throw new HttpsError("invalid-argument", "A valid 10-digit account number is required.");
+  }
+  if (!bankCode) {
+    throw new HttpsError("invalid-argument", "Bank code is required.");
+  }
+
+  try {
+    const resolved = await PaystackService.resolveAccountNumber(accountNumber.trim(), bankCode.trim());
+    return {
+      success: true,
+      accountNumber: resolved.accountNumber,
+      accountName: resolved.accountName,
+      bankId: resolved.bankId,
+    };
+  } catch (error: any) {
+    console.error("[ResolveBankAccount] Error:", error);
+    throw new HttpsError("invalid-argument", error.message || "Could not resolve bank account details.");
+  }
+});
+
+/**
+ * LIST NIGERIAN BANKS: Callable Function (v2)
+ * Returns the list of Nigerian commercial banks and fintechs.
+ */
+export const listnigerianbanks = onCall({ cors: true }, async () => {
+  try {
+    const banks = await PaystackService.listBanks();
+    return { success: true, banks };
+  } catch (error: any) {
+    return { success: false, banks: [], error: error.message };
+  }
+});
+
+/**
+ * DISBURSE AGENT PAYOUT: Callable Function (v2)
+ * System Admin only: Disburses funds to an agent's bank account via Paystack Transfers API.
+ */
+export const disburseagentpayout = onCall({ 
+  cors: true,
+  secrets: [PAYSTACK_SECRET_KEY],
+}, async (request) => {
+  await checkSystemAdmin(request);
+
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in as System Admin.");
+  }
+
+  const { claimId, agentId, amountNgn, accountNumber, bankCode, accountName } = request.data || {};
+
+  if (!claimId || !agentId || !amountNgn || amountNgn <= 0) {
+    throw new HttpsError("invalid-argument", "Valid claimId, agentId, and positive amountNgn are required.");
+  }
+  if (!accountNumber || !bankCode) {
+    throw new HttpsError("invalid-argument", "Agent bank account number and bank code are required for disbursement.");
+  }
+
+  const db = admin.firestore();
+  const callerEmail = request.auth.token.email || "System Admin";
+  const callerUid = request.auth.uid;
+
+  try {
+    // 1. Create Paystack Transfer Recipient
+    const recipient = await PaystackService.createTransferRecipient({
+      name: accountName || "Nexa Field Agent",
+      accountNumber: accountNumber.trim(),
+      bankCode: bankCode.trim(),
+      description: `Agent Payout Claim: ${claimId}`,
+    });
+
+    // 2. Initiate Transfer
+    const amountInKobo = Math.round(Number(amountNgn) * 100);
+    const transfer = await PaystackService.initiateTransfer({
+      amountInKobo,
+      recipientCode: recipient.recipientCode,
+      reason: `NEXA Payout Claim ${claimId} to ${accountName || "Agent"}`,
+      reference: `PO_${claimId.replace(/[^a-zA-Z0-9]/g, "")}_${Date.now().toString().slice(-4)}`
+    });
+
+    // 3. Update Firestore records atomically
+    const batch = db.batch();
+
+    // Update claim request status
+    const claimRef = db.collection("agentPayoutRequests").doc(claimId);
+    batch.set(claimRef, {
+      status: transfer.status === "failed" ? "failed" : "disbursed",
+      transferCode: transfer.transferCode,
+      transferReference: transfer.reference,
+      recipientCode: recipient.recipientCode,
+      disbursedAt: new Date().toISOString(),
+      disbursedBy: callerEmail,
+      gateway: "paystack"
+    }, { merge: true });
+
+    // Update agent earnings balance
+    const agentRef = db.collection("agents").doc(agentId);
+    const agentSnap = await agentRef.get();
+    if (agentSnap.exists) {
+      const aData = agentSnap.data() || {};
+      const currentPending = aData.earnings?.pending || 0;
+      const currentPaid = aData.earnings?.paid || 0;
+
+      batch.update(agentRef, {
+        "earnings.pending": Math.max(0, currentPending - Number(amountNgn)),
+        "earnings.paid": currentPaid + Number(amountNgn),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // Mark corresponding agent earnings records as paid
+    const earningsQuery = await db.collection("agentEarnings")
+      .where("agentId", "==", agentId)
+      .where("status", "==", "pending")
+      .get();
+    
+    earningsQuery.forEach((docSnap) => {
+      batch.update(docSnap.ref, { status: "paid" });
+    });
+
+    // Record platform audit log
+    const auditRef = db.collection("activity_logs").doc();
+    batch.set(auditRef, {
+      storeId: "platform",
+      type: "agent_payout_disbursed",
+      category: "finance",
+      severity: "medium",
+      title: "Agent Payout Disbursed 💸",
+      message: `Disbursed ₦${Number(amountNgn).toLocaleString()} to ${accountName} (${accountNumber}) via Paystack. Ref: ${transfer.reference}`,
+      userEmail: callerEmail,
+      userId: callerUid,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      transferCode: transfer.transferCode,
+      reference: transfer.reference,
+      status: transfer.status,
+    };
+  } catch (error: any) {
+    console.error("[DisburseAgentPayout] Error:", error);
+    throw new HttpsError("internal", error.message || "Failed to disburse agent payout via Paystack.");
+  }
+});
+
+/**
+ * PAYSTACK WEBHOOK INGEST ENGINE: HTTP Endpoint (v2)
+ * Listens for Paystack events (charge.success, transfer.success, transfer.failed, etc.)
+ */
+export const paystackwebhook = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).send("Method Not Allowed");
+    return;
+  }
+
+  const signature = req.headers["x-paystack-signature"] as string;
+  const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+
+  // Validate webhook signature
+  if (signature && !PaystackService.verifyWebhookSignature(rawBody, signature)) {
+    console.warn("[PaystackWebhook] Invalid HMAC signature.");
+    res.status(401).send("Unauthorized signature");
+    return;
+  }
+
+  const event = req.body;
+  const eventType = event?.event;
+  const data = event?.data;
+
+  console.log(`[PaystackWebhook] Received event: ${eventType}`, { ref: data?.reference });
+
+  const db = admin.firestore();
+
+  try {
+    if (eventType === "charge.success") {
+      const metadata = data?.metadata || {};
+      const storeId = metadata.storeId;
+      const targetTier = metadata.targetTier || "professional";
+      const billingCycle = metadata.billingCycle || "monthly";
+
+      if (storeId && metadata.type === "subscription") {
+        const durationDays = billingCycle === "yearly" ? 365 : 30;
+        const newPeriodEnd = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+        await db.collection("stores").doc(storeId).update({
+          subscriptionTier: targetTier,
+          subscriptionStatus: "active",
+          currentPeriodEnd: newPeriodEnd,
+          paymentMethodOnFile: true,
+          latePaymentWarning: null,
+          "settings.planId": targetTier,
+          "settings.subscriptionStatus": "active",
+          updatedAt: new Date().toISOString()
+        });
+
+        await db.collection("subscriptionEvents").add({
+          storeId,
+          eventType: "upgrade",
+          fromPlan: "previous",
+          toPlan: targetTier,
+          actorId: "paystack_webhook",
+          timestamp: new Date().toISOString(),
+          reason: `Paystack webhook charge.success. Amount: ₦${(data.amount || 0) / 100}. Ref: ${data.reference}`
+        });
+
+        console.log(`[PaystackWebhook] Successfully activated subscription for store ${storeId}`);
+      }
+    } else if (eventType === "transfer.success") {
+      const reference = data?.reference;
+      const transferCode = data?.transfer_code;
+
+      // Update matching payout requests
+      let snap = await db.collection("agentPayoutRequests")
+        .where("transferReference", "==", reference)
+        .limit(1)
+        .get();
+
+      if (snap.empty && transferCode) {
+        snap = await db.collection("agentPayoutRequests")
+          .where("transferCode", "==", transferCode)
+          .limit(1)
+          .get();
+      }
+
+      if (!snap.empty) {
+        await snap.docs[0].ref.update({
+          status: "completed",
+          settledAt: new Date().toISOString()
+        });
+        console.log(`[PaystackWebhook] Agent payout marked completed for reference: ${reference}`);
+      }
+
+      if (!snap.empty) {
+        await snap.docs[0].ref.update({
+          status: "completed",
+          settledAt: new Date().toISOString()
+        });
+        console.log(`[PaystackWebhook] Agent payout marked completed for reference: ${reference}`);
+      }
+    } else if (eventType === "transfer.failed" || eventType === "transfer.reversed") {
+      const reference = data?.reference;
+      const snap = await db.collection("agentPayoutRequests")
+        .where("transferReference", "==", reference)
+        .limit(1)
+        .get();
+
+      if (!snap.empty) {
+        const claimDoc = snap.docs[0];
+        const claimData = claimDoc.data();
+        await claimDoc.ref.update({
+          status: "failed",
+          failureReason: data?.reason || "Transfer reversed or declined by destination bank."
+        });
+
+        // Restore agent pending balance
+        if (claimData.agentId && claimData.amount) {
+          const agentRef = db.collection("agents").doc(claimData.agentId);
+          const agentDoc = await agentRef.get();
+          if (agentDoc.exists) {
+            const aData = agentDoc.data() || {};
+            await agentRef.update({
+              "earnings.pending": (aData.earnings?.pending || 0) + Number(claimData.amount),
+              "earnings.paid": Math.max(0, (aData.earnings?.paid || 0) - Number(claimData.amount))
+            });
+          }
+        }
+        console.log(`[PaystackWebhook] Handled transfer failure/reversal for ref: ${reference}`);
+      }
+    }
+
+    res.status(200).json({ status: true, received: true });
+  } catch (error) {
+    console.error("[PaystackWebhook] Processing failure:", error);
+    res.status(500).json({ error: "Webhook processing error" });
+  }
+});
+
 // Feature 11 — server-side stock & debt ledger callables (recordsale, settlecredit)
 export * from "./ledger";
+
