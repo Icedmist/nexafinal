@@ -33,7 +33,7 @@ import { RowActionsMenu } from "@/components/catalog/RowActionsMenu";
 import { MovementFormSheet } from "@/components/movements/MovementFormSheet";
 import { printBarcodeLabels } from "@/components/catalog/PrintBarcodeLabel";
 import { useItems, useCategories, useSuppliers, useLocations } from "@/hooks/useInventoryData";
-import { useCreateItem, useUpdateItem, useDeleteItem, useBatchCreateItems } from "@/hooks/useInventoryMutations";
+import { useCreateItem, useUpdateItem, useDeleteItem, useBatchCreateItems, useBatchDeleteItems, useBatchArchiveItems } from "@/hooks/useInventoryMutations";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import { useEffectiveBranch } from "@/hooks/useEffectiveBranch";
 import { useStoreBranches } from "@/hooks/useStaffData";
@@ -105,6 +105,8 @@ function CatalogPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editItem, setEditItem] = useState<Item | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [movementItemId, setMovementItemId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [isCsvStudioOpen, setIsCsvStudioOpen] = useState(false);
@@ -151,6 +153,8 @@ function CatalogPage() {
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
   const { batchCreate } = useBatchCreateItems();
+  const { batchDelete } = useBatchDeleteItems();
+  const { batchArchive } = useBatchArchiveItems();
   const { claims } = useAuth();
   const { effectiveBranchId, canJumpBranch } = useEffectiveBranch();
   const { can } = usePermissions();
@@ -306,6 +310,39 @@ function CatalogPage() {
     toast.success(`Updated ${count} items`);
     setSelected(new Set());
   }, [selected, updateItem]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      if (isAdmin) {
+        const { deleted, failed, error } = await batchDelete(ids);
+        if (deleted > 0 && failed === 0) {
+          toast.success(`Deleted ${deleted} item${deleted !== 1 ? "s" : ""} from catalog`);
+        } else if (deleted > 0 && failed > 0) {
+          toast.warning(`Deleted ${deleted} items — ${failed} failed.${error ? ` ${error}` : ""}`);
+        } else {
+          toast.error(`Failed to delete items.${error ? ` ${error}` : ""}`);
+          return;
+        }
+      } else {
+        const { updated, failed, error } = await batchArchive(ids);
+        if (updated > 0 && failed === 0) {
+          toast.success(`Archived ${updated} item${updated !== 1 ? "s" : ""}`);
+        } else if (updated > 0 && failed > 0) {
+          toast.warning(`Archived ${updated} items — ${failed} failed.${error ? ` ${error}` : ""}`);
+        } else {
+          toast.error(`Failed to archive items.${error ? ` ${error}` : ""}`);
+          return;
+        }
+      }
+      setSelected(new Set());
+      setBulkDeleteOpen(false);
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }, [selected, isAdmin, batchDelete, batchArchive]);
 
   const actionRenderer = (item: Item) => (
     <RowActionsMenu
@@ -475,6 +512,31 @@ function CatalogPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={(v) => !v && !isBulkDeleting && setBulkDeleteOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isAdmin ? `Delete ${selected.size} item${selected.size !== 1 ? "s" : ""}?` : `Archive ${selected.size} item${selected.size !== 1 ? "s" : ""}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isAdmin
+                ? "This action cannot be undone. The selected products — including any uploaded/imported items — will be permanently removed from the catalog."
+                : "The selected items will be archived and hidden from the default catalog view. An admin can restore or permanently delete them later."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void handleBulkDelete(); }}
+              disabled={isBulkDeleting}
+              className={isAdmin ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
+            >
+              {isBulkDeleting ? "Working…" : isAdmin ? `Delete ${selected.size}` : `Archive ${selected.size}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <PermissionGate permission="create_item">
         <button
           type="button"
@@ -497,6 +559,9 @@ function CatalogPage() {
           onUpdateLocation={(id) => handleBulkUpdate({ locationId: id })}
           onUpdateStatus={(s) => handleBulkUpdate({ status: s })}
           onDeselectAll={() => setSelected(new Set())}
+          onDeleteSelected={() => setBulkDeleteOpen(true)}
+          deleteLabel={isAdmin ? "Delete" : "Archive"}
+          isDeleting={isBulkDeleting}
           onPrintLabels={() => {
             const selectedItems = allItems.filter((i) => selected.has(i.id));
             const locMap = new Map(locations.map((l) => [l.id, l.name]));

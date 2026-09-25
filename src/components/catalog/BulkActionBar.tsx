@@ -1,4 +1,4 @@
-import { X, Printer, QrCode, Sparkles } from "lucide-react";
+import { X, Printer, QrCode, Sparkles, Trash2, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -25,6 +25,9 @@ interface BulkActionBarProps {
   onExportQRCodes?: () => void;
   b2bEnabled?: boolean;
   onPublishToB2B?: () => void;
+  onDeleteSelected?: () => void;
+  deleteLabel?: string;
+  isDeleting?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -47,6 +50,9 @@ export function BulkActionBar({
   onExportQRCodes,
   b2bEnabled,
   onPublishToB2B,
+  onDeleteSelected,
+  deleteLabel = "Delete",
+  isDeleting = false,
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null;
 
@@ -142,6 +148,24 @@ export function BulkActionBar({
           >
             <Sparkles className="h-3.5 w-3.5 text-purple-500" />
             Publish to B2B
+          </Button>
+        )}
+
+        {onDeleteSelected && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onDeleteSelected}
+            disabled={isDeleting}
+            className="h-8 gap-1 text-xs"
+            aria-label={`Bulk ${deleteLabel.toLowerCase()} selected items`}
+          >
+            {deleteLabel.toLowerCase().includes("archiv") ? (
+              <Archive className="h-3 w-3" />
+            ) : (
+              <Trash2 className="h-3 w-3" />
+            )}
+            {isDeleting ? "Working…" : `${deleteLabel} (${selectedCount})`}
           </Button>
         )}
 

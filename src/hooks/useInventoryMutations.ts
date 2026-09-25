@@ -258,6 +258,108 @@ export function useDeleteItem() {
   });
 }
 
+/**
+ * Bulk-deletes catalog items (e.g. a bad CSV upload) using Firestore
+ * writeBatch (max 500 per batch). Returns { deleted, failed, error }.
+ */
+export function useBatchDeleteItems() {
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const batchDelete = useCallback(
+    async (ids: string[]): Promise<{ deleted: number; failed: number; error?: string }> => {
+      if (!user || !storeId) throw new Error("Not authenticated");
+      if (ids.length === 0) return { deleted: 0, failed: 0 };
+
+      let deleted = 0;
+      let failed = 0;
+      let error: string | undefined;
+      const CHUNK = 500;
+
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const batch = writeBatch(db);
+        for (const id of chunk) {
+          batch.delete(doc(db, "products", id));
+        }
+        try {
+          await batch.commit();
+          deleted += chunk.length;
+        } catch (err) {
+          console.error("Batch delete failed for chunk starting at", i, err);
+          failed += chunk.length;
+          if (!error) error = getFirestoreErrorMessage(err);
+        }
+      }
+
+      if (deleted > 0) {
+        await notifyActivity({
+          type: "item_delete",
+          category: "inventory",
+          severity: "medium",
+          title: "Products Deleted",
+          message: `${deleted} product${deleted !== 1 ? "s were" : " was"} removed from the catalog.`,
+          userId: user.uid,
+          userEmail: user.email || "unknown",
+          storeId,
+          branchId: claims?.branchId,
+          metadata: { count: deleted },
+        }).catch(() => {});
+      }
+
+      return { deleted, failed, error };
+    },
+    [user, storeId, claims]
+  );
+
+  return { batchDelete, isLoading, setIsLoading };
+}
+
+/**
+ * Bulk-archives catalog items (non-destructive fallback for roles that
+ * cannot permanently delete). Returns { updated, failed, error }.
+ */
+export function useBatchArchiveItems() {
+  const { user, claims } = useAuth();
+  const { storeId } = useBusiness();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const batchArchive = useCallback(
+    async (ids: string[]): Promise<{ updated: number; failed: number; error?: string }> => {
+      if (!user || !storeId) throw new Error("Not authenticated");
+      if (ids.length === 0) return { updated: 0, failed: 0 };
+
+      let updated = 0;
+      let failed = 0;
+      let error: string | undefined;
+      const CHUNK = 500;
+      const now = new Date().toISOString();
+
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const batch = writeBatch(db);
+        for (const id of chunk) {
+          batch.update(doc(db, "products", id), { status: "archived", updatedAt: now });
+        }
+        try {
+          await batch.commit();
+          updated += chunk.length;
+        } catch (err) {
+          console.error("Batch archive failed for chunk starting at", i, err);
+          failed += chunk.length;
+          if (!error) error = getFirestoreErrorMessage(err);
+        }
+      }
+
+      return { updated, failed, error };
+    },
+    [user, storeId]
+  );
+
+  return { batchArchive, isLoading, setIsLoading };
+}
+
 export function useCreateMovement() {
   const { user } = useAuth();
   return useFirestoreMutation<Omit<StockMovement, "id">>(async (storeId, data, user, claims) => {
