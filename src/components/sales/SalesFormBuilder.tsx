@@ -191,6 +191,98 @@ export function SalesFormBuilder({
   const savedSignatureRef = useRef<string>(signatureFrom(editingForm, defaultTaxRate));
   const dirty = currentSignature() !== savedSignatureRef.current;
 
+  // --- Mid-work refresh survival: autosave the unsaved draft to localStorage ---
+  const draftKeyFor = (id: string | null | undefined) => `nexa_form_draft_v1:${id ?? "new"}`;
+  const draftKey = useMemo(
+    () => draftKeyFor(activeForm?.id ?? editingForm?.id),
+    [activeForm?.id, editingForm?.id]
+  );
+  const clearAutosave = useCallback(() => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // ignore storage errors
+    }
+  }, [draftKey]);
+
+  // Restore an autosaved draft once when opening a blank (new) form.
+  // Existing forms always prefer the server copy.
+  const restoredDraftRef = useRef(false);
+  useEffect(() => {
+    if (restoredDraftRef.current) return;
+    restoredDraftRef.current = true;
+    if (editingForm) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw) as Partial<{
+        formType: FormTransactionType;
+        customerName: string;
+        customerPhone: string;
+        customerEmail: string;
+        notes: string;
+        discount: string;
+        taxRate: string;
+        status: "draft" | "finalized";
+        totalOverride: string | null;
+        rows: FormRow[];
+      }>;
+      if (!d || (!d.rows?.length && !d.customerName && !d.customerPhone && !d.notes)) return;
+      setFormType(d.formType ?? "receipt");
+      setCustomerName(d.customerName ?? "");
+      setCustomerPhone(d.customerPhone ?? "");
+      setCustomerEmail(d.customerEmail ?? "");
+      setNotes(d.notes ?? "");
+      setDiscount(d.discount ?? "");
+      setTaxRate(d.taxRate ?? String(defaultTaxRate));
+      setStatus(d.status ?? "draft");
+      setRows(Array.isArray(d.rows) ? d.rows : []);
+      setTotalOverride(d.totalOverride ?? null);
+      toast.info("Unsaved draft restored from before the refresh.");
+    } catch {
+      // Corrupt draft — ignore and start blank.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Autosave while there are unsaved changes (debounced).
+  useEffect(() => {
+    if (!dirty) return;
+    if (rows.length === 0 && !customerName && !customerPhone && !notes) return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            formType,
+            customerName,
+            customerPhone,
+            customerEmail,
+            notes,
+            discount,
+            taxRate,
+            status,
+            totalOverride,
+            rows,
+          })
+        );
+      } catch {
+        // ignore storage errors
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [dirty, draftKey, formType, customerName, customerPhone, customerEmail, notes, discount, taxRate, status, totalOverride, rows]);
+
+  // Warn before a refresh/navigation that would rely on the autosave.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
   // Live per-row product autocomplete
   const [rowSearch, setRowSearch] = useState<Record<string, string>>({});
   const [openSuggestions, setOpenSuggestions] = useState<string | null>(null);
@@ -435,6 +527,7 @@ export function SalesFormBuilder({
       }
       await logFormActivity(target ? "updated" : "created", saved);
       savedSignatureRef.current = currentSignature(formStatus);
+      clearAutosave();
       return saved;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save form");
@@ -446,7 +539,13 @@ export function SalesFormBuilder({
 
   const loadForm = useCallback((form: SalesForm | null) => {
     setActiveForm(form);
-    setFormType(form?.formType ?? "receipt");
+    // Discard any stale autosave for the incoming form so a fresh switch
+    // never resurrects an older draft on the next refresh.
+    try {
+      localStorage.removeItem(draftKeyFor(form?.id));
+    } catch {
+      // ignore storage errors
+    }    setFormType(form?.formType ?? "receipt");
     setCustomerName(form?.customerName ?? "");
     setCustomerPhone(form?.customerPhone ?? "");
     setCustomerEmail(form?.customerEmail ?? "");

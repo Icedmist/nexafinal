@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { ShoppingCart, ArrowLeft, ArrowRight, Check, Scan } from "lucide-react";
 import { type SalePriceMode, buildCartKey, parseCartKey, getItemPriceForMode } from "./price-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useItems } from "@/hooks/useInventoryData";
+import { usePersistentState, mapEntriesSerializer } from "@/hooks/usePersistentState";
 import { cn } from "@/lib/utils";
 import { SalesStepBrowse } from "./SalesStepBrowse";
 import { SalesStepCart, type CartItem } from "./SalesStepCart";
@@ -58,15 +59,52 @@ export function getAvailableStockInBaseUnits(itemId: string, cart: Map<string, n
 
 export function SalesGrid() {
   const { data: items } = useItems();
-  const { profile } = useBusiness();
+  const { profile, storeId } = useBusiness();
   const businessType = profile?.businessType || "retail";
-  const [cart, setCart] = useState<Map<string, number>>(new Map());
-  const [customPrices, setCustomPrices] = useState<Map<string, number>>(new Map());
-  const [step, setStep] = useState<StepId>("browse");
-  const [defaultSaleType, setDefaultSaleType] = useState<SalePriceMode>("retail");
-  const [posMode, setPosMode] = useState<"standard" | "quickscan">("standard");
-  const [orderType, setOrderType] = useState<OrderType>("dine_in");
-  const [tableNumber, setTableNumber] = useState("");
+  // Mid-work refresh survival: cart, prices, and checkout progress are
+  // restored from localStorage when the page reloads. Keys are fixed so the
+  // restore runs on first mount even before the store profile finishes
+  // loading; a store guard below clears a cart that belongs to another store.
+  const cartKey = "nexa_pos_cart_v1";
+  const [cart, setCart] = usePersistentState<Map<string, number>>(
+    `${cartKey}:items`,
+    new Map(),
+    mapEntriesSerializer
+  );
+  const [customPrices, setCustomPrices] = usePersistentState<Map<string, number>>(
+    `${cartKey}:prices`,
+    new Map(),
+    mapEntriesSerializer
+  );
+  const [step, setStep] = usePersistentState<StepId>(`${cartKey}:step`, "browse");
+  const [defaultSaleType, setDefaultSaleType] = usePersistentState<SalePriceMode>(
+    `${cartKey}:saleType`,
+    "retail"
+  );
+  const [posMode, setPosMode] = usePersistentState<"standard" | "quickscan">(
+    `${cartKey}:mode`,
+    "standard"
+  );
+  const [orderType, setOrderType] = usePersistentState<OrderType>(`${cartKey}:orderType`, "dine_in");
+  const [tableNumber, setTableNumber] = usePersistentState<string>(`${cartKey}:table`, "");
+
+  // Tag the persisted cart with its store; if the active store changes,
+  // drop the previous store's cart rather than leaking items across stores.
+  useEffect(() => {
+    if (!storeId) return;
+    const tagKey = `${cartKey}:store`;
+    try {
+      const tagged = localStorage.getItem(tagKey);
+      if (tagged && tagged !== storeId) {
+        setCart(new Map());
+        setCustomPrices(new Map());
+        setStep("browse");
+      }
+      localStorage.setItem(tagKey, storeId);
+    } catch {
+      // ignore storage errors
+    }
+  }, [storeId, setCart, setCustomPrices, setStep]);
 
   const goToCart = useCallback(() => setStep("cart"), []);
 
@@ -77,22 +115,22 @@ export function SalesGrid() {
     return () => window.removeEventListener("pos-go-to-cart", handler);
   }, [goToCart]);
 
-  const handleUpdateCustomPrice = (cartKey: string, price?: number | null) => {
+  const handleUpdateCustomPrice = (key: string, price?: number | null) => {
     setCustomPrices((prev) => {
       const next = new Map(prev);
       if (price === null || price === undefined || isNaN(price) || price < 0) {
-        next.delete(cartKey);
+        next.delete(key);
       } else {
-        next.set(cartKey, price);
+        next.set(key, price);
       }
       return next;
     });
   };
 
-  const addToCart = (cartKey: string) => {
+  const addToCart = (key: string) => {
     setCart((prev) => {
       const next = new Map(prev);
-      const { itemId, unitName } = parseCartKey(cartKey);
+      const { itemId, unitName } = parseCartKey(key);
       const item = (items || []).find((i) => i.id === itemId);
       if (!item) return prev;
 
@@ -102,7 +140,7 @@ export function SalesGrid() {
         return prev;
       }
 
-      next.set(cartKey, (next.get(cartKey) ?? 0) + 1);
+      next.set(key, (next.get(key) ?? 0) + 1);
       return next;
     });
   };
@@ -126,42 +164,42 @@ export function SalesGrid() {
     });
   };
 
-  const removeFromCart = (cartKey: string) => {
+  const removeFromCart = (key: string) => {
     setCart((prev) => {
       const next = new Map(prev);
-      const qty = (next.get(cartKey) ?? 0) - 1;
+      const qty = (next.get(key) ?? 0) - 1;
       if (qty <= 0) {
-        next.delete(cartKey);
+        next.delete(key);
         setCustomPrices((cPrev) => {
           const cNext = new Map(cPrev);
-          cNext.delete(cartKey);
+          cNext.delete(key);
           return cNext;
         });
       } else {
-        next.set(cartKey, qty);
+        next.set(key, qty);
       }
       return next;
     });
   };
 
-  const setQuantityInCart = (cartKey: string, qty: number) => {
+  const setQuantityInCart = (key: string, qty: number) => {
     setCart((prev) => {
       const next = new Map(prev);
-      const { itemId, unitName } = parseCartKey(cartKey);
+      const { itemId, unitName } = parseCartKey(key);
       const item = (items || []).find((i) => i.id === itemId);
       if (!item) return prev;
 
       if (qty <= 0) {
-        next.delete(cartKey);
+        next.delete(key);
         setCustomPrices((cPrev) => {
           const cNext = new Map(cPrev);
-          cNext.delete(cartKey);
+          cNext.delete(key);
           return cNext;
         });
         return next;
       }
 
-      const currentUnitQty = prev.get(cartKey) ?? 0;
+      const currentUnitQty = prev.get(key) ?? 0;
       const conversionFactor = getUnitConversionFactor(item, unitName);
       const baseUnitsDiff = (qty - currentUnitQty) * conversionFactor;
       const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
@@ -170,17 +208,17 @@ export function SalesGrid() {
         const maxAddableQty = Math.floor(availableBaseStock / conversionFactor);
         const cappedQty = currentUnitQty + maxAddableQty;
         if (cappedQty <= 0) {
-          next.delete(cartKey);
+          next.delete(key);
           setCustomPrices((cPrev) => {
             const cNext = new Map(cPrev);
-            cNext.delete(cartKey);
+            cNext.delete(key);
             return cNext;
           });
         } else {
-          next.set(cartKey, cappedQty);
+          next.set(key, cappedQty);
         }
       } else {
-        next.set(cartKey, qty);
+        next.set(key, qty);
       }
       return next;
     });
