@@ -83,6 +83,7 @@ function TextileProductCard({
 }: TextileProductCardProps) {
   const itemVariants = useMemo(() => item.variants || [], [item.variants]);
   const variantAttributes = item.variantAttributes || [];
+  const hasVariants = itemVariants.length > 0;
 
   const hasColour = variantAttributes.includes("Colour");
   const hasSize = variantAttributes.includes("Size");
@@ -168,13 +169,14 @@ function TextileProductCard({
     }) || itemVariants[0];
   }, [itemVariants, selectedColor, selectedSize, selectedMaterial, hasColour, hasSize, hasMaterial]);
 
-  // Cart key uses variant ID
-  const cartKey = activeVariant ? `${item.id}:${activeVariant.id}` : `${item.id}:default`;
+  // Cart key uses variant ID when variants exist, otherwise the base unit.
+  const cartKey = hasVariants && activeVariant
+    ? `${item.id}:${activeVariant.id}`
+    : `${item.id}:${item.unit}`;
   const activeVariantQty = cart.get(cartKey) ?? 0;
 
-  // Stock
-  const variantStock = activeVariant?.stock ?? 0;
-  const remainingStock = getAvailableStockInBaseUnits(item.id, cart, items);
+  // Stock: variant stock when a variant is selected, otherwise overall product stock.
+  const unitStock = hasVariants ? (activeVariant?.stock ?? 0) : item.currentStock;
   const isAnimating = animatingItems.has(item.id);
 
   // Price calculations
@@ -201,10 +203,15 @@ function TextileProductCard({
   }, [itemVariants, item.currentStock]);
 
   const handleAdd = () => {
-    if (!activeVariant || variantStock <= 0) return;
+    if (hasVariants && !activeVariant) return;
+
+    const availableStock = hasVariants
+      ? (activeVariant?.stock ?? 0)
+      : getAvailableStockInBaseUnits(item.id, cart, items);
+    if (availableStock <= 0) return;
 
     const targetQty = activeVariantQty + localQty;
-    if (targetQty > variantStock) return;
+    if (targetQty > availableStock) return;
 
     onSetQuantity(cartKey, targetQty);
 
@@ -544,7 +551,7 @@ function TextileProductCard({
                     {Object.values(activeVariant.attributes).join(" / ")}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    Stock: <span className="font-bold">{variantStock}</span> units
+                    Stock: <span className="font-bold">{unitStock}</span> units
                   </p>
                 </div>
                 <div className="text-right shrink-0">
@@ -559,7 +566,31 @@ function TextileProductCard({
             </div>
           )}
 
-          {!activeVariant && (
+          {/* No-variant products sell directly from base stock */}
+          {!hasVariants && (
+            <div className="pt-2 border-t border-border/40">
+              <div className="flex items-center justify-between gap-1 text-[11px]">
+                <div className="min-w-0">
+                  <p className="font-extrabold text-foreground truncate">
+                    {item.unit}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Stock: <span className="font-bold">{unitStock}</span> units
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-black text-primary">{formatNaira(item.sellingPrice)}</p>
+                  {activeVariantQty > 0 && (
+                    <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
+                      {activeVariantQty} in cart
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!activeVariant && hasVariants && (
             <p className="text-[10px] text-muted-foreground italic text-center py-1">
               Pick a colour and size to see price and stock.
             </p>
@@ -582,8 +613,9 @@ function TextileProductCard({
               <button
                 type="button"
                 disabled={
-                  !activeVariant ||
-                  activeVariantQty + localQty >= variantStock
+                  unitStock <= 0 ||
+                  (hasVariants && !activeVariant) ||
+                  activeVariantQty + localQty >= unitStock
                 }
                 onClick={() => setLocalQty(q => q + 1)}
                 className="p-1.5 text-muted-foreground disabled:opacity-20 hover:text-foreground"
@@ -594,7 +626,11 @@ function TextileProductCard({
 
             <Button
               type="button"
-              disabled={!activeVariant || variantStock <= 0 || activeVariantQty + localQty > variantStock}
+              disabled={
+                unitStock <= 0 ||
+                (hasVariants && !activeVariant) ||
+                activeVariantQty + localQty > unitStock
+              }
               onClick={handleAdd}
               className="flex-1 h-7.5 text-xs font-black"
             >
