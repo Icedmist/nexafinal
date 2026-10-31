@@ -137,9 +137,9 @@ export function SupplierFormSheet({ open, onOpenChange, supplier }: SupplierForm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 space-y-6">
-          <div className="flex items-center justify-between">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[540px] max-h-[90dvh] p-0 overflow-hidden border-none bg-transparent shadow-none flex flex-col [&>button]:hidden">
+        <div className="nexa-card bg-card flex flex-col max-h-[90dvh] min-h-0">
+          <div className="sticky top-0 z-10 shrink-0 border-b border-border bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Building2 className="h-5 w-5" />
@@ -151,8 +151,9 @@ export function SupplierFormSheet({ open, onOpenChange, supplier }: SupplierForm
             </button>
           </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 scroll-smooth">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <FormField
                 control={form.control}
                 name="name"
@@ -261,6 +262,7 @@ export function SupplierFormSheet({ open, onOpenChange, supplier }: SupplierForm
               </div>
             </form>
           </Form>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

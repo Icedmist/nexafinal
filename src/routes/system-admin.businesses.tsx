@@ -22,11 +22,11 @@ import {
   orderBy, 
   doc, 
   updateDoc,
-  deleteDoc,
   where,
   limit
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { deleteStorePermanently } from "@/lib/store-deletion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -60,6 +60,7 @@ export default function SystemBusinesses() {
   const [salesCount, setSalesCount] = useState<number | null>(null);
   const [productsCount, setProductsCount] = useState<number | null>(null);
   const [provisionOpen, setProvisionOpen] = useState(false);
+  const [deletingBusiness, setDeletingBusiness] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
@@ -174,15 +175,27 @@ export default function SystemBusinesses() {
   };
 
   const deleteBusiness = async (business: Business) => {
-    if (!confirm(`Permanently delete "${business.name}"? This cannot be undone.`)) return;
+    if (deletingBusiness) return;
+    if (!confirm(`Permanently delete "${business.name}" and ALL of its data?\n\nThis removes products, sales, staff, branches, customers and every other record owned by this store. This cannot be undone.`)) return;
+
+    setDeletingBusiness(true);
+    const toastId = toast.loading(`Deleting ${business.name}…`);
     try {
-      await deleteDoc(doc(db, "stores", business.id));
-      toast.success("Business deleted.");
+      const { deleted } = await deleteStorePermanently(business.id);
       setDetailsOpen(false);
       setSelectedBusiness(null);
-      fetchBusinesses();
+      await fetchBusinesses();
+      toast.success(`Business permanently deleted (${deleted.toLocaleString()} records removed).`, { id: toastId });
     } catch (error) {
-      toast.error("Failed to delete business.");
+      console.error("Failed to delete business:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete this business. The store was kept — please retry.",
+        { id: toastId }
+      );
+    } finally {
+      setDeletingBusiness(false);
     }
   };
 
@@ -551,8 +564,9 @@ export default function SystemBusinesses() {
                     variant="outline" 
                     className="rounded-xl border-rose-800 text-rose-400 hover:bg-rose-950 hover:text-rose-300"
                     onClick={() => deleteBusiness(selectedBusiness)}
+                    disabled={deletingBusiness}
                   >
-                    Delete
+                    {deletingBusiness ? "Deleting…" : "Delete"}
                   </Button>
                 </div>
                 <div className="flex gap-2">

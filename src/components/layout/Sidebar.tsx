@@ -35,6 +35,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/FirebaseAuthContext";
 import nexaLogo from "@/assets/nexa-logo.svg";
 import type { RolePermissions } from "@/lib/roles";
+import { canAccessRoute } from "@/lib/route-guard";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -112,14 +113,14 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
     {
       label: "Operations",
       items: [
-        { label: sector.labels.dashboard, href: "/app/dashboard", icon: LayoutDashboard },
-        { label: sector.labels.sales, href: "/app/sales", icon: ShoppingCart },
-        { label: "Forms / Receipts", href: "/app/forms", icon: ClipboardList },
-        { label: "Sales History", href: "/app/sales-history", icon: History },
+        { label: sector.labels.dashboard, href: "/app/dashboard", icon: LayoutDashboard, permKey: "canViewSales" },
+        { label: sector.labels.sales, href: "/app/sales", icon: ShoppingCart, permKey: "canRecordSales" },
+        { label: "Forms / Receipts", href: "/app/forms", icon: ClipboardList, permKey: "canRecordSales" },
+        { label: "Sales History", href: "/app/sales-history", icon: History, permKey: "canViewSales" },
         { label: "Sales Analytics", href: "/app/sales-analytics", icon: TrendingUp, permKey: "canViewAnalytics" },
-        { label: sector.labels.customers, href: "/app/customers", icon: Users },
-        { label: "Store Credits", href: "/app/store-credits", icon: Wallet },
-        { label: sector.labels.catalog, href: "/app/catalog", icon: sector.icons.catalog, permKey: "canManageItems" },
+        { label: sector.labels.customers, href: "/app/customers", icon: Users, permKey: "canViewSales" },
+        { label: "Store Credits", href: "/app/store-credits", icon: Wallet, permKey: "canViewSales" },
+        { label: sector.labels.catalog, href: "/app/catalog", icon: sector.icons.catalog },
         { label: sector.labels.movements, href: "/app/movements", icon: ArrowLeftRight, permKey: "canLogMovements" },
         { label: "Locations", href: "/app/locations", icon: MapPin, permKey: "canManageItems" },
       ],
@@ -127,39 +128,36 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
     {
       label: "Finance",
       items: [
-        { label: "Returns", href: "/app/returns", icon: RotateCcw },
-        { label: "Expenses", href: "/app/expenses", icon: Receipt },
+        { label: "Returns", href: "/app/returns", icon: RotateCcw, permKey: "canViewSales" },
+        { label: "Expenses", href: "/app/expenses", icon: Receipt, permKey: "canViewSales" },
         { label: "Moniepoint Live", href: "/app/moniepoint", icon: Activity, permKey: "canViewAnalytics" },
       ],
     },
     {
       label: "Procurement",
-      permKey: "canManagePOs",
       items: [
-        { label: sector.labels.suppliers, href: "/app/suppliers", icon: Truck },
-        { label: "Restocking", href: "/app/restocking", icon: ClipboardList },
+        { label: sector.labels.suppliers, href: "/app/suppliers", icon: Truck, permKey: "canManageSuppliers" },
+        { label: "Restocking", href: "/app/restocking", icon: ClipboardList, permKey: "canManagePOs" },
       ],
     },
     {
       label: "Intelligence",
-      permKey: "canViewAnalytics",
       items: [
-        { label: "Analytics", href: "/app/analytics", icon: BarChart3 },
-        { label: "AI insights", href: "/app/ai-insights", icon: Sparkles },
+        { label: "Analytics", href: "/app/analytics", icon: BarChart3, permKey: "canViewAnalytics" },
+        { label: "AI insights", href: "/app/ai-insights", icon: Sparkles, permKey: "canViewAnalytics" },
       ],
     },
     {
       label: "Growth",
       items: [
-        { label: "Digital Storefront", href: "/app/ecommerce", icon: Store },
-        { label: "Admin Tracker", href: "/app/tracker", icon: Radar },
+        { label: "Digital Storefront", href: "/app/ecommerce", icon: Store, permKey: "canAccessSettings" },
+        { label: "Admin Tracker", href: "/app/tracker", icon: Radar, permKey: "canViewAnalytics" },
       ],
     },
     {
       label: "Admin",
-      permKey: "canAccessSettings",
       items: [
-        { label: "Settings", href: "/app/settings", icon: Settings },
+        { label: "Settings", href: "/app/settings", icon: Settings, permKey: "canAccessSettings" },
         { label: "Staff", href: "/app/staff", icon: Users, permKey: "canManageUsers" },
       ],
     },
@@ -172,13 +170,16 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
   const isActive = (href: string) => location.pathname === href;
   const isSystemRoute = location.pathname.startsWith("/system-admin");
 
-  // Filter groups and items based on permissions AND business complexity
+  // Filter groups and items based on permissions AND business complexity.
+  // Nav visibility mirrors the route guard, so users never see a link they
+  // would be immediately bounced away from.
+  const canViewPage = (href: string) => isSystemAdmin || canAccessRoute(href, role);
+
   const visibleGroups = navGroups
     .filter((g) => {
       if (isSystemAdmin) return true;
-      const hasPerm = !g.permKey || permissions[g.permKey];
       const isAllowedByComplexity = isBasicPOS ? !["Finance", "Procurement", "Intelligence"].includes(g.label) : true;
-      return hasPerm && isAllowedByComplexity;
+      return isAllowedByComplexity;
     })
     .map((g) => ({
       ...g,
@@ -186,10 +187,12 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
         if (i.href === "/app/moniepoint" && !profile?.settings?.moniepointEnabled) {
           return false;
         }
-        return isSystemAdmin || !i.permKey || permissions[i.permKey];
+        return canViewPage(i.href) && (isSystemAdmin || !i.permKey || permissions[i.permKey]);
       }),
     }))
     .filter((g) => g.items.length > 0);
+
+  const visibleStandaloneLinks = standaloneLinks.filter((item) => canViewPage(item.href));
 
   // For System Admins: 
   // If on a system route, show ONLY system groups.
@@ -295,7 +298,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
 
         <div className="mx-2 my-2 border-t border-sidebar-border/20" />
         <div className="space-y-0.5">
-          {standaloneLinks.map((item) => (
+          {visibleStandaloneLinks.map((item) => (
             <Link
               key={item.href}
               to={item.href}
