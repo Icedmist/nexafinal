@@ -669,11 +669,17 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                     )}
 
                     <div className="mt-auto flex items-end justify-between pt-1">
-                      <div className="flex flex-col">
+                      <div className="flex min-w-0 flex-col">
                         <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">{activeUnit}</p>
                         <p className="text-base font-black text-primary leading-none mt-0.5">{formatNaira(activeUnitPrice)}</p>
+                        {activeUnitQty > 0 && (
+                          <p className="mt-1 flex flex-wrap items-baseline gap-x-1 text-[10px] leading-tight animate-in fade-in duration-200">
+                            <span className="font-semibold text-muted-foreground">{activeUnitQty} × {formatNaira(activeUnitPrice)}</span>
+                            <span className="font-black font-mono text-primary">= {formatNaira(activeUnitPrice * activeUnitQty)}</span>
+                          </p>
+                        )}
                       </div>
-                      <span className="text-[10px] text-muted-foreground font-bold opacity-40 uppercase tracking-tighter">{item.sku}</span>
+                      <span className="ml-2 shrink-0 text-[10px] text-muted-foreground font-bold opacity-40 uppercase tracking-tighter">{item.sku}</span>
                     </div>
                   </div>
 

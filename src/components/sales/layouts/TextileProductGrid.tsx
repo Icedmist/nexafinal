@@ -558,7 +558,7 @@ function TextileProductCard({
                   <p className="font-black text-primary">{formatNaira(activeVariant.price)}</p>
                   {activeVariantQty > 0 && (
                     <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
-                      {activeVariantQty} in cart
+                      {activeVariantQty} × {formatNaira(activeVariant.price)} = {formatNaira(activeVariant.price * activeVariantQty)}
                     </p>
                   )}
                 </div>
@@ -582,7 +582,7 @@ function TextileProductCard({
                   <p className="font-black text-primary">{formatNaira(item.sellingPrice)}</p>
                   {activeVariantQty > 0 && (
                     <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
-                      {activeVariantQty} in cart
+                      {activeVariantQty} × {formatNaira(item.sellingPrice)} = {formatNaira(item.sellingPrice * activeVariantQty)}
                     </p>
                   )}
                 </div>

@@ -177,6 +177,16 @@ export function ProvisionsProductGrid({
                   {formatNaira(activeUnitPrice)}
                 </span>
               </div>
+              {activeUnitQty > 0 && (
+                <div className="flex flex-col items-end text-right animate-in fade-in duration-200">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {activeUnitQty} × {formatNaira(activeUnitPrice)}
+                  </span>
+                  <span className="text-sm font-black font-mono text-emerald-700 dark:text-emerald-300">
+                    {formatNaira(activeUnitPrice * activeUnitQty)}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Unit Pills — Level 1: Fast selection (only when product has multiple units/variants) */}

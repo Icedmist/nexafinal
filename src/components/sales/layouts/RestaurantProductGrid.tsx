@@ -358,10 +358,15 @@ function DishCard({
 
         {/* Price */}
         <div className="mt-auto flex items-end justify-between pt-1">
-          <div className="flex flex-col">
+          <div className="flex min-w-0 flex-col">
             <span className="text-sm font-black text-emerald-600 leading-none">
               {formatNaira(unitPrice)}
             </span>
+            {qtyInCart > 0 && (
+              <span className="mt-1 text-[9px] font-bold font-mono leading-tight text-emerald-700 dark:text-emerald-300 animate-in fade-in duration-200">
+                {qtyInCart} × {formatNaira(unitPrice)} = {formatNaira(unitPrice * qtyInCart)}
+              </span>
+            )}
           </div>
 
           {/* Quick-add (non-expanded) */}
