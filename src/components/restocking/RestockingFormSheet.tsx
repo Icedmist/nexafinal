@@ -202,10 +202,10 @@ export function RestockingFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-background flex flex-col max-h-[90vh]">
-        <div className="flex flex-col h-full overflow-hidden">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-background flex flex-col max-h-[90dvh] [&>button]:hidden">
+        <div className="flex flex-col h-full min-h-0 overflow-hidden">
           {/* Header */}
-          <div className="p-6 border-b bg-card flex items-start justify-between">
+          <div className="p-6 border-b bg-card flex items-start justify-between shrink-0">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <ShoppingCart className="h-6 w-6" />
@@ -226,7 +226,7 @@ export function RestockingFormSheet({
           </div>
 
           {/* Form Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <Form {...form}>
               <form id="restock-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -344,7 +344,7 @@ export function RestockingFormSheet({
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t bg-muted/10 flex items-center justify-between">
+          <div className="p-6 border-t bg-muted/10 flex items-center justify-between shrink-0">
             <div className="hidden sm:block">
               {lineItems.length > 0 && (
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">

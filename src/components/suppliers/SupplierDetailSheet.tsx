@@ -50,10 +50,10 @@ export function SupplierDetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] max-h-[90vh] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none flex flex-col">
-        <div className="nexa-card bg-card p-6 flex flex-col overflow-hidden max-h-full flex-1">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[640px] max-h-[90dvh] p-0 overflow-hidden border-none bg-transparent shadow-none flex flex-col [&>button]:hidden">
+        <div className="nexa-card bg-card p-6 flex flex-col overflow-hidden max-h-[90dvh] flex-1 min-h-0">
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-6 shrink-0">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Building2 className="h-6 w-6" />
@@ -96,7 +96,7 @@ export function SupplierDetailSheet({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-8 pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-8 pr-1">
             {/* ── Detail grid ──────────────────────────── */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <DetailField icon={<Mail className="h-4 w-4" />} label="Email Address">

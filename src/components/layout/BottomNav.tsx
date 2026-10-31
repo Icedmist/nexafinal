@@ -3,6 +3,8 @@ import { LayoutDashboard, ShoppingCart, Package, ArrowLeftRight, MoreHorizontal 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useRole } from "@/hooks/useRole";
+import { canAccessRoute } from "@/lib/route-guard";
 import { Sidebar } from "./Sidebar";
 
 const NAV_ITEMS = [
@@ -10,18 +12,20 @@ const NAV_ITEMS = [
   { label: "Sales", href: "/app/sales", icon: ShoppingCart },
   { label: "Catalog", href: "/app/catalog", icon: Package },
   { label: "Movements", href: "/app/movements", icon: ArrowLeftRight },
-] as const;
+];
 
 export function BottomNav() {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { role, isSystemAdmin } = useRole();
 
   const isActive = (href: string) => location.pathname === href;
+  const visibleItems = NAV_ITEMS.filter((item) => isSystemAdmin || canAccessRoute(item.href, role));
 
   return (
     <>
       <nav data-tour="sidebar" className="fixed bottom-0 left-0 right-0 z-40 flex h-14 items-stretch border-t border-border bg-card md:hidden">
-        {NAV_ITEMS.map((item) => (
+        {visibleItems.map((item) => (
           <Link
             key={item.href}
             to={item.href}

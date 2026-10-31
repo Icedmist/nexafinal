@@ -116,10 +116,10 @@ export function RestockingDetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden nexa-card border-none bg-transparent shadow-none">
-        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90vh]">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[720px] max-h-[90dvh] p-0 overflow-hidden border-none bg-transparent shadow-none flex flex-col [&>button]:hidden">
+        <div className="nexa-card bg-card p-6 flex flex-col max-h-[90dvh] min-h-0">
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-6 shrink-0">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <ShoppingCart className="h-6 w-6" />

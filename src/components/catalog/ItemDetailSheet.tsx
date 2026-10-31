@@ -127,8 +127,8 @@ export function ItemDetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
-        <div className="nexa-card bg-card flex flex-col max-h-[90vh]">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] max-h-[90dvh] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
+        <div className="nexa-card bg-card flex flex-col max-h-[90dvh] min-h-0">
           {/* Header */}
           <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md px-6 py-4">
             <div className="flex items-start justify-between gap-3">

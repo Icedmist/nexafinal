@@ -772,8 +772,8 @@ export function ItemFormSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
-        <div className="nexa-card bg-card flex flex-col max-h-[90vh]">
-          <div className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="nexa-card bg-card flex flex-col max-h-[90dvh] min-h-0">
+          <div className="sticky top-0 z-10 shrink-0 border-b border-border bg-card/80 backdrop-blur-md px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <PackagePlus className="h-5 w-5" />
@@ -790,7 +790,7 @@ export function ItemFormSheet({
             </Button>
           </div>
 
-        <div className="overflow-y-auto p-4 sm:p-6 scroll-smooth">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 scroll-smooth">
           <form id="item-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
             
             {/* Image Upload Section */}
