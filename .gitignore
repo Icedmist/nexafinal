@@ -34,3 +34,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# functions/ is managed with pnpm; npm lockfiles are ignored
+functions/package-lock.json
