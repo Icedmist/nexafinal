@@ -35,10 +35,9 @@ service cloud.firestore {
     // Role Helpers
     function isAdmin() { 
       let role = getRole();
-      if (role == 'system_admin') return true;
-      if (role != 'admin' && role != 'owner') return false;
       // Store admins/owners only count while their store still exists.
-      return getStoreId() != null;
+      return role == 'system_admin' ||
+        ((role == 'admin' || role == 'owner') && getStoreId() != null);
     }
     
     function isManager() {
