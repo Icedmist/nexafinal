@@ -23,7 +23,7 @@ export const RoleContext = createContext<RoleContextValue | null>(null);
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user, claims, claimsReady } = useAuth();
   const { store, loading: loadingTenant } = useTenant();
-  const { storeId: businessStoreId, ownerId: businessOwnerId, loadingProfile } = useBusiness();
+  const { storeId: businessStoreId, ownerId: businessOwnerId, loadingProfile, storeDeleted } = useBusiness();
   const { isDemo } = useDemo();
   const [realRole, setRealRole] = useState<UserRoleType>("loading");
   const [loading, setLoading] = useState(true);
@@ -57,6 +57,20 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     // If no user, we're not loading anymore, but there's no role
     if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // Deleted/suspended stores must never fall through to the staff record
+    // fallback below — that would hand the account a usable POS role.
+    const storeIsGone =
+      storeDeleted ||
+      !!claims?.deletedStoreId ||
+      claims?.storeSuspended === true ||
+      claims?.role === "suspended";
+    if (storeIsGone) {
+      setIsStoreMismatch(false);
+      setRealRole("suspended");
       setLoading(false);
       return;
     }
@@ -171,7 +185,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     };
 
     resolveFallback();
-  }, [user, store, loadingTenant, claims, claimsReady, businessStoreId, businessOwnerId, loadingProfile, hasRefreshed]);
+  }, [user, store, loadingTenant, claims, claimsReady, businessStoreId, businessOwnerId, loadingProfile, storeDeleted, hasRefreshed]);
 
   const value = useMemo<RoleContextValue>(() => {
     const role = realRole;

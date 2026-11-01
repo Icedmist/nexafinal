@@ -7,6 +7,7 @@ import { Sparkles } from "lucide-react";
 import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
 import { useOnboardingNavigation } from "@/hooks/useOnboardingNavigation";
 import { DEFAULT_PLANS } from "@/utils/subscriptionUtils";
+import { isSlugRetired } from "@/lib/store-deletion";
 
 export default OnboardingPage;
 
@@ -103,6 +104,15 @@ function OnboardingPage() {
       const snap = await getDocs(q);
       if (!snap.empty) {
         toast.error("This store URL slug is already taken. Please choose a different name.");
+        setLoading(false);
+        return;
+      }
+
+      // A deleted store keeps its slug reserved until a system admin restores it.
+      if (await isSlugRetired(slug)) {
+        toast.error(
+          "This store URL slug belongs to a deleted store. Restore that store or choose a different slug."
+        );
         setLoading(false);
         return;
       }

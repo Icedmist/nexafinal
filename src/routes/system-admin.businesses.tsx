@@ -13,7 +13,9 @@ import {
   Download,
   Users,
   ShoppingBag,
-  TrendingUp
+  TrendingUp,
+  RotateCcw,
+  ArchiveRestore
 } from "lucide-react";
 import { 
   collection, 
@@ -26,7 +28,12 @@ import {
   limit
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { deleteStorePermanently } from "@/lib/store-deletion";
+import {
+  deleteStorePermanently,
+  listDeletedStores,
+  restoreStore,
+  type DeletedStoreSummary,
+} from "@/lib/store-deletion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -61,12 +68,18 @@ export default function SystemBusinesses() {
   const [productsCount, setProductsCount] = useState<number | null>(null);
   const [provisionOpen, setProvisionOpen] = useState(false);
   const [deletingBusiness, setDeletingBusiness] = useState(false);
+  const [deletedStores, setDeletedStores] = useState<DeletedStoreSummary[]>([]);
+  const [restoringStoreId, setRestoringStoreId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
   useEffect(() => {
     fetchBusinesses();
   }, [statusFilter]);
+
+  useEffect(() => {
+    fetchDeletedStores();
+  }, []);
 
   useEffect(() => {
     if (selectedBusiness) {
@@ -161,6 +174,15 @@ export default function SystemBusinesses() {
     }
   };
 
+  const fetchDeletedStores = async () => {
+    try {
+      setDeletedStores(await listDeletedStores());
+    } catch (error) {
+      console.error("Error fetching deleted stores:", error);
+      setDeletedStores([]);
+    }
+  };
+
   const toggleStatus = async (business: Business) => {
     const newStatus = business.status === "active" ? "suspended" : "active";
     try {
@@ -176,16 +198,27 @@ export default function SystemBusinesses() {
 
   const deleteBusiness = async (business: Business) => {
     if (deletingBusiness) return;
-    if (!confirm(`Permanently delete "${business.name}" and ALL of its data?\n\nThis removes products, sales, staff, branches, customers and every other record owned by this store. This cannot be undone.`)) return;
+    if (!confirm(`Permanently delete "${business.name}" and ALL of its data?\n\nThis removes products, sales, staff, branches, customers and every other record owned by this store. Business records cannot be recovered. The slug and its accounts stay disabled until the store is restored.`)) return;
 
     setDeletingBusiness(true);
     const toastId = toast.loading(`Deleting ${business.name}…`);
     try {
-      const { deleted } = await deleteStorePermanently(business.id);
+      const result = await deleteStorePermanently(business.id);
       setDetailsOpen(false);
       setSelectedBusiness(null);
-      await fetchBusinesses();
-      toast.success(`Business permanently deleted (${deleted.toLocaleString()} records removed).`, { id: toastId });
+      await Promise.all([fetchBusinesses(), fetchDeletedStores()]);
+
+      const locked = result.disabledUsers || 0;
+      toast.success(
+        `${result.alreadyDeleted ? "Deletion finished" : "Business permanently deleted"} (${(result.deleted || 0).toLocaleString()} records removed, ${locked} account${locked === 1 ? "" : "s"} locked).`,
+        { id: toastId }
+      );
+      if (result.lockFailures && result.lockFailures.length > 0) {
+        toast.warning(
+          `${result.lockFailures.length} account${result.lockFailures.length === 1 ? "" : "s"} could not be locked. Retry the deletion to finish the lockout.`,
+          { duration: 8000 }
+        );
+      }
     } catch (error) {
       console.error("Failed to delete business:", error);
       toast.error(
@@ -196,6 +229,36 @@ export default function SystemBusinesses() {
       );
     } finally {
       setDeletingBusiness(false);
+    }
+  };
+
+  const restoreBusiness = async (deleted: DeletedStoreSummary) => {
+    if (restoringStoreId) return;
+    if (!confirm(`Restore "${deleted.name}"?\n\nThe store document, its slug, and ${deleted.accountCount} account${deleted.accountCount === 1 ? "" : "s"} will be reactivated. Deleted business records are not recovered.`)) return;
+
+    setRestoringStoreId(deleted.id);
+    const toastId = toast.loading(`Restoring ${deleted.name}…`);
+    try {
+      const result = await restoreStore({ storeId: deleted.id });
+      await Promise.all([fetchBusinesses(), fetchDeletedStores()]);
+      toast.success(
+        `Store restored. ${result.restoredUsers} account${result.restoredUsers === 1 ? "" : "s"} re-enabled; the slug is available again.`,
+        { id: toastId }
+      );
+      if (result.failures?.length) {
+        toast.warning(
+          `${result.failures.length} account${result.failures.length === 1 ? "" : "s"} could not be restored.`,
+          { duration: 8000 }
+        );
+      }
+    } catch (error) {
+      console.error("Failed to restore business:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to restore this business.",
+        { id: toastId }
+      );
+    } finally {
+      setRestoringStoreId(null);
     }
   };
 
@@ -428,6 +491,82 @@ export default function SystemBusinesses() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Deleted stores — kept recoverable until a system admin restores them */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-2xl shadow-black/50">
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400">
+              <ArchiveRestore className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black uppercase italic tracking-tight text-white">
+                Deleted Stores
+              </h2>
+              <p className="text-xs text-slate-500">
+                Slugs and accounts stay locked until restored.
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            {deletedStores.length} recoverable
+          </span>
+        </div>
+
+        {deletedStores.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-800 py-10 text-center">
+            <Trash2 className="h-8 w-8 text-slate-800" />
+            <span className="text-sm font-bold text-slate-500">No deleted stores</span>
+            <span className="text-xs text-slate-600">
+              Permanently deleted stores appear here with their locked slug.
+            </span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {deletedStores.map((deleted) => (
+              <div
+                key={deleted.id}
+                className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-bold text-white">
+                      {deleted.name}
+                    </span>
+                    {deleted.slug && (
+                      <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-rose-400">
+                        {deleted.slug}.nexa.os locked
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-medium text-slate-500">
+                    <span>{deleted.accountCount} locked account{deleted.accountCount === 1 ? "" : "s"}</span>
+                    {deleted.deletedAt?.seconds && (
+                      <span>
+                        Deleted {new Date(deleted.deletedAt.seconds * 1000).toLocaleDateString()}
+                      </span>
+                    )}
+                    {deleted.lockFailures.length > 0 && (
+                      <span className="text-amber-400">
+                        {deleted.lockFailures.length} lock failure{deleted.lockFailures.length === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => restoreBusiness(deleted)}
+                  disabled={restoringStoreId === deleted.id}
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-emerald-400 transition-all hover:bg-emerald-500/20 disabled:opacity-50"
+                >
+                  <RotateCcw className={cn("h-4 w-4", restoringStoreId === deleted.id && "animate-spin")} />
+                  {restoringStoreId === deleted.id ? "Restoring…" : "Restore"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Business Details Dialog Modal */}

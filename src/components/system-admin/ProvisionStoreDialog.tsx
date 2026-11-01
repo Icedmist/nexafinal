@@ -10,6 +10,7 @@ import {
 import { Building2, Globe, User, Phone, MapPin, Hash } from "lucide-react";
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { isSlugRetired } from "@/lib/store-deletion";
 import { toast } from "sonner";
 
 interface ProvisionStoreDialogProps {
@@ -38,15 +39,25 @@ export function ProvisionStoreDialog({ open, onOpenChange, onSuccess }: Provisio
         throw new Error("Store name and slug are required.");
       }
 
-      // Check slug uniqueness
-      const slugQuery = query(collection(db, "stores"), where("slug", "==", formData.slug));
+      const slug = formData.slug.trim().toLowerCase();
+
+      // Check slug uniqueness against active stores.
+      const slugQuery = query(collection(db, "stores"), where("slug", "==", slug));
       const slugSnap = await getDocs(slugQuery);
       if (!slugSnap.empty) {
-        throw new Error(`Slug "${formData.slug}" is already taken. Choose a different one.`);
+        throw new Error(`Slug "${slug}" is already taken. Choose a different one.`);
+      }
+
+      // Deleted store slugs stay reserved until the store is restored.
+      if (await isSlugRetired(slug)) {
+        throw new Error(
+          `Slug "${slug}" belongs to a deleted store. Restore that store or choose a different slug.`
+        );
       }
 
       await addDoc(collection(db, "stores"), {
         ...formData,
+        slug,
         status: "active",
         setupComplete: false,
         subscriptionTier: "starter",

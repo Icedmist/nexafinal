@@ -17,9 +17,18 @@ import { notifyActivity } from '@/lib/notification-service';
 import { toast } from "sonner";
 import { CompanyPreloader } from '@/components/shared/CompanyPreloader';
 
+interface AuthClaims {
+  storeId?: string;
+  role?: string;
+  branchId?: string | null;
+  deletedStoreId?: string;
+  deletedStoreSlug?: string;
+  storeSuspended?: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
-  claims: { storeId?: string; role?: string; branchId?: string | null } | null;
+  claims: AuthClaims | null;
   loading: boolean;
   isLoggingOut: boolean; // NEW: Indicates if the logout process is active
   claimsReady: boolean; // NEW: Indicates if claims have been synced for the current user
@@ -53,12 +62,43 @@ export const useAuth = () => React.useContext(AuthContext);
 
 export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = React.useState<User | null>(null);
-  const [claims, setClaims] = React.useState<{ storeId?: string; role?: string; branchId?: string | null } | null>(null);
+  const [claims, setClaims] = React.useState<AuthClaims | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [claimsReady, setClaimsReady] = React.useState(false);
   const [isPreloading, setIsPreloading] = React.useState(false);
   const [preloaderMessage, setPreloaderMessage] = React.useState("Welcome to Nexa OS");
+  const deletedStoreNoticeShown = React.useRef(false);
+
+  /**
+   * Store deletion writes a marker into every associated account's claims.
+   * Treat that marker as a hard lockout even if the Auth `disabled` flag was
+   * somehow not applied (or a stale token is still alive).
+   */
+  const hasDeletedStoreClaim = (rawClaims: Record<string, unknown> | null | undefined) =>
+    !!rawClaims &&
+    (rawClaims.storeSuspended === true ||
+      (typeof rawClaims.deletedStoreId === "string" && rawClaims.deletedStoreId.length > 0));
+
+  const endDeletedStoreSession = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Failed to sign out deleted-store session:", err);
+    }
+    setClaims(null);
+    setUser(null);
+    setClaimsReady(true);
+    setLoading(false);
+
+    if (!deletedStoreNoticeShown.current) {
+      deletedStoreNoticeShown.current = true;
+      toast.error(
+        "This store has been permanently deleted. Its accounts and URL are disabled until a system admin restores it.",
+        { duration: 8000 }
+      );
+    }
+  };
 
   const triggerPreloader = (message = "Welcome to Nexa OS", durationMs = 1200): Promise<void> => {
     setPreloaderMessage(message);
@@ -72,23 +112,37 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const refreshClaims = async () => {
-    if (auth.currentUser) {
-      try {
-        const tokenResult = await auth.currentUser.getIdTokenResult(true);
-        setClaims({
-          storeId: tokenResult.claims.storeId as string,
-          role: tokenResult.claims.role as string,
-          branchId: tokenResult.claims.branchId as string | null,
-        });
-        setClaimsReady(true);
-      } catch (error) {
-        console.error("Error refreshing custom claims:", error);
-      }
+    if (!auth.currentUser) return;
+
+    let tokenResult;
+    try {
+      tokenResult = await auth.currentUser.getIdTokenResult(true);
+    } catch (error) {
+      console.error("Error refreshing custom claims:", error);
+      return;
     }
+
+    if (hasDeletedStoreClaim(tokenResult.claims)) {
+      await endDeletedStoreSession();
+      throw new Error(
+        "This store has been permanently deleted. Its accounts stay disabled until a system admin restores it."
+      );
+    }
+
+    setClaims({
+      storeId: tokenResult.claims.storeId as string,
+      role: tokenResult.claims.role as string,
+      branchId: tokenResult.claims.branchId as string | null,
+      deletedStoreId: tokenResult.claims.deletedStoreId as string | undefined,
+      deletedStoreSlug: tokenResult.claims.deletedStoreSlug as string | undefined,
+      storeSuspended: tokenResult.claims.storeSuspended === true,
+    });
+    setClaimsReady(true);
   };
 
   const login = async (email: string, pass: string) => {
     try {
+      deletedStoreNoticeShown.current = false;
       console.log(`[Auth] Attempting login for: ${email}`);
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       
@@ -221,6 +275,12 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
       // 1. Initial claim fetch
       let tokenResult = await currentUser.getIdTokenResult();
 
+      // Deleted-store accounts are locked even if the Auth record was missed.
+      if (hasDeletedStoreClaim(tokenResult.claims)) {
+        await endDeletedStoreSession();
+        return;
+      }
+
       // 2. If claims are missing, try refreshing a few times
       // Note: Dev users and System admins are prioritized for fast entry
       const devUids = ['cbCWDA2C8KT35O2FyhQG397vAJg2', 'AyUvAqqoqQUj4bvz7O3sET7ij7i2'];
@@ -244,10 +304,13 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
 
-      let finalClaims = {
+      const finalClaims = {
         storeId: tokenResult.claims.storeId as string,
         role: tokenResult.claims.role as string,
         branchId: tokenResult.claims.branchId as string | null,
+        deletedStoreId: tokenResult.claims.deletedStoreId as string | undefined,
+        deletedStoreSlug: tokenResult.claims.deletedStoreSlug as string | undefined,
+        storeSuspended: tokenResult.claims.storeSuspended === true,
       };
 
       // Temporary: Force system_admin role for dev users if not already set in Auth
@@ -306,12 +369,19 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // the route guard never runs against empty claims.
         try {
           const tokenResult = await currentUser.getIdTokenResult();
+          if (hasDeletedStoreClaim(tokenResult.claims)) {
+            await endDeletedStoreSession();
+            return;
+          }
           const hasRole = !!tokenResult.claims.role;
           if (active && hasRole) {
             setClaims({
               storeId: tokenResult.claims.storeId as string,
               role: tokenResult.claims.role as string,
               branchId: tokenResult.claims.branchId as string | null,
+              deletedStoreId: tokenResult.claims.deletedStoreId as string | undefined,
+              deletedStoreSlug: tokenResult.claims.deletedStoreSlug as string | undefined,
+              storeSuspended: tokenResult.claims.storeSuspended === true,
             });
             setClaimsReady(true);
           }

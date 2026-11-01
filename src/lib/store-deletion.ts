@@ -1,151 +1,196 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
   limit,
   query,
   where,
-  writeBatch,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "@/lib/firebase";
 
-const BATCH_SIZE = 400;
-
-/**
- * Collections that hold store-owned records. Most are scoped by `storeId`;
- * a few legacy/integration collections use a different tenant field.
- */
-const STORE_SCOPED_COLLECTIONS: { name: string; field?: string }[] = [
-  { name: "products" },
-  { name: "categories" },
-  { name: "sales" },
-  { name: "sales_forms" },
-  { name: "movements" },
-  { name: "customers" },
-  { name: "customer_credits" },
-  { name: "credit_topups" },
-  { name: "debt_payments" },
-  { name: "debt_records" },
-  { name: "refunds" },
-  { name: "expenses" },
-  { name: "suppliers" },
-  { name: "purchase_orders" },
-  { name: "requests" },
-  { name: "notifications" },
-  { name: "activity_logs" },
-  { name: "managerCollections" },
-  { name: "customFields" },
-  { name: "locations" },
-  { name: "staff" },
-  { name: "businesses" },
-  { name: "subscriptionRequests" },
-  { name: "support_chats" },
-  { name: "support_tickets" },
-  { name: "affiliatePartners" },
-  { name: "achievements", field: "entityId" },
-  { name: "agentEarnings" },
-  { name: "device_telemetry" },
-  { name: "emailLogs" },
-  { name: "qrLeadEvents" },
-  { name: "referrals" },
-  { name: "reportDeliveries" },
-  { name: "retentionEvents" },
-  { name: "retentionTriggers" },
-  { name: "subscriptionEvents" },
-  { name: "moniepoint_transactions", field: "storeTenantId" },
-];
-
-/** Documents whose id is the store id rather than a field value. */
-const STORE_KEYED_DOCUMENTS = ["moniepoint_accounts", "businesses"];
-
-/** Documents whose id is `prefix + storeId`. */
-const STORE_PREFIXED_DOCUMENTS = [{ collection: "engagementStreaks", prefix: "store_" }];
+export interface StoreLockFailure {
+  uid: string;
+  email?: string;
+  message: string;
+}
 
 export interface StoreDeletionResult {
   deleted: number;
+  disabledUsers?: number;
+  slug?: string;
+  alreadyDeleted?: boolean;
+  lockFailures?: StoreLockFailure[];
+}
+
+export interface StoreRestoreResult {
+  success: boolean;
+  storeId: string;
+  slug: string;
+  restoredUsers: number;
+  failures: StoreLockFailure[];
+}
+
+export interface DeletedStoreSummary {
+  id: string;
+  name: string;
+  slug: string;
+  ownerId: string | null;
+  deletedAt?: { seconds?: number } | null;
+  deletedBy?: string | null;
+  accountCount: number;
+  lockFailures: StoreLockFailure[];
 }
 
 /**
- * Permanently removes a store and every record owned by it.
+ * Permanently deletes a store through the Admin SDK callable.
  *
- * Firestore does not cascade deletes, so deleting `stores/{id}` alone leaves
- * orphaned products, sales, staff, branches, etc. This walks every known
- * store-scoped collection in batches, then removes integration documents
- * keyed by the store id, and finally deletes the store document itself.
+ * The callable owns the whole operation so it can do things the client cannot:
+ * cascade-delete every store-owned collection, tombstone the slug, disable the
+ * associated Auth accounts, revoke their refresh tokens, and replace their
+ * claims with a deleted-store marker. Keeping this server-side also means a
+ * failure can be retried from the UI without the store silently disappearing.
  */
-export async function deleteStorePermanently(storeId: string): Promise<StoreDeletionResult> {
+export async function deleteStorePermanently(
+  storeId: string,
+  reason?: string
+): Promise<StoreDeletionResult> {
   if (!storeId) throw new Error("A store id is required.");
 
-  let deleted = 0;
-  const failedCollections: string[] = [];
+  const callable = httpsCallable<
+    { storeId: string; reason?: string },
+    StoreDeletionResult
+  >(functions, "deletestore");
 
-  for (const target of STORE_SCOPED_COLLECTIONS) {
-    const field = target.field ?? "storeId";
-    try {
-      for (;;) {
-        const snap = await getDocs(
-          query(
-            collection(db, target.name),
-            where(field, "==", storeId),
-            limit(BATCH_SIZE)
-          )
-        );
-        if (snap.empty) break;
+  const { data } = await callable({ storeId, reason });
+  return data;
+}
 
-        const batch = writeBatch(db);
-        snap.docs.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
+/**
+ * Restores a store that was permanently deleted: recreates the store document,
+ * re-enables its accounts, and releases the slug.
+ */
+export async function restoreStore(
+  storeIdOrSlug: { storeId?: string; slug?: string }
+): Promise<StoreRestoreResult> {
+  const callable = httpsCallable<
+    { storeId?: string; slug?: string },
+    StoreRestoreResult
+  >(functions, "restorestore");
 
-        deleted += snap.size;
-        if (snap.size < BATCH_SIZE) break;
-      }
-    } catch (err) {
-      console.error(`Failed to delete ${target.name} records for store ${storeId}:`, err);
-      failedCollections.push(target.name);
-    }
+  const { data } = await callable(storeIdOrSlug);
+  return data;
+}
+
+/** Returns true when the store has been tombstoned. */
+export async function isStoreDeleted(storeId: string | null | undefined): Promise<boolean> {
+  if (!storeId) return false;
+  try {
+    // Lightweight marker readable by any authenticated client.
+    const marker = await getDoc(doc(db, "deletedStoreMarkers", storeId));
+    if (marker.exists()) return true;
+
+    // Full tombstone (admin-only) is the fallback for retries/legacy data.
+    const snap = await getDoc(doc(db, "deletedStores", storeId));
+    return snap.exists();
+  } catch (err) {
+    console.warn("Could not check store tombstone:", err);
+    return false;
   }
+}
 
-  // Integration/legacy documents are keyed by the store id rather than a field.
-  for (const name of STORE_KEYED_DOCUMENTS) {
-    try {
-      const ref = doc(db, name, storeId);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        await deleteDoc(ref);
-        deleted += 1;
-      }
-    } catch (err) {
-      console.error(`Failed to delete ${name}/${storeId}:`, err);
-      failedCollections.push(name);
-    }
-  }
+/** Returns true when the slug belongs to a deleted store and cannot be reused. */
+export async function isSlugRetired(slug: string | null | undefined): Promise<boolean> {
+  const normalized = (slug || "").trim().toLowerCase();
+  if (!normalized) return false;
 
-  // Prefixed documents (e.g. engagementStreaks keyed by store_<storeId>)
-  for (const item of STORE_PREFIXED_DOCUMENTS) {
-    try {
-      const ref = doc(db, item.collection, `${item.prefix}${storeId}`);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        await deleteDoc(ref);
-        deleted += 1;
-      }
-    } catch (err) {
-      console.error(`Failed to delete ${item.collection}/${item.prefix}${storeId}:`, err);
-      failedCollections.push(item.collection);
-    }
-  }
+  try {
+    const slugSnap = await getDoc(doc(db, "deletedSlugs", normalized));
+    if (slugSnap.exists()) return true;
 
-  if (failedCollections.length > 0) {
-    throw new Error(
-      `Could not remove data from: ${failedCollections.join(", ")}. The store was kept so deletion can be retried.`
+    // Defensive fallback for stores deleted before the deletedSlugs index
+    // existed (or stores without a slug key).
+    const tombstoneSnap = await getDocs(
+      query(collection(db, "deletedStores"), where("slug", "==", normalized), limit(1))
     );
+    return !tombstoneSnap.empty;
+  } catch (err) {
+    console.warn("Could not check retired slug:", err);
+    return false;
   }
+}
 
-  // Delete the store document last so a failed run can be retried safely.
-  await deleteDoc(doc(db, "stores", storeId));
-  deleted += 1;
+/** Lists deleted stores for the system-admin restore panel. */
+export async function listDeletedStores(): Promise<DeletedStoreSummary[]> {
+  const snap = await getDocs(collection(db, "deletedStores"));
+  return snap.docs
+    .map((entry) => {
+      const data = entry.data();
+      return {
+        id: entry.id,
+        name: (data.name as string) || "Deleted store",
+        slug: (data.slug as string) || "",
+        ownerId: (data.ownerId as string) || null,
+        deletedAt: data.deletedAt ?? null,
+        deletedBy: (data.deletedBy as string) || null,
+        accountCount: Array.isArray(data.accounts) ? data.accounts.length : 0,
+        lockFailures: Array.isArray(data.lockFailures)
+          ? (data.lockFailures as StoreLockFailure[])
+          : [],
+      } satisfies DeletedStoreSummary;
+    })
+    .sort((a, b) => (b.deletedAt?.seconds ?? 0) - (a.deletedAt?.seconds ?? 0));
+}
 
-  return { deleted };
+/**
+ * Clears client-side store caches. Without this, a deleted store can keep
+ * rendering from localStorage/sessionStorage after the Firestore document is
+ * gone (tenant resolution and BusinessContext both cache aggressively).
+ */
+export function clearStoreClientCaches(options?: {
+  storeId?: string | null;
+  slug?: string | null;
+}): void {
+  if (typeof window === "undefined") return;
+
+  const storeId = options?.storeId || null;
+
+  const keysToRemove: string[] = [
+    "nexa_active_slug",
+    "nexa_active_branch_id",
+    "nexa_system_admin_selected_store_id",
+    "nexa_system_admin_selected_store_slug",
+    "nexa_pos_cart_v1",
+  ];
+
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      const isStoreCache =
+        key.startsWith("nexa_business_profile_") ||
+        key.startsWith("nexa_tenant_persist_") ||
+        key.startsWith("nexa_active_branch_id_") ||
+        (storeId ? key.includes(storeId) : false);
+      if (isStoreCache) keysToRemove.push(key);
+    }
+
+    for (let i = sessionStorage.length - 1; i >= 0; i -= 1) {
+      const key = sessionStorage.key(i);
+      if (!key) continue;
+      const isStoreCache =
+        key.startsWith("nexa_tenant_") ||
+        key === "nexa_active_slug" ||
+        (storeId ? key.includes(storeId) : false);
+      if (isStoreCache) keysToRemove.push(key);
+    }
+
+    keysToRemove.forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+  } catch (err) {
+    console.warn("Could not clear store caches:", err);
+  }
 }

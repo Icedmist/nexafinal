@@ -4,7 +4,7 @@ service cloud.firestore {
     // HELPERS
     function isAuth() { return request.auth != null; }
     
-    function getStoreId() { 
+    function rawStoreId() {
       return request.auth.token.storeId != null ? 
         request.auth.token.storeId : 
         (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) ? 
@@ -12,6 +12,14 @@ service cloud.firestore {
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeId :
             null));
+    }
+
+    // A store claim is only usable while the store document still exists.
+    // Permanent deletion removes that document, so even a still-valid ID token
+    // loses access to every store-scoped record immediately.
+    function getStoreId() {
+      let id = rawStoreId();
+      return id != null && exists(/databases/$(database)/documents/stores/$(id)) ? id : null;
     }
     
     function getRole() { 
@@ -27,12 +35,32 @@ service cloud.firestore {
     // Role Helpers
     function isAdmin() { 
       let role = getRole();
-      return role == 'admin' || role == 'owner' || role == 'system_admin'; 
+      if (role == 'system_admin') return true;
+      if (role != 'admin' && role != 'owner') return false;
+      // Store admins/owners only count while their store still exists.
+      return getStoreId() != null;
     }
     
     function isManager() {
       let role = getRole();
       return isAdmin() || role == 'manager';
+    }
+
+    function isSystemAdmin() {
+      return isAuth() && request.auth.token.role == 'system_admin';
+    }
+
+    // Deleted stores keep their slug permanently reserved until a system admin
+    // restores the store. The tombstone is keyed by the slug so the check is a
+    // single direct document lookup.
+    function slugIsRetired(slug) {
+      return slug is string &&
+        exists(/databases/$(database)/documents/deletedSlugs/$(slug));
+    }
+
+    function storeIsTombstoned(storeId) {
+      return storeId is string &&
+        exists(/databases/$(database)/documents/deletedStores/$(storeId));
     }
 
     // Store scoping: the caller must be authenticated AND belong to the given store.
@@ -54,11 +82,22 @@ service cloud.firestore {
     // restricted to the store owner / admins.
     match /stores/{storeId} {
       allow read: if true; 
-      allow create: if isAuth(); 
-      allow update, delete: if isAuth() && (
+      // A tombstoned slug cannot be re-provisioned. The rule is the last line
+      // of defence; a Cloud Function also checks deletedSlugs before creating.
+      allow create: if isAuth() &&
+        !slugIsRetired(request.resource.data.slug) &&
+        !storeIsTombstoned(storeId);
+      // Only platform admins may delete a store directly. Normal permanent
+      // deletion goes through the `deletestore` callable, which tombstones the
+      // slug and locks the accounts.
+      allow delete: if isSystemAdmin();
+      allow update: if isAuth() && (
         resource.data.ownerId == request.auth.uid || 
         isAdmin() || 
         (isManager() && getStoreId() == storeId)
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['slug']) ||
+        !slugIsRetired(request.resource.data.slug)
       );
       
       match /{allSubcollections=**} {
@@ -68,6 +107,26 @@ service cloud.firestore {
           isAdmin()
         );
       }
+    }
+
+    // DELETED STORE TOMBSTONES: contain the deleted store snapshot and the
+    // affected account emails/claims, so they are platform-admin only. The slug
+    // index is publicly readable so tenant resolution can reject the URL and
+    // provisioning/onboarding can explain why a slug is unavailable; writes are
+    // admin-only.
+    match /deletedStores/{storeId} {
+      allow read, write: if isSystemAdmin();
+    }
+    match /deletedSlugs/{slug} {
+      // Slug availability is public information (the stores collection is
+      // already publicly readable) and tenant resolution needs it even for
+      // anonymous visitors.
+      allow read: if true;
+      allow write: if isSystemAdmin();
+    }
+    match /deletedStoreMarkers/{storeId} {
+      allow read: if isAuth();
+      allow write: if isSystemAdmin();
     }
     
     // USERS: Private profiles
@@ -166,28 +225,28 @@ service cloud.firestore {
 
     // MULTI-TENANT DATA: Gated by storeId claim with owner fallback
     match /{collectionName}/{docId} {
-      allow read: if isAuth() && (
+      allow read: if collectionName != 'deletedStores' && collectionName != 'deletedSlugs' && collectionName != 'deletedStoreMarkers' && isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
         isAdmin()
       );
 
-      allow create: if isAuth() && (
+      allow create: if collectionName != 'deletedStores' && collectionName != 'deletedSlugs' && collectionName != 'deletedStoreMarkers' && isAuth() && (
         (getStoreId() != null && request.resource.data.storeId == getStoreId()) ||
         (request.resource.data.ownerId != null && request.auth.uid == request.resource.data.ownerId) ||
         (request.resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.ownerId == request.auth.uid) ||
         isAdmin()
       );
 
-      allow update: if isAuth() && (
+      allow update: if collectionName != 'deletedStores' && collectionName != 'deletedSlugs' && collectionName != 'deletedStoreMarkers' && isAuth() && (
         (getStoreId() != null && resource.data.storeId == getStoreId()) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
         isAdmin()
       );
 
-      allow delete: if isAuth() && (
+      allow delete: if collectionName != 'deletedStores' && collectionName != 'deletedSlugs' && collectionName != 'deletedStoreMarkers' && isAuth() && (
         (isAdmin() && getStoreId() != null && resource.data.storeId == getStoreId()) ||
         (resource.data.ownerId != null && request.auth.uid == resource.data.ownerId) ||
         (resource.data.storeId != null && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||

@@ -30,7 +30,7 @@ import { useStaff, useStaffMutations } from "@/hooks/useStaffData";
 export function AppLayout() {
   const auth = useAuth();
   const { user, loading, claims, claimsReady } = auth;
-  const { profile, needsOnboarding, loadingProfile } = useBusiness();
+  const { profile, needsOnboarding, loadingProfile, storeDeleted, switchStore } = useBusiness();
   const { store } = useTenant();
   const { role, isSystemAdmin, loading: roleLoading } = useRole();
   const { isDemo } = useDemo();
@@ -85,7 +85,7 @@ export function AppLayout() {
 
   // Cross-Tenant Security Check: Ensure user belongs to the current subdomain store
   useEffect(() => {
-    if (user && claimsReady && !loadingProfile && store && profile) {
+    if (user && claimsReady && !loadingProfile && store && profile && !storeDeleted) {
       const isOwner = user.uid === profile.ownerId;
       
       // Safety check for claims to prevent ReferenceError
@@ -117,12 +117,12 @@ export function AppLayout() {
         }
       }
     }
-  }, [user, claimsReady, loadingProfile, store, profile, isSystemAdmin, claims]);
+  }, [user, claimsReady, loadingProfile, store, profile, isSystemAdmin, claims, storeDeleted]);
 
 
   // Domain Access Enforcement: Staff MUST use subdomains, Owners can use main domain.
   useEffect(() => {
-    if (user && claimsReady && !loadingProfile && !needsOnboarding && !store && !isSystemAdmin) {
+    if (user && claimsReady && !loadingProfile && !needsOnboarding && !store && !isSystemAdmin && !storeDeleted) {
       // We are on the main domain (no store from TenantContext)
       // Check if user is a staff member (not owner or system_admin)
       const isStaffMember = role === "staff" || role === "manager" || role === "admin";
@@ -152,10 +152,11 @@ export function AppLayout() {
         window.location.href = targetUrl;
       }
     }
-  }, [user, claimsReady, loadingProfile, needsOnboarding, store, role, isSystemAdmin, profile, location]);
+  }, [user, claimsReady, loadingProfile, needsOnboarding, store, role, isSystemAdmin, profile, location, storeDeleted]);
 
   // Role-based route guard
   useEffect(() => {
+    if (storeDeleted) return;
     const isSystemRoute = location.pathname.startsWith("/system-admin");
     
     // For normal users, we wait until onboarding is done to check routes (or they'll be redirected anyway)
@@ -176,7 +177,7 @@ export function AppLayout() {
         navigate(isSystemAdmin ? "/system-admin/dashboard" : "/app/dashboard");
       }
     }
-  }, [location.pathname, role, roleLoading, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin]);
+  }, [location.pathname, role, roleLoading, navigate, user, claimsReady, loadingProfile, needsOnboarding, isSystemAdmin, storeDeleted]);
 
 
   // Auth guard — redirect to login if not logged in (skip in demo mode)
@@ -189,10 +190,10 @@ export function AppLayout() {
   // Onboarding guard — redirect to setup if store is incomplete
   useEffect(() => {
     const isSystemRoute = location.pathname.startsWith("/system-admin");
-    if (user && claimsReady && !loadingProfile && needsOnboarding && !isSystemAdmin && !isSystemRoute && !isDemo) {
+    if (user && claimsReady && !loadingProfile && needsOnboarding && !isSystemAdmin && !isSystemRoute && !isDemo && !storeDeleted) {
       navigate("/onboarding", { replace: true });
     }
-  }, [user, needsOnboarding, claimsReady, loadingProfile, navigate, isSystemAdmin, location.pathname, isDemo]);
+  }, [user, needsOnboarding, claimsReady, loadingProfile, navigate, isSystemAdmin, location.pathname, isDemo, storeDeleted]);
   
   // Auto-trigger notification prompt for new sessions if permission is default
   useEffect(() => {
@@ -230,6 +231,51 @@ export function AppLayout() {
     } else {
       return null;
     }
+  }
+
+  // A deleted store must never render the workspace. Regular accounts are
+  // signed out by claims; this protects system-admin audit sessions and any
+  // stale cached session that survived the tombstone check.
+  if (storeDeleted) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#030711] p-6">
+        <div className="max-w-lg space-y-6 rounded-[2rem] border border-rose-500/20 bg-card/40 p-10 text-center backdrop-blur-xl">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-rose-500/10 text-rose-500">
+            <ShieldCheck className="h-10 w-10" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black uppercase italic tracking-tight text-white">
+              Store Deleted
+            </h1>
+            <p className="text-sm text-slate-400">
+              This store and its data have been permanently removed. The slug and
+              its accounts stay disabled until a system admin restores the store.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            {isSystemAdmin && (
+              <button
+                onClick={() => {
+                  switchStore?.(null);
+                  window.location.href = "/system-admin/businesses";
+                }}
+                className="rounded-xl bg-blue-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-blue-700"
+              >
+                Back to Businesses
+              </button>
+            )}
+            <button
+              onClick={() => {
+                window.location.href = "/";
+              }}
+              className="rounded-xl border border-slate-800 px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-all hover:text-white"
+            >
+              Return to Platform
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

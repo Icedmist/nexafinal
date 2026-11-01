@@ -974,6 +974,584 @@ export const updateplatformuser = onCall({ cors: true }, async (request) => {
 });
 
 /**
+ * PERMANENT STORE DELETION (v2)
+ *
+ * Firestore has no cascade deletes, and the client SDK cannot disable Auth
+ * users or change other users' custom claims. This callable therefore owns the
+ * whole deletion: it removes every store-owned record, writes a tombstone so
+ * the slug cannot be re-provisioned, and locks every associated account until
+ * a system admin restores the store.
+ *
+ * Keep STORE_SCOPED_COLLECTIONS in sync with any new store-owned collection.
+ */
+const STORE_SCOPED_COLLECTIONS: { name: string; field?: string }[] = [
+  { name: "products" },
+  { name: "categories" },
+  { name: "sales" },
+  { name: "sales_forms" },
+  { name: "movements" },
+  { name: "customers" },
+  { name: "customer_credits" },
+  { name: "credit_topups" },
+  { name: "debt_payments" },
+  { name: "debt_records" },
+  { name: "refunds" },
+  { name: "expenses" },
+  { name: "suppliers" },
+  { name: "purchase_orders" },
+  { name: "requests" },
+  { name: "notifications" },
+  { name: "activity_logs" },
+  { name: "managerCollections" },
+  { name: "customFields" },
+  { name: "locations" },
+  { name: "staff" },
+  { name: "businesses" },
+  { name: "subscriptionRequests" },
+  { name: "support_chats" },
+  { name: "support_tickets" },
+  { name: "affiliatePartners" },
+  { name: "achievements", field: "entityId" },
+  { name: "agentEarnings" },
+  { name: "device_telemetry" },
+  { name: "emailLogs" },
+  { name: "qrLeadEvents" },
+  { name: "referrals" },
+  { name: "reportDeliveries" },
+  { name: "retentionEvents" },
+  { name: "retentionTriggers" },
+  { name: "subscriptionEvents" },
+  { name: "moniepoint_transactions", field: "storeTenantId" },
+];
+
+const STORE_KEYED_DOCUMENTS = ["moniepoint_accounts", "businesses"];
+const STORE_PREFIXED_DOCUMENTS = [{ collection: "engagementStreaks", prefix: "store_" }];
+const DELETE_BATCH_SIZE = 400;
+
+interface StoreAccountSnapshot {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  disabled: boolean;
+  claims: Record<string, any>;
+}
+
+interface StoreUserRecord {
+  id: string;
+  data: Record<string, any>;
+}
+
+interface StoreLockFailure {
+  uid: string;
+  email?: string;
+  message: string;
+}
+
+function normalizeStoreSlug(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+async function deleteDocsInBatches(
+  refs: admin.firestore.DocumentReference[]
+): Promise<number> {
+  let deleted = 0;
+  for (let i = 0; i < refs.length; i += DELETE_BATCH_SIZE) {
+    const batch = admin.firestore().batch();
+    refs.slice(i, i + DELETE_BATCH_SIZE).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+    deleted += Math.min(DELETE_BATCH_SIZE, refs.length - i);
+  }
+  return deleted;
+}
+
+/** Deletes every top-level document that belongs to the store. */
+async function deleteStoreScopedData(storeId: string): Promise<number> {
+  const db = admin.firestore();
+  let deleted = 0;
+
+  for (const target of STORE_SCOPED_COLLECTIONS) {
+    const field = target.field ?? "storeId";
+    for (;;) {
+      const snap = await db
+        .collection(target.name)
+        .where(field, "==", storeId)
+        .limit(DELETE_BATCH_SIZE)
+        .get();
+      if (snap.empty) break;
+
+      const batch = db.batch();
+      snap.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+
+      deleted += snap.size;
+      if (snap.size < DELETE_BATCH_SIZE) break;
+    }
+  }
+
+  // Integration/legacy documents are keyed by the store id rather than a field.
+  for (const name of STORE_KEYED_DOCUMENTS) {
+    const ref = db.collection(name).doc(storeId);
+    const snap = await ref.get();
+    if (snap.exists) {
+      await ref.delete();
+      deleted += 1;
+    }
+  }
+
+  for (const item of STORE_PREFIXED_DOCUMENTS) {
+    const ref = db.collection(item.collection).doc(`${item.prefix}${storeId}`);
+    const snap = await ref.get();
+    if (snap.exists) {
+      await ref.delete();
+      deleted += 1;
+    }
+  }
+
+  return deleted;
+}
+
+/** Collects the Auth users + Firestore profiles that belong to a store. */
+async function collectStoreAccounts(
+  storeId: string,
+  ownerId?: string | null
+): Promise<{
+  accounts: StoreAccountSnapshot[];
+  userRecords: StoreUserRecord[];
+  staffRecords: StoreUserRecord[];
+}> {
+  const db = admin.firestore();
+  const [userSnap, staffSnap] = await Promise.all([
+    db.collection("users").where("storeId", "==", storeId).get(),
+    db.collection("staff").where("storeId", "==", storeId).get(),
+  ]);
+
+  const userRecords: StoreUserRecord[] = userSnap.docs.map((doc) => ({
+    id: doc.id,
+    data: doc.data(),
+  }));
+  const staffRecords: StoreUserRecord[] = staffSnap.docs.map((doc) => ({
+    id: doc.id,
+    data: doc.data(),
+  }));
+
+  const uidSet = new Set<string>();
+  if (ownerId) uidSet.add(ownerId);
+  userRecords.forEach((record) => uidSet.add(record.id));
+  staffRecords.forEach((record) => {
+    uidSet.add(record.id);
+    const uid = record.data?.uid;
+    if (typeof uid === "string" && uid) uidSet.add(uid);
+  });
+
+  // Also catch accounts whose custom claims still point at the store even if
+  // their Firestore profile was removed or never created. This is the only way
+  // to guarantee every store account is locked.
+  try {
+    let pageToken: string | undefined;
+    do {
+      const page = await admin.auth().listUsers(1000, pageToken);
+      page.users.forEach((authUser) => {
+        const claims = (authUser.customClaims || {}) as Record<string, any>;
+        if (claims.storeId === storeId) uidSet.add(authUser.uid);
+      });
+      pageToken = page.pageToken;
+    } while (pageToken);
+  } catch (error: any) {
+    console.warn(
+      `Could not scan Auth users for store ${storeId} (continuing with Firestore records):`,
+      error?.message || error
+    );
+  }
+
+  const accounts: StoreAccountSnapshot[] = [];
+  for (const uid of uidSet) {
+    let authUser: admin.auth.UserRecord | null = null;
+    try {
+      authUser = await admin.auth().getUser(uid);
+    } catch (error: any) {
+      if (error?.code !== "auth/user-not-found") {
+        console.warn(`Could not read Auth user ${uid}:`, error?.message || error);
+      }
+    }
+
+    const staffRecord = staffRecords.find(
+      (record) => record.id === uid || record.data?.uid === uid
+    );
+    const userRecord = userRecords.find((record) => record.id === uid);
+
+    accounts.push({
+      uid,
+      email: authUser?.email ?? staffRecord?.data?.email ?? userRecord?.data?.email ?? null,
+      displayName: authUser?.displayName ?? staffRecord?.data?.name ?? null,
+      disabled: authUser?.disabled ?? false,
+      claims: (authUser?.customClaims as Record<string, any>) || {},
+    });
+  }
+
+  return { accounts, userRecords, staffRecords };
+}
+
+/** Disables Auth accounts and marks their claims as belonging to a deleted store. */
+async function lockStoreAccounts(
+  storeId: string,
+  slug: string,
+  accounts: StoreAccountSnapshot[]
+): Promise<{ disabled: number; failures: StoreLockFailure[] }> {
+  let disabled = 0;
+  const failures: StoreLockFailure[] = [];
+
+  for (const account of accounts) {
+    if (!account.uid) continue;
+    if (account.claims?.role === "system_admin") {
+      console.log(`Skipping lockout for system admin ${account.uid}`);
+      continue;
+    }
+
+    const lockedClaims: Record<string, any> = {
+      role: "suspended",
+      storeSuspended: true,
+      deletedStoreId: storeId,
+    };
+    if (slug) lockedClaims.deletedStoreSlug = slug;
+
+    try {
+      await admin.auth().updateUser(account.uid, { disabled: true });
+      await admin.auth().setCustomUserClaims(account.uid, lockedClaims);
+      await admin.auth().revokeRefreshTokens(account.uid);
+      disabled += 1;
+    } catch (error: any) {
+      if (error?.code === "auth/user-not-found") continue;
+      console.error(`Failed to lock account ${account.uid}:`, error);
+      failures.push({
+        uid: account.uid,
+        email: account.email ?? undefined,
+        message: error?.message || "Unknown Auth error",
+      });
+    }
+  }
+
+  return { disabled, failures };
+}
+
+/** Removes the profile documents for every account attached to the store. */
+async function removeStoreAccountRecords(
+  accounts: StoreAccountSnapshot[],
+  userRecords: StoreUserRecord[],
+  staffRecords: StoreUserRecord[]
+): Promise<number> {
+  const db = admin.firestore();
+  const protectedUids = new Set(
+    accounts
+      .filter((account) => account.claims?.role === "system_admin")
+      .map((account) => account.uid)
+  );
+  const refs: admin.firestore.DocumentReference[] = [];
+  userRecords.forEach((record) => {
+    if (!protectedUids.has(record.id)) {
+      refs.push(db.collection("users").doc(record.id));
+    }
+  });
+  staffRecords.forEach((record) => {
+    const uid = typeof record.data?.uid === "string" ? record.data.uid : record.id;
+    if (!protectedUids.has(record.id) && !protectedUids.has(uid)) {
+      refs.push(db.collection("staff").doc(record.id));
+    }
+  });
+  return deleteDocsInBatches(refs);
+}
+
+/**
+ * DELETE STORE: Callable Function (v2)
+ * Permanently deletes a store, tombstones its slug, and locks every account
+ * that belonged to it. Nothing can reuse the slug or the accounts until
+ * `restorestore` is called.
+ */
+export const deletestore = onCall({ cors: true }, async (request) => {
+  await checkSystemAdmin(request);
+
+  const { storeId, reason } = (request.data || {}) as {
+    storeId?: string;
+    reason?: string;
+  };
+  if (!storeId) {
+    throw new HttpsError("invalid-argument", "A store id is required.");
+  }
+
+  const db = admin.firestore();
+  const storeRef = db.collection("stores").doc(storeId);
+  const tombstoneRef = db.collection("deletedStores").doc(storeId);
+  const storeSnap = await storeRef.get();
+
+  // Idempotent retry: the data is gone but some accounts may not have locked.
+  if (!storeSnap.exists) {
+    const tombstoneSnap = await tombstoneRef.get();
+    if (!tombstoneSnap.exists) {
+      throw new HttpsError("not-found", "Store not found.");
+    }
+
+    const tombstone = tombstoneSnap.data() || {};
+    const slug = normalizeStoreSlug(tombstone.slug);
+    await db.collection("deletedStoreMarkers").doc(storeId).set(
+      {
+        storeId,
+        slug,
+        name: tombstone.name || "",
+        deletedAt:
+          tombstone.deletedAt || admin.firestore.FieldValue.serverTimestamp(),
+        deletedBy: tombstone.deletedBy || null,
+      },
+      { merge: true }
+    );
+    const retry = await lockStoreAccounts(
+      storeId,
+      slug,
+      (tombstone.accounts as StoreAccountSnapshot[]) || []
+    );
+    await tombstoneRef.set(
+      {
+        lockFailures: retry.failures,
+        lastLockAttemptAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return {
+      alreadyDeleted: true,
+      deleted: 0,
+      disabledUsers: retry.disabled,
+      slug,
+      lockFailures: retry.failures,
+    };
+  }
+
+  const store = storeSnap.data() || {};
+  const slug = normalizeStoreSlug(store.slug);
+  const { accounts, userRecords, staffRecords } = await collectStoreAccounts(
+    storeId,
+    store.ownerId
+  );
+
+  // 1. Remove store-owned data first. If this fails, the store document is
+  //    still present so the whole operation can be retried safely.
+  let deleted = 0;
+  try {
+    deleted += await deleteStoreScopedData(storeId);
+  } catch (error: any) {
+    console.error(`Failed to delete data for store ${storeId}:`, error);
+    throw new HttpsError(
+      "internal",
+      `Could not delete all store data (${error?.message || "unknown error"}). The store was kept so the deletion can be retried.`
+    );
+  }
+
+  // 2. Write the tombstone before deleting the store. The tombstone is the
+  //    source of truth for blocking the slug and restoring the accounts.
+  await tombstoneRef.set({
+    storeId,
+    slug,
+    name: store.name || "",
+    ownerId: store.ownerId || null,
+    store,
+    accounts,
+    userRecords,
+    staffRecords,
+    reason: reason || null,
+    deletedBy: request.auth?.uid || null,
+    deletedByEmail: request.auth?.token?.email || null,
+    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    status: "deleted",
+    lockFailures: [],
+  });
+
+  if (slug) {
+    await db.collection("deletedSlugs").doc(slug).set({
+      storeId,
+      slug,
+      name: store.name || "",
+      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+      deletedBy: request.auth?.uid || null,
+    });
+  }
+
+  // Lightweight, non-sensitive marker readable by authenticated clients so the
+  // UI can detect the deletion immediately (the full tombstone stays admin-only
+  // because it contains account emails/claims).
+  await db.collection("deletedStoreMarkers").doc(storeId).set({
+    storeId,
+    slug,
+    name: store.name || "",
+    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    deletedBy: request.auth?.uid || null,
+  });
+
+  // 3. Delete the store document and any nested subcollections.
+  await db.recursiveDelete(storeRef);
+  deleted += 1;
+
+  // 4. Lock the Auth accounts so they cannot sign in or refresh tokens with
+  //    their old store access. Also drop their now-orphaned profile docs.
+  const lock = await lockStoreAccounts(storeId, slug, accounts);
+  deleted += await removeStoreAccountRecords(accounts, userRecords, staffRecords);
+
+  await tombstoneRef.set(
+    {
+      lockFailures: lock.failures,
+      lockedUsers: lock.disabled,
+    },
+    { merge: true }
+  );
+
+  console.log(
+    `Store ${storeId} (${slug || "no slug"}) permanently deleted by ${request.auth?.uid}. ` +
+      `Records removed: ${deleted}. Accounts locked: ${lock.disabled}.`
+  );
+
+  return {
+    alreadyDeleted: false,
+    deleted,
+    disabledUsers: lock.disabled,
+    slug,
+    lockFailures: lock.failures,
+  };
+});
+
+/**
+ * RESTORE STORE: Callable Function (v2)
+ * Recreates a tombstoned store, re-enables its accounts, restores their custom
+ * claims and staff profiles, and releases the slug.
+ */
+export const restorestore = onCall({ cors: true }, async (request) => {
+  await checkSystemAdmin(request);
+
+  const { storeId, slug } = (request.data || {}) as {
+    storeId?: string;
+    slug?: string;
+  };
+
+  const db = admin.firestore();
+  let tombstoneRef: admin.firestore.DocumentReference;
+
+  if (storeId) {
+    tombstoneRef = db.collection("deletedStores").doc(storeId);
+  } else if (slug) {
+    const snap = await db
+      .collection("deletedStores")
+      .where("slug", "==", normalizeStoreSlug(slug))
+      .limit(1)
+      .get();
+    if (snap.empty) {
+      throw new HttpsError("not-found", "No deleted store was found for that slug.");
+    }
+    tombstoneRef = snap.docs[0].ref;
+  } else {
+    throw new HttpsError(
+      "invalid-argument",
+      "A store id or slug is required to restore a store."
+    );
+  }
+
+  const tombstoneSnap = await tombstoneRef.get();
+  if (!tombstoneSnap.exists) {
+    throw new HttpsError("not-found", "No deleted store was found for that id.");
+  }
+
+  const tombstone = tombstoneSnap.data() || {};
+  const targetStoreId = (tombstone.storeId as string) || tombstoneRef.id;
+  const targetSlug = normalizeStoreSlug(tombstone.slug);
+  const storeRef = db.collection("stores").doc(targetStoreId);
+  const storeData = (tombstone.store as Record<string, any>) || {};
+
+  // 1. Recreate the store document. Keep the original id so every historical
+  //    analytics/audit reference still points at the same tenant.
+  if (!(await storeRef.get()).exists) {
+    const restoredStore = {
+      ...storeData,
+      name: storeData.name || tombstone.name || "Restored Store",
+      slug: storeData.slug || targetSlug,
+      status: storeData.status === "deleted" ? "active" : storeData.status || "active",
+      restoredAt: admin.firestore.FieldValue.serverTimestamp(),
+      restoredBy: request.auth?.uid || null,
+    };
+    await storeRef.set(restoredStore);
+  }
+
+  // 2. Restore the staff + user profile documents captured at deletion time.
+  const userRecords = (tombstone.userRecords as StoreUserRecord[]) || [];
+  const staffRecords = (tombstone.staffRecords as StoreUserRecord[]) || [];
+  const refsWithData: Array<{ ref: admin.firestore.DocumentReference; data: Record<string, any> }> = [];
+  userRecords.forEach((record) =>
+    refsWithData.push({ ref: db.collection("users").doc(record.id), data: record.data })
+  );
+  staffRecords.forEach((record) =>
+    refsWithData.push({ ref: db.collection("staff").doc(record.id), data: record.data })
+  );
+  for (let i = 0; i < refsWithData.length; i += DELETE_BATCH_SIZE) {
+    const batch = db.batch();
+    refsWithData
+      .slice(i, i + DELETE_BATCH_SIZE)
+      .forEach(({ ref, data }) => batch.set(ref, data, { merge: true }));
+    await batch.commit();
+  }
+
+  // 3. Re-enable the accounts and put their original claims back.
+  const accounts = (tombstone.accounts as StoreAccountSnapshot[]) || [];
+  let restoredUsers = 0;
+  const failures: StoreLockFailure[] = [];
+
+  for (const account of accounts) {
+    if (!account?.uid) continue;
+    try {
+      const userUpdate: admin.auth.UpdateRequest = {
+        disabled: account.disabled === true,
+      };
+      if (account.email) userUpdate.email = account.email;
+      if (account.displayName !== null && account.displayName !== undefined) {
+        userUpdate.displayName = account.displayName;
+      }
+      await admin.auth().updateUser(account.uid, userUpdate);
+      await admin.auth().setCustomUserClaims(account.uid, account.claims || {});
+      await admin.auth().revokeRefreshTokens(account.uid);
+      restoredUsers += 1;
+    } catch (error: any) {
+      if (error?.code === "auth/user-not-found") {
+        failures.push({
+          uid: account.uid,
+          email: account.email ?? undefined,
+          message: "Auth account no longer exists.",
+        });
+        continue;
+      }
+      console.error(`Failed to restore account ${account.uid}:`, error);
+      failures.push({
+        uid: account.uid,
+        email: account.email ?? undefined,
+        message: error?.message || "Unknown Auth error",
+      });
+    }
+  }
+
+  // 4. Release the slug and remove the tombstone.
+  if (targetSlug) {
+    await db.collection("deletedSlugs").doc(targetSlug).delete();
+  }
+  await db.collection("deletedStoreMarkers").doc(targetStoreId).delete();
+  await tombstoneRef.delete();
+
+  console.log(
+    `Store ${targetStoreId} (${targetSlug || "no slug"}) restored by ${request.auth?.uid}. ` +
+      `Accounts restored: ${restoredUsers}.`
+  );
+
+  return {
+    success: true,
+    storeId: targetStoreId,
+    slug: targetSlug,
+    restoredUsers,
+    failures,
+  };
+});
+
+/**
  * RESET USER PASSWORD: Callable Function (v2)
  * Generates a password reset link for the given user's email.
  */

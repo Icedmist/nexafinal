@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { clearStoreClientCaches, isSlugRetired } from "@/lib/store-deletion";
 import type { Store } from "@/types/tenant";
 import { useLocation } from "react-router-dom";
 import { useDemo } from "@/hooks/useDemo";
@@ -103,6 +104,24 @@ export function useTenant() {
       const persistKey = `nexa_tenant_persist_${slug}`;
       let loadedFromCache = false;
 
+      // A deleted store keeps a tombstone under its slug. Check it before any
+      // cache is used so a cached tenant cannot keep working after deletion.
+      try {
+        if (await isSlugRetired(slug)) {
+          if (isBrowser) {
+            sessionStorage.removeItem(sessionKey);
+            localStorage.removeItem(persistKey);
+          }
+          clearStoreClientCaches({ slug });
+          setStore(null);
+          setError("This store has been permanently deleted.");
+          setLoading(false);
+          return;
+        }
+      } catch (tombstoneErr) {
+        console.warn("Could not verify store status (may be offline):", tombstoneErr);
+      }
+
       // 1. Try sessionStorage cache first (fast, same-session)
       if (isBrowser) {
         const sessionCached = sessionStorage.getItem(sessionKey);
@@ -149,6 +168,15 @@ export function useTenant() {
           if (!loadedFromCache) {
             setError("Store not found");
             setStore(null);
+          } else {
+            // The cached tenant no longer exists in Firestore (deleted store).
+            if (isBrowser) {
+              sessionStorage.removeItem(sessionKey);
+              localStorage.removeItem(persistKey);
+            }
+            clearStoreClientCaches({ slug });
+            setStore(null);
+            setError("This store has been permanently deleted.");
           }
         } else {
           const storeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Store;

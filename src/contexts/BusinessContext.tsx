@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { useTenant } from './TenantContext';
 import { useDemo } from '@/hooks/useDemo';
 import { isAdminRole } from '@/lib/roles';
+import { clearStoreClientCaches, isStoreDeleted } from '@/lib/store-deletion';
 
 export interface BusinessProfile {
   id: string;
@@ -44,6 +45,8 @@ interface BusinessContextType {
   ownerId: string | null;
   storeId: string | null;
   needsOnboarding: boolean;
+  /** True when the active store has been permanently deleted (tombstoned). */
+  storeDeleted: boolean;
   switchStore?: (storeId: string | null) => void;
   /**
    * Branch override for store-level users (admin/owner/manager) who are allowed
@@ -63,6 +66,7 @@ const BusinessContext = createContext<BusinessContextType>({
   ownerId: null,
   storeId: null,
   needsOnboarding: false,
+  storeDeleted: false,
   switchStore: () => {},
   activeBranchId: null,
   setActiveBranchId: () => {},
@@ -94,6 +98,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [storeId, setStoreId] = useState<string | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [storeDeleted, setStoreDeleted] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     try {
       return localStorage.getItem("nexa_system_admin_selected_store_id");
@@ -164,12 +169,37 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Load cached business profile immediately for offline resilience
   useEffect(() => {
-    const cached = loadCachedBusinessState(user?.uid ?? null);
-    if (cached && cached.profile && !profile) {
-      setProfile(cached.profile);
-      setOwnerId(cached.ownerId);
-      setStoreId(cached.storeId);
-    }
+    let cancelled = false;
+    setStoreDeleted(false);
+
+    const loadCached = async () => {
+      const cached = loadCachedBusinessState(user?.uid ?? null);
+      if (!cached || !cached.profile) return;
+
+      // Never hydrate a deleted store from cache — the store doc is gone, but
+      // the cache would otherwise keep the whole POS usable.
+      const deleted = await isStoreDeleted(cached.storeId);
+      if (cancelled) return;
+      if (deleted) {
+        clearStoreClientCaches({ storeId: cached.storeId, slug: cached.profile.storeDetails?.slug });
+        setProfile(null);
+        setOwnerId(null);
+        setStoreId(null);
+        setNeedsOnboarding(false);
+        setStoreDeleted(true);
+        setLoadingProfile(false);
+        return;
+      }
+
+      setProfile((current) => current ?? cached.profile);
+      setOwnerId((current) => current ?? cached.ownerId);
+      setStoreId((current) => current ?? cached.storeId);
+    };
+
+    loadCached();
+    return () => {
+      cancelled = true;
+    };
   }, [user?.uid]);
 
   useEffect(() => {
@@ -219,6 +249,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const setupProfile = async () => {
       if (!mounted) return;
       setLoadingProfile(true);
+      setStoreDeleted(false);
 
       try {
         let activeStoreId = store?.id || (claims?.role === "system_admin" ? selectedStoreId : null);
@@ -262,6 +293,16 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (mounted) {
               const cached = loadCachedBusinessState(user?.uid ?? null);
               if (cached && cached.profile) {
+                if (await isStoreDeleted(cached.storeId)) {
+                  clearStoreClientCaches({ storeId: cached.storeId, slug: cached.profile.storeDetails?.slug });
+                  setProfile(null);
+                  setOwnerId(null);
+                  setStoreId(null);
+                  setNeedsOnboarding(false);
+                  setStoreDeleted(true);
+                  setLoadingProfile(false);
+                  return;
+                }
                 setProfile(cached.profile);
                 setOwnerId(cached.ownerId);
                 setStoreId(cached.storeId);
@@ -276,6 +317,22 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
             return;
           }
+        }
+
+        // A tombstoned store must never be treated as usable, even when a
+        // system-admin selection or stale claim still points at it.
+        if (activeStoreId && (await isStoreDeleted(activeStoreId))) {
+          if (mounted) {
+            clearStoreClientCaches({ storeId: activeStoreId, slug: store?.slug });
+            setProfile(null);
+            setOwnerId(null);
+            setStoreId(null);
+            setNeedsOnboarding(false);
+            setStoreDeleted(true);
+            setSelectedStoreId(null);
+            setLoadingProfile(false);
+          }
+          return;
         }
 
         if (mounted) {
@@ -318,8 +375,25 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               setOwnerId(data.ownerId || null);
               cacheBusinessState(newProfile, data.ownerId || null, activeStoreId || null, user?.uid ?? null);
             } else {
-              setProfile(null);
-              setNeedsOnboarding(true);
+              // No store document. Distinguish a deleted (tombstoned) store
+              // from an incomplete setup so deleted tenants get no fallback.
+              void isStoreDeleted(activeStoreId).then((deleted) => {
+                if (!mounted) return;
+                if (deleted) {
+                  clearStoreClientCaches({ storeId: activeStoreId, slug: store?.slug });
+                  setProfile(null);
+                  setOwnerId(null);
+                  setStoreId(null);
+                  setNeedsOnboarding(false);
+                  setStoreDeleted(true);
+                  setSelectedStoreId(null);
+                } else {
+                  setProfile(null);
+                  setNeedsOnboarding(true);
+                }
+                setLoadingProfile(false);
+              });
+              return;
             }
             setLoadingProfile(false);
           }, (err) => {
@@ -398,6 +472,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ownerId,
       storeId,
       needsOnboarding,
+      storeDeleted,
       switchStore,
       activeBranchId,
       setActiveBranchId
