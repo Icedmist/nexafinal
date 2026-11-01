@@ -17,6 +17,7 @@
 - **Modal Centering & Bounds**: Fixed modals for adding and managing suppliers, restocking purchase orders, shipments, and items getting stuck at the bottom of the page. Styled with `max-h-[90dvh]`, sticky headers, and inner scrollable bodies.
 - **Role-Based Nav Blockade**: Restricted nav links and standalone routes from displaying in `Sidebar` and `BottomNav` if a profile/role lacks view or management permissions for that section or page.
 - **Cascading Permanent Store Deletion**: Implemented `deleteStorePermanently` across 38+ store-scoped collections, keyed integration documents, and prefixed records with safe batch commit and rollback safeguards.
+- **Deleted Store Lockout & Restore**: Permanent deletion now runs through the `deletestore` Cloud Function, which tombstones the slug, disables and revokes every associated Auth account, and blocks their claims. Added the `restorestore` function and a Deleted Stores panel so a system admin can reactivate the store, slug, and accounts.
 - **Quick Access Dashboard**: Added high-visibility shortcuts (Add Product, New PO, Analytics, New Sale) to the main dashboard for faster operational workflows.
 - **Support Center Update**: Updated the Help page with official Nexa support contact details (Email, Phone, WhatsApp).
 - **Mobile-Ready Tour**: Refactored the onboarding tour positioning logic to ensure it remains usable and visible on mobile devices.
@@ -29,10 +30,12 @@
 3. **Multi-Currency Support**: Extend the analytics engine to support multiple currency viewports.
 
 ### Completed Tasks Log
+- **Commit**: `dff79d5`
+- **Summary**: Lock deleted-store slugs and accounts through the `deletestore`/`restorestore` Cloud Functions, add a Deleted Stores restore panel, and block stale sessions/cached tenants after deletion.
 - **Issue**: [#10](https://github.com/Icedmist/nexafinal/issues/10)
 - **PR**: [#11](https://github.com/Icedmist/nexafinal/pull/11)
 - **Commit**: `929cb03`
 - **Summary**: Center supplier/restock modals, block unauthorized nav links, and cascade store permanent deletion.
 
 ---
-*Updated: 2026-10-31*
+*Updated: 2026-11-01*

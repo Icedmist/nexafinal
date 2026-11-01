@@ -22,6 +22,17 @@
 
 ## Work History & Completed Tasks
 
+### Task: Deleted Store Slug & Account Lockout + Restore
+- **Date**: 2026-11-01
+- **Branch**: `feature/system-admin-workflow`
+- **Commit Hash**: `dff79d5`
+- **Key Changes**:
+  1. **Admin-SDK Deletion**: Added the `deletestore` callable to cascade every store-owned collection, delete nested store subcollections, write a `deletedStores` tombstone plus `deletedSlugs` and `deletedStoreMarkers` indexes, delete the store document, and lock every associated account.
+  2. **Account Lockout**: Disables each Auth user, revokes refresh tokens, replaces claims with `{ role: "suspended", storeSuspended: true, deletedStoreId }`, and removes their orphaned user/staff profiles. Firestore rules now require the store document to exist before a store claim grants access, so stale ID tokens lose access immediately.
+  3. **Restore Flow**: Added the `restorestore` callable and a Deleted Stores panel in the system admin registry to recreate the store, restore staff/user profiles, re-enable accounts with their original claims, and release the slug.
+  4. **Slug Protection**: Provisioning and onboarding reject tombstoned slugs; Firestore rules also block creating a store with a retired slug or a tombstoned store id.
+  5. **Client Enforcement**: Auth signs out sessions carrying a deleted-store marker, tenant/profile caches are cleared, and `BusinessContext`/`RoleContext`/`AppLayout` block deleted-store workspaces.
+
 ### Task: Modal Centering, Role Navigation Blocking & Permanent Store Deletion
 - **Date**: 2026-10-31
 - **GitHub Issue**: [#10](https://github.com/Icedmist/nexafinal/issues/10)
