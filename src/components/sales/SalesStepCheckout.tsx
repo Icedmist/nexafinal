@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, MessageCircle, AlertTriangle, Trash2, Plus, Minus, Lock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,54 @@ export interface CheckoutItem {
 
 function getCartItemUnitPrice(item: Item, unitName: string, saleType: SalePriceMode = "retail"): number {
   return getItemPriceForMode(item, unitName, saleType);
+}
+
+/**
+ * Quantity field that keeps keystrokes local and only commits on blur/Enter.
+ * Updating the cart on every keystroke truncates multi-digit input (typing
+ * "12" briefly becomes "1" and the controlled value snaps back).
+ */
+function CheckoutQuantityInput({
+  quantity,
+  onCommit,
+}: {
+  quantity: number;
+  onCommit: (quantity: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(quantity));
+
+  useEffect(() => {
+    setDraft(String(quantity));
+  }, [quantity]);
+
+  const commit = () => {
+    const parsed = parseInt(draft, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      if (parsed !== quantity) onCommit(parsed);
+    } else {
+      setDraft(String(quantity));
+    }
+  };
+
+  return (
+    <Input
+      type="number"
+      min="1"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          setDraft(String(quantity));
+          e.currentTarget.blur();
+        }
+      }}
+      className="h-6 w-11 text-center font-mono text-xs px-1"
+    />
+  );
 }
 
 interface SalesStepCheckoutProps {
@@ -809,17 +857,9 @@ export function SalesStepCheckout({
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={ci.quantity}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              if (!isNaN(val) && val > 0) {
-                                onSetQuantity(ci.cartKey, val);
-                              }
-                            }}
-                            className="h-6 w-11 text-center font-mono text-xs px-1"
+                          <CheckoutQuantityInput
+                            quantity={ci.quantity}
+                            onCommit={(val) => onSetQuantity(ci.cartKey, val)}
                           />
                           <Button
                             type="button"

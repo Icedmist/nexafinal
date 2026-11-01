@@ -134,10 +134,21 @@ export function SalesGrid() {
       const item = (items || []).find((i) => i.id === itemId);
       if (!item) return prev;
 
-      const conversionFactor = getUnitConversionFactor(item, unitName);
-      const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
-      if (availableBaseStock < conversionFactor) {
-        return prev;
+      const variant = item.variants?.find((v) => v.id === unitName);
+      if (variant) {
+        let variantInCart = 0;
+        prev.forEach((lineQty, lineKey) => {
+          const parsed = parseCartKey(lineKey);
+          if (parsed.itemId === itemId && parsed.unitName === unitName) {
+            variantInCart += lineQty;
+          }
+        });
+        if (variantInCart >= (variant.stock ?? 0)) return prev;
+      } else {
+        const conversionFactor = getUnitConversionFactor(item, unitName);
+        if (conversionFactor <= 0) return prev;
+        const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
+        if (availableBaseStock < conversionFactor) return prev;
       }
 
       next.set(key, (next.get(key) ?? 0) + 1);
@@ -189,36 +200,52 @@ export function SalesGrid() {
       const item = (items || []).find((i) => i.id === itemId);
       if (!item) return prev;
 
-      if (qty <= 0) {
+      const removeLine = () => {
         next.delete(key);
         setCustomPrices((cPrev) => {
           const cNext = new Map(cPrev);
           cNext.delete(key);
           return cNext;
         });
+      };
+
+      if (qty <= 0) {
+        removeLine();
         return next;
       }
 
-      const currentUnitQty = prev.get(key) ?? 0;
-      const conversionFactor = getUnitConversionFactor(item, unitName);
-      const baseUnitsDiff = (qty - currentUnitQty) * conversionFactor;
-      const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
+      const variant = item.variants?.find((v) => v.id === unitName);
+      let maxQty: number;
 
-      if (availableBaseStock < baseUnitsDiff) {
-        const maxAddableQty = Math.floor(availableBaseStock / conversionFactor);
-        const cappedQty = currentUnitQty + maxAddableQty;
-        if (cappedQty <= 0) {
-          next.delete(key);
-          setCustomPrices((cPrev) => {
-            const cNext = new Map(cPrev);
-            cNext.delete(key);
-            return cNext;
-          });
-        } else {
-          next.set(key, cappedQty);
-        }
+      if (variant) {
+        // Variant stock is tracked separately from the product's total stock,
+        // so cap by the variant's remaining stock (other sale-type lines for
+        // the same variant are counted too).
+        let otherVariantQty = 0;
+        prev.forEach((lineQty, lineKey) => {
+          if (lineKey === key) return;
+          const parsed = parseCartKey(lineKey);
+          if (parsed.itemId === itemId && parsed.unitName === unitName) {
+            otherVariantQty += lineQty;
+          }
+        });
+        maxQty = Math.max(0, (variant.stock ?? 0) - otherVariantQty);
       } else {
-        next.set(key, qty);
+        const conversionFactor = getUnitConversionFactor(item, unitName);
+        if (conversionFactor <= 0) {
+          removeLine();
+          return next;
+        }
+        const currentUnitQty = prev.get(key) ?? 0;
+        const availableBaseStock = getAvailableStockInBaseUnits(itemId, prev, items || []);
+        maxQty = currentUnitQty + Math.floor(availableBaseStock / conversionFactor);
+      }
+
+      const finalQty = Math.min(qty, maxQty);
+      if (finalQty <= 0) {
+        removeLine();
+      } else {
+        next.set(key, finalQty);
       }
       return next;
     });

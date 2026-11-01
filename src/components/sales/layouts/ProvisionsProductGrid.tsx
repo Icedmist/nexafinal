@@ -226,9 +226,9 @@ export function ProvisionsProductGrid({
                     )}
                   >
                     {item.unit}
-                    {(cart.get(`${item.id}:${item.unit}`) ?? 0) > 0 && (
+                    {(cart.get(`${item.id}:${item.unit}:${defaultSaleType}`) ?? 0) > 0 && (
                       <span className="ml-1 text-[9px] opacity-80">
-                        ({cart.get(`${item.id}:${item.unit}`)})
+                        ({cart.get(`${item.id}:${item.unit}:${defaultSaleType}`)})
                       </span>
                     )}
                   </button>
@@ -250,9 +250,9 @@ export function ProvisionsProductGrid({
                       )}
                     >
                       {u.name}
-                      {(cart.get(`${item.id}:${u.name}`) ?? 0) > 0 && (
+                      {(cart.get(`${item.id}:${u.name}:${defaultSaleType}`) ?? 0) > 0 && (
                         <span className="ml-1 text-[9px] opacity-80">
-                          ({cart.get(`${item.id}:${u.name}`)})
+                          ({cart.get(`${item.id}:${u.name}:${defaultSaleType}`)})
                         </span>
                       )}
                     </button>

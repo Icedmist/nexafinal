@@ -243,22 +243,18 @@ export function SalesStepCart({ items, onAdd, onRemove, onSetQuantity, onUpdateC
                     min={1}
                     value={editingQtyValue}
                     onChange={(e) => setEditingQtyValue(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
                     onBlur={() => {
-                      const val = parseInt(editingQtyValue) || 1;
-                      if (onSetQuantity) {
-                        onSetQuantity(ci.cartKey, Math.max(1, val));
+                      const parsed = parseInt(editingQtyValue, 10);
+                      if (onSetQuantity && Number.isFinite(parsed) && parsed > 0) {
+                        onSetQuantity(ci.cartKey, parsed);
                       }
                       setEditingCartKey(null);
                       setEditingQtyValue("");
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        const val = parseInt(editingQtyValue) || 1;
-                        if (onSetQuantity) {
-                          onSetQuantity(ci.cartKey, Math.max(1, val));
-                        }
-                        setEditingCartKey(null);
-                        setEditingQtyValue("");
+                        e.currentTarget.blur();
                       } else if (e.key === "Escape") {
                         setEditingCartKey(null);
                         setEditingQtyValue("");

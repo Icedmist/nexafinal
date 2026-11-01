@@ -996,7 +996,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           size="icon"
                           className="h-8 w-8 rounded-lg"
                           disabled={qty <= 0}
-                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty - 1)}
+                          onClick={() => onSetQuantity(cartKey, qty - 1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -1005,7 +1005,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           value={qty || ""}
                           onChange={(e) => {
                             const val = parseInt(e.target.value) || 0;
-                            onSetQuantity(`${editingUnitsItem.id}:${unitName}`, val);
+                            onSetQuantity(cartKey, val);
                           }}
                           className="w-12 h-8 text-center text-xs font-mono p-0"
                         />
@@ -1014,7 +1014,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           size="icon"
                           className="h-8 w-8 rounded-lg"
                           disabled={maxAddable <= 0}
-                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty + 1)}
+                          onClick={() => onSetQuantity(cartKey, qty + 1)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -1047,7 +1047,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           size="icon"
                           className="h-8 w-8 rounded-lg"
                           disabled={qty <= 0}
-                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty - 1)}
+                          onClick={() => onSetQuantity(cartKey, qty - 1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -1056,7 +1056,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           value={qty || ""}
                           onChange={(e) => {
                             const val = parseInt(e.target.value) || 0;
-                            onSetQuantity(`${editingUnitsItem.id}:${unitName}`, val);
+                            onSetQuantity(cartKey, val);
                           }}
                           className="w-12 h-8 text-center text-xs font-mono p-0"
                         />
@@ -1065,7 +1065,7 @@ export function SalesStepBrowse({ cart, onAdd, onRemove, onSetQuantity, defaultS
                           size="icon"
                           className="h-8 w-8 rounded-lg"
                           disabled={maxAddable <= 0}
-                          onClick={() => onSetQuantity(`${editingUnitsItem.id}:${unitName}`, qty + 1)}
+                          onClick={() => onSetQuantity(cartKey, qty + 1)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
